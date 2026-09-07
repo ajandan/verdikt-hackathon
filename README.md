@@ -54,10 +54,15 @@ Open **<http://localhost:8000/ui/>**. Sign in as `admin` (dev mode; set
 `DOCGEN_ADMIN_PASSWORD_HASH` before you point this at anything real — see
 `.env.example`).
 
-On the empty templates list, click **"Or try a sample →"** — Quire uploads
-`sample_templates/denial_letter.docx`, runs preflight, and drops you into the
-mapping wizard. Fill a couple of fields, freeze the version, publish it, then
-hit **Render** to download a filled `.docx`.
+On the empty templates list, click **"Or try a sample →"** — pick the
+**EOB (real-world)** button to load `sample_templates/insurance_eob.docx`,
+an Explanation of Benefits letter that exercises scalar fields, a
+service-line `{% for %}` loop, and an `{% if is_denied %}` block so you can
+see the mapping wizard's type inference and reasoning trace in one screen.
+The **DOCX** button loads the shorter denial-letter sample if you want a
+simpler walk-through. Preflight runs on upload; from there fill a couple of
+fields, freeze the version, publish it, then hit **Render** to download a
+filled `.docx`.
 
 That's the full loop: upload → preflight → freeze → publish → render.
 

@@ -994,6 +994,10 @@ _SAMPLE_KINDS = {
     "docx": ("denial_letter.docx", "Sample: Denial Letter (DOCX)"),
     "acroform": ("denial_letter_acroform.pdf", "Sample: Denial Letter (AcroForm PDF)"),
     "flat": ("denial_letter_flat.pdf", "Sample: Denial Letter (flat PDF)"),
+    # Explanation of Benefits — richer sample to show off type inference: has a
+    # docxtpl {%tr for %} service-line loop (→ list) and an {% if is_denied %}
+    # branch (→ boolean) in addition to the scalar/date/currency placeholders.
+    "eob": ("insurance_eob.docx", "Sample: Explanation of Benefits (DOCX)"),
 }
 
 

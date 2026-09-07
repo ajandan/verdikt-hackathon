@@ -9,7 +9,10 @@ editing that shouldn't be.
 - Deploy is live at `https://quire.<yourdomain>` per
   [`docs/deploy-nebius.md`](deploy-nebius.md).
 - `DOCGEN_AI_PROVIDER=nebius` and Nebius Token Factory key are set.
-- Sample template preloaded (`sample_templates/denial_letter.docx`).
+- Sample template preloaded — prefer the EOB (`sample_templates/insurance_eob.docx`)
+  because its `{% for %}` service-line table and `{% if is_denied %}` block
+  showcase the AST-driven type inference alongside the LLM proposals. The
+  denial-letter sample still works if you want a shorter scene 3.
 - Terminal open in a second workspace showing `docker compose logs -f web`
   for the "AI request lands at Nebius" beat.
 - Browser zoom to 125 %. Hide bookmarks bar.
@@ -40,23 +43,31 @@ render."
 
 ## Scene 3 — Upload + AI mapping (0:40 – 1:30) — [Technical implementation]
 
-**Screen:** admin UI, empty templates list. Click **"Or try a sample →"**.
+**Screen:** admin UI, empty templates list. Click **"EOB (real-world)"** in
+the "Or try a sample" row.
 
 **Voiceover, timed to actions:**
-> This is the sample template — a real insurance denial letter with blanks
-> like `[MEMBER_NAME]`, `[POLICY_NUMBER]`, a date, an amount. Quire uploads
-> it, runs preflight, and hands it to the design-time LLM…
+> This is a real Explanation of Benefits — the letter your insurance sends
+> every time you see a doctor. Member fields, a service-line table, totals,
+> a denial-reason block that only shows if the claim was rejected. Quire
+> uploads it, runs preflight, and hands it to the design-time LLM…
 
 **Screen:** cut briefly to the terminal — one outbound HTTPS request lands at
 `api.studio.nebius.com`. Overlay a small caption: **"NVIDIA Nemotron on
 Nebius Token Factory."**
 
 > …an NVIDIA Nemotron model, hosted on Nebius Token Factory. The model
-> proposes typed fields — `member_name` is a string, `denial_date` is a
-> date, `amount_owed` is a number — and Jinja tags to replace each blank.
-> The human reviews and adjusts in the mapping wizard.
+> proposes typed fields — dates as dates, dollar amounts as numbers —
+> and each row shows the model's reasoning for why.
 
-**Screen:** mapping wizard, fields visible, click Freeze.
+**Screen:** mapping wizard, scroll to the two orange "AI missed" rows.
+
+> Look here. The AI missed two fields — a service-line loop and the denial
+> flag — because they were already tagged inline. Preflight caught them,
+> and Quire's AST walker inferred one as a list and the other as a boolean
+> automatically. Everything reviewable, nothing hidden.
+
+**Screen:** click Freeze.
 
 > Freeze pins the schema. Publish makes it callable.
 

@@ -6,6 +6,7 @@ Every rejection is loud, cheap, and actionable.
 from __future__ import annotations
 
 import io
+import re
 import zipfile
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -155,9 +156,22 @@ def _detect_broken_field_codes(document_xml: str) -> bool:
     return begins != ends
 
 
+# docxtpl scopes control tags to a row / cell / paragraph / run by prefixing
+# `%tr`, `%tc`, `%p`, `%r` inside `{% ... %}`. That prefix is preprocessed by
+# docxtpl before Jinja sees the template, so stock Jinja rejects it as an
+# "unknown tag". Strip the prefix here so preflight (and the AST walker used
+# for type inference) accepts docxtpl table-row loops.
+_DOCXTPL_SCOPE_TAG = re.compile(r"(\{%-?)\s*(?:tr|tc|p|r)\s+", re.IGNORECASE)
+
+
+def _normalize_docxtpl_scope_tags(text: str) -> str:
+    return _DOCXTPL_SCOPE_TAG.sub(lambda m: m.group(1) + " ", text)
+
+
 def _parse_jinja(rendered_text: str) -> tuple[nodes.Template | None, list[str], list[Finding]]:
     env = Environment()
     findings: list[Finding] = []
+    rendered_text = _normalize_docxtpl_scope_tags(rendered_text)
     try:
         ast = env.parse(rendered_text)
     except TemplateSyntaxError as e:

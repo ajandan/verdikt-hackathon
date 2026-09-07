@@ -24,8 +24,15 @@ model is served by Nebius Token Factory, not the app.
    - Disk: 40 GB (default SSD).
    - Public IPv4: **enabled**.
    - SSH key: paste your public key.
-2. Note the public IPv4.
-3. Point a DNS `A` record at that IP: `quire.<yourdomain>` → `<vm ip>`.
+2. In the VM's security group, allow inbound TCP on **22** (SSH), **80**
+   (Caddy's ACME HTTP-01 challenge), and **443** (public HTTPS). Without :80
+   open, Let's Encrypt will fail to issue a certificate and Caddy will keep
+   retrying every hour.
+3. Note the public IPv4.
+4. Point a DNS `A` record at that IP: `quire.<yourdomain>` → `<vm ip>`.
+   Wait for the record to resolve (`dig +short quire.<yourdomain>`) before
+   starting Caddy in step 8 — ACME will fail if the hostname doesn't yet
+   point at this VM.
 
 ## 2. Bootstrap the VM
 
@@ -120,10 +127,21 @@ sidecar and must exit `0` before web/worker start.
 
 ## 8. Terminate TLS with Caddy
 
-On the same VM:
+Caddy isn't in Ubuntu 24.04's default APT sources — you have to add the
+Cloudsmith repository first. On the same VM:
 
 ```bash
+# Add Caddy's package repository (one-time)
+sudo apt update
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+    | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+    | sudo tee /etc/apt/sources.list.d/caddy-stable.list > /dev/null
+sudo apt update
 sudo apt install -y caddy
+
+# Configure the reverse proxy
 sudo tee /etc/caddy/Caddyfile > /dev/null <<'EOF'
 quire.<yourdomain> {
     encode zstd gzip
@@ -140,18 +158,26 @@ EOF
 sudo systemctl reload caddy
 ```
 
-Caddy will provision a Let's Encrypt certificate automatically. Visit
+Caddy will provision a Let's Encrypt certificate automatically. Watch the
+handshake with `sudo journalctl -u caddy -f` — the first request to
+`https://quire.<yourdomain>/` triggers ACME. Visit
 `https://quire.<yourdomain>/ui/` — you should get the admin sign-in page.
 
 ## 9. Verify
 
-- `https://quire.<yourdomain>/health` → `200 OK`
+- `https://quire.<yourdomain>/health` → `200 OK`.
 - Sign in to `/ui/` with the admin credentials from step 6.
-- Upload the sample template ("Or try a sample →" on the empty templates page).
+- On the empty templates page, click **"EOB (real-world)"** in the "Or try
+  a sample" strip. The EOB has a `{% for %}` service-line loop and an
+  `{% if is_denied %}` block that give the mapping wizard a lot to show off
+  — scalars typed by the LLM, list/boolean typed by AST inference. If the
+  DOCX button works but EOB doesn't, the built image is stale (rebuild).
 - Trigger AI mapping. Confirm the request lands at Nebius Token Factory
-  (check `docker compose logs web` — you should see one outbound request per
-  mapping run, and the notes field on the proposal should show a Nemotron
-  provider response, not the "Stub provider" string).
+  (check `docker compose logs web` — you should see one outbound request
+  per mapping run, and each row in the wizard should show a "Why:" line
+  from the model, not the deterministic stub template).
+- The version freeze page should show byte-identical `version_hash` values
+  between two consecutive renders of the same input JSON.
 
 ## 10. Rotate credentials before the demo
 
@@ -162,3 +188,33 @@ Before recording the video or handing out the URL:
 - Confirm the Nebius Token Factory key has a spend cap set in the Nebius
   console. The design-time LLM is called once per template mapping, but a
   compromised key without a cap is still a bad time.
+
+## 11. Troubleshooting quick reference
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| `Unable to locate package caddy` | Cloudsmith repo not added | Re-run the four `curl` / `apt update` lines at the top of step 8 |
+| Caddy retries ACME with `dns: no such host` | DNS record hasn't propagated | Wait, then `dig +short quire.<yourdomain>` — must return the VM IP |
+| Caddy retries ACME with `connection refused` on :80 | Security group blocks 80 | Open TCP 80 inbound in the Nebius VM's security group |
+| `/health` returns 502 through Caddy | Web isn't up yet | `docker compose ... logs web`; wait for "Application startup complete" |
+| Mapping wizard shows the stub trace ("Placeholder '…' had no type signal") | `DOCGEN_AI_PROVIDER` isn't `nebius`, or `DOCGEN_AI_API_KEY` is empty | Re-check `.env`, restart web |
+| Nebius provider request fails with 401 | Token Factory key is wrong or revoked | Rotate the key at studio.nebius.com, update `.env`, restart web |
+
+## 12. Pre-flighting locally before the remote deploy
+
+The exact prod compose file works on any Docker host. To smoke-test on your
+laptop before pushing to the Nebius VM:
+
+```bash
+cp .env .env.prod-test
+# In .env.prod-test, shift WEB_PORT to something unused (e.g. 8300),
+# set DOCGEN_AI_PROVIDER=stub if you don't want to burn Nebius credits.
+docker compose -f deploy/docker-compose.prod.yml --env-file .env.prod-test \
+    -p quire-prod up -d
+curl -fsS http://localhost:8300/health
+docker compose -f deploy/docker-compose.prod.yml --env-file .env.prod-test \
+    -p quire-prod down -v
+```
+
+If that runs clean locally, the Nebius VM will too — same image, same
+compose file, only the reverse proxy in front changes.

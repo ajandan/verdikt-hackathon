@@ -25,10 +25,12 @@ class Settings(BaseSettings):
     s3_bucket_templates: str = "docgen-templates"
     s3_bucket_documents: str = "docgen-documents"
 
-    ai_provider: Literal["stub", "openai_compat"] = "stub"
+    ai_provider: Literal["stub", "openai_compat", "nebius"] = "stub"
     ai_base_url: str | None = None
     ai_api_key: str | None = None
-    ai_model: str = "gpt-4o-mini"
+    # Empty by default so provider-specific defaults win (e.g. Nebius picks a
+    # current Nemotron variant). Operators override per-deploy via env.
+    ai_model: str = ""
     ai_timeout_seconds: float = 60.0
 
     # Alternate labeler: Mistral OCR (placement editor "OCR Label" button).

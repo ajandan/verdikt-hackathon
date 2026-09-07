@@ -1,0 +1,60 @@
+# Nebius Serverless Job image for design-time preflight + AI mapping.
+#
+# The Quire web app kicks this off asynchronously when a template is
+# uploaded; the job runs preflight (static analysis, no network) and
+# then asks the configured provider — Nemotron on Nebius Token Factory
+# by default — to propose Jinja tags + typed fields. Result JSON is
+# written to /work/output for the caller to pick up. Nothing about
+# this container ever runs at render time.
+#
+# Build:
+#   docker build -f Dockerfile.job -t quire-preflight-job:local .
+#
+# Local smoke:
+#   docker run --rm \
+#     -v $PWD/sample_templates:/work/input:ro \
+#     -v /tmp/out:/work/output \
+#     -e DOCGEN_AI_PROVIDER=stub \
+#     quire-preflight-job:local \
+#     --input /work/input/denial_letter.docx \
+#     --out /work/output/result.json
+#
+# Nebius Serverless Jobs: push the tagged image to a registry the
+# Nebius project can pull from, then register a Job with this image
+# and a CMD that points --input and --out at the volume the platform
+# mounts (see docs/nebius-job.md).
+
+FROM python:3.12-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Only ca-certificates is strictly needed at runtime — python-docx / lxml
+# ship prebuilt wheels, so no libxml/libxslt apt install. Deliberately no
+# LibreOffice, no Postgres client, no Redis client — this image never
+# renders, never touches a DB, never runs the Dramatiq worker.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml ./
+COPY src ./src
+
+RUN pip install --upgrade pip && pip install -e .
+
+RUN groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid 10001 --home-dir /app --no-create-home app \
+    && mkdir -p /work/input /work/output \
+    && chown -R app:app /app /work
+USER 10001:10001
+
+# Nebius Serverless Jobs mount user-supplied volumes; /work is the
+# convention this image expects. Override --input / --out at Job
+# registration time if the operator wires the platform's mount points
+# differently.
+ENTRYPOINT ["python", "-m", "docgen.designtime.preflight_job"]
+CMD ["--input", "/work/input/template.docx", "--out", "/work/output/result.json"]

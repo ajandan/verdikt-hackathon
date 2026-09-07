@@ -60,6 +60,22 @@
     .mapping-table tr.backfill-row td:first-child {
         border-left: 3px solid var(--warn);
     }
+
+    /* Reasoning trace — one-line "Why:" beneath each mapping row so reviewers
+       see the model's justification without re-running inference. */
+    .mapping-table tr.reasoning-row td {
+        padding: 0 12px 10px;
+        border-top: none;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.4;
+    }
+    .mapping-table tr.reasoning-row .reasoning-label {
+        font-weight: 600; color: var(--text); margin-right: 4px;
+    }
+    .mapping-table tr.reasoning-row.backfill-reason td {
+        border-left: 3px solid var(--warn);
+    }
 </style>
 
 <p class="breadcrumb">
@@ -140,6 +156,13 @@
                                value="1" {% if s.field.required %}checked{% endif %}>
                     </td>
                 </tr>
+                {% if s.reasoning %}
+                <tr class="reasoning-row{% if s.source == 'orphan_backfill' %} backfill-reason{% endif %}">
+                    <td colspan="6">
+                        <span class="reasoning-label">Why:</span>{{ s.reasoning }}
+                    </td>
+                </tr>
+                {% endif %}
             {% endfor %}
             </tbody>
         </table>

@@ -96,16 +96,21 @@ def _backfill_orphan_suggestions(proposal: MappingProposal, template_text: str) 
 
     for var in sorted(set(detected) - covered):
         jinja_tag = "{{ " + var + " }}"
+        type_ = inferred.get(var, "string")
         proposal.suggestions.append(
             Suggestion(
                 placeholder=jinja_tag,  # identity replacement — tag is already in the docx
                 jinja=jinja_tag,
                 field=FieldSpec(
                     name=var,
-                    type=inferred.get(var, "string"),
+                    type=type_,
                     required=True,
                 ),
                 source="orphan_backfill",
+                reasoning=(
+                    f"AI mapper missed this placeholder; recovered by preflight. "
+                    f"Type inferred as '{type_}' from Jinja AST usage — review before freezing."
+                ),
             )
         )
 

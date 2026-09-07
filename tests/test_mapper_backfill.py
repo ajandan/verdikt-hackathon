@@ -27,6 +27,10 @@ def test_backfill_appends_missed_variables() -> None:
     backfill = proposal.suggestions[-1]
     assert backfill.source == "orphan_backfill"
     assert backfill.placeholder == backfill.jinja == "{{ Annual_Income__c }}"
+    # Orphan rows carry an audit trace so reviewers know the row was synthesized,
+    # not proposed by the LLM — this shows up as the "Why:" line in the wizard.
+    assert backfill.reasoning is not None
+    assert "preflight" in backfill.reasoning.lower()
 
 
 def test_backfill_noop_when_all_covered() -> None:

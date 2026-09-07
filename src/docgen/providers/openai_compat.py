@@ -37,7 +37,8 @@ matching this schema:
         "required": true,
         "item_type": null,
         "fields": null
-      }
+      },
+      "reasoning": "one sentence: WHY this field name + type, grounded in surrounding text"
     }
   ],
   "notes": "short free-text summary"
@@ -47,6 +48,8 @@ Rules:
 - Prefer scalar fields. Only use "list" when you see a table or repeating block.
 - snake_case names, no reserved words, no whitespace.
 - Do not invent fields the template doesn't need.
+- `reasoning` MUST reference concrete evidence from the template (e.g. "labeled 'Date of Birth'
+  above the blank" or "appears inside a currency amount"). One sentence, no meta-commentary.
 - Do NOT include any text outside the JSON object."""
 
 

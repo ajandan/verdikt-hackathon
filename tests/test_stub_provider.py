@@ -24,3 +24,16 @@ async def test_stub_dedupes_repeated_placeholders() -> None:
     proposal = await StubProvider().propose_mapping(text)
     assert len(proposal.suggestions) == 1
     assert proposal.suggestions[0].field.name == "member_name"
+
+
+@pytest.mark.asyncio
+async def test_stub_emits_reasoning_for_every_suggestion() -> None:
+    """Reviewers see the deterministic trace even in offline/stub-only demos."""
+    text = "Dear [MEMBER_NAME], claim <<claim_date>> for [AMOUNT] on [COUNT]."
+    proposal = await StubProvider().propose_mapping(text)
+    for s in proposal.suggestions:
+        assert s.reasoning, f"missing reasoning for {s.field.name}"
+    by_name = {s.field.name: s.reasoning for s in proposal.suggestions}
+    assert "date" in by_name["claim_date"].lower()
+    assert "currency" in by_name["amount"].lower() or "amount" in by_name["amount"].lower()
+    assert "count" in by_name["count"].lower() or "quantity" in by_name["count"].lower()

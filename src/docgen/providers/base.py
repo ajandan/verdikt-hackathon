@@ -21,6 +21,11 @@ class Suggestion(BaseModel):
     # preflight-detected variables the AI missed. UI badges the latter so users know
     # to review the auto-guessed type/description.
     source: str = "ai"
+    # One-sentence explanation of *why* the model chose this field name/type. Optional
+    # so the stub provider and older serialized proposals still validate. When present,
+    # the mapping wizard surfaces it as a subtitle beneath the field name so reviewers
+    # can see the model's justification without re-running inference.
+    reasoning: str | None = None
 
 
 class MappingProposal(BaseModel):

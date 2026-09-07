@@ -1767,9 +1767,20 @@
             msgCancelBtn.hidden = (kind !== "confirm");
             msgOverlay.classList.add("visible");
             msgOverlay.setAttribute("aria-hidden", "false");
+            // Blur whatever opened the modal so a lingering keyboard-activation
+            // state on the invoking button can't leak Enter into our confirm/cancel.
+            if (document.activeElement && document.activeElement.blur) {
+                document.activeElement.blur();
+            }
             // Defer focus so the click that opened the modal doesn't
             // immediately re-trigger the button via keyboard activation.
             setTimeout(() => msgConfirmBtn.focus(), 0);
+            // Guard against keydown events queued before the modal became
+            // interactive — an Enter/Escape press from the pre-modal state
+            // was silently resolving the promise false and stalling actions
+            // that gate on user confirmation.
+            const openedAt = performance.now();
+            const KEY_GUARD_MS = 200;
 
             const done = (result) => {
                 msgOverlay.classList.remove("visible");
@@ -1777,11 +1788,15 @@
                 msgConfirmBtn.removeEventListener("click", onConfirm);
                 msgCancelBtn.removeEventListener("click", onCancel);
                 document.removeEventListener("keydown", onKey);
+                if (kind === "confirm" && result === false) {
+                    console.warn("showConfirm resolved false", { title: title || "" });
+                }
                 resolve(result);
             };
             const onConfirm = () => done(true);
             const onCancel = () => done(false);
             const onKey = (e) => {
+                if (performance.now() - openedAt < KEY_GUARD_MS) return;
                 if (e.key === "Escape") { e.preventDefault(); done(false); }
                 else if (e.key === "Enter") { e.preventDefault(); done(true); }
             };

@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}API keys — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .tenant-id-chip {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+        background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .keys-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .keys-grid { grid-template-columns: 1fr; } }
+    .key-prefix {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text);
+        background: var(--surface-2); padding: 3px 8px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .new-key-banner {
+        border: 1px solid var(--success);
+        background: linear-gradient(180deg, rgba(22,163,74,0.05), rgba(22,163,74,0.02));
+        border-radius: var(--radius); padding: 20px; margin-bottom: 20px;
+    }
+    .new-key-title {
+        display: flex; align-items: center; gap: 8px;
+        color: var(--success); font-weight: 600; font-size: 15px; margin-bottom: 6px;
+    }
+    .new-key-body { color: var(--text); font-size: 14px; margin-bottom: 12px; }
+    .new-key-value {
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 14px; background: var(--surface);
+        border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; word-break: break-all;
+    }
+    .new-key-value code {
+        flex: 1; min-width: 0; background: transparent; border: 0; padding: 0;
+        color: var(--text); font-size: 13px;
+    }
+    .copy-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; font-size: 13px; font-weight: 500;
+        border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+        background: var(--surface); cursor: pointer; color: var(--text);
+        flex-shrink: 0; transition: background 0.12s ease, color 0.12s ease;
+    }
+    .copy-btn:hover { background: var(--surface-2); }
+    .copy-btn.copied { background: var(--success-soft); color: var(--success); border-color: var(--success); }
+    .mcp-card { margin-top: 24px; }
+    .mcp-card h2 { margin-top: 0; }
+    .mcp-config-block {
+        position: relative;
+        margin-top: 12px;
+    }
+    .mcp-config-block pre {
+        margin: 0;
+        padding: 16px 56px 16px 16px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre;
+        color: var(--text);
+    }
+    .mcp-config-block .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+    }
+    .mcp-steps { font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+    .mcp-steps ol { margin: 6px 0 0 20px; padding: 0; }
+    .mcp-steps ol li { margin: 4px 0; }
+    .mcp-steps code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text);
+        background: var(--surface-2); padding: 1px 5px; border-radius: 3px;
+        border: 1px solid var(--border);
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a>
+    <span>/</span>
+    {{ tenant.name }}
+    <span>/</span>
+    API keys
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>API keys <span style="color: var(--text-muted); font-weight: 500">— {{ tenant.name }}</span></h1>
+        <p class="page-subtitle">
+            Send as <code>Authorization: Bearer &lt;key&gt;</code> on REST + MCP requests.
+        </p>
+        <div class="muted" style="margin-top: 8px">
+            tenant_id <span class="tenant-id-chip" title="{{ tenant.id }}">{{ tenant.id }}</span>
+        </div>
+    </div>
+</div>
+
+{% if new_key %}
+<div class="new-key-banner">
+    <div class="new-key-title">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M13 4L6 11 3 8"/></svg>
+        New API key created
+    </div>
+    <div class="new-key-body">
+        Copy it now — <strong>this is the only time it will be shown</strong>. Store it in your secrets manager.
+    </div>
+    <div class="new-key-value">
+        <code id="new-key-value">{{ new_key }}</code>
+        <button id="copy-new-key" class="copy-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="9" height="10" rx="1"/><path d="M4 4V3a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v9"/></svg>
+            <span>Copy</span>
+        </button>
+    </div>
+</div>
+<script nonce="{{ csp_nonce(request) }}">
+    (function () {
+        var btn = document.getElementById('copy-new-key');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var value = document.getElementById('new-key-value').innerText;
+            navigator.clipboard.writeText(value).then(function () {
+                btn.classList.add('copied');
+                btn.querySelector('span').innerText = 'Copied';
+                setTimeout(function () {
+                    btn.classList.remove('copied');
+                    btn.querySelector('span').innerText = 'Copy';
+                }, 2000);
+            });
+        });
+    })();
+</script>
+{% endif %}
+
+<div class="keys-grid">
+    {% if keys %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>Existing keys</h2>
+            <span class="subtle">{{ keys|length }} total</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Prefix</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last used</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for k in keys %}
+                <tr>
+                    <td><strong>{{ k.name }}</strong></td>
+                    <td><span class="key-prefix">{{ k.key_prefix }}…</span></td>
+                    <td>
+                        {% if k.revoked_at %}
+                            <span class="badge reject">Revoked</span>
+                        {% else %}
+                            <span class="badge accept">Active</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted" data-sort="{{ k.created_at.isoformat() }}">{{ k.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="muted" data-sort="{{ k.last_used_at.isoformat() if k.last_used_at else '' }}">
+                        {% if k.last_used_at %}{{ k.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="subtle">Never</span>{% endif %}
+                    </td>
+                    <td style="text-align: right">
+                        {% if not k.revoked_at %}
+                            <form action="/ui/admin/tenants/{{ tenant.id }}/keys/{{ k.id }}/revoke" method="post" style="display: inline; margin: 0"
+                                  data-confirm='Revoke key "{{ k.name }}"? This cannot be undone.'>
+                                {{ csrf_input(request) }}
+                                <button class="btn sm danger" type="submit">Revoke</button>
+                            </form>
+                        {% else %}
+                            <span class="subtle">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="9" cy="15" r="4"/><path d="M13 12l7-7M17 8l2 2M14 11l2 2"/></svg>
+            </div>
+            <h3>No API keys yet</h3>
+            <p>Create one on the right to allow REST + MCP callers to authenticate as this tenant.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Create key</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">Give it a descriptive name — you'll see this in audit logs.</p>
+        <form action="/ui/admin/tenants/{{ tenant.id }}/keys" method="post">
+            {{ csrf_input(request) }}
+            <label>Name
+                <input type="text" name="name" required placeholder="e.g. staging worker" autofocus>
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create key
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mcp-card">
+    <h2>Claude Desktop MCP configuration</h2>
+    <p class="muted" style="font-size: 13px; margin: 4px 0 0">
+        Paste this into <code>claude_desktop_config.json</code> to expose this tenant's templates and render tools to Claude Desktop. Uses <code>mcp-remote</code> to bridge Claude Desktop's stdio transport to our streamable-HTTP endpoint.
+    </p>
+    <div class="mcp-config-block">
+        <pre id="mcp-config-json">{
+  "mcpServers": {
+    "{{ mcp_server_name }}": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "{{ mcp_url }}",
+        "--header",
+        "Authorization:${QUIRE_AUTH_HEADER}"
+      ],
+      "env": {
+        "QUIRE_AUTH_HEADER": "Bearer {% if new_key %}{{ new_key }}{% else %}<YOUR_API_KEY>{% endif %}"
+      }
+    }
+  }
+}</pre>
+        <button id="copy-mcp-config" class="copy-btn" type="button">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="9" height="10" rx="1"/><path d="M4 4V3a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v9"/></svg>
+            <span>Copy</span>
+        </button>
+    </div>
+    <div class="mcp-steps">
+        <strong>Setup:</strong>
+        <ol>
+            {% if not new_key %}
+            <li>Create an API key above (or reuse one you saved) and replace <code>&lt;YOUR_API_KEY&gt;</code> in the snippet.</li>
+            {% else %}
+            <li>The new key is pre-filled below — copy the whole block before leaving this page (the key can't be shown again).</li>
+            {% endif %}
+            <li>Open Claude Desktop → Settings → Developer → Edit Config, then merge the snippet into <code>mcpServers</code>.</li>
+            <li>Restart Claude Desktop. The server appears as <code>{{ mcp_server_name }}</code>.</li>
+        </ol>
+        <p class="subtle" style="margin-top: 10px; font-size: 12px">
+            The <code>${QUIRE_AUTH_HEADER}</code> env-var pattern keeps the raw key out of process args and shell history.
+        </p>
+    </div>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+    (function () {
+        var btn = document.getElementById('copy-mcp-config');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var value = document.getElementById('mcp-config-json').innerText;
+            navigator.clipboard.writeText(value).then(function () {
+                btn.classList.add('copied');
+                btn.querySelector('span').innerText = 'Copied';
+                setTimeout(function () {
+                    btn.classList.remove('copied');
+                    btn.querySelector('span').innerText = 'Copy';
+                }, 2000);
+            });
+        });
+    })();
+</script>
+{% endblock %}

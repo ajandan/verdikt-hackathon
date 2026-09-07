@@ -1,0 +1,180 @@
+# ============================================================
+# DocGen / Quire — production docker-compose
+#
+# Runs web + worker + a one-shot migrate sidecar on top of Postgres,
+# Redis, and MinIO. TLS termination + public hostname are the operator's
+# concern (front this with nginx / caddy / traefik / cloudflare).
+#
+# Requires Docker Compose v2.1+ (uses `depends_on.condition:
+# service_completed_successfully` on the migrate sidecar). Verify with
+# `docker compose version` — older Compose silently ignores the condition.
+#
+# Usage (from repo root):
+#   cp .env.example .env && chmod 600 .env   # fill in secrets
+#   docker compose -f deploy/docker-compose.prod.yml --env-file .env up -d
+#
+# The `migrate` service runs `alembic upgrade head` and exits; `web` and
+# `worker` won't start until it completes successfully.
+# ============================================================
+
+services:
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: alembic upgrade head
+    env_file:
+      - ../.env
+    environment:
+      DOCGEN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DOCGEN_DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: docgen-web
+    env_file:
+      - ../.env
+    environment:
+      DOCGEN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DOCGEN_DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DOCGEN_REDIS_URL: redis://redis:6379/0
+      DOCGEN_S3_ENDPOINT_URL: http://minio:9000
+      DOCGEN_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      DOCGEN_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8200}:8000"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: docgen-worker
+    env_file:
+      - ../.env
+    environment:
+      DOCGEN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DOCGEN_DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DOCGEN_REDIS_URL: redis://redis:6379/0
+      DOCGEN_S3_ENDPOINT_URL: http://minio:9000
+      DOCGEN_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      DOCGEN_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      mc mb -p local/docgen-templates || true;
+      mc mb -p local/docgen-documents || true;
+      "
+    restart: "no"
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

@@ -1,0 +1,9 @@
+Claim Denial Notice
+Date: 2026-08-06
+Member: Alice Example
+Member ID: M-000042
+Claim CLM-2026-000042 submitted on 2026-07-14 for US$ 1234.56 has been denied.
+Reason: service not covered under plan effective 2026-01-01.
+You may appeal within 60 days by calling 1-800-555-0199 or writing to the address on the reverse of this notice.
+Sincerely,
+B. Jones, Claims Adjudicator

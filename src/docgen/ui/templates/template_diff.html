@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}Diff v{{ tv_from.version }} → v{{ tv_to.version }} — {{ template.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .compare-strip {
+        display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 14px 16px; margin-bottom: 20px;
+    }
+    .compare-side { min-width: 0; }
+    .compare-side .label {
+        display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-subtle); margin-bottom: 4px;
+    }
+    .compare-side .val {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; color: var(--text);
+    }
+    .compare-arrow { color: var(--text-subtle); font-size: 20px; }
+    .hash {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+    }
+    .picker {
+        display: flex; gap: 8px; align-items: end; flex-wrap: wrap; padding: 4px 0;
+    }
+    .picker label { display: flex; flex-direction: column; font-size: 12px; color: var(--text-muted); }
+    .picker select { min-width: 120px; }
+    .field-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 6px 12px; padding: 8px 0;
+    }
+    .field-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 10px; border-radius: 999px; font-size: 12px;
+        border: 1px solid var(--border); background: var(--surface-2);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .field-pill.added { background: var(--success-soft); color: var(--success); border-color: transparent; }
+    .field-pill.removed { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+    .field-pill.changed { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+    .field-pill .arrow { color: var(--text-subtle); }
+    .empty {
+        color: var(--text-muted); font-size: 13px; padding: 8px 0;
+    }
+    .diff-block {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px; line-height: 1.55;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: var(--radius); overflow: auto; max-height: 640px;
+        margin: 0;
+    }
+    .diff-block .line {
+        display: block; padding: 1px 12px; white-space: pre-wrap; word-break: break-word;
+    }
+    .diff-block .line.add { background: var(--success-soft); color: var(--success); }
+    .diff-block .line.del { background: var(--danger-soft); color: var(--danger); }
+    .diff-block .line.hunk { background: var(--info-soft); color: var(--info); font-weight: 500; }
+    .diff-block .line.meta { color: var(--text-subtle); }
+    .subsection-h {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-subtle); margin: 12px 0 6px;
+    }
+    .subsection-h a.anchor {
+        color: var(--text-subtle); text-decoration: none; opacity: 0;
+        margin-left: 4px; font-family: ui-monospace, monospace;
+    }
+    .subsection-h:hover a.anchor { opacity: 1; }
+    .diff-nav {
+        position: sticky; top: 56px; z-index: 10;
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 8px 12px; margin-bottom: 16px;
+        box-shadow: var(--shadow-sm);
+    }
+    .diff-nav a.jump {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 6px; font-size: 12.5px;
+        color: var(--text-muted); text-decoration: none;
+        border: 1px solid transparent;
+    }
+    .diff-nav a.jump:hover { background: var(--surface-2); color: var(--text); }
+    .diff-nav a.jump .n {
+        font-family: ui-monospace, monospace; font-size: 11px;
+        padding: 1px 6px; border-radius: 999px; background: var(--surface-2);
+    }
+    .diff-nav a.jump.added .n { color: var(--success); background: var(--success-soft); }
+    .diff-nav a.jump.removed .n { color: var(--danger); background: var(--danger-soft); }
+    .diff-nav a.jump.changed .n { color: var(--warn); background: var(--warn-soft); }
+    .diff-nav .spacer { flex: 1; }
+    .diff-nav .view-toggle {
+        display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2);
+        border-radius: 8px; border: 1px solid var(--border);
+    }
+    .diff-nav .view-toggle button {
+        background: transparent; border: 0; padding: 3px 10px; border-radius: 5px;
+        font-size: 12px; color: var(--text-muted); box-shadow: none; cursor: pointer;
+    }
+    .diff-nav .view-toggle button.active {
+        background: var(--surface); color: var(--brand); box-shadow: var(--shadow-sm);
+    }
+
+    /* Side-by-side view: two-column grid, one row per synthesised pair. */
+    .diff-block.split { padding: 0; }
+    .diff-block.split code { display: block; }
+    .diff-block.split .row {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    }
+    .diff-block.split .row .cell {
+        padding: 1px 12px; white-space: pre-wrap; word-break: break-word;
+        border-right: 1px solid var(--border); min-height: 1.55em;
+    }
+    .diff-block.split .row .cell:last-child { border-right: 0; }
+    .diff-block.split .row .cell.add { background: var(--success-soft); color: var(--success); }
+    .diff-block.split .row .cell.del { background: var(--danger-soft); color: var(--danger); }
+    .diff-block.split .row .cell.hunk { background: var(--info-soft); color: var(--info); font-weight: 500; }
+    .diff-block.split .row .cell.meta { color: var(--text-subtle); }
+    .diff-block.split .row .cell.blank { background: repeating-linear-gradient(45deg, transparent 0 6px, rgb(0 0 0 / 0.02) 6px 12px); }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a>
+    <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+    <span>/</span>
+    Diff
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Compare frozen versions</h1>
+        <p class="page-subtitle">Preview schema + text deltas before publishing or rolling back.</p>
+    </div>
+</div>
+
+<div class="compare-strip">
+    <div class="compare-side">
+        <span class="label">From</span>
+        <span class="val">v{{ tv_from.version }} · {{ tv_from.locale }}</span>
+        <div class="hash" title="{{ tv_from.version_hash }}">{{ tv_from.version_hash[:16] }}…</div>
+        {% if current_version == tv_from.version and tv_from.locale == 'default' %}
+            <span class="badge accept" style="margin-top: 4px">Published</span>
+        {% endif %}
+    </div>
+    <div class="compare-arrow">→</div>
+    <div class="compare-side">
+        <span class="label">To</span>
+        <span class="val">v{{ tv_to.version }} · {{ tv_to.locale }}</span>
+        <div class="hash" title="{{ tv_to.version_hash }}">{{ tv_to.version_hash[:16] }}…</div>
+        {% if current_version == tv_to.version and tv_to.locale == 'default' %}
+            <span class="badge accept" style="margin-top: 4px">Published</span>
+        {% endif %}
+    </div>
+</div>
+
+<form method="get" action="/ui/templates/{{ template.id }}/diff" class="picker">
+    <label>From version
+        <select name="from_version">
+            {% for ver, locales in version_locales.items() %}
+                <option value="{{ ver }}" {% if ver == tv_from.version %}selected{% endif %}>v{{ ver }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>From locale
+        <select name="from_locale">
+            {% for loc in version_locales.get(tv_from.version, []) %}
+                <option value="{{ loc }}" {% if loc == tv_from.locale %}selected{% endif %}>{{ loc }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>To version
+        <select name="to_version">
+            {% for ver, locales in version_locales.items() %}
+                <option value="{{ ver }}" {% if ver == tv_to.version %}selected{% endif %}>v{{ ver }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>To locale
+        <select name="to_locale">
+            {% for loc in version_locales.get(tv_to.version, []) %}
+                <option value="{{ loc }}" {% if loc == tv_to.locale %}selected{% endif %}>{{ loc }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button type="submit" class="btn">Compare</button>
+</form>
+
+<div class="diff-nav" role="navigation" aria-label="Diff sections">
+    <a class="jump added" href="#schema-added"><span>Added</span><span class="n">{{ diff.schema.added|length }}</span></a>
+    <a class="jump removed" href="#schema-removed"><span>Removed</span><span class="n">{{ diff.schema.removed|length }}</span></a>
+    <a class="jump changed" href="#schema-changed"><span>Changed</span><span class="n">{{ diff.schema.changed|length }}</span></a>
+    <a class="jump" href="#text-diff"><span>Text</span><span class="n">{% if diff.text_identical %}=={% else %}Δ{% endif %}</span></a>
+    <div class="spacer"></div>
+    {% if not diff.text_identical %}
+    <div class="view-toggle" role="tablist" aria-label="Text diff view">
+        <button type="button" class="active" data-view="unified" role="tab" aria-selected="true">Unified</button>
+        <button type="button" data-view="split" role="tab" aria-selected="false">Side-by-side</button>
+    </div>
+    {% endif %}
+</div>
+
+<div id="schema" class="card" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Schema changes</h2>
+        <span class="subtle">
+            {{ diff.schema.added|length }} added ·
+            {{ diff.schema.removed|length }} removed ·
+            {{ diff.schema.changed|length }} changed ·
+            {{ diff.schema.unchanged|length }} unchanged
+        </span>
+    </div>
+
+    {% if not diff.schema.has_any %}
+        <p class="empty">No schema differences — every field, type, and required flag matches.</p>
+    {% else %}
+        {% if diff.schema.added %}
+            <p class="subsection-h" id="schema-added">Added ({{ diff.schema.added|length }})<a class="anchor" href="#schema-added" title="Link to Added">#</a></p>
+            <div class="field-grid">
+                {% for name in diff.schema.added %}
+                    <span class="field-pill added">+ {{ name }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if diff.schema.removed %}
+            <p class="subsection-h" id="schema-removed">Removed ({{ diff.schema.removed|length }})<a class="anchor" href="#schema-removed" title="Link to Removed">#</a></p>
+            <div class="field-grid">
+                {% for name in diff.schema.removed %}
+                    <span class="field-pill removed">− {{ name }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if diff.schema.changed %}
+            <p class="subsection-h" id="schema-changed">Changed ({{ diff.schema.changed|length }})<a class="anchor" href="#schema-changed" title="Link to Changed">#</a></p>
+            <div class="field-grid">
+                {% for ch in diff.schema.changed %}
+                    <span class="field-pill changed" title="{{ ch.kind }}">
+                        {{ ch.name }}: {{ ch.from_value }} <span class="arrow">→</span> {{ ch.to_value }}
+                    </span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<div id="text-diff" class="card" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Template text</h2>
+        <span class="subtle">
+            {% if diff.text_identical %}identical{% else %}one paragraph per line{% endif %}
+        </span>
+    </div>
+    {% if diff.text_identical %}
+        <p class="empty">Both variants render the same paragraph text.</p>
+    {% else %}
+        <pre class="diff-block" id="diff-pre"><code>{% for line in diff.text_diff_lines -%}
+{%- if line.startswith('+++') or line.startswith('---') -%}
+<span class="line meta">{{ line }}</span>
+{%- elif line.startswith('@@') -%}
+<span class="line hunk">{{ line }}</span>
+{%- elif line.startswith('+') -%}
+<span class="line add">{{ line }}</span>
+{%- elif line.startswith('-') -%}
+<span class="line del">{{ line }}</span>
+{%- else -%}
+<span class="line">{{ line }}</span>
+{%- endif -%}
+{%- endfor %}</code></pre>
+    {% endif %}
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var pre = document.getElementById('diff-pre');
+    var toggle = document.querySelector('.diff-nav .view-toggle');
+    if (!pre || !toggle) return;
+    var code = pre.querySelector('code');
+    var originalHTML = code.innerHTML;
+
+    function classOf(line) {
+        if (line.classList.contains('add')) return 'add';
+        if (line.classList.contains('del')) return 'del';
+        if (line.classList.contains('hunk')) return 'hunk';
+        if (line.classList.contains('meta')) return 'meta';
+        return '';
+    }
+    function textOf(line, side) {
+        var t = line.textContent;
+        // Strip the leading marker so both cells read cleanly.
+        if (side === 'left' && (t[0] === '-')) return t.slice(1);
+        if (side === 'right' && (t[0] === '+')) return t.slice(1);
+        if (t[0] === ' ' || t[0] === '+' || t[0] === '-') return t.slice(1);
+        return t;
+    }
+    function buildSplit() {
+        var lines = Array.prototype.slice.call(code.querySelectorAll('.line'));
+        var out = document.createDocumentFragment();
+        var pendingDels = [], pendingAdds = [];
+        function flushPending() {
+            var n = Math.max(pendingDels.length, pendingAdds.length);
+            for (var i = 0; i < n; i++) {
+                var row = document.createElement('div');
+                row.className = 'row';
+                var left = document.createElement('span');
+                left.className = 'cell';
+                if (pendingDels[i]) {
+                    left.classList.add('del');
+                    left.textContent = textOf(pendingDels[i], 'left');
+                } else {
+                    left.classList.add('blank');
+                }
+                var right = document.createElement('span');
+                right.className = 'cell';
+                if (pendingAdds[i]) {
+                    right.classList.add('add');
+                    right.textContent = textOf(pendingAdds[i], 'right');
+                } else {
+                    right.classList.add('blank');
+                }
+                row.appendChild(left); row.appendChild(right);
+                out.appendChild(row);
+            }
+            pendingDels = []; pendingAdds = [];
+        }
+        lines.forEach(function (line) {
+            var kind = classOf(line);
+            if (kind === 'add') { pendingAdds.push(line); return; }
+            if (kind === 'del') { pendingDels.push(line); return; }
+            flushPending();
+            var row = document.createElement('div');
+            row.className = 'row';
+            var left = document.createElement('span');
+            left.className = 'cell ' + kind;
+            left.textContent = textOf(line);
+            var right = document.createElement('span');
+            right.className = 'cell ' + kind;
+            right.textContent = textOf(line);
+            row.appendChild(left); row.appendChild(right);
+            out.appendChild(row);
+        });
+        flushPending();
+        return out;
+    }
+    var splitCache = null;
+    toggle.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            toggle.querySelectorAll('button').forEach(function (b) {
+                b.classList.remove('active'); b.setAttribute('aria-selected', 'false');
+            });
+            btn.classList.add('active'); btn.setAttribute('aria-selected', 'true');
+            var view = btn.getAttribute('data-view');
+            if (view === 'split') {
+                if (!splitCache) splitCache = buildSplit();
+                code.innerHTML = '';
+                code.appendChild(splitCache.cloneNode(true));
+                pre.classList.add('split');
+            } else {
+                code.innerHTML = originalHTML;
+                pre.classList.remove('split');
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

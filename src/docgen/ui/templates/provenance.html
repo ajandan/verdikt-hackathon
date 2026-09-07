@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Provenance — {{ template.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .prov-table td { font-size: 13px; padding: 12px 20px; vertical-align: middle; }
+    .prov-hash {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+        background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .job-cell {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text);
+    }
+    .caller-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 2px 8px; border-radius: 999px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        font-size: 12px; color: var(--text);
+    }
+    .caller-chip .dot-ind {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--brand);
+    }
+    .info-strip {
+        display: flex; gap: 12px; padding: 14px 16px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: var(--radius); font-size: 13px; color: var(--text-muted);
+        margin-bottom: 20px;
+    }
+    .info-strip svg { color: var(--brand); flex-shrink: 0; margin-top: 2px; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a>
+    <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+    <span>/</span>
+    Provenance
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Provenance</h1>
+        <p class="page-subtitle">Append-only audit trail. Every rendered document is stamped with its exact <code>version_hash</code>, caller, and timestamp (§9).</p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ entries|length }} entr{{ 'ies' if entries|length != 1 else 'y' }}</span>
+    </div>
+</div>
+
+<div class="info-strip">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg>
+    <div>
+        Records are immutable. The <code>version_hash</code> is derived from the frozen template body — if it changes, the mapping or content changed.
+    </div>
+</div>
+
+{% if entries %}
+<div class="card flush">
+    <div class="card-header">
+        <h2>Render history</h2>
+        <span class="subtle">Newest first</span>
+    </div>
+    <table class="prov-table sortable">
+        <thead>
+            <tr>
+                <th>Render job</th>
+                <th>version_hash</th>
+                <th>render_stack</th>
+                <th>Caller</th>
+                <th style="text-align: right">Rendered at</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for e in entries %}
+            <tr>
+                <td class="job-cell" title="{{ e.render_job_id }}">{{ e.render_job_id|string|truncate(12, True, '') }}…</td>
+                <td>
+                    <span class="prov-hash" title="{{ e.version_hash }}">{{ e.version_hash[:16] }}…</span>
+                </td>
+                <td>
+                    {% if e.render_stack_hash %}
+                        <span class="prov-hash" title="Fingerprint of LibreOffice + package versions at render time">{{ e.render_stack_hash }}</span>
+                    {% else %}
+                        <span class="subtle">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if e.caller %}
+                        <span class="caller-chip"><span class="dot-ind"></span>{{ e.caller }}</span>
+                    {% else %}
+                        <span class="subtle">—</span>
+                    {% endif %}
+                </td>
+                <td class="muted" style="text-align: right" data-sort="{{ e.rendered_at.isoformat() }}">{{ e.rendered_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty">
+        <div class="empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        </div>
+        <h3>No renders yet</h3>
+        <p>This template has no rendered documents. Once a frozen version is rendered, its provenance record appears here.</p>
+        <a class="btn" href="/ui/templates/{{ template.id }}">Back to template</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

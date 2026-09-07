@@ -1,0 +1,43 @@
+# Local safety net that mirrors the CI checks in .github/workflows/ci.yml.
+# Install once per clone: `pre-commit install`  (from `.[dev]`, pip installed).
+# Run manually across the tree: `pre-commit run --all-files`.
+#
+# We deliberately mirror CI rather than replace it — the goal is to catch
+# things at commit time so PRs don't ping-pong on the same ruff / audit
+# feedback. If a hook here disagrees with CI, CI wins.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^(src|tests|scripts)/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$  # markdown trailing spaces are meaningful (line breaks)
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: tenant-scope-audit
+        name: tenant-scope audit
+        entry: python scripts/tenant_scope_audit.py
+        language: system
+        pass_filenames: false
+        # Re-run whenever src/ or the audit script changes — the check is
+        # whole-tree so per-file filtering wouldn't buy us anything.
+        files: ^(src/docgen/.*\.py|scripts/tenant_scope_audit\.py)$
+
+# License scan (`scripts/license_check.py`) is intentionally CI-only. It uses
+# `pip-licenses`, which scans every package in the active interpreter — false
+# fails in any dev venv that has unrelated projects installed alongside
+# DocGen. CI runs in a fresh env from `pip install -e ".[dev]"` and stays
+# authoritative on license policy.

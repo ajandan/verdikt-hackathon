@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Upload template — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .upload-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
+    .field-hint { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+    .dropzone {
+        display: flex; align-items: center; gap: 14px;
+        padding: 18px; border: 1.5px dashed var(--border-strong);
+        border-radius: var(--radius); background: var(--surface-2);
+        transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .dropzone:focus-within {
+        border-color: var(--brand); background: var(--brand-soft);
+    }
+    .dropzone .dz-icon {
+        width: 40px; height: 40px; border-radius: var(--radius-sm);
+        background: var(--surface); border: 1px solid var(--border);
+        color: var(--brand); display: grid; place-items: center; flex-shrink: 0;
+    }
+    .dropzone .dz-text { flex: 1; min-width: 0; }
+    .dropzone .dz-title { font-weight: 500; font-size: 14px; }
+    .dropzone .dz-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .dropzone input[type=file] {
+        border: none; padding: 0; background: transparent; width: auto;
+        font-size: 13px; color: var(--text-muted); box-shadow: none;
+    }
+    .dropzone input[type=file]:focus { box-shadow: none; }
+    .tips { }
+    .tips h3 {
+        margin: 0 0 12px; font-size: 13px; text-transform: uppercase;
+        letter-spacing: 0.04em; color: var(--text-muted);
+    }
+    .tip { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13px; }
+    .tip:first-of-type { border-top: 0; padding-top: 0; }
+    .tip .tip-icon {
+        color: var(--brand); flex-shrink: 0; margin-top: 2px;
+    }
+    .tip strong { display: block; color: var(--text); font-weight: 600; margin-bottom: 2px; }
+    .tip span { color: var(--text-muted); }
+    .form-actions {
+        display: flex; gap: 8px; align-items: center;
+        margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <p class="muted" style="margin: 0 0 4px"><a href="/ui/">← Templates</a></p>
+        <h1>Upload template</h1>
+        <p class="page-subtitle">Add a DOCX, AcroForm PDF, or flat PDF. It will be preflight-checked, then you'll review and freeze a field mapping.</p>
+    </div>
+</div>
+
+<div class="upload-grid">
+    <div class="card">
+        <form action="/ui/upload" method="post" enctype="multipart/form-data">
+            {{ csrf_input(request) }}
+            <label>Template name
+                <input type="text" name="name" required placeholder="e.g. Denial Letter (Commercial PPO)">
+                <div class="field-hint">Shown in the templates list. Include the audience or plan variant for clarity.</div>
+            </label>
+
+            <label>Owner <span class="subtle">(optional)</span>
+                <input type="text" name="owner" placeholder="team or email">
+                <div class="field-hint">Who to contact when the template needs a change. Freeform.</div>
+            </label>
+
+            {% if all_tenants and all_tenants|length > 1 %}
+            <label>Tenant
+                <select name="tenant_id" required>
+                    {% for t in all_tenants %}
+                        <option value="{{ t.id }}" {% if sidebar_selected_tenant_id == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="field-hint">
+                    Templates and renders are scoped to the tenant that owns them.
+                    {% if sidebar_selected_tenant_id %}<br>Defaulted from your sidebar workspace selection.{% endif %}
+                </div>
+            </label>
+            {% elif all_tenants and all_tenants|length == 1 %}
+                <input type="hidden" name="tenant_id" value="{{ all_tenants[0].id }}">
+            {% endif %}
+
+            <label>Template file
+                <div class="dropzone">
+                    <div class="dz-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>
+                    </div>
+                    <div class="dz-text">
+                        <div class="dz-title">Choose a DOCX or PDF file</div>
+                        <div class="dz-subtitle">DOCX: Jinja-tagged Word template. PDF: fillable AcroForm (auto-mapped) or flat PDF (place fields in the editor).</div>
+                        <input type="file" name="file" accept=".docx,.pdf" required style="margin-top: 8px">
+                    </div>
+                </div>
+            </label>
+
+            <div class="form-actions">
+                <button class="primary" type="submit" style="height: 40px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>
+                    Upload &amp; preflight
+                </button>
+                <a class="btn" href="/ui/" style="height: 40px; padding: 0 16px; display: inline-flex; align-items: center">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card tips">
+        <h3>What happens next</h3>
+        <div class="tip">
+            <svg class="tip-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 1.5"/></svg>
+            <div>
+                <strong>Preflight (§8)</strong>
+                <span>Tracked changes, unbalanced field codes, and unrenderable Jinja are surfaced here — before they can become a render-time incident.</span>
+            </div>
+        </div>
+        <div class="tip">
+            <svg class="tip-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10.5V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5.5"/><path d="M2 10.5h12v2a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/></svg>
+            <div>
+                <strong>Map &amp; freeze</strong>
+                <span>Review the AI-proposed field mapping, adjust as needed, then freeze a version to lock the schema.</span>
+            </div>
+        </div>
+        <div class="tip">
+            <svg class="tip-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M8 2v12"/></svg>
+            <div>
+                <strong>Render deterministically</strong>
+                <span>Frozen versions render without AI in the loop — same inputs, same output, every time.</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

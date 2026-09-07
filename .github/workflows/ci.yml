@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: lint + test + boundary + license
+    runs-on: ubuntu-latest
+
+    # Postgres + Redis run as service containers (their default CMDs work).
+    # `ports:` maps each into the runner's localhost so the stock `DOCGEN_*`
+    # defaults resolve with no per-CI overrides. MinIO can't run as a service
+    # because it needs `server /data` as a CMD arg and Actions services expose
+    # no way to override the image CMD — it's started in a step below instead.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: docgen
+          POSTGRES_PASSWORD: docgen
+          POSTGRES_DB: docgen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U docgen"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    # pydantic `Field(...)` requires these before *any* module that imports
+    # config loads (including alembic env.py). conftest.py's setdefault also
+    # sets them, but alembic runs before pytest so we need them here too.
+    env:
+      # Match conftest.py's setdefault values so tests that hardcode
+      # "test-webhook-secret" for expected HMAC signatures keep passing.
+      # Job-level env is needed because alembic loads config *before*
+      # pytest runs conftest.py.
+      DOCGEN_SESSION_SECRET: test-session-secret
+      DOCGEN_WEBHOOK_SIGNING_SECRET: test-webhook-secret
+      DOCGEN_ENV: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check src tests scripts
+
+      - name: Start MinIO + create buckets
+        # Can't run MinIO as a job service because it needs `server /data`
+        # as a CMD arg. Start it here, poll /minio/health/live, then create
+        # the two buckets the app expects using the mc client image on the
+        # same host network.
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data
+          for i in {1..30}; do
+            if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+              echo "MinIO up (attempt $i)"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "MinIO never came up" >&2
+              docker logs minio || true
+              exit 1
+            fi
+            sleep 1
+          done
+          docker run --rm --network host --entrypoint sh \
+            -e MC_HOST_local=http://minioadmin:minioadmin@localhost:9000 \
+            minio/mc:latest -c "
+              mc mb --ignore-existing local/docgen-templates &&
+              mc mb --ignore-existing local/docgen-documents
+            "
+
+      - name: Apply DB migrations
+        # Uses DOCGEN_DATABASE_URL_SYNC (default points at localhost:5432,
+        # which the postgres service exposes).
+        run: alembic upgrade head
+
+      - name: Unit + boundary + golden tests
+        run: pytest -v
+
+      - name: License scan (§12)
+        run: python scripts/license_check.py
+
+      - name: Tenant-scope audit (multi-tenancy hygiene)
+        # Fails if any query against a direct tenant-scoped model
+        # (Template, RenderJob, CallerProfile, ApiKey, IdempotencyKey) lands
+        # in src/ without a `tenant_id` filter within 40 lines OR an explicit
+        # `# tenant-audit: allow (<reason>)` / `file-allow` suppression.
+        # Regression guard against IDOR-shaped bugs.
+        run: python scripts/tenant_scope_audit.py

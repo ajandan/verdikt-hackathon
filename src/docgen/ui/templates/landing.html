@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quire — Design-time AI. Deterministic render.</title>
+<meta name="description" content="Governance-first document generation for regulated industries. AI at design time, deterministic bytes at render time. Version-pinned, per-tenant, fully audited." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style nonce="{{ csp_nonce(request) }}">
+  :root {
+    --ink-50:  #f6f5f1;
+    --ink-100: #eeece4;
+    --ink-200: #dcd8c8;
+    --ink-300: #a9a394;
+    --ink-500: #6c6858;
+    --ink-700: #3a382f;
+    --ink-900: #141410;
+    --seal-300: #8ec7b5;
+    --seal-500: #2f8f76;
+    --seal-700: #1e5f4f;
+    --hair: rgba(20,20,16,0.12);
+    --hair-soft: rgba(20,20,16,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ink-50);
+    color: var(--ink-900);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-feature-settings: "ss01","cv11";
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .container { max-width: 1152px; margin: 0 auto; padding: 0 24px; }
+
+  .hairline-b { border-bottom: 1px solid var(--hair); }
+  .hairline-t { border-top: 1px solid var(--hair); }
+
+  /* Nav */
+  .nav {
+    height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand-mark {
+    display: inline-grid; place-items: center; overflow: hidden;
+    border-radius: 8px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      0 6px 16px -6px rgba(47, 143, 118, 0.55),
+      0 2px 6px -2px rgba(15, 23, 42, 0.15);
+  }
+  .brand-mark svg { display: block; }
+  .brand-tag { display: none; font-size: 12px; color: var(--ink-500); margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  @media (min-width: 640px) { .brand-tag { display: inline; } }
+  .nav-links { display: none; gap: 28px; font-size: 14px; color: var(--ink-700); }
+  .nav-links a:hover { color: var(--seal-700); }
+  @media (min-width: 768px) { .nav-links { display: flex; align-items: center; } }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 8px;
+    font-weight: 500; font-size: 14px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--ink-900); color: var(--ink-50); border-color: var(--ink-900); }
+  .btn-primary:hover { background: var(--seal-500); border-color: var(--seal-500); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--ink-900); border-color: rgba(20,20,16,0.2); }
+  .btn-ghost:hover { background: rgba(20,20,16,0.05); }
+  .btn-invert { background: var(--ink-50); color: var(--ink-900); border-color: var(--ink-50); }
+  .btn-invert:hover { background: var(--seal-300); border-color: var(--seal-300); }
+  .btn-ghost-dark { background: transparent; color: var(--ink-200); border-color: rgba(255,255,255,0.2); }
+  .btn-ghost-dark:hover { background: rgba(255,255,255,0.05); }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid rgba(20,20,16,0.15);
+    background: rgba(255,255,255,0.5);
+    color: var(--ink-700);
+  }
+  .tag-dark {
+    background: rgba(255,255,255,0.06);
+    color: var(--ink-200);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); box-shadow: 0 0 0 3px rgba(47,143,118,0.15); }
+  .dot-amber { background: #b47828; box-shadow: 0 0 0 3px rgba(180,120,40,0.15); }
+
+  .stamp {
+    display: inline-block;
+    padding: 4px 10px;
+    border: 1.5px solid var(--seal-700);
+    color: var(--seal-700);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    transform: rotate(-3deg);
+    border-radius: 3px;
+    background: rgba(47,143,118,0.05);
+  }
+
+  .headline {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    margin: 0;
+  }
+  .headline em { font-style: italic; color: var(--seal-700); }
+  .h1 { font-size: 56px; }
+  @media (min-width: 768px) { .h1 { font-size: 96px; } }
+  .h2 { font-size: 40px; }
+  @media (min-width: 768px) { .h2 { font-size: 56px; } }
+  .h3 { font-size: 32px; }
+  @media (min-width: 768px) { .h3 { font-size: 40px; } }
+
+  .row-h {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .lede { font-size: 18px; color: var(--ink-700); max-width: 640px; line-height: 1.6; }
+  .lede em { font-style: italic; }
+
+  /* Hero */
+  .hero { position: relative; padding: 64px 0 80px; }
+  .grain::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(rgba(20,20,16,0.035) 1px, transparent 1px);
+    background-size: 3px 3px; mix-blend-mode: multiply;
+  }
+  .hero-cta { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .hero-cta .note { margin-left: 8px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; display: none; }
+  @media (min-width: 640px) { .hero-cta .note { display: inline; } }
+
+  .hero-frame {
+    position: relative; margin-top: 64px; padding: 24px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0)), var(--ink-50);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 16px; overflow: hidden;
+  }
+  @media (min-width: 768px) { .hero-frame { padding: 32px; } }
+  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  @media (min-width: 768px) { .hero-grid { grid-template-columns: 1fr 1fr; } }
+  .card { border: 1px solid var(--hair); border-radius: 8px; background: #fff; overflow: hidden; }
+  .card-h { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--hair); }
+  .card-f { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
+  .card-h .mono, .card-f .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); }
+
+  /* Field row: swatch sits inside the wrapper's padding zone; mapping is
+     pushed to the right by the flexing name column. */
+  .field-row {
+    display: flex; align-items: center;
+    gap: 10px; padding: 7px 0;
+    font-size: 14px;
+  }
+  .field-row .swatch { flex-shrink: 0; }
+  .field-row .name { flex: 1; min-width: 0; }
+  .field-row .map { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); padding-left: 8px; }
+  .swatch { width: 8px; height: 8px; border-radius: 999px; background: var(--seal-500); }
+  .swatch.amber { background: #f59e0b; }
+  .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--seal-700); text-decoration: underline; cursor: pointer; font-size: 12px; }
+  .link-plain { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink-900); cursor: pointer; }
+
+  pre.code {
+    margin: 0; padding: 16px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px; line-height: 1.6; color: var(--ink-700);
+    overflow-x: auto; white-space: pre;
+  }
+  .pill {
+    display: inline-flex; align-items: center;
+    padding: 1px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; font-weight: 500;
+    background: rgba(47,143,118,0.12); color: var(--seal-700);
+  }
+  .pill.warn { background: rgba(180,120,40,0.12); color: #a26618; }
+
+  .hero-foot { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  @media (min-width: 768px) { .hero-foot { grid-template-columns: 1fr 1fr 1fr; } }
+  .hero-foot > div { display: flex; align-items: center; gap: 8px; }
+  .hero-foot .dot-sm { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); }
+
+  /* Wedge (dark) */
+  .wedge { background: var(--ink-900); color: var(--ink-50); position: relative; overflow: hidden; padding: 96px 0; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .wedge .headline em { color: var(--seal-300); }
+  .wedge-grid { display: grid; grid-template-columns: 1fr; gap: 40px; }
+  @media (min-width: 768px) { .wedge-grid { grid-template-columns: 5fr 7fr; gap: 64px; } }
+  .wedge p { color: var(--ink-200); font-size: 18px; line-height: 1.7; }
+  .wedge p.sm { color: var(--ink-300); font-size: 16px; }
+  .wedge-triple { margin-top: 32px; display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { .wedge-triple { grid-template-columns: 1fr 1fr 1fr; } }
+  .wedge-cell {
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 8px; padding: 16px;
+    background: rgba(255,255,255,0.02);
+  }
+  .wedge-cell .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-300); }
+  .wedge-cell .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 28px; color: var(--ink-50); }
+  .wedge-cell .d { margin-top: 8px; font-size: 12px; color: var(--ink-300); line-height: 1.5; }
+  .wedge-cell.hot { border-color: rgba(47,143,118,0.4); background: rgba(47,143,118,0.10); }
+  .wedge-cell.hot .k { color: var(--seal-300); }
+
+  /* Section spacing */
+  .section { padding: 96px 0; }
+  .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 40px; }
+  .section-head p { max-width: 420px; color: var(--ink-700); display: none; }
+  @media (min-width: 768px) { .section-head p { display: block; } }
+
+  /* Lifecycle rail */
+  .rail {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--hair); border-radius: 12px; background: #fff; overflow: hidden;
+  }
+  @media (min-width: 640px) { .rail { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { .rail { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+  .rail-step { padding: 18px 14px; border-right: 1px solid var(--hair-soft); border-bottom: 1px solid var(--hair-soft); }
+  .rail-step:last-child { border-right: 0; }
+  .rail-step .n { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; color: var(--ink-500); }
+  .rail-step .k { font-weight: 600; font-size: 13px; margin-top: 4px; color: var(--ink-900); }
+  .rail-step .d { font-size: 11.5px; color: var(--ink-500); margin-top: 4px; line-height: 1.4; }
+  .rail-step.hot { background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.02)); }
+  .rail-step.hot .n { color: var(--seal-700); }
+  .rail-split { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--hair-soft); background: rgba(20,20,16,0.02); }
+  @media (min-width: 768px) { .rail-split { grid-template-columns: 1fr 1fr; } }
+  .rail-split div { padding: 10px 16px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
+  .rail-split div:first-child { color: var(--seal-700); border-right: 1px solid var(--hair-soft); }
+
+  /* Governance grid */
+  .gov-grid { display: grid; grid-template-columns: 1fr; gap: 48px; }
+  @media (min-width: 768px) { .gov-grid { grid-template-columns: 5fr 7fr; } }
+  .gov-list { margin: 24px 0 0; padding: 0; list-style: none; }
+  .gov-list li { display: flex; gap: 12px; padding: 8px 0; font-size: 14px; color: var(--ink-700); }
+  .gov-list .m { color: var(--seal-700); }
+
+  .ledger { border: 1px solid var(--hair); border-radius: 10px; background: #fff; font-family: 'JetBrains Mono', ui-monospace, monospace; overflow: hidden; }
+  .ledger-h, .ledger-r {
+    display: grid;
+    grid-template-columns: 88px 1fr 108px 130px 60px;
+    padding: 10px 14px;
+  }
+  .ledger-h { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-500); background: rgba(20,20,16,0.03); border-bottom: 1px solid var(--hair-soft); }
+  .ledger-r { font-size: 12px; color: var(--ink-900); border-bottom: 1px solid rgba(20,20,16,0.06); }
+  .ledger-r:last-child { border-bottom: 0; }
+  .ledger-r .mute { color: var(--ink-500); }
+  .ledger-r .faint { color: var(--ink-300); }
+
+  .stat-grid { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .stat { border: 1px solid var(--hair); border-radius: 8px; padding: 16px; background: var(--ink-50); }
+  .stat .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); }
+  .stat .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 28px; }
+
+  /* Comparison table */
+  .cmp { border: 1px solid var(--hair); border-radius: 12px; background: #fff; overflow: hidden; }
+  .cmp-row { display: grid; grid-template-columns: 2fr 1fr 1fr; align-items: stretch; border-bottom: 1px solid var(--hair-soft); }
+  .cmp-row:last-child { border-bottom: 0; }
+  .cmp-cell { padding: 14px 18px; font-size: 13.5px; color: var(--ink-700); }
+  .cmp-cell.head { background: rgba(20,20,16,0.03); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); padding: 12px 18px; }
+  .cmp-cell.head.q { background: rgba(47,143,118,0.10); color: var(--seal-700); }
+  .cmp-cell.q { background: rgba(47,143,118,0.06); color: var(--ink-900); font-weight: 500; }
+  .cmp-cell.mute { color: var(--ink-500); }
+
+  /* Callouts */
+  .callout { background: var(--ink-50); border-top: 1px solid var(--hair); padding: 96px 0; }
+  .callout-grid { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: start; }
+  @media (min-width: 768px) { .callout-grid { grid-template-columns: 1fr 1fr; } }
+  .callout-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .callout-card { border: 1px solid var(--hair); border-radius: 8px; padding: 20px; background: #fff; }
+  .callout-card .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); }
+  .callout-card .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 24px; line-height: 1.2; }
+  .callout-card .d { margin-top: 8px; font-size: 14px; color: var(--ink-500); line-height: 1.5; }
+
+  /* FAQ */
+  .faq { max-width: 768px; margin: 0 auto; padding: 96px 24px; }
+  .faq-list { border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .faq-list details { border-bottom: 1px solid var(--hair); padding: 20px 0; }
+  .faq-list details:last-child { border-bottom: 0; }
+  .faq-list summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 18px; font-weight: 500; }
+  .faq-list summary::-webkit-details-marker { display: none; }
+  .faq-list summary .plus { color: var(--ink-500); transition: transform 150ms ease; }
+  .faq-list details[open] summary .plus { transform: rotate(45deg); }
+  .faq-list p { margin: 12px 0 0; color: var(--ink-700); line-height: 1.7; }
+  .faq-list .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; }
+
+  /* Final CTA */
+  .cta { background: var(--ink-900); color: var(--ink-50); border-top: 1px solid var(--hair); padding: 80px 24px; text-align: center; }
+  .cta .headline em { color: var(--seal-300); }
+  .cta-buttons { margin-top: 40px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .cta .note { margin-top: 24px; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--ink-300); }
+
+  /* Footer */
+  .footer { border-top: 1px solid var(--hair); }
+  .footer .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 40px 24px; color: var(--ink-500); font-size: 14px; }
+  .footer .row > div:first-child { line-height: 22px; }
+  .footer .links { display: flex; align-items: center; gap: 20px; }
+  .footer a:hover { color: var(--ink-900); }
+
+  .kbd {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; padding: 2px 6px;
+    border: 1px solid rgba(20,20,16,0.2);
+    border-bottom-width: 2px;
+    border-radius: 4px; background: #fff;
+  }
+
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* ---------- Mobile (≤640px) ----------
+     Several grid layouts on this page use fixed-pixel column widths
+     (.ledger) or fixed fractional splits (.cmp, .field-row) that get
+     unreadably squeezed on a phone. Rebuild those as stacked rows and
+     tighten hero chrome so the page reads as a single scrollable column. */
+  @media (max-width: 640px) {
+    html, body { overflow-x: hidden; }
+
+    .container { padding: 0 16px; }
+    .h1 { font-size: 44px; }
+    .h2 { font-size: 32px; }
+    .h3 { font-size: 26px; }
+
+    .nav { height: 52px; }
+    .brand-tag { display: none !important; }
+    .btn { padding: 10px 16px; font-size: 13px; }
+
+    .hero { padding: 32px 0 40px; }
+    .hero-frame { margin-top: 32px; padding: 14px; border-radius: 12px; }
+    .hero .tag { font-size: 10px; padding: 3px 8px; }
+    .hero .stamp { font-size: 9.5px; padding: 3px 8px; transform: none; }
+    /* Tag + stamp row: wrap and space evenly on their own line. */
+    .hero > .container > div:first-child {
+      flex-wrap: wrap; row-gap: 8px; margin-bottom: 20px;
+    }
+    .lede { font-size: 15.5px; margin-top: 20px !important; line-height: 1.55; }
+    .hero-cta {
+      margin-top: 24px; gap: 10px;
+      flex-direction: column; align-items: stretch;
+    }
+    .hero-cta .btn { justify-content: center; width: 100%; }
+    .hero-cta .note { margin-left: 0; margin-top: 6px; text-align: left; }
+
+    /* Design-time card heading inside hero-frame: tighter and left-aligned. */
+    .hero-frame .headline { font-size: 18px !important; }
+    .hero-foot { margin-top: 16px; gap: 8px; font-size: 11px; }
+
+    .section { padding: 48px 0; }
+    .callout, .wedge { padding: 48px 0; }
+    .section-head {
+      flex-direction: column; align-items: flex-start;
+      gap: 12px; margin-bottom: 20px;
+    }
+    .section-head p { display: block; font-size: 14px; margin: 0; }
+
+    .wedge-grid { gap: 24px; }
+    .wedge p { font-size: 15.5px; line-height: 1.6; }
+    .wedge p.sm { font-size: 14px; margin-top: 16px; }
+    .wedge-triple { gap: 10px; margin-top: 24px; }
+    .wedge-cell { padding: 12px; }
+
+    /* Design-time card field rows: monospace mapping was pushing the row
+       wider than the card. Keep the swatch + name together on line 1 and
+       wrap the mapping onto line 2 with a small hanging indent. */
+    .field-row {
+      flex-wrap: wrap; column-gap: 8px; row-gap: 2px; padding: 6px 0;
+    }
+    .field-row .name { font-size: 13px; }
+    .field-row .map { flex: 1 0 100%; padding-left: 18px; font-size: 11px; }
+
+    /* Ledger: 5-column fixed grid is unreadable on 360px. Break every
+       entry into a stacked card — time + caller on top row, template on
+       second, hash + job on third — no horizontal scroll. */
+    .ledger-h { display: none; }
+    .ledger-r {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      padding: 12px 14px;
+      font-size: 11.5px;
+    }
+    .ledger-r > div:nth-child(1) { order: 1; }
+    .ledger-r > div:nth-child(3) { order: 2; text-align: right; }
+    .ledger-r > div:nth-child(2) { order: 3; grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-900); }
+    .ledger-r > div:nth-child(4) { order: 4; grid-column: 1 / -1; font-size: 10.5px; }
+    .ledger-r > div:nth-child(5) { order: 5; text-align: right; font-size: 10.5px; }
+
+    /* Comparison section: bump the heading breathing room and rebuild each
+       row as a small card — capability title on top, then Others vs Quire
+       side-by-side with proper labels and a mint tint on the Quire side. */
+    #compare > .container > h2 { margin-bottom: 24px !important; }
+    #compare > .container > .row-h { margin-bottom: 4px; }
+    .cmp { border-radius: 10px; }
+    .cmp-row {
+      display: block;
+      padding: 14px 14px 16px;
+      border-bottom: 1px solid var(--hair-soft);
+    }
+    .cmp-row:first-child { display: none; } /* table header not needed once stacked */
+    .cmp-cell { padding: 0; font-size: 14px; }
+    .cmp-cell:first-child {
+      font-weight: 600; color: var(--ink-900);
+      font-size: 14.5px; letter-spacing: -0.005em;
+      padding: 0 0 10px;
+    }
+    .cmp-cell:not(:first-child) {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 0; font-size: 13px; line-height: 1.4;
+    }
+    .cmp-cell:not(:first-child)::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      width: 54px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--ink-500);
+      padding-top: 2px;
+    }
+    .cmp-cell.q {
+      background: rgba(47,143,118,0.06);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    .cmp-cell.q::before { color: var(--seal-700); padding-top: 0; }
+    .cmp-cell.mute { color: var(--ink-500); }
+
+    /* Governance stat grid: 3-across becomes wrap-friendly. */
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    .stat .v { font-size: 22px; }
+
+    /* Callout cards: 2x2 becomes 1-col on very narrow screens. */
+    .callout-cards { grid-template-columns: 1fr; }
+
+    /* Wedge cell values: 28px serif was overflowing. */
+    .wedge-cell .v { font-size: 22px; }
+
+    /* Governance section: lists + descriptions need breathing room. */
+    .gov-grid { gap: 32px; }
+    .gov-list li { font-size: 13.5px; padding: 6px 0; }
+
+    /* Callouts: text block + cards stack cleanly. */
+    .callout-grid { gap: 24px; }
+    .callout-card { padding: 16px; }
+    .callout-card .v { font-size: 20px; }
+
+    /* Lifecycle rail: 2-col was cramped — go 1-col so each step gets
+       its full name + description without wrapping tightly. */
+    .rail { grid-template-columns: 1fr; }
+    .rail-step { border-right: 0; }
+    .rail-split { grid-template-columns: 1fr; }
+    .rail-split div:first-child { border-right: 0; border-bottom: 1px solid var(--hair-soft); }
+
+    /* FAQ padding tighten */
+    .faq { padding: 48px 16px; }
+    .faq-list summary { font-size: 15.5px; gap: 12px; }
+    .faq-list p { font-size: 14px; }
+
+    /* Final CTA + footer */
+    .cta { padding: 48px 16px; }
+    .cta .tag, .cta .headline, .cta .note { padding-left: 4px; padding-right: 4px; }
+    .cta-buttons { margin-top: 28px; flex-direction: column; align-items: stretch; }
+    .cta-buttons .btn { justify-content: center; width: 100%; }
+    .footer .row {
+      flex-direction: column; align-items: flex-start;
+      gap: 18px; padding: 36px 16px 40px;
+      font-size: 13px; line-height: 1.5;
+    }
+    .footer .row > div:first-child {
+      align-items: center; gap: 12px;
+    }
+    .footer .row > div:first-child > span:last-child {
+      flex: 1 1 auto; min-width: 0;
+      line-height: 1.4;
+    }
+    .footer .brand-mark {
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    }
+    .footer .links {
+      flex-direction: column; align-items: flex-start;
+      gap: 12px; width: 100%;
+    }
+    .footer .links a {
+      display: block; padding: 4px 0;
+      font-size: 14px; color: var(--ink-700);
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<header class="hairline-b">
+  <div class="container nav">
+    <a href="#" class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="quire-mark-nav" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#8ec7b5"/>
+              <stop offset="0.55" stop-color="#2f8f76"/>
+              <stop offset="1" stop-color="#1e5f4f"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="8" fill="url(#quire-mark-nav)"/>
+          <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
+          <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span>Quire</span>
+      <span class="brand-tag">/ document governance</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#wedge">For agents</a>
+      <a href="#lifecycle">Lifecycle</a>
+      <a href="#governance">Governance</a>
+      <a href="#compare">Compare</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a href="/ui/login" class="btn btn-primary">
+      Sign in
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero grain">
+  <div class="container">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:32px;">
+      <span class="tag"><span class="dot"></span>SOC-adjacent · Multi-tenant · Audit-first</span>
+      <span class="stamp">v1 · frozen</span>
+    </div>
+
+    <h1 class="headline h1">
+      Design-time AI.<br/>
+      <em>Deterministic render.</em>
+    </h1>
+
+    <p class="lede" style="margin-top:32px;">
+      A compliance officer can't approve an LLM in the render path.
+      Quire draws the line exactly where they need it drawn: AI helps you
+      <em>build</em> the template. Nothing but pure, reproducible bytes
+      come out at render time — same inputs, byte-identical output, every time.
+    </p>
+
+    <div class="hero-cta">
+      <a href="/ui/login" class="btn btn-primary">
+        Sign in to Quire
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="#lifecycle" class="btn btn-ghost">See how it works</a>
+      <span class="note">No model in the render path · Version-pinned · Per-tenant scoped</span>
+    </div>
+
+    <div class="hero-frame">
+      <div class="hero-grid">
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div>
+              <div class="row-h">Design time</div>
+              <div class="headline" style="font-size:24px; margin-top:4px;">AI helps you map the blanks.</div>
+            </div>
+            <span class="tag"><span class="dot dot-amber"></span>LLM</span>
+          </div>
+          <div class="card">
+            <div class="card-h">
+              <span class="mono">enrollment_form.docx · preflight</span>
+              <span class="mono" style="font-size:10px;">v1 · draft</span>
+            </div>
+            <div style="padding: 12px 20px;">
+              <div class="field-row"><span class="swatch"></span><span class="name">Patient_First_Name__c</span><span class="map">→ {% raw %}{{ patient.first_name }}{% endraw %}</span></div>
+              <div class="field-row"><span class="swatch"></span><span class="name">Patient_DOB__c</span><span class="map">→ {% raw %}{{ patient.dob | date }}{% endraw %}</span></div>
+              <div class="field-row"><span class="swatch"></span><span class="name">Prescriber_NPI__c</span><span class="map">→ {% raw %}{{ prescriber.npi }}{% endraw %}</span></div>
+              <div class="field-row"><span class="swatch amber"></span><span class="name">Signature block <span class="mono" style="color:var(--ink-500); font-size:11px;">(needs human review)</span></span><button class="link-btn" type="button">Review</button></div>
+            </div>
+            <div class="card-f">
+              <span>31 fields · 3 need review</span>
+              <button class="link-plain" type="button">Freeze v1 →</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div>
+              <div class="row-h">Render time</div>
+              <div class="headline" style="font-size:24px; margin-top:4px;">Pure, reproducible bytes.</div>
+            </div>
+            <span class="tag"><span class="dot"></span>No AI</span>
+          </div>
+          <div class="card">
+            <div class="card-h">
+              <span class="mono">POST /render · frozen v1</span>
+              <span class="mono">200 · 84ms</span>
+            </div>
+<pre class="code">{
+  "template_id": "e9727862-…",
+  "version": 1,
+  "version_hash": "sha256:9b4c…",
+  "job_id": "01J8Y…",
+  "output": "s3://quire/renders/…docx",
+  "replayed": false,
+  "caller": "claude-desktop",
+  "tenant_id": "acme-health"
+}</pre>
+            <div class="card-f">
+              <span>Same inputs → identical bytes</span>
+              <span class="pill">byte-identical</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-foot">
+        <div><span class="dot-sm"></span>Deterministic .docx + PDF pipeline</div>
+        <div><span class="dot-sm"></span>Content-addressed blob storage</div>
+        <div><span class="dot-sm"></span>Idempotent by request fingerprint</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Wedge: for agents -->
+<section id="wedge" class="wedge">
+  <div class="container">
+    <div class="wedge-grid">
+      <div>
+        <span class="tag tag-dark"><span class="dot"></span>The wedge for 2026</span>
+        <h2 class="headline h2" style="margin-top:24px; color: var(--ink-50);">
+          Agents can generate documents.<br/>
+          <em>They can't be trusted to author them.</em>
+        </h2>
+      </div>
+      <div>
+        <p>
+          The agent supplies JSON. A frozen, human-approved template supplies the words.
+          That's it. That's the shape of trustworthy agent output for the next five years,
+          and it's the only shape a bank or a payer will sign off on.
+        </p>
+        <p class="sm" style="margin-top:24px;">
+          Quire is the deterministic output layer for agents. Every render is bound to a
+          <span class="mono" style="color:var(--seal-300);">version_hash</span> a human approved,
+          on a tenant a human provisioned, called by an app or agent recorded in the ledger.
+          Supervision path, not hot path.
+        </p>
+
+        <div class="wedge-triple">
+          <div class="wedge-cell">
+            <div class="k">Agent supplies</div>
+            <div class="v">JSON</div>
+            <div class="d">Structured payload against a fixed schema.</div>
+          </div>
+          <div class="wedge-cell">
+            <div class="k">Human supplies</div>
+            <div class="v">Words</div>
+            <div class="d">The frozen template, approved once.</div>
+          </div>
+          <div class="wedge-cell hot">
+            <div class="k">Quire supplies</div>
+            <div class="v">Provenance</div>
+            <div class="d">Version, hash, caller, tenant, timestamp.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Lifecycle -->
+<section id="lifecycle" class="section">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="row-h">The lifecycle</div>
+        <h2 class="headline h3" style="margin-top:8px;">Upload once. Freeze once. Render forever.</h2>
+      </div>
+      <p>Anyone can fill a <span class="kbd">.docx</span>. What almost nobody sells is the full lifecycle — governed, versioned, and auditable end to end.</p>
+    </div>
+
+    <div class="rail">
+      <div class="rail-step hot"><div class="n">01</div><div class="k">Upload</div><div class="d">.docx or PDF with blanks. Nothing else needed.</div></div>
+      <div class="rail-step hot"><div class="n">02</div><div class="k">AI map</div><div class="d">Fields detected, template tags suggested, caller profile drafted.</div></div>
+      <div class="rail-step hot"><div class="n">03</div><div class="k">Preflight</div><div class="d">Human reviews. Ambiguities flagged. Nothing publishes silently.</div></div>
+      <div class="rail-step"><div class="n">04</div><div class="k">Freeze</div><div class="d">Version pinned. Bytes content-addressed. Immutable.</div></div>
+      <div class="rail-step"><div class="n">05</div><div class="k">Publish</div><div class="d">Blessed as current. Prior versions stay callable.</div></div>
+      <div class="rail-step"><div class="n">06</div><div class="k">version_hash</div><div class="d">Every render bound to a hash a human approved.</div></div>
+      <div class="rail-step"><div class="n">07</div><div class="k">Provenance</div><div class="d">Caller ledger records who rendered what, when, from where.</div></div>
+      <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">One click. No re-render, no reconciliation, no drift.</div></div>
+      <div class="rail-split">
+        <div>◄ AI zone · design time · humans in the loop</div>
+        <div>Deterministic zone · run time · no model, ever ►</div>
+      </div>
+    </div>
+
+    <p style="margin-top:24px; font-size:14px; color:var(--ink-500); max-width:768px;">
+      Most doc-gen tools fill a template. Some do it for $49/month.
+      They stop at step 03. Quire ships the other five, scoped per tenant, so the buyer can defend
+      the whole path in an audit — not just the render call.
+    </p>
+  </div>
+</section>
+
+<!-- Governance / ledger -->
+<section id="governance" class="section hairline-t" style="background:#fff;">
+  <div class="container">
+    <div class="gov-grid">
+      <div>
+        <div class="row-h">Governance in the shape of a product</div>
+        <h2 class="headline h3" style="margin-top:8px;">The caller ledger is the point.</h2>
+        <p style="margin-top:24px; color:var(--ink-700); line-height:1.7;">
+          Every render writes a row. Which app or agent pulled which frozen version, for which tenant, at which second, with which idempotency fingerprint. Reproducible on demand. Discoverable in a subpoena. Boring in the good way.
+        </p>
+        <ul class="gov-list">
+          <li><span class="m">◆</span><span><b>Row-level tenant_id scoping.</b> CI-enforced. One code path, three transports (REST, MCP, admin).</span></li>
+          <li><span class="m">◆</span><span><b>API-key auth per tenant.</b> Keys are the trust boundary, not IP.</span></li>
+          <li><span class="m">◆</span><span><b>Idempotent by fingerprint.</b> Same payload from the same caller returns the same job — no duplicate documents in the wild.</span></li>
+          <li><span class="m">◆</span><span><b>Draft → Freeze → Publish.</b> Nothing renders that a human didn't bless.</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="ledger">
+          <div class="ledger-h"><div>Time</div><div>Template · version</div><div>Caller</div><div>Version hash</div><div>Job</div></div>
+          <div class="ledger-r"><div class="mute">14:02:11</div><div>enrollment_form · v3</div><div><span class="pill">mcp</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:58</div><div>denial_letter · v2</div><div><span class="pill">claude-desktop</span></div><div class="mute">sha256:2a10…c88b</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:44</div><div>enrollment_form · v3</div><div><span class="pill">catalyst-app</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:31</div><div>enrollment_form · v3</div><div><span class="pill warn">smoke-test</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:00:07</div><div>enrollment_form · v2 <span class="faint">(rolled back)</span></div><div><span class="pill">catalyst-app</span></div><div class="mute">sha256:71fd…9004</div><div class="mute">01J8X…</div></div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat"><div class="k">Tenants</div><div class="v">Row-level</div></div>
+          <div class="stat"><div class="k">Rollback</div><div class="v">1 click</div></div>
+          <div class="stat"><div class="k">Render bytes</div><div class="v">Reproducible</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section id="compare" class="section">
+  <div class="container">
+    <div class="row-h">Where the market ends and Quire begins</div>
+    <h2 class="headline h3" style="margin-top:8px; margin-bottom:40px; max-width:768px;">
+      A doc-gen product on the outside.<br/>
+      <em>A governance product on the inside.</em>
+    </h2>
+
+    <div class="cmp">
+      <div class="cmp-row">
+        <div class="cmp-cell head">Capability</div>
+        <div class="cmp-cell head">Typical doc-gen tools</div>
+        <div class="cmp-cell head q">Quire</div>
+      </div>
+      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Quire">✓</div></div>
+      <div class="cmp-row"><div class="cmp-cell">AI-assisted field mapping at design time</div><div class="cmp-cell mute" data-label="Others">Rare / manual</div><div class="cmp-cell q" data-label="Quire">✓ Preflight + human review</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Draft → freeze → publish lifecycle</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Version-pinned, immutable</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Per-render <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Content-addressed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Caller ledger (which agent rendered what)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Every call, per tenant</div></div>
+      <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Others">Varies</div><div class="cmp-cell q" data-label="Quire">✓ Enforced in pre-commit</div></div>
+      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ First-class support</div></div>
+      <div class="cmp-row"><div class="cmp-cell">No LLM in the render path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Guaranteed</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Callouts -->
+<section class="callout">
+  <div class="container callout-grid">
+    <div>
+      <div class="row-h">Who this is for</div>
+      <h2 class="headline h3" style="margin-top:8px;">Healthcare. Banking. Anyone whose lawyers read the render path.</h2>
+      <p style="margin-top:24px; color:var(--ink-700); line-height:1.7;">
+        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the render path can't include an LLM. Quire is built for the buyer who already knew that and couldn't find a vendor who agreed.
+      </p>
+    </div>
+    <div class="callout-cards">
+      <div class="callout-card"><div class="k">Healthcare</div><div class="v">Prior-auth, enrollment, denial letters</div><div class="d">Templates a human approved. Fields an agent filled. A ledger that maps both to a job.</div></div>
+      <div class="callout-card"><div class="k">Banking</div><div class="v">Disclosures, KYC packets, custodial notices</div><div class="d">Version-pinned wording. Reproducible bytes. Auditable per tenant.</div></div>
+      <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent generates the JSON. Quire generates the document.</div></div>
+      <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin portal — same domain layer, same guarantees.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="faq">
+  <div class="row-h">Questions a compliance officer actually asks</div>
+  <h2 class="headline h3" style="margin-top:8px; margin-bottom:40px;">Straight answers.</h2>
+  <div class="faq-list">
+    <details>
+      <summary>Is a model called at render time?<span class="plus">＋</span></summary>
+      <p>No. The render pipeline is a deterministic template engine — no model in the render path. Given the same frozen template and the same input JSON, the output bytes are identical, forever.</p>
+    </details>
+    <details>
+      <summary>Where does the AI actually run?<span class="plus">＋</span></summary>
+      <p>Only at design time: preflight, field detection, template tag suggestion, and caller-profile mapping. A human reviews before anything freezes. The frozen artifact is what runs in production.</p>
+    </details>
+    <details>
+      <summary>Can an agent bypass the freeze step?<span class="plus">＋</span></summary>
+      <p>No. Renders require a frozen version. An agent can call <span class="mono">render_template</span> over MCP; it can't publish a template. The freeze/publish flow is admin-scoped.</p>
+    </details>
+    <details>
+      <summary>How is multi-tenancy enforced?<span class="plus">＋</span></summary>
+      <p>Row-level <span class="mono">tenant_id</span> on every business table, API-key auth per tenant, and a CI-enforced tenant-scope audit script that fails the build on any query that could cross a tenant boundary.</p>
+    </details>
+    <details>
+      <summary>What does rollback actually do?<span class="plus">＋</span></summary>
+      <p>Repoints the "current" version to a prior frozen version. Nothing is re-rendered, no drift is introduced, and prior <span class="mono">version_hash</span> values remain valid for reproducibility.</p>
+    </details>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section class="cta">
+  <span class="tag tag-dark"><span class="dot"></span>Ready when your auditor is</span>
+  <h2 class="headline h2" style="margin-top:24px; color:var(--ink-50);">
+    Bring the AI to the template.<br/>
+    <em>Keep it out of the render.</em>
+  </h2>
+  <div class="cta-buttons">
+    <a href="/ui/login" class="btn btn-invert">
+      Sign in to Quire
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    <a href="#lifecycle" class="btn btn-ghost-dark">Read the lifecycle again</a>
+  </div>
+  <p class="note">No model in the render path · Version-pinned · Per-tenant · MCP-native</p>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container row">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="quire-mark-footer" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#8ec7b5"/>
+              <stop offset="0.55" stop-color="#2f8f76"/>
+              <stop offset="1" stop-color="#1e5f4f"/>
+            </linearGradient>
+          </defs>
+          <rect width="32" height="32" rx="8" fill="url(#quire-mark-footer)"/>
+          <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
+          <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span>Quire · document governance for regulated teams</span>
+    </div>
+    <div class="links">
+      <a href="/docs">REST reference</a>
+      <a href="/mcp/">MCP endpoint</a>
+      <a href="/ui/login">Sign in</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

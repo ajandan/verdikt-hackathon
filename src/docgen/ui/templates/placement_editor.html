@@ -1,0 +1,2130 @@
+{% extends "base.html" %}
+{% block title %}Placements — {{ template.name }} v{{ version.version }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+
+    .editor-layout {
+        display: grid; grid-template-columns: 52px minmax(0, 1fr) 320px;
+        gap: 12px; align-items: flex-start;
+    }
+    @media (max-width: 900px) {
+        .editor-layout { grid-template-columns: minmax(0, 1fr); }
+    }
+    .pages-column { display: flex; flex-direction: column; gap: 16px; }
+
+    .page-frame {
+        position: relative; background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+    .page-frame img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+    .page-label {
+        position: absolute; top: 8px; left: 8px; padding: 2px 8px;
+        background: rgba(0,0,0,0.6); color: #fff; font-size: 11px;
+        border-radius: 4px; pointer-events: none; z-index: 2;
+    }
+    .page-empty-hint {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255,255,255,0.9);
+        border: 1px dashed var(--brand);
+        color: var(--brand); font-size: 13px; font-weight: 600;
+        padding: 8px 14px; border-radius: var(--radius);
+        pointer-events: none; z-index: 2;
+    }
+
+    .placement {
+        position: absolute; box-sizing: border-box;
+        border: 1.5px solid var(--brand);
+        background: rgb(var(--brand-rgb) / 0.14);
+        color: var(--brand); font-size: 11px; font-weight: 600;
+        padding: 2px 6px; cursor: move; user-select: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        z-index: 3;
+        /* Guarantee the pill is clickable even when width/height percentages
+           collapse against a still-loading page image. */
+        min-width: 40px; min-height: 18px;
+    }
+    /* Checkbox placements must stay square — the text-field mins would
+       stretch a ~20px square into a 40px rectangle. Drop the mins/padding
+       and hide the payload-key text (still visible on hover via title). */
+    .placement.checkbox {
+        min-width: 0; min-height: 0;
+        padding: 0;
+        font-size: 0;  /* hides the payload-key text without an empty child */
+    }
+    .placement.checkbox::after {
+        content: "☒"; display: block;
+        font-size: 12px; color: var(--brand);
+        text-align: center; line-height: 1;
+        pointer-events: none;
+    }
+    /* Radio placements: same square-geometry rules as checkboxes, but
+       drawn as a hollow circle with a filled centre dot so the operator
+       can eyeball which square is which without reading the tooltip. */
+    .placement.radio {
+        min-width: 0; min-height: 0;
+        padding: 0;
+        font-size: 0;
+        border-radius: 50%;
+    }
+    .placement.radio::after {
+        content: ""; display: block;
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 45%; height: 45%;
+        margin: -22.5% 0 0 -22.5%;
+        background: var(--brand);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .placement.selected {
+        border-color: var(--warn); background: rgb(var(--warn-rgb) / 0.20);
+        color: var(--warn); box-shadow: 0 0 0 2px rgb(var(--warn-rgb) / 0.35);
+    }
+    .placement.locked {
+        cursor: not-allowed;
+        border-style: dashed;
+        background: rgb(var(--brand-rgb) / 0.06);
+    }
+    .placement.locked::before {
+        content: "🔒"; margin-right: 4px; font-size: 10px;
+    }
+    /* needs-review = realigned from a prior version with < 1.0 confidence.
+       Amber dashed border so the operator visually spots which placements
+       to eyeball on the re-uploaded page vs the ones that name-matched
+       cleanly. Cleared by a resize/drag/edit — see markReviewed(). */
+    .placement.needs-review {
+        border-color: #d97706;
+        border-style: dashed;
+        background: rgba(217, 119, 6, 0.08);
+    }
+    /* Corner badge only on text placements. Checkbox and radio already use
+       ::after for their glyph, so a needs-review dashed border alone signals
+       them — adding a badge would fight the glyph. */
+    .placement.needs-review:not(.checkbox):not(.radio)::after {
+        content: "?"; position: absolute;
+        top: -8px; right: -8px;
+        width: 16px; height: 16px;
+        background: #d97706; color: #fff;
+        font-size: 11px; font-weight: 700;
+        line-height: 16px; text-align: center;
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    /* Ghost outline of a placement's previous position — drawn behind the
+       live pill when the realigner flagged drift. Non-interactive; the
+       operator picks accept or revert from the sidebar. */
+    .ghost-placement {
+        position: absolute;
+        border: 1.5px dashed #d97706;
+        background: rgba(217, 119, 6, 0.05);
+        pointer-events: none;
+        z-index: 1;  /* below the live pill but above the page image */
+    }
+    .ghost-placement::before {
+        content: "was here";
+        position: absolute;
+        top: -14px; left: 0;
+        font-size: 9px; color: #d97706;
+        background: #fff;
+        padding: 0 3px;
+        line-height: 12px;
+        white-space: nowrap;
+    }
+    /* Realign summary banner — shows once at the top when the current
+       version was created by re-uploading over a prior version. Dismisses
+       when the user reviews everything or clicks the × */
+    .realign-banner {
+        margin: 12px 16px 0 16px;
+        padding: 10px 14px;
+        background: rgba(217, 119, 6, 0.10);
+        border: 1px solid rgba(217, 119, 6, 0.35);
+        color: #92400e;
+        border-radius: 6px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    /* `display: flex` above beats the UA `[hidden] { display: none }` rule,
+       which leaves an empty banner visible whenever JS toggles .hidden. */
+    .realign-banner[hidden] { display: none; }
+    .realign-banner strong { color: #92400e; }
+    .realign-banner button.close {
+        margin-left: auto;
+        border: 0; background: transparent;
+        color: #92400e; font-size: 18px;
+        cursor: pointer; padding: 0 4px;
+    }
+    .realign-banner button.ai-redetect {
+        border: 1px solid rgba(217, 119, 6, 0.5);
+        background: rgba(255, 255, 255, 0.6);
+        color: #92400e; font-size: 12px; font-weight: 500;
+        cursor: pointer; padding: 4px 10px; border-radius: 4px;
+    }
+    .realign-banner button.ai-redetect:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.9);
+    }
+    .realign-banner button.ai-redetect:disabled {
+        opacity: 0.6; cursor: wait;
+    }
+
+    /* South-east resize grip. Only visible on hover/selected so the pill
+       stays uncluttered when the user is just glancing at the layout.
+       Hidden entirely on locked placements — no resize when locked. */
+    .placement .resize-se {
+        position: absolute; right: -5px; bottom: -5px;
+        width: 12px; height: 12px;
+        background: var(--brand); border: 1px solid #fff;
+        border-radius: 2px; cursor: se-resize;
+        z-index: 5; opacity: 0;
+        transition: opacity 0.1s ease;
+    }
+    .placement:hover .resize-se,
+    .placement.selected .resize-se { opacity: 1; }
+    .placement.selected .resize-se { background: var(--warn); }
+    .placement.locked .resize-se { display: none; }
+
+    .ctx-menu {
+        position: fixed; z-index: 9999;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        padding: 4px 0; min-width: 140px; font-size: 13px;
+    }
+    .ctx-menu button {
+        display: block; width: 100%; text-align: left;
+        padding: 6px 14px; border: 0; background: transparent;
+        color: var(--text); cursor: pointer; font-size: 13px;
+    }
+    .ctx-menu button:hover { background: var(--brand-soft); }
+    .ctx-menu button.danger { color: var(--warn); }
+
+    .side-panel {
+        position: sticky; top: 72px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        padding: 16px;
+    }
+    .side-panel h3 { margin: 0 0 12px; font-size: 14px; }
+    .side-panel label { display: block; margin-bottom: 10px; font-size: 12px; color: var(--text-muted); }
+    .side-panel label input { width: 100%; margin-top: 4px; font-size: 13px; padding: 6px 8px; }
+    .side-panel .empty { color: var(--text-muted); font-size: 13px; font-style: italic; }
+    .side-panel .row-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .side-panel .row-actions button { flex: 1; }
+
+    .action-bar {
+        position: sticky; top: 72px; z-index: 10;
+        display: flex; flex-direction: column; gap: 4px; align-items: stretch;
+        padding: 6px; margin: 0;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    }
+    /* Icon-only tool buttons, tooltip on hover. */
+    .action-bar .tool-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 100%; height: 38px; padding: 0;
+        border: 1px solid transparent; background: transparent;
+        color: var(--text-muted); border-radius: 8px; cursor: pointer;
+        transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .action-bar .tool-btn:hover {
+        background: var(--surface-2); color: var(--text); border-color: var(--border);
+    }
+    .action-bar .tool-btn.primary {
+        background: var(--brand); color: var(--brand-fg); border-color: var(--brand);
+    }
+    .action-bar .tool-btn.primary:hover {
+        background: var(--brand-hover); border-color: var(--brand-hover);
+    }
+    .action-bar .tool-btn.danger:hover { color: var(--danger); }
+    .action-bar .tool-btn svg { display: block; }
+    /* Frozen-version info banner: force the icon inline so it flows with
+       the message text. Tailwind preflight sets `svg { display: block }`,
+       which would otherwise push the text onto the next line. */
+    .frozen-notice .frozen-icon {
+        display: inline-block !important;
+        vertical-align: -3px;
+        margin-right: 8px;
+    }
+    /* Guided-onboarding highlight: gold ring + gentle pulse to steer
+       first-time users toward the AI Draw / AI Label buttons. Cleared once
+       the corresponding action has been performed. */
+    .action-bar .tool-btn.guide {
+        color: #7a5a00;
+        background: #fff6d5;
+        border-color: #e6b800;
+        box-shadow: 0 0 0 0 rgba(230, 184, 0, 0.55);
+        animation: guide-pulse 1.6s ease-out infinite;
+    }
+    .action-bar .tool-btn.guide:hover {
+        background: #ffe98a;
+        color: #5c4300;
+        border-color: #d6a900;
+    }
+    @keyframes guide-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(230, 184, 0, 0.55); }
+        70%  { box-shadow: 0 0 0 8px rgba(230, 184, 0, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(230, 184, 0, 0); }
+    }
+    /* Floating callout anchored to the right of the highlighted tool
+       button. Uses fixed positioning so it survives layout reflows in the
+       scrolling pages column. */
+    .guide-callout {
+        position: fixed; z-index: 40;
+        max-width: 260px; padding: 10px 30px 10px 12px;
+        background: #fff6d5; color: #4a3800;
+        border: 1px solid #e6b800; border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        font-size: 13px; line-height: 1.4;
+    }
+    .guide-callout::before {
+        content: ""; position: absolute; left: -7px; top: 14px;
+        width: 12px; height: 12px; background: #fff6d5;
+        border-left: 1px solid #e6b800; border-bottom: 1px solid #e6b800;
+        transform: rotate(45deg);
+    }
+    .guide-callout .guide-close {
+        position: absolute; top: 4px; right: 4px;
+        width: 22px; height: 22px; border: 0; background: transparent;
+        color: #7a5a00; font-size: 16px; line-height: 1; cursor: pointer;
+        border-radius: 4px;
+    }
+    .guide-callout .guide-close:hover { background: rgba(230, 184, 0, 0.25); }
+    .guide-callout strong { display: block; margin-bottom: 2px; }
+    .action-bar .toolbar-status {
+        display: flex; align-items: center; justify-content: center;
+        color: var(--text-muted); font-size: 11px; font-weight: 600;
+        padding: 6px 0 8px; border-bottom: 1px solid var(--border);
+        margin-bottom: 4px; position: relative;
+    }
+    .action-bar .toolbar-status .count-num { color: var(--text); font-size: 15px; }
+    .action-bar .dirty-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--warn); display: none; flex-shrink: 0;
+        position: absolute; top: 4px; right: 4px;
+    }
+    .action-bar.dirty .dirty-dot { display: inline-block; }
+    .action-bar .toolbar-divider {
+        height: 1px; background: var(--border); margin: 4px 6px;
+    }
+
+    /* --- AI processing overlay ---
+       Defaults to hidden via `display: none`; the `.visible` modifier flips it
+       on. We do NOT rely on an inline `style="display:none"` attribute because
+       the CSP `style-src` policy strips inline style attributes, which would
+       leave the overlay visible on page load. */
+    .ai-overlay {
+        position: fixed; inset: 0; z-index: 10000;
+        background: rgba(10, 12, 20, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: none; align-items: center; justify-content: center;
+    }
+    .ai-overlay.visible {
+        display: flex;
+        animation: aiFade 200ms ease-out;
+    }
+    @keyframes aiFade { from { opacity: 0; } to { opacity: 1; } }
+
+    .ai-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        padding: 32px 40px; min-width: 380px; max-width: 460px;
+        text-align: center;
+    }
+
+    /* Orbiting-dots brain graphic — pure CSS, no external assets. */
+    .ai-orb {
+        position: relative; width: 120px; height: 120px; margin: 0 auto 20px;
+    }
+    .ai-orb .core {
+        position: absolute; inset: 40px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%,
+            rgb(var(--brand-rgb) / 0.95),
+            rgb(var(--brand-rgb) / 0.55) 60%,
+            rgb(var(--brand-rgb) / 0.15) 100%);
+        box-shadow: 0 0 40px rgb(var(--brand-rgb) / 0.6);
+        animation: aiPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes aiPulse {
+        0%, 100% { transform: scale(1);   filter: brightness(1); }
+        50%      { transform: scale(1.1); filter: brightness(1.25); }
+    }
+    .ai-orb .ring {
+        position: absolute; inset: 0;
+        border: 2px dashed rgb(var(--brand-rgb) / 0.35);
+        border-radius: 50%;
+        animation: aiSpin 6s linear infinite;
+    }
+    .ai-orb .ring.r2 {
+        inset: 15px;
+        border-color: rgb(var(--brand-rgb) / 0.55);
+        border-style: dotted;
+        animation: aiSpin 4s linear infinite reverse;
+    }
+    @keyframes aiSpin { to { transform: rotate(360deg); } }
+    .ai-orb .dot {
+        position: absolute; width: 10px; height: 10px; border-radius: 50%;
+        background: rgb(var(--brand-rgb) / 0.9);
+        box-shadow: 0 0 12px rgb(var(--brand-rgb) / 0.9);
+        top: 50%; left: 50%;
+    }
+    .ai-orb .dot.d1 { animation: aiOrbit 2.4s linear infinite; }
+    .ai-orb .dot.d2 { animation: aiOrbit 2.4s linear infinite; animation-delay: -0.8s; }
+    .ai-orb .dot.d3 { animation: aiOrbit 2.4s linear infinite; animation-delay: -1.6s; }
+    @keyframes aiOrbit {
+        from { transform: rotate(0deg)   translate(52px) rotate(0deg); }
+        to   { transform: rotate(360deg) translate(52px) rotate(-360deg); }
+    }
+
+    .ai-title {
+        font-size: 18px; font-weight: 700; color: var(--text);
+        margin: 0 0 6px;
+    }
+    .ai-status {
+        font-size: 13px; color: var(--text-muted);
+        min-height: 20px;
+        transition: opacity 250ms ease;
+    }
+    .ai-status.fade { opacity: 0; }
+
+    .ai-bar {
+        margin-top: 20px; height: 4px; border-radius: 4px;
+        background: var(--surface-2);
+        overflow: hidden; position: relative;
+    }
+    .ai-bar::after {
+        content: ""; position: absolute; top: 0; left: -40%;
+        width: 40%; height: 100%;
+        background: linear-gradient(90deg,
+            transparent,
+            rgb(var(--brand-rgb) / 0.9),
+            transparent);
+        animation: aiBar 1.4s linear infinite;
+    }
+    @keyframes aiBar {
+        to { left: 100%; }
+    }
+
+    .ai-tip {
+        margin-top: 16px; padding: 10px 14px;
+        background: var(--brand-soft);
+        border: 1px solid rgb(var(--brand-rgb) / 0.20);
+        border-radius: 8px;
+        font-size: 12px; color: var(--text);
+        text-align: left;
+    }
+    .ai-tip strong { color: var(--brand); }
+
+    /* --- General-purpose message / confirm modal ---
+       Same backdrop-blur look as .ai-overlay, but with a title + body + button
+       row so it can stand in for `alert()` and `confirm()`. Kept above the AI
+       overlay so an error can surface even if the AI overlay is still showing. */
+    .msg-overlay {
+        position: fixed; inset: 0; z-index: 10001;
+        background: rgba(10, 12, 20, 0.55);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: none; align-items: center; justify-content: center;
+    }
+    .msg-overlay.visible {
+        display: flex;
+        animation: aiFade 200ms ease-out;
+    }
+    .msg-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        padding: 24px 28px; min-width: 340px; max-width: 480px;
+    }
+    .msg-title {
+        margin: 0 0 12px; font-size: 16px; font-weight: 700; color: var(--text);
+    }
+    .msg-title.error   { color: var(--warn); }
+    .msg-body {
+        font-size: 14px; color: var(--text); line-height: 1.5;
+        white-space: pre-wrap;
+    }
+    .msg-actions {
+        display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a> <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a> <span>/</span>
+    Placements v{{ version.version }} ({{ version.pdf_flavor }}){% if version.is_frozen %} — frozen (unpublished){% endif %}
+</p>
+
+{% set _is_published = template.current_version == version.version and template.current_subversion == version.subversion %}
+{% if version.is_frozen and not _is_published %}
+<div class="flash info frozen-notice" style="margin: 0 16px 12px;">
+    <svg class="frozen-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg><strong>This version is frozen but not yet published.</strong>
+    You can still edit placements — saves re-derive the schema in place. Publish from the template detail page when ready.
+</div>
+{% elif version.is_frozen and _is_published %}
+<div class="flash info frozen-notice" style="margin: 0 16px 12px;">
+    <svg class="frozen-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="m9 12 2 2 4-4"/>
+    </svg><strong>This version is live.</strong>
+    Saving edits creates a new sub-version — the current published one keeps serving until you re-publish.
+</div>
+{% endif %}
+
+<div class="editor-layout">
+    <aside class="action-bar" id="actionBar">
+        <div class="toolbar-status" title="Placements on this template">
+            <span class="dirty-dot" title="Unsaved changes"></span>
+            <span class="count-num" id="pcount">0</span><span id="pplural" hidden></span>
+        </div>
+        {% if not version.is_frozen %}
+        <button class="tool-btn primary" type="button" id="saveFreezeBtn" title="Save &amp; Freeze — commit as an immutable version">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/><polyline points="9 5 12 8 15 5"/><polyline points="9 19 12 16 15 19"/><polyline points="5 9 8 12 5 15"/><polyline points="19 9 16 12 19 15"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="saveBtn" title="Save draft">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        </button>
+        {% else %}
+        <button class="tool-btn primary" type="button" id="saveBtn" title="Save — re-freezes the version in place">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        </button>
+        {% endif %}
+        <div class="toolbar-divider"></div>
+        {% if version.pdf_flavor == 'flat' %}
+        <button class="tool-btn" type="button" id="aiDrawBtn" title="AI: draw placement boxes on every fillable region (flat PDF only)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M14 6l4 0M16 4l0 4"/></svg>
+        </button>
+        {% endif %}
+        <button class="tool-btn" type="button" id="aiDetectBtn" title="AI: label unnamed placements (including AcroForm defaults like &quot;Text1&quot;) using OCR + vision">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/><path d="M19 15l.7 2.1L22 18l-2.3.9L19 21l-.7-2.1L16 18l2.3-.9z"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="lockAllBtn" title="Lock all placements">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path class="lock-shackle" d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="addModeBtn" title="Add text field: OFF. Enable, then click on a page to add text placements.">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 12h6"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="addCheckboxBtn" title="Add checkbox: OFF. Enable, then click on a page to drop square checkbox placements.">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8l8 8M16 8l-8 8"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="addRadioBtn" title="Add radio button: OFF. Enable, then click on a page to drop square radio placements.">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button class="tool-btn" type="button" id="previewBtn" title="Preview — save then open PDF with placeholder values">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="tool-btn" type="button" id="downloadTaggedBtn" title="Download tagged PDF — every placement rendered as [payload_key]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <a class="tool-btn danger" href="/ui/templates/{{ template.id }}" title="Cancel — return to template">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </a>
+    </aside>
+    <div class="pages-column" id="pagesCol">
+        <div class="realign-banner" id="realignBanner" hidden>
+            <span id="realignBannerText"></span>
+            <button type="button" class="ai-redetect" id="realignBannerAI" hidden
+                title="Run OCR + vision on the re-uploaded PDF and match placements by label">
+                Try AI re-detect
+            </button>
+            <button type="button" class="close" id="realignBannerClose" title="Dismiss">×</button>
+        </div>
+        {% for n in range(1, page_count + 1) %}
+        <div class="page-frame" data-page="{{ n }}">
+            <span class="page-label">Page {{ n }}</span>
+            <img src="/ui/versions/{{ version.id }}/pdf-page/{{ n }}.png" alt="Page {{ n }}" draggable="false">
+        </div>
+        {% endfor %}
+    </div>
+
+    <aside class="side-panel">
+        <h3>Selected placement</h3>
+        <div id="editor">
+            <p class="empty">No placement selected.<br>Click a placement (or click on a page to add one).</p>
+        </div>
+    </aside>
+</div>
+
+<div class="msg-overlay" id="msgOverlay" aria-hidden="true">
+    <div class="msg-card" role="dialog" aria-modal="true" aria-labelledby="msgTitle">
+        <h3 class="msg-title" id="msgTitle"></h3>
+        <div class="msg-body" id="msgBody"></div>
+        <div class="msg-actions">
+            <button class="btn" type="button" id="msgCancelBtn" hidden>Cancel</button>
+            <button class="primary" type="button" id="msgConfirmBtn">OK</button>
+        </div>
+    </div>
+</div>
+
+<div class="ai-overlay" id="aiOverlay" aria-hidden="true">
+    <div class="ai-card" role="dialog" aria-live="polite">
+        <div class="ai-orb">
+            <div class="ring"></div>
+            <div class="ring r2"></div>
+            <div class="core"></div>
+            <div class="dot d1"></div>
+            <div class="dot d2"></div>
+            <div class="dot d3"></div>
+        </div>
+        <h3 class="ai-title" id="aiTitle">Working on it…</h3>
+        <div class="ai-status" id="aiStatus">Waking up the model.</div>
+        <div class="ai-bar"></div>
+        <div class="ai-tip" id="aiTip"></div>
+    </div>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function() {
+    "use strict";
+
+    const VERSION_ID = "{{ version.id }}";
+    const TEMPLATE_ID = "{{ template.id }}";
+    const INITIAL = {{ (placements_json or '[]') | safe }};
+    // Realign summary — null on fresh uploads (no prior version to align
+    // against), a { matched_by_name, preserved_by_coords, added_from_new,
+    // dropped_off_page } dict on re-uploads. Drives the amber banner at the
+    // top of the editor so the operator knows the page needs their eyes.
+    // Default to `null` so a stale/rolling server that hasn't picked up the
+    // context key yet still yields valid JS (else `const REALIGN = ;`).
+    const REALIGN = {{ (realign_json or 'null') | safe }};
+    // CSRF cookie is HttpOnly — read the token from the server-rendered
+    // request state instead of document.cookie.
+    const CSRF_TOKEN = "{{ request.state.csrf_token or '' }}";
+
+    // Working state — array of placement objects. Kept as the source of
+    // truth; DOM is rebuilt from this on every change so no reconciliation
+    // logic is needed.
+    // Normalize legacy placement records: earlier versions stored percentages
+    // as 0-100 and pages as 0-based. Any placement whose numbers look like
+    // that shape gets rewritten to the current convention (0-1 fractions,
+    // 1-based pages) so pills still land in the right place.
+    function _normalizeLegacy(p) {
+        const out = Object.assign({}, p);
+        if (typeof out.page === "number" && out.page < 1) out.page = out.page + 1;
+        for (const k of ["x_pct", "y_pct", "w_pct", "h_pct"]) {
+            const v = out[k];
+            if (typeof v === "number" && v > 1.5) out[k] = v / 100;
+        }
+        return out;
+    }
+    let placements = INITIAL.map(p => Object.assign({
+        name: "", label: "", page: 1, x_pct: 0, y_pct: 0, w_pct: 0.15, font_size: 10, anchor: "top-left", locked: false
+    }, _normalizeLegacy(p)));
+    if (placements.some(p => (INITIAL.find(x => x.name === p.name) || {}).page === 0)) {
+        console.warn("docgen: normalized legacy 0-based page numbers in placements");
+    }
+    let selectedIdx = -1;
+    let dirty = false;
+    // Click-to-add tool. null = disarmed. "text" arms text-field placements;
+    // "checkbox" arms square boolean placements; "radio" arms square radio
+    // placements. Only one may be armed at a time so clicks land in exactly
+    // one bucket.
+    let addTool = null;
+
+    const actionBar = document.getElementById("actionBar");
+    const pagesCol = document.getElementById("pagesCol");
+    const editorEl = document.getElementById("editor");
+    const pcountEl = document.getElementById("pcount");
+    const pplural = document.getElementById("pplural");
+    const lockAllBtn = document.getElementById("lockAllBtn");
+    const addModeBtn = document.getElementById("addModeBtn");
+    const addCheckboxBtn = document.getElementById("addCheckboxBtn");
+    const addRadioBtn = document.getElementById("addRadioBtn");
+
+    function markDirty() {
+        dirty = true;
+        actionBar.classList.add("dirty");
+        // Any operator interaction with a needs-review placement counts as
+        // "the operator eyeballed this" — clear the flag so it drops the
+        // amber outline and stops nagging. Batch ops that don't move a
+        // specific selection (squareizeAllCheckboxes, etc.) don't trigger
+        // this since selectedIdx isn't necessarily pointing at them.
+        if (selectedIdx >= 0 && selectedIdx < placements.length) {
+            const p = placements[selectedIdx];
+            if (p.realign_status === "needs_review") {
+                p.realign_status = "confirmed";
+                p.realign_confidence = 1.0;
+            }
+        }
+    }
+
+    function csrfToken() { return CSRF_TOKEN; }
+
+    // Slug any human-readable text into a snake_case payload key. Non-ASCII
+    // and non-alphanumerics collapse to underscores; leading digits get a
+    // "f_" prefix so the key is always a valid identifier for consumers that
+    // care (Python, JSON schemas that forbid leading digits, etc.).
+    function slugifyKey(text) {
+        let s = String(text || "")
+            .normalize("NFKD")
+            .replace(/[\u0300-\u036f]/g, "")   // strip combining marks
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "_")
+            .replace(/_+/g, "_")
+            .replace(/^_+|_+$/g, "");
+        if (!s) return "field";
+        if (/^[0-9]/.test(s)) s = "f_" + s;
+        return s;
+    }
+
+    // Given a desired slug and a set of already-taken names, return a unique
+    // variant. Appends _2, _3, ... until it finds a free one.
+    function uniqueName(base, taken) {
+        if (!taken.has(base)) return base;
+        for (let i = 2; i < 10000; i++) {
+            const cand = `${base}_${i}`;
+            if (!taken.has(cand)) return cand;
+        }
+        return `${base}_${Date.now()}`;
+    }
+
+    // Shortening rule for payload keys built from an AI section + label.
+    //
+    // Motivation: "patient_information_section_first_name" and
+    // "patient_authorization_to_speak_with_authorized_representative_1_please_print"
+    // are unwieldy. We keep meaning by (a) dropping form-boilerplate words,
+    // (b) abbreviating common form terms, (c) deduping tokens that repeat
+    // across section+label, (d) capping length. Uniqueness is enforced by
+    // uniqueName() so any collisions still get _2/_3 suffixes.
+    const KEY_STOP_WORDS = new Set([
+        "the", "of", "to", "for", "with", "a", "an", "in", "on", "at", "by",
+        "is", "are", "be", "your", "and", "or",
+        "please", "print", "optional", "required", "section",
+    ]);
+    // Multi-token contractions (matched against the joined slug BEFORE
+    // splitting into tokens). Order matters — longest first.
+    const KEY_MULTIWORD = [
+        [/\bmm_dd_yyyy\b/g, ""],
+        [/\bsocial_security_number\b/g, "ssn"],
+        [/\bdate_of_birth\b/g, "dob"],
+        [/\bphone_number\b/g, "phone"],
+        [/\bzip_code\b/g, "zip"],
+        [/\bmiddle_initial\b/g, "mi"],
+        [/\bhealthcare_provider\b/g, "hcp"],
+    ];
+    // Single-token abbreviations.
+    const KEY_ABBREV = {
+        "information": "info",
+        "authorization": "auth",
+        "authorized": "auth",
+        "representative": "rep",
+        "medication": "med",
+        "medications": "meds",
+        "signature": "sig",
+        "prescription": "rx",
+        "prescriber": "rx",
+        "provider": "prov",
+        "healthcare": "hc",
+        "number": "num",
+        "certification": "cert",
+        "agreement": "agmt",
+        "insurance": "ins",
+    };
+    const KEY_MAX_LEN = 48;
+    // Section is a prefix, not the distinguishing part — cap it hard so long
+    // headings like "My signature below attests to..." don't eat the whole
+    // budget and truncate the actual field label off the end.
+    const SECTION_MAX_TOKENS = 2;
+    const SECTION_MAX_LEN = 16;
+
+    function _applyContractions(slug) {
+        let s = slug;
+        for (const [pat, repl] of KEY_MULTIWORD) s = s.replace(pat, repl);
+        return s.replace(/_+/g, "_").replace(/^_+|_+$/g, "");
+    }
+
+    // Build a compact, meaningful payload key from an AI section + label.
+    // Falls back to just the label if section is empty. `taken` is the
+    // running set of names already reserved on this apply pass.
+    function _dedupeTokens(tokens) {
+        const seen = new Set();
+        return tokens.filter(t => {
+            if (seen.has(t)) return false;
+            seen.add(t);
+            return true;
+        });
+    }
+
+    function shortenPayloadKey(sectionSlug, labelSlug, taken) {
+        sectionSlug = _applyContractions(sectionSlug || "");
+        labelSlug = _applyContractions(labelSlug || "");
+        // Tokenize → abbreviate → drop stop words → dedupe within each side.
+        // Deduping within section handles cases like "Authorized Representative
+        // Authorization" collapsing "auth" twice.
+        let sectionTokens = _dedupeTokens(
+            sectionSlug.split("_").filter(Boolean)
+                .map(t => KEY_ABBREV[t] || t)
+                .filter(t => !KEY_STOP_WORDS.has(t))
+        );
+        // Trim section to a short prefix. Take up to SECTION_MAX_TOKENS
+        // tokens, then drop trailing tokens until the joined prefix fits
+        // SECTION_MAX_LEN. Always keep at least one token if any exist.
+        sectionTokens = sectionTokens.slice(0, SECTION_MAX_TOKENS);
+        while (sectionTokens.length > 1
+               && sectionTokens.join("_").length > SECTION_MAX_LEN) {
+            sectionTokens.pop();
+        }
+        const labelTokens = _dedupeTokens(
+            labelSlug.split("_").filter(Boolean)
+                .map(t => KEY_ABBREV[t] || t)
+                .filter(t => !KEY_STOP_WORDS.has(t))
+        );
+        // Drop tokens from label that already appear in section (no point
+        // saying "patient" twice). Preserves numbers ("1", "2") and length-
+        // 1 tokens like "mi" that carry meaning.
+        const sectionSet = new Set(sectionTokens);
+        const dedupedLabel = labelTokens.filter(t => !sectionSet.has(t));
+        // If label collapses to nothing after dedup (e.g. label was
+        // literally the section name), keep the original label tokens so we
+        // still have SOMETHING distinguishing this field.
+        const finalLabel = dedupedLabel.length > 0 ? dedupedLabel : labelTokens;
+        let tokens = [...sectionTokens, ...finalLabel];
+        // If still empty (both were pure boilerplate), fall back to the raw
+        // label slug so we don't lose the field entirely.
+        if (tokens.length === 0) {
+            tokens = (labelSlug || sectionSlug || "field").split("_").filter(Boolean);
+        }
+        let base = tokens.join("_");
+        // Length cap: drop short (≤3-letter, non-numeric) tokens from the
+        // middle first — the head (section) and tail (label essence) carry
+        // the most meaning.
+        if (base.length > KEY_MAX_LEN && tokens.length > 3) {
+            const kept = tokens.filter((t, i) =>
+                i === 0 || i === tokens.length - 1
+                || t.length > 3 || /^\d+$/.test(t)
+            );
+            if (kept.length >= 2) {
+                base = kept.join("_");
+            }
+        }
+        if (base.length > KEY_MAX_LEN) {
+            base = base.slice(0, KEY_MAX_LEN).replace(/_+$/g, "");
+        }
+        if (!base) base = "field";
+        if (/^[0-9]/.test(base)) base = "f_" + base;
+        return uniqueName(base, taken);
+    }
+
+    function nextDefaultName() {
+        // "field_N" where N avoids collisions with existing names.
+        const used = new Set(placements.map(p => p.name));
+        for (let i = 1; i < 10000; i++) {
+            const n = "field_" + i;
+            if (!used.has(n)) return n;
+        }
+        return "field_" + Date.now();
+    }
+    // A placement's payload key is auto-tracked from its label unless the
+    // user has explicitly customized it. `_nameManual` is the explicit opt-
+    // out flag; when unset, we infer from the name shape: `field_N` means
+    // still on defaults, anything else means already curated (by AI Label
+    // or manual entry on load).
+    function isDefaultName(n) { return /^field_\d+$/.test(n || ""); }
+    function isNameLocked(p) {
+        if (p._nameManual === true) return true;
+        if (p._nameManual === false) return false;
+        return !isDefaultName(p.name);
+    }
+    // AcroForm widgets often ship with the authoring tool's placeholder /T
+    // instead of a meaningful label. Covers:
+    //   Adobe Acrobat old style:  "Text1", "Field 2", "Check Box3"
+    //   Adobe LiveCycle Designer: "Text Field 158", "Check Box Field 4"
+    //   Merged/no-space variants: "TextField1", "CheckBox3", "RadioButton5"
+    // The optional second word (field/button/box) is what makes this catch
+    // LiveCycle's "Text Field N" shape, which Acrobat has produced for years.
+    // Also treats empty/near-empty and digit-only strings as junk.
+    const JUNK_LABEL_RE = /^(?:text|field|check\s*box|checkbox|radio|button|signature|sig|untitled)(?:\s*(?:field|button|box))?\s*\d*$/i;
+    function isJunkLabel(s) {
+        const t = String(s || "").trim();
+        if (t.length < 2) return true;
+        if (/^\d+$/.test(t)) return true;
+        return JUNK_LABEL_RE.test(t);
+    }
+
+    function render() {
+        renderCanvas();
+        renderSidebar();
+        renderRealignBanner();
+    }
+
+    // Banner is a one-shot advisory: shown once on load when REALIGN is
+    // present, hides itself when every needs-review placement has been
+    // touched OR the user dismisses it. Persists dismissal via a module-
+    // scoped flag (no localStorage — this is a per-session hint, not a
+    // preference worth persisting).
+    let realignBannerDismissed = false;
+    const realignBanner = document.getElementById("realignBanner");
+    const realignBannerText = document.getElementById("realignBannerText");
+    const realignBannerClose = document.getElementById("realignBannerClose");
+    const realignBannerAI = document.getElementById("realignBannerAI");
+    if (realignBannerClose) {
+        realignBannerClose.addEventListener("click", () => {
+            realignBannerDismissed = true;
+            renderRealignBanner();
+        });
+    }
+    if (realignBannerAI) {
+        realignBannerAI.addEventListener("click", () => runAIRealign());
+    }
+    function renderRealignBanner() {
+        if (!realignBanner) return;
+        if (!REALIGN || realignBannerDismissed) {
+            realignBanner.hidden = true;
+            return;
+        }
+        const needsReview = placements.filter(p => p.realign_status === "needs_review").length;
+        if (needsReview === 0) {
+            realignBanner.hidden = true;
+            return;
+        }
+        // Compose a plain-English summary of what the realigner did on
+        // upload. Numbers come straight from the RealignReport that the
+        // upload path stashed alongside placements.
+        const parts = [];
+        if (REALIGN.matched_by_name) parts.push(`${REALIGN.matched_by_name} matched by name`);
+        if (REALIGN.preserved_by_coords) parts.push(`${REALIGN.preserved_by_coords} kept in place`);
+        if (REALIGN.added_from_new) parts.push(`${REALIGN.added_from_new} new`);
+        if (REALIGN.dropped_off_page) parts.push(`${REALIGN.dropped_off_page} dropped (page removed)`);
+        realignBannerText.innerHTML =
+            `<strong>Re-uploaded from a prior version.</strong> ${parts.join(", ")}. ` +
+            `<strong>${needsReview}</strong> placement(s) need your eyes — outlined in amber below. ` +
+            `Nudge, resize, or edit them to confirm.`;
+        realignBanner.hidden = false;
+        // Only offer AI re-detect when heuristics fell through — i.e. there
+        // are placements the upload path couldn't confidently locate. If
+        // every needs-review pill is just a low-drift name match, the
+        // operator can nudge in seconds and an OCR round-trip is overkill.
+        if (realignBannerAI) {
+            const flaggedWithLabel = placements.filter(p =>
+                p.realign_status === "needs_review" && (p.label || "").trim().length > 0
+            ).length;
+            realignBannerAI.hidden = flaggedWithLabel === 0;
+        }
+    }
+
+    // POST current placements to the ai-realign endpoint; server runs
+    // detect + label on the stored PDF and returns coord matches keyed by
+    // placement index. We apply each match in place, stamp the source, and
+    // flip status → auto so the amber outline clears. Any placement that
+    // didn't get a match stays flagged for manual nudge.
+    async function runAIRealign() {
+        if (!realignBannerAI) return;
+        const originalText = realignBannerAI.textContent;
+        realignBannerAI.disabled = true;
+        realignBannerAI.textContent = "Detecting…";
+        try {
+            const resp = await fetch(`/ui/versions/{{ version.id }}/placements/ai-realign`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({placements}),
+            });
+            if (!resp.ok) {
+                let detail = "";
+                try { detail = (await resp.json()).detail || ""; } catch (_e) {}
+                throw new Error(detail || `HTTP ${resp.status}`);
+            }
+            const data = await resp.json();
+            const matches = Array.isArray(data.matches) ? data.matches : [];
+            let applied = 0;
+            for (const m of matches) {
+                const idx = Number(m.index);
+                if (!Number.isInteger(idx) || idx < 0 || idx >= placements.length) continue;
+                const p = placements[idx];
+                p.page = Number(m.page) || p.page;
+                p.x_pct = Number(m.x_pct);
+                p.y_pct = Number(m.y_pct);
+                p.w_pct = Number(m.w_pct);
+                if (Number.isFinite(m.h_pct) && m.h_pct > 0) p.h_pct = Number(m.h_pct);
+                p.realign_source = "ai_label_match";
+                p.realign_status = "auto";
+                p.realign_confidence = Number(m.similarity) || 0.9;
+                delete p.prior_coords;
+                applied += 1;
+            }
+            if (applied > 0) markDirty();
+            render();
+            // render() rebuilds the banner text — overwrite it with the
+            // AI-result summary AFTER, so the operator sees the outcome
+            // instead of the generic "N placements need your eyes" copy.
+            const flagged = placements.filter(p => p.realign_status === "needs_review").length;
+            const detected = data.detected_count || 0;
+            const labeled = data.labeled_count || 0;
+            realignBanner.hidden = false;
+            realignBannerText.innerHTML =
+                `<strong>AI re-detect:</strong> matched ${applied} of ${detected} detected fields ` +
+                `(${labeled} labeled). ${flagged} still need review.`;
+        } catch (err) {
+            realignBannerText.innerHTML =
+                `<strong>AI re-detect failed:</strong> ${String(err.message || err)}. ` +
+                `Nudge the flagged placements manually.`;
+        } finally {
+            realignBannerAI.disabled = false;
+            realignBannerAI.textContent = originalText;
+        }
+    }
+
+    // Snap a checkbox placement into a screen-square, centered on its
+    // current midpoint. Backend detection sometimes returns a slightly
+    // rectangular bounding box for a printed checkbox — the render will
+    // draw a centered X, but the box itself looks off. This normalizes
+    // both AI-drawn ingest and previously-saved placements on first
+    // render (once page images know their dimensions).
+    function squareizeCheckbox(p) {
+        const frame = pagesCol.querySelector(`.page-frame[data-page="${p.page}"]`);
+        if (!frame) return false;
+        const rect = frame.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return false;
+        const pxW = (p.w_pct || 0) * rect.width;
+        const pxH = (p.h_pct || 0) * rect.height;
+        const seed = pxW && pxH ? Math.min(pxW, pxH) : (pxW || pxH || 12);
+        const side = Math.max(6, seed);  // 6px floor so it stays clickable
+        const newW = side / rect.width;
+        const newH = side / rect.height;
+        // Center-preserving: keep the midpoint fixed so we don't shift the
+        // box off the printed checkbox it was meant to sit on.
+        const cx_pct = (p.x_pct || 0) + (p.w_pct || 0) / 2;
+        const cy_pct = (p.y_pct || 0) + (p.h_pct || 0) / 2;
+        const nx = Math.max(0, Math.min(1 - newW, cx_pct - newW / 2));
+        const ny = Math.max(0, Math.min(1 - newH, cy_pct - newH / 2));
+        const changed = Math.abs(newW - p.w_pct) > 1e-4
+                     || Math.abs(newH - (p.h_pct || 0)) > 1e-4
+                     || Math.abs(nx - p.x_pct) > 1e-4
+                     || Math.abs(ny - p.y_pct) > 1e-4;
+        p.w_pct = newW; p.h_pct = newH; p.x_pct = nx; p.y_pct = ny;
+        return changed;
+    }
+
+    // A placement renders as a checkbox when either the source widget is
+    // /Btn OR the user picked boolean explicitly. Same rule the backend
+    // renderer uses, kept in sync so ingest/render agree on what's square.
+    function isCheckboxPlacement(p) {
+        return p.type === "checkbox"
+            || (p.type == null && (p.payload_type === "boolean" || p.field_type === "checkbox"));
+    }
+    // Radio is only ever set via the explicit type field — there's no legacy
+    // signal for it (pre-radio placements coerced radios to checkbox/text).
+    function isRadioPlacement(p) {
+        return p.type === "radio";
+    }
+    // Both checkbox and radio share the square-in-pixel-space geometry
+    // constraint. Anything that snaps or resizes with an aspect-ratio lock
+    // should key off this rather than the checkbox check alone.
+    function isSquarePlacement(p) {
+        return isCheckboxPlacement(p) || isRadioPlacement(p);
+    }
+
+    function squareizeAllCheckboxes(onlyPage) {
+        let touched = false;
+        for (const p of placements) {
+            if (!isSquarePlacement(p)) continue;
+            if (onlyPage != null && p.page !== onlyPage) continue;
+            if (squareizeCheckbox(p)) touched = true;
+        }
+        return touched;
+    }
+
+    function renderCanvas() {
+        // Clear old placement + ghost DOM (keep the page label + img).
+        pagesCol.querySelectorAll(".placement, .ghost-placement, .page-empty-hint").forEach(el => el.remove());
+        const perPage = {};
+        placements.forEach((p, idx) => {
+            const frame = pagesCol.querySelector(`.page-frame[data-page="${p.page}"]`);
+            if (!frame) {
+                console.warn("docgen: placement", idx, "targets page", p.page,
+                             "but only pages 1-" + pagesCol.querySelectorAll(".page-frame").length + " exist");
+                return;
+            }
+            perPage[p.page] = (perPage[p.page] || 0) + 1;
+            // Ghost outline: rendered when the placement was realigned with
+            // a meaningful drift. Attached to whichever page-frame holds
+            // the prior page number (usually the same as the live page).
+            if (p.realign_status === "needs_review" && hasMeaningfulDrift(p)) {
+                const priorFrame = pagesCol.querySelector(
+                    `.page-frame[data-page="${p.prior_coords.page}"]`
+                );
+                if (priorFrame) {
+                    const ghost = document.createElement("div");
+                    ghost.className = "ghost-placement";
+                    ghost.style.left = (p.prior_coords.x_pct * 100) + "%";
+                    ghost.style.top = (p.prior_coords.y_pct * 100) + "%";
+                    ghost.style.width = (p.prior_coords.w_pct * 100) + "%";
+                    if (p.prior_coords.h_pct > 0) {
+                        ghost.style.height = (p.prior_coords.h_pct * 100) + "%";
+                    }
+                    priorFrame.appendChild(ghost);
+                }
+            }
+            const el = document.createElement("div");
+            el.className = "placement"
+                + (idx === selectedIdx ? " selected" : "")
+                + (p.locked ? " locked" : "")
+                + (isCheckboxPlacement(p) ? " checkbox" : "")
+                + (isRadioPlacement(p) ? " radio" : "")
+                + (p.realign_status === "needs_review" ? " needs-review" : "");
+            el.style.left = (p.x_pct * 100) + "%";
+            el.style.top = (p.y_pct * 100) + "%";
+            el.style.width = (p.w_pct * 100) + "%";
+            // Only pin height when h_pct is set (acroform harvester sets it;
+            // resize also sets it). Text placements without h_pct keep an
+            // intrinsic height derived from font-size.
+            if (typeof p.h_pct === "number" && p.h_pct > 0) {
+                el.style.height = (p.h_pct * 100) + "%";
+            }
+            el.style.fontSize = Math.max(9, Math.min(14, p.font_size)) + "px";
+            // Pill shows the payload key (what the renderer will read); the
+            // human-readable label is surfaced on hover so both are visible
+            // without cluttering the canvas.
+            el.textContent = p.name;
+            el.title = p.label ? (p.label + " → " + p.name) : p.name;
+            el.dataset.idx = idx;
+            if (!p.locked) {
+                const grip = document.createElement("div");
+                grip.className = "resize-se";
+                grip.title = "Drag to resize";
+                el.appendChild(grip);
+            }
+            frame.appendChild(el);
+        });
+        // For each page without any placement, show a hint. Wording flips
+        // based on whether click-to-add is armed so the user isn't told to
+        // click when clicks would be no-ops.
+        pagesCol.querySelectorAll(".page-frame").forEach(frame => {
+            const pn = parseInt(frame.dataset.page, 10);
+            if (!perPage[pn]) {
+                const hint = document.createElement("div");
+                hint.className = "page-empty-hint";
+                hint.textContent = addTool === "checkbox"
+                    ? "Click anywhere on this page to drop a checkbox"
+                    : addTool === "radio"
+                        ? "Click anywhere on this page to drop a radio button"
+                        : addTool === "text"
+                            ? "Click anywhere on this page to add a text field"
+                            : "Enable an add tool in the toolbar to place fields";
+                frame.appendChild(hint);
+            }
+        });
+        pcountEl.textContent = placements.length;
+        pplural.textContent = placements.length === 1 ? "" : "s";
+        updateLockAllBtn();
+        updateAddModeBtn();
+        updateGuide();
+    }
+
+    // Both add-tool buttons reflect the armed state — .primary when armed
+    // so they stand out; tooltip narrates the current mode. Only one may
+    // be armed at a time (mutually exclusive).
+    function updateAddModeBtn() {
+        if (addModeBtn) {
+            if (addTool === "text") {
+                addModeBtn.classList.add("primary");
+                addModeBtn.title = "Add text field: ON. Click on a page to drop a text placement. Click this button again to disable.";
+            } else {
+                addModeBtn.classList.remove("primary");
+                addModeBtn.title = "Add text field: OFF. Enable, then click on a page to add text placements.";
+            }
+        }
+        if (addCheckboxBtn) {
+            if (addTool === "checkbox") {
+                addCheckboxBtn.classList.add("primary");
+                addCheckboxBtn.title = "Add checkbox: ON. Click on a page to drop a square checkbox placement. Click again to disable.";
+            } else {
+                addCheckboxBtn.classList.remove("primary");
+                addCheckboxBtn.title = "Add checkbox: OFF. Enable, then click on a page to drop square checkbox placements.";
+            }
+        }
+        if (addRadioBtn) {
+            if (addTool === "radio") {
+                addRadioBtn.classList.add("primary");
+                addRadioBtn.title = "Add radio button: ON. Click on a page to drop a square radio placement. Click again to disable.";
+            } else {
+                addRadioBtn.classList.remove("primary");
+                addRadioBtn.title = "Add radio button: OFF. Enable, then click on a page to drop square radio placements.";
+            }
+        }
+    }
+
+    // Icon + tooltip flip based on whether ANY placement is unlocked. If
+    // any is, the button offers "Lock all"; once every placement is locked
+    // it flips to "Unlock all". Disabled with no placements at all.
+    function updateLockAllBtn() {
+        if (!lockAllBtn) return;
+        if (placements.length === 0) {
+            lockAllBtn.disabled = true;
+            lockAllBtn.title = "No placements to lock";
+            lockAllBtn.classList.remove("primary");
+            return;
+        }
+        lockAllBtn.disabled = false;
+        const anyUnlocked = placements.some(p => !p.locked);
+        if (anyUnlocked) {
+            lockAllBtn.title = `Lock all ${placements.length} placement(s)`;
+            lockAllBtn.classList.remove("primary");
+        } else {
+            lockAllBtn.title = `Unlock all ${placements.length} placement(s)`;
+            lockAllBtn.classList.add("primary");
+        }
+    }
+
+    // ---- Guided onboarding ------------------------------------------------
+    // First-time users don't know they should run AI Draw (flat PDF) or AI
+    // Label. Highlight the right button in gold and pin a callout next to
+    // it. The state machine has three positions:
+    //   flat + zero placements                → AI Draw
+    //   any + placements but no labels yet    → AI Label
+    //   otherwise                             → nothing
+    // The user can dismiss the callout ("Got it") — dismissed keys persist
+    // in localStorage so the same tip doesn't nag on every page reload.
+    const PDF_FLAVOR = {{ (version.pdf_flavor or "acroform")|tojson }};
+    const GUIDE_DISMISS_KEY = "quire.guide.dismissed.v1";
+    function guideDismissed() {
+        try { return JSON.parse(localStorage.getItem(GUIDE_DISMISS_KEY) || "{}"); }
+        catch (e) { return {}; }
+    }
+    function markGuideDismissed(step) {
+        const d = guideDismissed();
+        d[step] = true;
+        try { localStorage.setItem(GUIDE_DISMISS_KEY, JSON.stringify(d)); }
+        catch (e) { /* private mode — best-effort */ }
+    }
+    function anyPlacementLabeled() {
+        // Junk labels (AcroForm defaults like "Text1") don't count — the guide
+        // should still nudge the user toward AI Label in that case.
+        return placements.some(p => !isJunkLabel(p.label));
+    }
+    function pickGuideStep() {
+        if (PDF_FLAVOR === "flat" && placements.length === 0) return "draw";
+        if (placements.length > 0 && !anyPlacementLabeled()) return "label";
+        return null;
+    }
+    function updateGuide() {
+        // Clear prior state.
+        document.querySelectorAll(".action-bar .tool-btn.guide")
+            .forEach(el => el.classList.remove("guide"));
+        const existing = document.getElementById("guideCallout");
+        if (existing) existing.remove();
+
+        const step = pickGuideStep();
+        if (!step) return;
+        if (guideDismissed()[step]) return;
+
+        let btnId, title, body;
+        if (step === "draw") {
+            btnId = "aiDrawBtn";
+            title = "Start with AI Draw";
+            body = "This is a flat PDF — click here to let the AI detect fillable boxes across every page. You can adjust or delete them after.";
+        } else {
+            btnId = "aiDetectBtn";
+            title = "Now run AI Label";
+            body = "Click here to auto-label each placement using OCR + vision. You'll get suggested names and payload keys — review and tweak in the sidebar.";
+        }
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.classList.add("guide");
+
+        const callout = document.createElement("div");
+        callout.className = "guide-callout";
+        callout.id = "guideCallout";
+        callout.innerHTML = `<strong></strong><div class="body"></div>` +
+            `<button type="button" class="guide-close" title="Dismiss">×</button>`;
+        callout.querySelector("strong").textContent = title;
+        callout.querySelector(".body").textContent = body;
+        document.body.appendChild(callout);
+
+        // Position the callout to the right of the button (the toolbar is
+        // a left-side vertical strip). Uses viewport coords so it doesn't
+        // drift as the pages column scrolls.
+        const rect = btn.getBoundingClientRect();
+        callout.style.left = (rect.right + 12) + "px";
+        callout.style.top = (rect.top - 4) + "px";
+
+        callout.querySelector(".guide-close").addEventListener("click", () => {
+            markGuideDismissed(step);
+            updateGuide();
+        });
+    }
+
+    // Re-anchor the callout when the window resizes so it stays glued to
+    // its button.
+    window.addEventListener("resize", () => {
+        if (document.getElementById("guideCallout")) updateGuide();
+    });
+
+    // The realigner considers a change "meaningful" past this fraction on
+    // any axis — kept in sync with the backend threshold so the Revert
+    // button hides when reverting would produce a visually identical result.
+    const REALIGN_DRIFT_THRESHOLD = 0.01;
+    function hasMeaningfulDrift(p) {
+        if (!p.prior_coords) return false;
+        if (p.prior_coords.page !== p.page) return true;
+        return ["x_pct", "y_pct", "w_pct"].some(k =>
+            Math.abs((p.prior_coords[k] || 0) - (p[k] || 0)) > REALIGN_DRIFT_THRESHOLD
+        );
+    }
+    function renderRealignControls(p) {
+        if (p.realign_status !== "needs_review") return "";
+        const source = p.realign_source === "widget_name_match"
+            ? "matched by name from prior version"
+            : p.realign_source === "preserved_coords"
+                ? "kept in place — the new upload's layout wasn't parseable"
+                : "flagged by realign";
+        const drift = hasMeaningfulDrift(p);
+        const revertBtn = drift
+            ? `<button class="btn" type="button" id="realignRevertBtn" title="Move this placement back to its prior position">Revert to prior</button>`
+            : "";
+        return `
+            <div class="realign-controls" style="margin: 0 0 12px; padding: 10px; border: 1px solid rgba(217,119,6,0.35); background: rgba(217,119,6,0.08); border-radius: 6px;">
+                <div style="font-size: 12px; color: #92400e; margin-bottom: 8px;">
+                    <strong>Needs review</strong> — ${source}. Confirm the position is right, or revert.
+                </div>
+                <div class="row-actions" style="margin-top: 0;">
+                    <button class="primary" type="button" id="realignAcceptBtn" title="Confirm this position and clear the flag">Accept</button>
+                    ${revertBtn}
+                </div>
+            </div>
+        `;
+    }
+    function bindRealignControls(p) {
+        const acceptBtn = document.getElementById("realignAcceptBtn");
+        if (acceptBtn) {
+            acceptBtn.addEventListener("click", () => {
+                p.realign_status = "confirmed";
+                p.realign_confidence = 1.0;
+                delete p.prior_coords;  // no more ghost
+                markDirty();
+                render();
+            });
+        }
+        const revertBtn = document.getElementById("realignRevertBtn");
+        if (revertBtn) {
+            revertBtn.addEventListener("click", () => {
+                if (!p.prior_coords) return;
+                p.page = p.prior_coords.page;
+                p.x_pct = p.prior_coords.x_pct;
+                p.y_pct = p.prior_coords.y_pct;
+                p.w_pct = p.prior_coords.w_pct;
+                if (p.prior_coords.h_pct) p.h_pct = p.prior_coords.h_pct;
+                p.realign_status = "confirmed";
+                p.realign_confidence = 1.0;
+                delete p.prior_coords;
+                markDirty();
+                render();
+            });
+        }
+    }
+
+    function renderSidebar() {
+        if (selectedIdx < 0 || selectedIdx >= placements.length) {
+            editorEl.innerHTML = '<p class="empty">No placement selected.<br>Click a placement to edit, or use the click-to-add tool in the toolbar to add one.</p>';
+            return;
+        }
+        const p = placements[selectedIdx];
+        // Default payload_type from field_type so existing placements
+        // (which never had payload_type set) render with a sensible pick.
+        if (p.payload_type !== "string" && p.payload_type !== "boolean") {
+            p.payload_type = (p.field_type === "checkbox") ? "boolean" : "string";
+        }
+        // Realign controls appear at the top of the sidebar when this
+        // placement was flagged by the realigner. Accept confirms the
+        // current position; Revert swaps in the prior coords (only visible
+        // when the drift is meaningful — otherwise Revert would be a no-op).
+        const needsReviewBlock = renderRealignControls(p);
+        editorEl.innerHTML = `
+            ${needsReviewBlock}
+            <label>Label (what's on the form)<input type="text" id="fLabel" value="" spellcheck="false" placeholder="e.g. Patient's Full Name"></label>
+            <label>Name (payload key)<input type="text" id="fName" value="" spellcheck="false"></label>
+            <label>Type<select id="fType">
+                <option value="string">string (text)</option>
+                <option value="boolean">boolean (checkbox — X when true, blank when false)</option>
+            </select></label>
+            <label>Page<input type="number" id="fPage" min="1" value=""></label>
+            <label>Font size (pt)<input type="number" id="fFont" min="6" max="72" step="0.5" value=""></label>
+            <label>Width (%)<input type="number" id="fWidth" min="1" max="100" step="0.5" value=""></label>
+            <label>X (%)<input type="number" id="fX" min="0" max="150" step="0.1" value=""></label>
+            <label>Y (%)<input type="number" id="fY" min="0" max="150" step="0.1" value=""></label>
+            <div class="row-actions"><button class="btn" type="button" id="delBtn">Delete</button></div>
+        `;
+        bindRealignControls(p);
+        document.getElementById("fLabel").value = p.label || "";
+        document.getElementById("fName").value = p.name;
+        document.getElementById("fType").value = p.payload_type;
+        document.getElementById("fPage").value = p.page;
+        document.getElementById("fFont").value = p.font_size;
+        document.getElementById("fWidth").value = (p.w_pct * 100).toFixed(1);
+        document.getElementById("fX").value = (p.x_pct * 100).toFixed(1);
+        document.getElementById("fY").value = (p.y_pct * 100).toFixed(1);
+
+        const bind = (id, key, transform) => {
+            document.getElementById(id).addEventListener("input", (e) => {
+                const val = transform ? transform(e.target.value) : e.target.value;
+                placements[selectedIdx][key] = val;
+                markDirty();
+                // Only redraw the canvas pills — rebuilding the sidebar on
+                // every keystroke would replace the input node and steal
+                // focus mid-type.
+                renderCanvas();
+            });
+        };
+
+        // Label edits auto-slug the payload key on the fly. Kept out of the
+        // generic bind() because we need to (a) also mutate the sibling
+        // Name input's value, and (b) skip when the user has manually
+        // customized the name.
+        document.getElementById("fLabel").addEventListener("input", (e) => {
+            const val = e.target.value;
+            const p = placements[selectedIdx];
+            p.label = val;
+            if (!isNameLocked(p)) {
+                const slug = slugifyKey(val);
+                // Empty labels collapse to slug="field" — skip so we don't
+                // clobber a real default like "field_3" with a bland "field".
+                if (slug && slug !== "field") {
+                    const taken = new Set(
+                        placements.filter((_, i) => i !== selectedIdx)
+                            .map(x => x.name)
+                    );
+                    const newName = uniqueName(slug, taken);
+                    if (p.name !== newName) {
+                        p.name = newName;
+                        const nameInput = document.getElementById("fName");
+                        if (nameInput) nameInput.value = newName;
+                    }
+                    // Stay in auto-track mode — the newly-generated name
+                    // is no longer a "field_N" default, so without this
+                    // explicit flag isNameLocked() would flip to true and
+                    // freeze future label edits from updating the key.
+                    p._nameManual = false;
+                }
+            }
+            markDirty();
+            renderCanvas();
+        });
+        // Any manual keystroke in the Name field opts this placement out of
+        // auto-tracking — user is customizing the payload key intentionally.
+        document.getElementById("fName").addEventListener("input", (e) => {
+            const p = placements[selectedIdx];
+            p.name = e.target.value;
+            p._nameManual = true;
+            markDirty();
+            renderCanvas();
+        });
+        bind("fType", "payload_type");
+        bind("fPage", "page", v => parseInt(v, 10) || 1);
+        bind("fFont", "font_size", v => parseFloat(v) || 10);
+        bind("fWidth", "w_pct", v => (parseFloat(v) || 0) / 100);
+        bind("fX", "x_pct", v => (parseFloat(v) || 0) / 100);
+        bind("fY", "y_pct", v => (parseFloat(v) || 0) / 100);
+
+        document.getElementById("delBtn").addEventListener("click", () => {
+            placements.splice(selectedIdx, 1);
+            selectedIdx = -1;
+            markDirty();
+            render();
+        });
+    }
+
+    // ---- Interactions ----
+
+    // Click on a page: if it's on empty space, add a new placement. If it's
+    // on an existing placement, select it. We use a single delegated handler
+    // on pagesCol and inspect the target.
+    pagesCol.addEventListener("mousedown", (e) => {
+        const frame = e.target.closest(".page-frame");
+        if (!frame) return;
+
+        // Click on an existing placement — select it and start drag or
+        // resize depending on whether the click landed on the SE grip.
+        const placementEl = e.target.closest(".placement");
+        if (placementEl) {
+            e.preventDefault();
+            const isGrip = e.target.classList.contains("resize-se");
+            selectedIdx = parseInt(placementEl.dataset.idx, 10);
+            render();
+            // render() rebuilt the DOM — grab the fresh pill so drag/resize
+            // mutates the element that's actually on the page.
+            const liveEl = pagesCol.querySelector(`.placement[data-idx="${selectedIdx}"]`);
+            if (!liveEl) return;
+            if (placements[selectedIdx].locked) return;  // locked = no drag/resize
+            if (isGrip) {
+                startResize(liveEl, e);
+            } else {
+                startDrag(liveEl, e);
+            }
+            return;
+        }
+
+        // Click on the page background — only spawn a new placement when
+        // an add tool is armed. Prevents accidental fields from stray
+        // clicks while the user is just navigating the layout.
+        if (!addTool) return;
+        const rect = frame.getBoundingClientRect();
+        const x_pct = (e.clientX - rect.left) / rect.width;
+        const y_pct = (e.clientY - rect.top) / rect.height;
+        let p;
+        if (addTool === "checkbox" || addTool === "radio") {
+            // Square in *pixel* space: h_pct scaled by the page's aspect so
+            // width and height render equal on screen. ~2.2% of page width
+            // (~11pt on Letter) is a sane starting size that lands over
+            // most printed checkboxes; user can tune font_size and drag to
+            // fine-tune. Radio uses the same geometry — the render pipeline
+            // decides between glyph and circle based on `type`.
+            const w_pct = 0.022;
+            const h_pct = w_pct * (rect.width / rect.height);
+            const isRadio = addTool === "radio";
+            p = {
+                name: nextDefaultName(),
+                label: "",
+                page: parseInt(frame.dataset.page, 10),
+                x_pct: Math.max(0, Math.min(1 - w_pct, x_pct - w_pct / 2)),
+                y_pct: Math.max(0, Math.min(1 - h_pct, y_pct - h_pct / 2)),
+                w_pct: w_pct,
+                h_pct: h_pct,
+                font_size: 12,
+                anchor: "top-left",
+                type: isRadio ? "radio" : "checkbox",
+                payload_type: "boolean",
+            };
+        } else {
+            p = {
+                name: nextDefaultName(),
+                label: "",
+                page: parseInt(frame.dataset.page, 10),
+                x_pct: Math.max(0, Math.min(0.85, x_pct - 0.075)),  // center 15%-wide box on click
+                y_pct: Math.max(0, Math.min(0.98, y_pct - 0.01)),
+                w_pct: 0.15,
+                font_size: 10,
+                anchor: "top-left",
+                payload_type: "string",
+            };
+        }
+        placements.push(p);
+        selectedIdx = placements.length - 1;
+        markDirty();
+        render();
+    });
+
+    if (addModeBtn) {
+        addModeBtn.addEventListener("click", () => {
+            addTool = (addTool === "text") ? null : "text";
+            render();
+        });
+    }
+    if (addCheckboxBtn) {
+        addCheckboxBtn.addEventListener("click", () => {
+            addTool = (addTool === "checkbox") ? null : "checkbox";
+            render();
+        });
+    }
+    if (addRadioBtn) {
+        addRadioBtn.addEventListener("click", () => {
+            addTool = (addTool === "radio") ? null : "radio";
+            render();
+        });
+    }
+
+    function startDrag(placementEl, downEvent) {
+        const frame = placementEl.parentElement;
+        const rect = frame.getBoundingClientRect();
+        const startX = downEvent.clientX;
+        const startY = downEvent.clientY;
+        const orig = placements[selectedIdx];
+        const startXpct = orig.x_pct;
+        const startYpct = orig.y_pct;
+
+        function onMove(ev) {
+            const dx = (ev.clientX - startX) / rect.width;
+            const dy = (ev.clientY - startY) / rect.height;
+            placements[selectedIdx].x_pct = Math.max(0, Math.min(1, startXpct + dx));
+            placements[selectedIdx].y_pct = Math.max(0, Math.min(1, startYpct + dy));
+            placementEl.style.left = (placements[selectedIdx].x_pct * 100) + "%";
+            placementEl.style.top = (placements[selectedIdx].y_pct * 100) + "%";
+        }
+        function onUp() {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            markDirty();
+            renderSidebar();  // reflect new x/y in the number inputs
+        }
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    }
+
+    // Drag the SE grip to resize width + height as page-relative fractions.
+    // Stays clamped so the box can't be sized off the right/bottom edge and
+    // enforces a minimum so the pill never collapses to an unclickable strip.
+    // Boolean placements are locked to a square (in pixel space) — dragging
+    // scales both axes uniformly so a checkbox can't turn into a rectangle.
+    function startResize(placementEl, downEvent) {
+        const frame = placementEl.parentElement;
+        const rect = frame.getBoundingClientRect();
+        const startX = downEvent.clientX;
+        const startY = downEvent.clientY;
+        const orig = placements[selectedIdx];
+        const startW = orig.w_pct;
+        // Seed h_pct from the currently-rendered pill height so the drag
+        // starts from what the user sees, not from 0.
+        const measuredH = placementEl.getBoundingClientRect().height / rect.height;
+        const startH = (typeof orig.h_pct === "number" && orig.h_pct > 0)
+            ? orig.h_pct
+            : measuredH;
+        const minW = 0.02;
+        const minH = 0.01;
+        const isSquare = isSquarePlacement(orig);
+        // Aspect that keeps pixel-width == pixel-height on this page:
+        //   pxW = w_pct * rect.width == pxH = h_pct * rect.height
+        //   => h_pct = w_pct * (rect.width / rect.height)
+        const aspect = rect.width / rect.height;
+
+        function onMove(ev) {
+            const dw = (ev.clientX - startX) / rect.width;
+            const dh = (ev.clientY - startY) / rect.height;
+            const maxW = 1 - orig.x_pct;
+            const maxH = 1 - orig.y_pct;
+            let newW, newH;
+            if (isSquare) {
+                // Drive off whichever axis moved more (pixel distance), then
+                // derive the other so the box stays square on screen.
+                const pxDx = ev.clientX - startX;
+                const pxDy = ev.clientY - startY;
+                const drive = Math.abs(pxDx) >= Math.abs(pxDy) ? "w" : "h";
+                if (drive === "w") {
+                    newW = Math.max(minW, Math.min(maxW, startW + dw));
+                    newH = Math.min(maxH, newW * aspect);
+                    // If h clamp fired, back off w so square is preserved.
+                    if (newH >= maxH) newW = newH / aspect;
+                } else {
+                    newH = Math.max(minH, Math.min(maxH, startH + dh));
+                    newW = Math.min(maxW, newH / aspect);
+                    if (newW >= maxW) newH = newW * aspect;
+                }
+            } else {
+                newW = Math.max(minW, Math.min(maxW, startW + dw));
+                newH = Math.max(minH, Math.min(maxH, startH + dh));
+            }
+            placements[selectedIdx].w_pct = newW;
+            placements[selectedIdx].h_pct = newH;
+            placementEl.style.width = (newW * 100) + "%";
+            placementEl.style.height = (newH * 100) + "%";
+        }
+        function onUp() {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("mouseup", onUp);
+            markDirty();
+            renderSidebar();
+        }
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+    }
+
+    // ---- Right-click context menu ----
+
+    let ctxMenu = null;
+    function closeCtxMenu() {
+        if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; }
+    }
+    function openCtxMenu(idx, x, y) {
+        closeCtxMenu();
+        const p = placements[idx];
+        if (!p) return;
+        const menu = document.createElement("div");
+        menu.className = "ctx-menu";
+        menu.style.left = x + "px";
+        menu.style.top = y + "px";
+        const lockBtn = document.createElement("button");
+        lockBtn.type = "button";
+        lockBtn.textContent = p.locked ? "🔓 Unlock" : "🔒 Lock";
+        lockBtn.addEventListener("click", () => {
+            placements[idx].locked = !placements[idx].locked;
+            markDirty();
+            closeCtxMenu();
+            render();
+        });
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "danger";
+        delBtn.textContent = "🗑 Delete";
+        delBtn.addEventListener("click", () => {
+            placements.splice(idx, 1);
+            if (selectedIdx === idx) selectedIdx = -1;
+            else if (selectedIdx > idx) selectedIdx -= 1;
+            markDirty();
+            closeCtxMenu();
+            render();
+        });
+        menu.appendChild(lockBtn);
+        menu.appendChild(delBtn);
+        document.body.appendChild(menu);
+        ctxMenu = menu;
+    }
+    pagesCol.addEventListener("contextmenu", (e) => {
+        const placementEl = e.target.closest(".placement");
+        if (!placementEl) return;
+        e.preventDefault();
+        const idx = parseInt(placementEl.dataset.idx, 10);
+        selectedIdx = idx;
+        render();
+        openCtxMenu(idx, e.clientX, e.clientY);
+    });
+    document.addEventListener("mousedown", (e) => {
+        if (ctxMenu && !e.target.closest(".ctx-menu")) closeCtxMenu();
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { closeCtxMenu(); return; }
+        // Skip when the user is typing — sidebar inputs handle their own keys.
+        const active = document.activeElement;
+        const typing = active && (
+            active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.tagName === "SELECT" ||
+            active.isContentEditable
+        );
+        if (typing) return;
+        if (selectedIdx < 0 || selectedIdx >= placements.length) return;
+        const p = placements[selectedIdx];
+
+        // Arrow keys nudge the selected placement for pixel-level tweaks —
+        // essential for aligning checkboxes over printed checkboxes where
+        // dragging with a mouse overshoots. Shift = 10x step. Meta/Ctrl-
+        // arrow is left alone so browser shortcuts still work.
+        if (e.key === "ArrowUp" || e.key === "ArrowDown" ||
+            e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (p.locked) return;  // locked = no nudge
+            const frame = pagesCol.querySelector(`.page-frame[data-page="${p.page}"]`);
+            if (!frame) return;
+            const rect = frame.getBoundingClientRect();
+            if (rect.width < 1 || rect.height < 1) return;
+            // 0.5 CSS px per press; Shift = 5 px. Sub-pixel step lets users
+            // nudge placements onto printed guides that don't land on whole
+            // pixels at typical page-render zooms.
+            const pxStep = e.shiftKey ? 5 : 0.5;
+            const dxPct = pxStep / rect.width;
+            const dyPct = pxStep / rect.height;
+            const w = p.w_pct || 0;
+            const h = p.h_pct || 0;
+            let nx = p.x_pct, ny = p.y_pct;
+            if (e.key === "ArrowLeft")  nx = Math.max(0, nx - dxPct);
+            if (e.key === "ArrowRight") nx = Math.min(1 - w, nx + dxPct);
+            if (e.key === "ArrowUp")    ny = Math.max(0, ny - dyPct);
+            if (e.key === "ArrowDown")  ny = Math.min(1 - h, ny + dyPct);
+            e.preventDefault();
+            p.x_pct = nx; p.y_pct = ny;
+            markDirty();
+            render();
+            return;
+        }
+
+        if (e.key !== "Delete" && e.key !== "Backspace") return;
+        if (p.locked) return;  // locked = no delete
+        e.preventDefault();
+        placements.splice(selectedIdx, 1);
+        selectedIdx = -1;
+        markDirty();
+        render();
+    });
+
+    if (lockAllBtn) {
+        lockAllBtn.addEventListener("click", () => {
+            if (placements.length === 0) return;
+            // If ANY placement is unlocked, this action locks all of them.
+            // Once every placement is locked, the same button unlocks all.
+            const target = placements.some(p => !p.locked);
+            for (const p of placements) p.locked = target;
+            markDirty();
+            render();
+        });
+    }
+
+    // ---- Message / confirm modal ----
+    // Promise-based replacement for `alert()` and `confirm()`. We can't rely
+    // on inline `style` attributes for show/hide because the CSP `style-src`
+    // policy strips them, so visibility is class-based (`.visible`) and
+    // per-element toggles use the HTML `hidden` attribute.
+    const msgOverlay = document.getElementById("msgOverlay");
+    const msgTitleEl = document.getElementById("msgTitle");
+    const msgBodyEl = document.getElementById("msgBody");
+    const msgConfirmBtn = document.getElementById("msgConfirmBtn");
+    const msgCancelBtn = document.getElementById("msgCancelBtn");
+
+    function showModal({ title, body, kind = "alert", confirmText, cancelText, tone }) {
+        return new Promise((resolve) => {
+            msgTitleEl.textContent = title || "";
+            msgTitleEl.className = "msg-title" + (tone === "error" ? " error" : "");
+            msgBodyEl.textContent = body || "";
+            msgConfirmBtn.textContent = confirmText || (kind === "confirm" ? "Continue" : "OK");
+            msgCancelBtn.textContent = cancelText || "Cancel";
+            msgCancelBtn.hidden = (kind !== "confirm");
+            msgOverlay.classList.add("visible");
+            msgOverlay.setAttribute("aria-hidden", "false");
+            // Defer focus so the click that opened the modal doesn't
+            // immediately re-trigger the button via keyboard activation.
+            setTimeout(() => msgConfirmBtn.focus(), 0);
+
+            const done = (result) => {
+                msgOverlay.classList.remove("visible");
+                msgOverlay.setAttribute("aria-hidden", "true");
+                msgConfirmBtn.removeEventListener("click", onConfirm);
+                msgCancelBtn.removeEventListener("click", onCancel);
+                document.removeEventListener("keydown", onKey);
+                resolve(result);
+            };
+            const onConfirm = () => done(true);
+            const onCancel = () => done(false);
+            const onKey = (e) => {
+                if (e.key === "Escape") { e.preventDefault(); done(false); }
+                else if (e.key === "Enter") { e.preventDefault(); done(true); }
+            };
+            msgConfirmBtn.addEventListener("click", onConfirm);
+            msgCancelBtn.addEventListener("click", onCancel);
+            document.addEventListener("keydown", onKey);
+        });
+    }
+    const showAlert   = (title, body, tone)              => showModal({ title, body, kind: "alert",   tone });
+    const showConfirm = (title, body, confirmText)       => showModal({ title, body, kind: "confirm", confirmText });
+
+    // ---- AI overlay ----
+    // Purely cosmetic — keeps the tab feeling alive while a multi-second
+    // vision-model round-trip is in flight. Statuses rotate independently of
+    // real progress; we just want the user to see motion, not stare at a
+    // frozen button. Tips are chosen to reinforce what the AI actually does.
+    const AI_STATUS_MESSAGES = {
+        label: [
+            "Scanning the form for label text…",
+            "Cross-referencing widget names with page context…",
+            "Reading captions beside each field…",
+            "Grouping checkboxes with their option text…",
+            "Deduplicating and normalizing suggestions…",
+            "Almost there — polishing the label list…",
+        ],
+    };
+    const AI_TIPS = [
+        "<strong>Tip:</strong> right-click any placement to lock it — locked labels are never overwritten by the AI.",
+        "<strong>Tip:</strong> the AI only sees the blank template. Your runtime payload never leaves your data plane.",
+        "<strong>Tip:</strong> checkbox fields skip left-padding so the mark stays centered.",
+        "<strong>Did you know?</strong> Frozen versions are immutable — you can render against v1 forever, even after v2 ships.",
+        "<strong>Did you know?</strong> Placements are stored as page-relative fractions, so a slight PDF re-export won't break alignment.",
+    ];
+
+    const aiOverlay = document.getElementById("aiOverlay");
+    const aiTitleEl = document.getElementById("aiTitle");
+    const aiStatusEl = document.getElementById("aiStatus");
+    const aiTipEl = document.getElementById("aiTip");
+    let aiStatusTimer = null;
+
+    function showAiOverlay(title, messages) {
+        aiTitleEl.textContent = title;
+        aiTipEl.innerHTML = AI_TIPS[Math.floor(Math.random() * AI_TIPS.length)];
+        aiOverlay.classList.add("visible");
+        aiOverlay.setAttribute("aria-hidden", "false");
+        // Rotate through messages with a fade so it feels alive rather than
+        // ticking a checklist. Repeats from the top if the call outlasts the list.
+        let i = 0;
+        const tick = () => {
+            aiStatusEl.classList.add("fade");
+            setTimeout(() => {
+                aiStatusEl.textContent = messages[i % messages.length];
+                aiStatusEl.classList.remove("fade");
+                i++;
+            }, 250);
+        };
+        aiStatusEl.textContent = messages[0];
+        i = 1;
+        aiStatusTimer = setInterval(tick, 2200);
+    }
+    function hideAiOverlay() {
+        if (aiStatusTimer) { clearInterval(aiStatusTimer); aiStatusTimer = null; }
+        aiOverlay.classList.remove("visible");
+        aiOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    // ---- Save ----
+
+    async function save() {
+        const resp = await fetch(`/ui/versions/${VERSION_ID}/placements`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken(),
+            },
+            body: JSON.stringify({ placements }),
+        });
+        if (!resp.ok) {
+            const detail = await resp.text();
+            await showAlert("Save failed", detail, "error");
+            return { ok: false };
+        }
+        dirty = false;
+        actionBar.classList.remove("dirty");
+        let payload = {};
+        try { payload = await resp.json(); } catch (_) { /* older server */ }
+        return { ok: true, ...payload };
+    }
+
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+        const result = await save();
+        if (!result.ok) return;
+        if (result.redirect) {
+            // Frozen edit spawned a new sub-version — hop over so the editor
+            // URL matches the row we're now editing.
+            window.QuireUI && QuireUI.showToast("Saved as new sub-version", "success");
+            window.location.assign(result.redirect);
+            return;
+        }
+        window.QuireUI && QuireUI.showToast("Changes saved", "success");
+    });
+
+    async function runLabeler(providerName, endpoint, btnId) {
+        const btn = document.getElementById(btnId);
+        if (placements.length === 0) {
+            await showAlert(
+                "No placements",
+                "No placements to label — this button reads labels from the form for existing fields."
+            );
+            return;
+        }
+        // Auto-detect: unlocked placements whose current label is empty or a
+        // widget-default ("Text1", "Field2", …) are the ones that need naming.
+        // Locked placements are always excluded — they're the user's ground truth.
+        const targetIdx = new Set();
+        for (let i = 0; i < placements.length; i++) {
+            const p = placements[i];
+            if (p.locked) continue;
+            if (isJunkLabel(p.label)) targetIdx.add(i);
+        }
+        if (targetIdx.size === 0) {
+            await showAlert(
+                "All fields already labeled",
+                "Every unlocked placement has a real label already. Clear a label (or unlock a locked one) to re-run naming."
+            );
+            return;
+        }
+        const targetCount = targetIdx.size;
+        const skippedCount = placements.length - targetCount;
+        const scopeSentence = skippedCount > 0
+            ? `Only the ${targetCount} unlabeled placement(s) will get new names — the other ${skippedCount} keep their current labels.`
+            : `${providerName} will suggest labels for all ${targetCount} placement(s).`;
+        const ok = await showConfirm(
+            `Run ${providerName} labeling?`,
+            `${scopeSentence} Positions stay unchanged. This may take 15-60s.`,
+            "Run"
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        showAiOverlay(`Reading labels via ${providerName}`, AI_STATUS_MESSAGES.label);
+        try {
+            const resp = await fetch(`/ui/versions/${VERSION_ID}/placements/${endpoint}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": csrfToken(),
+                },
+                body: JSON.stringify({ placements }),
+            });
+            if (!resp.ok) {
+                const detail = await resp.text();
+                hideAiOverlay();
+                await showAlert(`${providerName} labeling failed`, detail, "error");
+                return;
+            }
+            const data = await resp.json();
+            // Locked placements — AND any placement that's NOT in targetIdx —
+            // are off-limits. Pre-seed `taken` with every name that's staying so
+            // the slugger doesn't collide with them.
+            const taken = new Set();
+            for (let i = 0; i < placements.length; i++) {
+                if (!targetIdx.has(i)) taken.add(placements[i].name);
+            }
+            let labelChanged = 0;
+            let nameChanged = 0;
+            for (const s of (data.suggestions || [])) {
+                if (!targetIdx.has(s.index)) continue;
+                const p = placements[s.index];
+                if (!p || p.locked) continue;
+                if ((p.label || "") !== s.suggested_label) {
+                    p.label = s.suggested_label;
+                    labelChanged++;
+                }
+                // Payload key: shortened snake_case built from section +
+                // label. See shortenPayloadKey() for the exact rule set —
+                // it drops form boilerplate, applies common abbreviations,
+                // dedupes tokens repeated across section/label, and caps
+                // length. Uniqueness is enforced against `taken`.
+                const labelSlug = slugifyKey(s.suggested_label);
+                const sectionSlug = slugifyKey(s.suggested_section || "");
+                const newName = shortenPayloadKey(sectionSlug, labelSlug, taken);
+                if (p.name !== newName) {
+                    p.name = newName;
+                    nameChanged++;
+                }
+                taken.add(newName);
+            }
+            for (const p of placements) {
+                if (!taken.has(p.name)) taken.add(p.name);
+            }
+            const changed = labelChanged + nameChanged;
+            if (changed > 0) markDirty();
+            render();
+            hideAiOverlay();
+            // Report against the scope we actually ran (targetCount), not the
+            // whole placement list — otherwise "labeled 4 of 20" would read as
+            // a 16-field miss even when the other 16 were intentionally skipped.
+            const missed = Math.max(0, targetCount - labelChanged);
+            const skippedSentence = skippedCount > 0
+                ? `\nSkipped ${skippedCount} already-labeled field(s).`
+                : "";
+            const body =
+                `${labelChanged} label(s) and ${nameChanged} payload key(s) updated.\n` +
+                `${providerName} labeled ${labelChanged} of ${targetCount} unlabeled field(s)` +
+                (missed > 0 ? ` (${missed} missed — label those manually).` : ".") +
+                skippedSentence +
+                "\n\nReview and Save.";
+            await showAlert(`${providerName} labeling done`, body);
+            // Same reason as in the AI Draw handler — refresh the guide
+            // after the modal dismisses so it either advances or clears.
+            updateGuide();
+        } finally {
+            hideAiOverlay();
+            btn.disabled = false;
+        }
+    }
+
+    document.getElementById("aiDetectBtn").addEventListener("click", () => {
+        runLabeler("AI", "ai-detect", "aiDetectBtn");
+    });
+
+    const aiDrawBtn = document.getElementById("aiDrawBtn");
+    if (aiDrawBtn) {
+        aiDrawBtn.addEventListener("click", async () => {
+            if (placements.length > 0) {
+                const replace = await showConfirm(
+                    "Replace existing placements?",
+                    `This template already has ${placements.length} placement(s). AI Draw will replace them with fresh boxes detected across all pages. Continue?`,
+                    "Replace"
+                );
+                if (!replace) return;
+            } else {
+                const proceed = await showConfirm(
+                    "Run AI field detection?",
+                    "AI will scan every page for blanks, checkboxes, and signature lines, then add a placement box for each. Positions may need small tweaks. This may take 15-60s.",
+                    "Run"
+                );
+                if (!proceed) return;
+            }
+            aiDrawBtn.disabled = true;
+            showAiOverlay("Detecting fillable fields", AI_STATUS_MESSAGES.label);
+            try {
+                const resp = await fetch(`/ui/versions/${VERSION_ID}/placements/ai-draw`, {
+                    method: "POST",
+                    headers: { "X-CSRF-Token": csrfToken() },
+                });
+                if (!resp.ok) {
+                    const detail = await resp.text();
+                    hideAiOverlay();
+                    await showAlert("AI draw failed", detail, "error");
+                    return;
+                }
+                const data = await resp.json();
+                placements.length = 0;
+                for (const p of (data.placements || [])) {
+                    const isCbx = (p.field_type || "text") === "checkbox";
+                    placements.push({
+                        name: p.name,
+                        label: "",
+                        page: p.page,
+                        x_pct: p.x_pct, y_pct: p.y_pct,
+                        w_pct: p.w_pct, h_pct: p.h_pct,
+                        field_type: p.field_type || "text",
+                        // Bake the semantic type in now so the render pipeline
+                        // uses the X-glyph path, and so squareizeCheckbox
+                        // knows to snap the geometry.
+                        payload_type: isCbx ? "boolean" : "string",
+                        font_size: isCbx ? 12 : 10,
+                        locked: false,
+                    });
+                }
+                squareizeAllCheckboxes();
+                markDirty();
+                render();
+                hideAiOverlay();
+                await showAlert(
+                    "AI draw done",
+                    `${data.detected_count} field(s) detected. Nudge or delete any that look off, then click "AI Label fields" to name them from page captions.`
+                );
+                // The success modal sits above the guide callout while it's
+                // open; refresh the callout once dismissed so the next step
+                // ("AI Label") is clearly visible instead of buried under the
+                // faded modal backdrop.
+                updateGuide();
+            } finally {
+                hideAiOverlay();
+                aiDrawBtn.disabled = false;
+            }
+        });
+    }
+
+    document.getElementById("previewBtn").addEventListener("click", async () => {
+        // Save first so the preview reflects what's on screen — otherwise
+        // the user's most recent drag/edit would be missing from the PDF.
+        if (dirty && !await save()) return;
+        if (placements.length === 0) {
+            await showAlert("No placements", "Add at least one placement before previewing.");
+            return;
+        }
+        window.open(`/ui/versions/${VERSION_ID}/pdf-preview.pdf`, "_blank", "noopener");
+    });
+
+    document.getElementById("downloadTaggedBtn").addEventListener("click", async () => {
+        // Same content as Preview (each field rendered as [payload_key]) but
+        // forced to save-as via the `download` anchor attribute — the server
+        // returns inline, so we can't rely on Content-Disposition alone.
+        if (dirty && !await save()) return;
+        if (placements.length === 0) {
+            await showAlert("No placements", "Add at least one placement before downloading.");
+            return;
+        }
+        const a = document.createElement("a");
+        a.href = `/ui/versions/${VERSION_ID}/pdf-preview.pdf`;
+        a.download = `tagged-v{{ version.version }}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+
+    // Save-and-freeze only appears on unfrozen versions; the frozen path
+    // uses the plain Save button (which now re-derives schema + hash for
+    // frozen versions server-side).
+    const saveFreezeBtn = document.getElementById("saveFreezeBtn");
+    if (saveFreezeBtn) {
+        saveFreezeBtn.addEventListener("click", async () => {
+            if (!await save()) return;
+            // Freeze via a form POST so we get the standard redirect+flash.
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.action = `/ui/versions/${VERSION_ID}/freeze`;
+            const csrf = document.createElement("input");
+            csrf.type = "hidden"; csrf.name = "csrf_token"; csrf.value = csrfToken();
+            form.appendChild(csrf);
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+
+    window.addEventListener("beforeunload", (e) => {
+        if (dirty) { e.preventDefault(); e.returnValue = ""; }
+    });
+
+    render();
+})();
+</script>
+{% endblock %}

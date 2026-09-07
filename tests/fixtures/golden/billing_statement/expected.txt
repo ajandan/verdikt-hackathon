@@ -1,0 +1,12 @@
+Monthly Statement
+Account: ACC-778899
+Statement date: 2026-08-01
+Line items follow.
+[TABLE]
+Date | Description | Amount
+2026-07-03 | Office visit | 125.00
+2026-07-15 | Lab work | 48.50
+2026-07-28 | Prescription | 22.75
+[/TABLE]
+Total due: US$ 196.25
+Due by: 2026-08-31

@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .stats-grid {
+        display: grid; gap: 14px; margin-bottom: 22px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: start;
+    }
+    @media (max-width: 640px) {
+        .stats-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    .stat-card {
+        position: relative;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); padding: 20px 22px 18px;
+        box-shadow: var(--shadow-xs);
+        display: flex; flex-direction: column; gap: 10px;
+        overflow: hidden;
+        transition: border-color var(--dur) var(--ease-out),
+                    box-shadow var(--dur) var(--ease-out);
+    }
+    /* Coloured accent gutter along the top edge — a modern dashboard convention
+       from Linear/Vercel that gives each stat card an at-a-glance identity. */
+    .stat-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: var(--text-subtle); opacity: 0.35;
+    }
+    .stat-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+    .stat-card .label {
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.08em; color: var(--text-subtle);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .stat-card .label .dot {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--text-subtle);
+    }
+    .stat-card .value {
+        font-size: 34px; font-weight: 600; color: var(--text);
+        letter-spacing: -0.03em; line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-card .value.attention { color: var(--warn); }
+    .stat-card .value.zero { color: var(--text-muted); font-weight: 500; }
+    .stat-card .sub {
+        font-size: 12.5px; color: var(--text-muted);
+        display: flex; flex-wrap: wrap; gap: 4px 10px;
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-card .sub .ok { color: var(--success); font-weight: 600; }
+    .stat-card .sub .bad { color: var(--danger); font-weight: 600; }
+    .stat-card .sub .neutral { color: var(--text-muted); }
+    .stat-card.frozen-accent::before { background: var(--brand); opacity: 1; }
+    .stat-card.warn-accent::before   { background: var(--warn);  opacity: 1; }
+    .stat-card.info-accent::before   { background: var(--accent); opacity: 1; }
+    .stat-card.success-accent::before{ background: var(--success); opacity: 1; }
+    .stat-card.frozen-accent .label .dot { background: var(--brand); }
+    .stat-card.warn-accent .label .dot { background: var(--warn); }
+    .stat-card.info-accent .label .dot { background: var(--accent); }
+    .stat-card.success-accent .label .dot { background: var(--success); }
+    a.stat-link { color: inherit; text-decoration: none; }
+    a.stat-link:hover { color: inherit; }
+    a.stat-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+
+    /* Two-column grid for activity cards */
+    .dash-grid {
+        display: grid; gap: 16px; margin-bottom: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    .dash-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow-xs);
+        display: flex; flex-direction: column; min-height: 200px;
+    }
+    .dash-card .header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px; border-bottom: 1px solid var(--border);
+    }
+    .dash-card .header h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -0.005em; }
+    .dash-card .header .subtle { font-size: 12px; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+    .dash-card .body { padding: 4px 0; flex: 1; }
+    .dash-card .empty-row {
+        padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px;
+    }
+    .feed-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 11px 20px; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .feed-row:hover { background: var(--brand-softer); }
+    .feed-row:last-child { border-bottom: 0; }
+    .feed-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-row .name a { color: var(--text); font-weight: 500; }
+    .feed-row .name a:hover { color: var(--brand); }
+    .feed-row .meta { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .feed-row .badge { flex-shrink: 0; }
+
+    .fail-row {
+        padding: 12px 18px; border-bottom: 1px solid var(--border);
+    }
+    .fail-row:last-child { border-bottom: 0; }
+    .fail-row .top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .fail-row .top .name { font-weight: 500; color: var(--text); }
+    .fail-row .top .when { color: var(--text-subtle); font-size: 12px; margin-left: auto; }
+    .fail-row .err {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--danger);
+        background: var(--danger-soft); padding: 6px 8px; border-radius: 4px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .top-tmpl-row {
+        display: flex; align-items: center; gap: 12px;
+        padding: 11px 20px; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .top-tmpl-row:hover { background: var(--brand-softer); }
+    .top-tmpl-row:last-child { border-bottom: 0; }
+    .top-tmpl-row .rank {
+        width: 20px; color: var(--text-subtle); font-size: 11.5px; font-weight: 600;
+        font-variant-numeric: tabular-nums;
+    }
+    .top-tmpl-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-tmpl-row .name a { color: var(--text); font-weight: 500; }
+    .top-tmpl-row .name a:hover { color: var(--brand); }
+    .top-tmpl-row .bar-track {
+        flex: 1; max-width: 120px; height: 6px;
+        background: var(--surface-3); border-radius: 999px; overflow: hidden;
+    }
+    .top-tmpl-row .bar-fill {
+        height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, var(--brand), var(--accent));
+    }
+    .top-tmpl-row .count { color: var(--text-muted); font-size: 12px; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+    /* Sparkline (24h render volume) */
+    .spark-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow-xs);
+        padding: 18px 22px 14px; margin-bottom: 18px;
+    }
+    .spark-card .spark-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        margin-bottom: 12px;
+    }
+    .spark-card .spark-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: -0.005em; }
+    .spark-card .spark-head .subtle { color: var(--text-subtle); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .spark {
+        display: grid; grid-template-columns: repeat(24, 1fr);
+        gap: 3px; height: 52px; align-items: end;
+    }
+    .spark .col {
+        position: relative;
+        background: var(--surface-3); border-radius: 3px;
+        min-height: 3px; height: 100%;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .spark .col:hover { background: var(--surface-2); }
+    .spark .col .bar {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(180deg, var(--brand), var(--brand-hover));
+        border-radius: 3px;
+        transition: filter var(--dur-fast) var(--ease-out);
+    }
+    .spark .col:hover .bar { filter: brightness(1.1); }
+    .spark .col .bar.has-fail {
+        background: linear-gradient(180deg, var(--danger), rgb(var(--danger-rgb) / 0.7));
+    }
+    .spark-axis {
+        display: flex; justify-content: space-between;
+        color: var(--text-subtle); font-size: 10.5px; margin-top: 8px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Attention rail — banner style highlighting outstanding action items */
+    .attention-rail {
+        display: flex; gap: 12px; padding: 12px 16px;
+        background: linear-gradient(90deg, var(--warn-soft), transparent 90%);
+        border: 1px solid rgb(var(--warn-rgb) / 0.28);
+        border-radius: var(--radius-lg); margin-bottom: 18px;
+        align-items: center; font-size: 13.5px;
+        box-shadow: var(--shadow-xs);
+    }
+    .attention-rail svg { color: var(--warn); flex-shrink: 0; }
+    .attention-rail .msg { flex: 1; color: var(--text); }
+    .attention-rail .msg strong { color: var(--text); font-weight: 600; }
+    .attention-rail a.btn { flex-shrink: 0; }
+
+    /* First-run activation checklist */
+    .activation-card {
+        background:
+            radial-gradient(1200px 240px at -10% -20%, var(--brand-soft), transparent 60%),
+            radial-gradient(800px 200px at 110% 120%, var(--accent-soft), transparent 60%),
+            var(--surface);
+        border: 1px solid rgb(var(--brand-rgb) / 0.22);
+        border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);
+        padding: 26px 28px; margin-bottom: 22px;
+    }
+    .activation-card h2 {
+        margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.015em;
+    }
+    .activation-card > p { color: var(--text-muted); font-size: 13.5px; margin: 0 0 18px; }
+    .activation-steps { display: flex; flex-direction: column; gap: 10px; }
+    .activation-step {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-xs);
+        transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+    }
+    .activation-step:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+    .activation-step .num {
+        width: 26px; height: 26px; border-radius: 50%;
+        background: var(--brand-soft); color: var(--brand);
+        display: inline-grid; place-items: center;
+        font-size: 12px; font-weight: 600; flex-shrink: 0;
+    }
+    .activation-step.done .num { background: var(--success); color: var(--brand-fg); }
+    .activation-step .txt { flex: 1; }
+    .activation-step .txt .title { font-weight: 600; color: var(--text); font-size: 14px; letter-spacing: -0.005em; }
+    .activation-step .txt .sub { color: var(--text-muted); font-size: 12.5px; margin-top: 1px; }
+    .activation-step.done .txt .title { color: var(--text-muted); text-decoration: line-through; }
+
+    /* Live-refresh flash — subtle background pulse when a value changes */
+    @keyframes live-flash-anim {
+        0%   { background: rgb(var(--brand-rgb) / 0.18); }
+        100% { background: transparent; }
+    }
+    .live-flash {
+        animation: live-flash-anim 900ms ease-out;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Operational at-a-glance: activity, health, and hotspots.</p>
+    </div>
+    <div class="page-actions">
+        {% if admin_user and all_tenants and all_tenants|length > 1 %}
+        <form action="/ui/dashboard" method="get" class="row" style="gap: 6px; margin: 0">
+            <label class="muted" style="margin: 0; font-size: 13px">Tenant</label>
+            <select name="tenant" data-submit-form style="width: auto; min-width: 180px">
+                <option value="">All tenants</option>
+                {% for t in all_tenants %}
+                    <option value="{{ t.id }}" {% if selected_tenant and (selected_tenant|string) == (t.id|string) %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button type="submit">Filter</button></noscript>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% set _needs_attention = (stats.pending_drafts or 0) + (stats.warnings_count or 0) + (failing_jobs|length) %}
+{% if _needs_attention %}
+<div class="attention-rail" role="status">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+    <div class="msg">
+        {% set _parts = [] %}
+        {% if failing_jobs %}{% set _ = _parts.append('<strong>' ~ failing_jobs|length ~ '</strong> failing job' ~ ('s' if failing_jobs|length != 1 else '')) %}{% endif %}
+        {% if stats.pending_drafts %}{% set _ = _parts.append('<strong>' ~ stats.pending_drafts ~ '</strong> pending draft' ~ ('s' if stats.pending_drafts != 1 else '')) %}{% endif %}
+        {% if stats.warnings_count %}{% set _ = _parts.append('<strong>' ~ stats.warnings_count ~ '</strong> warning' ~ ('s' if stats.warnings_count != 1 else '')) %}{% endif %}
+        {{ _parts|join(' · ')|safe }} need attention.
+    </div>
+    {% if failing_jobs %}
+        <a class="btn sm" href="/ui/renders?state=failed{% if selected_tenant %}&tenant={{ selected_tenant }}{% endif %}">Triage failures</a>
+    {% elif stats.pending_drafts %}
+        <a class="btn sm" href="/ui/{% if selected_tenant %}?tenant={{ selected_tenant }}{% endif %}">Review drafts</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if stats.templates_total == 0 %}
+<div class="activation-card">
+    <h2>Welcome to Quire</h2>
+    <p>Three steps to your first deterministic render.</p>
+    <div class="activation-steps">
+        <div class="activation-step">
+            <span class="num">1</span>
+            <div class="txt">
+                <div class="title"><a href="/ui/upload">Upload a tagged template</a></div>
+                <div class="sub">DOCX or PDF — Quire infers the schema from your merge fields.</div>
+            </div>
+        </div>
+        <div class="activation-step">
+            <span class="num">2</span>
+            <div class="txt">
+                <div class="title">Freeze a version</div>
+                <div class="sub">Locks the schema + template bytes (DOCX or PDF) so every caller renders the same doc.</div>
+            </div>
+        </div>
+        <div class="activation-step">
+            <span class="num">3</span>
+            <div class="txt">
+                <div class="title">Render via UI or MCP</div>
+                <div class="sub">Any payload matching the schema — same JSON in, same DOCX or PDF out.</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="stats-grid" id="dash-stats" data-tenant="{{ selected_tenant or '' }}">
+    <a class="stat-card stat-link frozen-accent" href="/ui/{% if selected_tenant %}?tenant={{ selected_tenant }}{% endif %}">
+        <span class="label"><span class="dot"></span>Templates</span>
+        <span class="value {% if stats.templates_total == 0 %}zero{% endif %}" data-live="templates_total">{{ stats.templates_total }}</span>
+        <span class="sub">
+            <span class="ok"><span data-live="templates_frozen">{{ stats.templates_frozen }}</span> frozen</span>
+            <span class="neutral">·</span>
+            <span class="neutral"><span data-live="templates_draft">{{ stats.templates_draft }}</span> draft</span>
+            {% if stats.templates_inactive %}
+                <span class="neutral">·</span>
+                <span class="bad"><span data-live="templates_inactive">{{ stats.templates_inactive }}</span> inactive</span>
+            {% endif %}
+        </span>
+    </a>
+    <div class="stat-card warn-accent">
+        <span class="label"><span class="dot"></span>Pending drafts</span>
+        <span class="value {% if stats.pending_drafts %}attention{% else %}zero{% endif %}" data-live="pending_drafts">{{ stats.pending_drafts }}</span>
+        <span class="sub">awaiting freeze</span>
+    </div>
+    <div class="stat-card info-accent">
+        <span class="label"><span class="dot"></span>Renders (24h)</span>
+        <span class="value {% if stats.renders_24h_total == 0 %}zero{% endif %}" data-live="renders_24h_total">{{ stats.renders_24h_total }}</span>
+        <span class="sub" data-live-container="renders_24h_sub">
+            {% if stats.renders_24h_succeeded %}<span class="ok">{{ stats.renders_24h_succeeded }} ok</span>{% endif %}
+            {% if stats.renders_24h_failed %}
+                {% if stats.renders_24h_succeeded %}<span class="neutral">·</span>{% endif %}
+                <span class="bad">{{ stats.renders_24h_failed }} failed</span>
+            {% endif %}
+            {% if stats.renders_24h_in_flight %}
+                {% if stats.renders_24h_succeeded or stats.renders_24h_failed %}<span class="neutral">·</span>{% endif %}
+                <span class="neutral">{{ stats.renders_24h_in_flight }} in flight</span>
+            {% endif %}
+            {% if not (stats.renders_24h_succeeded or stats.renders_24h_failed or stats.renders_24h_in_flight) %}
+                <span class="neutral">no activity</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="stat-card {% if stats.warnings_count %}warn-accent{% else %}success-accent{% endif %}">
+        <span class="label"><span class="dot"></span>Warnings</span>
+        <span class="value {% if stats.warnings_count %}attention{% else %}zero{% endif %}" data-live="warnings_count">{{ stats.warnings_count }}</span>
+        <span class="sub">drafts with preflight findings</span>
+    </div>
+</div>
+
+{% if sparkline %}
+<div class="spark-card">
+    <div class="spark-head">
+        <h2>Render volume · 24h</h2>
+        <span class="subtle" id="spark-summary">
+            {% set _spark_total = sparkline|sum(attribute='total') %}
+            {% set _spark_fail = sparkline|sum(attribute='failed') %}
+            {{ _spark_total }} total{% if _spark_fail %} · {{ _spark_fail }} failed{% endif %}
+        </span>
+    </div>
+    <div class="spark" id="spark-bars" role="img" aria-label="Hourly render volume over the last 24 hours">
+        {% for b in sparkline %}
+            <div class="col" title="{{ b.hr }} · {{ b.total }} render{{ 's' if b.total != 1 else '' }}{% if b.failed %} ({{ b.failed }} failed){% endif %}">
+                {% if b.total %}
+                    <div class="bar{% if b.failed %} has-fail{% endif %}" style="height: {{ b.pct|round(1) }}%"></div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="spark-axis">
+        <span id="spark-first-hr">{{ sparkline[0].hr }}</span>
+        <span id="spark-updated" class="motion-essential" title="Auto-refreshing every 30s">now</span>
+    </div>
+</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var root = document.getElementById('dash-stats');
+    if (!root) return;
+    var tenant = root.getAttribute('data-tenant') || '';
+    var url = '/ui/dashboard.json' + (tenant ? '?tenant=' + encodeURIComponent(tenant) : '');
+    var INTERVAL_MS = 30000;
+    var pending = false;
+
+    function setLive(name, val) {
+        document.querySelectorAll('[data-live="' + name + '"]').forEach(function (el) {
+            var next = String(val == null ? 0 : val);
+            if (el.textContent !== next) {
+                el.textContent = next;
+                el.classList.add('live-flash');
+                setTimeout(function () { el.classList.remove('live-flash'); }, 900);
+            }
+        });
+    }
+
+    function renderSubRow(data) {
+        var container = document.querySelector('[data-live-container="renders_24h_sub"]');
+        if (!container) return;
+        var succ = data.renders_24h_succeeded || 0;
+        var fail = data.renders_24h_failed || 0;
+        var inflight = data.renders_24h_in_flight || 0;
+        var parts = [];
+        if (succ) parts.push('<span class="ok">' + succ + ' ok</span>');
+        if (fail) parts.push('<span class="bad">' + fail + ' failed</span>');
+        if (inflight) parts.push('<span class="neutral">' + inflight + ' in flight</span>');
+        if (!parts.length) parts.push('<span class="neutral">no activity</span>');
+        container.innerHTML = parts.join(' <span class="neutral">·</span> ');
+    }
+
+    function renderSpark(sparkline) {
+        var bars = document.getElementById('spark-bars');
+        var summary = document.getElementById('spark-summary');
+        var firstHr = document.getElementById('spark-first-hr');
+        if (!bars || !sparkline || !sparkline.length) return;
+        var totalSum = 0, failSum = 0;
+        var html = '';
+        for (var i = 0; i < sparkline.length; i++) {
+            var b = sparkline[i];
+            totalSum += b.total; failSum += b.failed;
+            var t = b.hr + ' · ' + b.total + ' render' + (b.total !== 1 ? 's' : '');
+            if (b.failed) t += ' (' + b.failed + ' failed)';
+            html += '<div class="col" title="' + t + '">';
+            if (b.total) {
+                var cls = 'bar' + (b.failed ? ' has-fail' : '');
+                html += '<div class="' + cls + '" style="height: ' + (Math.round(b.pct * 10) / 10) + '%"></div>';
+            }
+            html += '</div>';
+        }
+        bars.innerHTML = html;
+        if (summary) summary.textContent = totalSum + ' total' + (failSum ? ' · ' + failSum + ' failed' : '');
+        if (firstHr) firstHr.textContent = sparkline[0].hr;
+    }
+
+    function poll() {
+        if (pending || document.hidden) return;
+        pending = true;
+        fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                pending = false;
+                if (!j || !j.stats) return;
+                var s = j.stats;
+                ['templates_total', 'templates_frozen', 'templates_draft', 'templates_inactive',
+                 'pending_drafts', 'renders_24h_total', 'warnings_count'].forEach(function (k) {
+                    setLive(k, s[k]);
+                });
+                renderSubRow(s);
+                renderSpark(j.sparkline);
+                var updated = document.getElementById('spark-updated');
+                if (updated) updated.textContent = 'now (updated ' + new Date().toLocaleTimeString() + ')';
+            })
+            .catch(function () { pending = false; });
+    }
+
+    setInterval(poll, INTERVAL_MS);
+    // Refresh immediately when the tab regains focus after being hidden.
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) poll();
+    });
+})();
+</script>
+
+<div class="dash-grid">
+    <div class="dash-card">
+        <div class="header">
+            <h2>Recent renders</h2>
+            <span class="subtle">last {{ recent_renders|length }}</span>
+        </div>
+        <div class="body">
+            {% if recent_renders %}
+                {% for j in recent_renders %}
+                    <div class="feed-row">
+                        {% if j.state == 'succeeded' %}
+                            <span class="badge accept">ok</span>
+                        {% elif j.state == 'failed' %}
+                            <span class="badge reject">failed</span>
+                        {% elif j.state == 'running' %}
+                            <span class="badge info">running</span>
+                        {% else %}
+                            <span class="badge draft">{{ j.state }}</span>
+                        {% endif %}
+                        <span class="name"><a href="/ui/templates/{{ j.template_id }}">{{ j.template_name }}</a></span>
+                        <span class="meta">{{ j.caller or '—' }}</span>
+                        <span class="meta">{{ j.submitted_at.strftime('%m-%d %H:%M') }}</span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-row">No renders yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="dash-card">
+        <div class="header">
+            <h2>Recent publishes</h2>
+            <span class="subtle">last {{ recent_publishes|length }}</span>
+        </div>
+        <div class="body">
+            {% if recent_publishes %}
+                {% for e in recent_publishes %}
+                    <div class="feed-row">
+                        {% if e.event_kind == 'rollback' %}
+                            <span class="badge warn">rollback</span>
+                        {% else %}
+                            <span class="badge accept">publish</span>
+                        {% endif %}
+                        <span class="name"><a href="/ui/templates/{{ e.template_id }}">{{ e.template_name }}</a> <span class="meta">v{{ e.version }}{% if e.previous_version %} ← v{{ e.previous_version }}{% endif %}</span></span>
+                        <span class="meta">{{ e.actor or '—' }}</span>
+                        <span class="meta">{{ e.created_at.strftime('%m-%d %H:%M') }}</span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-row">No publishes yet.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="dash-grid">
+    <div class="dash-card">
+        <div class="header">
+            <h2>Failing jobs</h2>
+            <span class="subtle">last 7 days</span>
+        </div>
+        <div class="body">
+            {% if failing_jobs %}
+                {% for f in failing_jobs %}
+                    <div class="fail-row">
+                        <div class="top">
+                            <span class="badge reject">failed</span>
+                            <span class="name"><a href="/ui/templates/{{ f.template_id }}">{{ f.template_name }}</a></span>
+                            <span class="when">{{ f.submitted_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </div>
+                        {% if f.error %}
+                            <div class="err" title="{{ f.error }}">{{ f.error[:180] }}{% if f.error|length > 180 %}…{% endif %}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-row">No failures in the last 7 days.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="dash-card">
+        <div class="header">
+            <h2>Top templates</h2>
+            <span class="subtle">by render volume · 30d</span>
+        </div>
+        <div class="body">
+            {% if top_templates %}
+                {% set top_max = top_templates[0].render_count %}
+                {% for t in top_templates %}
+                    <div class="top-tmpl-row">
+                        <span class="rank">{{ loop.index }}</span>
+                        <span class="name"><a href="/ui/templates/{{ t.template_id }}">{{ t.template_name }}</a></span>
+                        <div class="bar-track"><div class="bar-fill" style="width: {{ (t.render_count / top_max * 100)|round(1) }}%"></div></div>
+                        <span class="count">{{ t.render_count }}</span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-row">No renders in the last 30 days.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

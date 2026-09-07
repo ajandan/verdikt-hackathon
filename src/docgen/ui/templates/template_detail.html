@@ -1,0 +1,804 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }} — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    /* Page-actions buttons: keep every button on a single line at a uniform height,
+       and neutralise the global `label { margin-top: 14px }` for the label-as-button. */
+    .page-actions {
+        flex-wrap: wrap; justify-content: flex-end;
+        max-width: 100%;
+    }
+    .page-actions .btn {
+        white-space: nowrap;
+        height: 36px; padding: 0 14px;
+        line-height: 1.2;
+    }
+    .page-actions label.btn { margin: 0; }
+    .page-actions form { margin: 0; }
+    /* Let the header itself wrap so the actions row can drop below the title on narrow viewports. */
+    .page-header { flex-wrap: wrap; }
+    .page-header > div:first-child { min-width: 0; flex: 1 1 300px; }
+    /* Contain wide tables so they scroll within their card, not the whole page. */
+    .table-scroll { overflow-x: auto; }
+    .meta-chips {
+        display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+        color: var(--text-muted); font-size: 13px; margin: 8px 0 0;
+    }
+    .meta-chips .dot { color: var(--text-subtle); }
+    .version-hash {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+        background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .finding-row td { vertical-align: top; }
+    .findings-table td.msg { max-width: 480px; }
+    /* Actions cell: unify baseline of text links + 28px icon buttons on one row. */
+    .actions-cell {
+        white-space: nowrap;
+    }
+    .actions-cell > * {
+        vertical-align: middle;
+    }
+    .actions-cell a,
+    .actions-cell button.linklike {
+        font-weight: 500;
+        line-height: 28px; /* match icon-btn height so text links share the icons' baseline */
+    }
+    .actions-cell form { display: inline; }
+
+    /* Compact icon actions with tooltips (Schema / Preview / Download). */
+    .icon-actions {
+        display: inline-flex; gap: 2px; align-items: center;
+        vertical-align: middle;
+    }
+    .icon-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 6px;
+        color: var(--brand);
+        background: transparent; border: 1px solid transparent;
+        cursor: pointer; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .icon-btn:hover {
+        background: var(--brand-soft);
+        color: var(--brand-hover);
+        border-color: var(--brand);
+        text-decoration: none;
+    }
+    .icon-btn svg { display: block; }
+    .icon-btn.danger:hover { color: var(--danger); }
+
+    /* Preview overlay */
+    .preview-overlay {
+        position: fixed; inset: 0; z-index: 1000;
+        background: rgba(15, 23, 42, 0.55);
+        display: none; align-items: center; justify-content: center;
+        padding: 24px;
+    }
+    .preview-overlay.open { display: flex; }
+    .preview-dialog {
+        background: var(--surface);
+        width: 100%; max-width: 1100px; height: 100%; max-height: 92vh;
+        border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .preview-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 14px; border-bottom: 1px solid var(--border);
+        background: var(--surface-2);
+    }
+    .preview-title { font-size: 13px; color: var(--text-muted); }
+    .preview-title strong { color: var(--text); font-weight: 600; }
+    .preview-actions { display: inline-flex; gap: 6px; align-items: center; }
+    .preview-close {
+        width: 28px; height: 28px; border-radius: 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--text-muted); background: transparent; border: 1px solid transparent;
+        cursor: pointer; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    }
+    .preview-close:hover { background: var(--surface); color: var(--danger); border-color: var(--border); }
+    .preview-frame { flex: 1; border: 0; width: 100%; background: #e5e7eb; }
+
+    /* Inline schema expander (per frozen version) */
+    tr.schema-row td { background: var(--surface-2); padding: 0; border-top: 0; }
+    tr.schema-row details { padding: 8px 20px 12px; }
+    tr.schema-row summary {
+        cursor: pointer; font-size: 12px; color: var(--text-muted);
+        padding: 4px 0; user-select: none; list-style: none;
+    }
+    tr.schema-row summary::-webkit-details-marker { display: none; }
+    tr.schema-row summary::before {
+        content: '▸'; display: inline-block; margin-right: 6px;
+        transition: transform 0.12s ease; color: var(--text-subtle);
+    }
+    tr.schema-row details[open] > summary::before { transform: rotate(90deg); }
+    tr.schema-row summary:hover { color: var(--text); }
+    tr.schema-row summary .full-link {
+        float: right; color: var(--brand); font-weight: 500;
+    }
+    tr.schema-row .mini-schema {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 4px 20px; margin-top: 8px; font-size: 12px;
+    }
+    tr.schema-row .mini-schema .row {
+        display: flex; align-items: baseline; gap: 8px;
+        padding: 3px 0; border-bottom: 1px dashed var(--border);
+    }
+    tr.schema-row .mini-schema .fname {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-weight: 600; color: var(--text); flex: 1; min-width: 0;
+        word-break: break-all;
+    }
+    tr.schema-row .mini-schema .ftype {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px; color: var(--text-muted);
+    }
+    tr.schema-row .mini-schema .fopt {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+        color: var(--text-subtle);
+    }
+    /* Placements: one card per PDF page. Grid of cards so many pages don't
+       stack into a tall white column, and each card feels self-contained. */
+    tr.schema-row .pages-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 12px; margin-top: 10px;
+    }
+    tr.schema-row .page-group {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 6px; padding: 10px 12px 12px;
+        display: flex; flex-direction: column; gap: 8px;
+    }
+    tr.schema-row .page-group .page-label {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 12px; font-weight: 600; color: var(--text);
+        padding-bottom: 6px; border-bottom: 1px solid var(--border);
+    }
+    tr.schema-row .page-group .page-badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 22px; height: 22px; padding: 0 6px;
+        background: var(--brand-soft); color: var(--brand-hover);
+        border-radius: 4px; font-size: 11px; font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    tr.schema-row .page-group .count {
+        margin-left: auto; font-weight: 400; color: var(--text-muted);
+        font-size: 11px;
+    }
+    tr.schema-row .page-group .field-list {
+        display: flex; flex-direction: column; gap: 2px;
+    }
+    tr.schema-row .page-group .field-list .fname {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text); padding: 2px 0;
+        word-break: break-all;
+    }
+    tr.schema-row .page-group .field-list .fname + .fname {
+        border-top: 1px dashed var(--border); padding-top: 4px; margin-top: 2px;
+    }
+    /* Auto-generated PDF widget names ("Text Field 179") — AI didn't find a
+       nearby caption. Highlight so the user knows to rename before freeze. */
+    tr.schema-row .page-group .field-list .fname.unnamed {
+        color: #92400e;
+        background: #fef3c7;
+        border-left: 3px solid #f59e0b;
+        padding-left: 6px; border-radius: 3px;
+    }
+    tr.schema-row .page-group .field-list .fname.unnamed::before {
+        content: '⚠ '; color: #d97706;
+    }
+    tr.schema-row .page-group .page-label .unnamed-count {
+        margin-left: 6px; font-size: 10px; font-weight: 600;
+        color: #92400e; background: #fef3c7; border: 1px solid #fcd34d;
+        padding: 1px 5px; border-radius: 3px; text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    /* Older-versions collapse: hide by default; the toggle row flips a class
+       on <tbody> to reveal them. The toggle itself stays visible either way. */
+    tbody.hide-older tr.older { display: none; }
+    tr.toggle-older td {
+        background: var(--surface-2);
+        padding: 8px 20px; text-align: center; border-top: 1px dashed var(--border);
+    }
+    tr.toggle-older button {
+        background: none; border: none; padding: 4px 10px;
+        color: var(--brand); cursor: pointer; font: inherit; font-size: 13px;
+        font-weight: 500; border-radius: 4px;
+    }
+    tr.toggle-older button:hover { background: var(--brand-soft); }
+    tr.toggle-older button .chev {
+        display: inline-block; transition: transform 0.12s ease;
+        margin-right: 4px; color: var(--text-subtle);
+    }
+    tbody:not(.hide-older) tr.toggle-older button .chev { transform: rotate(90deg); }
+</style>
+
+{% set frozen_default_count = versions | selectattr('is_frozen') | selectattr('locale', 'equalto', 'default') | list | length %}
+{# Recent = every row sharing the top (version, subversion) tuple (tip + any
+   locale variants at that tuple). Older = any earlier version or sub-version.
+   The versions list is ordered by (version desc, subversion desc, locale),
+   so versions[0] gives the max tuple. Kept collapsed by default so a template
+   with a long edit history doesn't overwhelm the page. #}
+{% set latest_v = versions[0].version if versions else none %}
+{% set latest_sub = versions[0].subversion if versions else none %}
+{% set older_count = versions | rejectattr('version', 'equalto', latest_v) | list | length
+                   + versions | selectattr('version', 'equalto', latest_v) | rejectattr('subversion', 'equalto', latest_sub) | list | length %}
+
+<p class="breadcrumb"><a href="/ui/">Templates</a> <span class="dot">/</span> {{ template.name }}</p>
+
+{% if not template.is_active %}
+<div class="card" style="margin-bottom: 12px; border-left: 4px solid var(--danger); background: var(--surface-2)">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--danger)" stroke-width="1.75" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M4 4l8 8"/></svg>
+        <div style="flex: 1">
+            <strong>This template is inactive.</strong>
+            <span class="muted">It's hidden from listings and refuses new renders. Existing versions and history are preserved.</span>
+        </div>
+        <form action="/ui/templates/{{ template.id }}/activation" method="post" style="margin: 0">
+            {{ csrf_input(request) }}
+            <input type="hidden" name="active" value="true">
+            <button class="btn" type="submit">Reactivate</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-header">
+    <div>
+        <h1>{{ template.name }}</h1>
+        <div class="meta-chips">
+            <span>Owner: <strong style="color: var(--text)">{{ template.owner or '—' }}</strong></span>
+            <span class="dot">·</span>
+            <span>Created {{ template.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+            <span class="dot">·</span>
+            <span>{{ versions|length }} version{{ 's' if versions|length != 1 else '' }}</span>
+        </div>
+    </div>
+    <div class="page-actions">
+        {% if frozen_default_count >= 2 %}
+        <a class="btn" href="/ui/templates/{{ template.id }}/diff">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12M12 2v12M2 5h4M10 5h4M2 11h4M10 11h4"/></svg>
+            Compare
+        </a>
+        {% endif %}
+        <a class="btn" href="/ui/templates/{{ template.id }}/profiles">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10v9H3z"/><path d="M6 7h4M6 10h4"/></svg>
+            Caller profiles
+        </a>
+        <a class="btn" href="/ui/templates/{{ template.id }}/provenance">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12V4a1 1 0 0 1 1-1h7l3 3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M10 3v3h3M5 8h6M5 11h4"/></svg>
+            Provenance
+        </a>
+        <label class="btn" for="new-version-file" style="cursor: pointer">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+            New version
+        </label>
+        <form id="new-version-form" action="/ui/templates/{{ template.id }}/versions" method="post" enctype="multipart/form-data" style="display: none">
+            {{ csrf_input(request) }}
+            <input id="new-version-file" type="file" name="file" accept="{% if template.kind == 'pdf' %}.pdf{% else %}.docx{% endif %}" data-submit-form tabindex="-1">
+        </form>
+        {% if template.is_active %}
+        <form action="/ui/templates/{{ template.id }}/activation" method="post" style="margin: 0" data-confirm="Inactivate this template? It will be hidden from listings and refuse renders. History is preserved and you can reactivate anytime.">
+            {{ csrf_input(request) }}
+            <input type="hidden" name="active" value="false">
+            <button class="btn" type="submit" title="Hide from listings and stop rendering (reversible)">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M4 4l8 8"/></svg>
+                Inactivate
+            </button>
+        </form>
+        {% endif %}
+        {% if latest and latest.is_frozen and template.is_active %}
+        <a class="btn primary" href="/ui/templates/{{ template.id }}/render?version={{ latest.version }}">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 3l10 5-10 5V3z"/></svg>
+            Render
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card flush">
+    <div class="card-header">
+        <h2>Versions</h2>
+        <span class="subtle">History of preflight + freeze events</span>
+    </div>
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th>Version</th>
+                <th>Locale</th>
+                <th>Status</th>
+                <th>Preflight</th>
+                <th>version_hash</th>
+                <th>Created</th>
+                <th style="text-align: right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="hide-older">
+        {% for v in versions %}
+            {% set is_tip = (tip_version is not none and v.version == tip_version and v.subversion == tip_subversion and v.locale == 'default') %}
+            {% set is_older = (latest_v is not none and (v.version, v.subversion) != (latest_v, latest_sub)) %}
+            <tr{% if is_older %} class="older"{% endif %}>
+                <td><strong>v{{ v.version }}.{{ v.subversion }}</strong></td>
+                <td>
+                    {% if v.locale == 'default' %}
+                        <span class="badge draft" title="Base variant of this version">default</span>
+                    {% else %}
+                        <span class="badge frozen" title="Localized variant">{{ v.locale }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if v.is_frozen %}
+                        <span class="badge frozen">Frozen</span>
+                        {% if v.version == current_version and v.subversion == (current_subversion or 0) and v.locale == 'default' %}
+                            <span class="badge accept" title="Currently serving traffic">Published</span>
+                        {% endif %}
+                    {% elif v.status == 'rejected' %}
+                        <span class="badge reject">Rejected</span>
+                    {% else %}
+                        <span class="badge draft">{{ v.status|capitalize }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% set outcome = v.preflight.get('outcome', '—') %}
+                    {% if outcome == 'accept' %}
+                        <span class="badge accept">Accept</span>
+                    {% elif outcome == 'accept-with-warnings' %}
+                        <span class="badge warn">Warnings</span>
+                    {% elif outcome == 'reject' %}
+                        <span class="badge reject">Reject</span>
+                    {% else %}
+                        <span class="muted">{{ outcome }}</span>
+                    {% endif %}
+                    {% set fc = v.preflight.get('findings', []) | length %}
+                    {% if fc %}<span class="subtle"> · {{ fc }} finding{{ 's' if fc != 1 else '' }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if v.version_hash %}
+                        <span class="version-hash" title="{{ v.version_hash }}">{{ v.version_hash[:12] }}…</span>
+                    {% else %}
+                        <span class="subtle">—</span>
+                    {% endif %}
+                </td>
+                <td class="muted">{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="actions-cell" style="text-align: right">
+                    {% if v.is_frozen %}
+                        {% set is_current = (v.version == current_version and v.subversion == (current_subversion or 0)) %}
+                        {% set current_tuple = (current_version, current_subversion or 0) %}
+                        {% set row_tuple = (v.version, v.subversion) %}
+                        {% if v.locale == 'default' and not is_current %}
+                            <form action="/ui/templates/{{ template.id }}/publish" method="post" style="display: inline">
+                                {{ csrf_input(request) }}
+                                <input type="hidden" name="version" value="{{ v.version }}">
+                                <input type="hidden" name="subversion" value="{{ v.subversion }}">
+                                <button type="submit" class="linklike"
+                                        title="{% if current_version and row_tuple < current_tuple %}Rollback to v{{ v.version }}.{{ v.subversion }}{% else %}Publish v{{ v.version }}.{{ v.subversion }}{% endif %}"
+                                        style="background: none; border: none; padding: 0; color: var(--brand); cursor: pointer; font: inherit; display: inline; box-shadow: none; vertical-align: baseline">
+                                    {% if current_version and row_tuple < current_tuple %}Rollback →{% else %}Publish →{% endif %}
+                                </button>
+                            </form>
+                            <span class="subtle"> · </span>
+                        {% endif %}
+                        {# Edit sits outside the publish-state gate: the tip is always editable
+                           (a save on a published tip clones into a new sub-version). #}
+                        {% if v.pdf_flavor and is_tip and v.locale == 'default' %}
+                            <a href="/ui/versions/{{ v.id }}/placements" title="Edit placements — saves clone into a new sub-version">Edit →</a>
+                            <span class="subtle"> · </span>
+                        {% endif %}
+                        {# Supersede is docx-only: clones this frozen row (and its locale siblings)
+                           into a new draft sub-version so schema edits (currently: required flags)
+                           can land without a re-upload. Only offered on the default-locale tip. #}
+                        {% if not v.pdf_flavor and is_tip and v.locale == 'default' %}
+                            <form action="/ui/versions/{{ v.id }}/supersede" method="post" style="display: inline"
+                                  data-confirm="Clone v{{ v.version }}.{{ v.subversion }} into a new draft sub-version to edit required flags? The current version stays published.">
+                                {{ csrf_input(request) }}
+                                <button type="submit" class="linklike"
+                                        title="Clone into a new draft sub-version so you can edit which fields are required"
+                                        style="background: none; border: none; padding: 0; color: var(--brand); cursor: pointer; font: inherit; display: inline; box-shadow: none; vertical-align: baseline">Supersede →</button>
+                            </form>
+                            <span class="subtle"> · </span>
+                        {% endif %}
+                        {% if frozen_default_count >= 2 and v.locale == 'default' %}
+                            <a href="/ui/templates/{{ template.id }}/diff?to_version={{ v.version }}">Diff →</a>
+                            <span class="subtle"> · </span>
+                        {% endif %}
+                        <span class="icon-actions">
+                            <a class="icon-btn" href="/ui/templates/{{ template.id }}/schema?version={{ v.version }}&locale={{ v.locale }}"
+                               title="View schema" aria-label="View schema">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M5 2H4a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1 1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1"/>
+                                    <path d="M11 2h1a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1 1 1 0 0 0-1 1v3a1 1 0 0 1-1 1h-1"/>
+                                </svg>
+                            </a>
+                            <a class="icon-btn preview-open" href="/ui/versions/{{ v.id }}/preview.html"
+                               data-preview-url="/ui/versions/{{ v.id }}/preview.html"
+                               data-preview-title="v{{ v.version }} · {{ v.locale }}"
+                               title="{% if v.pdf_flavor %}Preview PDF (placements overlay){% else %}Preview tagged document (placeholders visible){% endif %}"
+                               aria-label="Preview {% if v.pdf_flavor %}PDF{% else %}tagged document{% endif %}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+                                    <circle cx="8" cy="8" r="2.25"/>
+                                </svg>
+                            </a>
+                            <a class="icon-btn" href="/ui/versions/{{ v.id }}/download"
+                               title="{% if v.pdf_flavor %}Download source .pdf{% else %}Download tagged .docx (opens in Word){% endif %}"
+                               aria-label="Download {% if v.pdf_flavor %}.pdf{% else %}tagged .docx{% endif %}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M8 2v8"/>
+                                    <path d="M4.5 6.5 8 10l3.5-3.5"/>
+                                    <path d="M2.5 12.5V13a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-.5"/>
+                                </svg>
+                            </a>
+                        </span>
+                    {% elif v.status != 'rejected' %}
+                        {% if v.pdf_flavor %}
+                            <a href="/ui/versions/{{ v.id }}/placements">Edit placements →</a>
+                        {% elif v.subversion > 0 %}
+                            {# Superseded draft: source .docx is already tagged; only the
+                               required flags are up for edit before re-freeze. #}
+                            <a href="/ui/versions/{{ v.id }}/edit-required">Edit required &amp; freeze →</a>
+                        {% else %}
+                            <a href="/ui/versions/{{ v.id }}/map">Map &amp; freeze →</a>
+                        {% endif %}
+                    {% else %}
+                        <span class="subtle">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if v.is_frozen and v.schema and v.schema.get('fields') %}
+            <tr class="schema-row{% if is_older %} older{% endif %}">
+                <td colspan="7">
+                    <details>
+                        <summary>
+                            Schema — {{ v.schema.get('fields', []) | length }} field{{ 's' if v.schema.get('fields', []) | length != 1 else '' }}
+                            <a class="full-link" href="/ui/templates/{{ template.id }}/schema?version={{ v.version }}&locale={{ v.locale }}">Open full view →</a>
+                        </summary>
+                        <div class="mini-schema">
+                            {% for f in v.schema.get('fields', []) %}
+                            <div class="row">
+                                <span class="fname" title="{{ f.name }}">{{ f.name }}</span>
+                                <span class="ftype">{{ f.type }}</span>
+                                {% if not f.required %}<span class="fopt">optional</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                </td>
+            </tr>
+            {% endif %}
+            {% if v.pdf_flavor and v.pdf_field_placements and v.pdf_field_placements.get('placements') %}
+            {% set _plcs = v.pdf_field_placements.get('placements', []) %}
+            <tr class="schema-row{% if is_older %} older{% endif %}">
+                <td colspan="7">
+                    <details>
+                        <summary>
+                            Placements — {{ _plcs | length }} field{{ 's' if _plcs|length != 1 else '' }} ({{ v.pdf_flavor }})
+                            {% if not v.is_frozen or is_tip %}<a class="full-link" href="/ui/versions/{{ v.id }}/placements">Edit →</a>{% endif %}
+                        </summary>
+                        <div class="pages-grid">
+                            {% for page_num, page_plcs in _plcs | sort(attribute='page') | groupby('page') %}
+                            {% set _unnamed = page_plcs | selectattr('name', 'unnamed_pdf_field') | list | length %}
+                            <div class="page-group">
+                                <div class="page-label">
+                                    <span class="page-badge">P{{ page_num }}</span>
+                                    <span>Page {{ page_num }}</span>
+                                    <span class="count">{{ page_plcs | length }} field{{ 's' if page_plcs|length != 1 else '' }}</span>
+                                    {% if _unnamed %}<span class="unnamed-count" title="{{ _unnamed }} field{{ 's' if _unnamed != 1 else '' }} still have auto-generated names">{{ _unnamed }} unnamed</span>{% endif %}
+                                </div>
+                                <div class="field-list">
+                                    {% for p in page_plcs %}
+                                    <span class="fname{% if p.name is unnamed_pdf_field %} unnamed{% endif %}" title="{{ p.label or p.name }}">{{ p.name }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                </td>
+            </tr>
+            {% endif %}
+        {% endfor %}
+        {% if older_count %}
+            <tr class="toggle-older">
+                <td colspan="7">
+                    <button type="button" data-toggle-older>
+                        <span class="chev">▸</span><span class="label">Show {{ older_count }} older version{{ 's' if older_count != 1 else '' }}</span>
+                    </button>
+                </td>
+            </tr>
+        {% endif %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+{% if latest and latest.is_frozen and template.kind != 'pdf' %}
+<div class="card" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Add localized variant</h2>
+        <span class="subtle">v{{ latest.version }} · same schema, different .docx</span>
+    </div>
+    <form action="/ui/templates/{{ template.id }}/versions/{{ latest.version }}/locales" method="post" enctype="multipart/form-data" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 4px 0">
+        {{ csrf_input(request) }}
+        <label style="min-width: 160px">Locale tag
+            <input type="text" name="locale" placeholder="e.g. en-GB, es-419" required pattern="[A-Za-z0-9\-]+" title="BCP 47 style tag; letters, digits, and hyphens">
+        </label>
+        <label style="flex: 1; min-width: 260px">Localized .docx
+            <input type="file" name="file" accept=".docx" required style="padding: 8px 10px; line-height: 20px">
+        </label>
+        <button class="primary" type="submit" style="height: 40px; padding: 0 18px">Upload variant</button>
+    </form>
+    <div class="muted" style="font-size: 12px; margin-top: 6px">Freeze will reject if the variant's schema fields differ from siblings of v{{ latest.version }}.</div>
+</div>
+{% endif %}
+
+{% if publish_history %}
+<div class="card flush" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Publish history</h2>
+        <span class="subtle">{{ publish_history|length }} event{{ 's' if publish_history|length != 1 else '' }}</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Action</th>
+                <th>Version</th>
+                <th>Actor</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for ev in publish_history %}
+            <tr>
+                <td class="muted">{{ ev.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                <td>
+                    {% if ev.event_kind == 'rollback' %}
+                        <span class="badge warn">Rollback</span>
+                    {% else %}
+                        <span class="badge accept">Publish</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <strong>v{{ ev.version }}.{{ ev.subversion }}</strong>
+                    {% if ev.previous_version %}
+                        <span class="subtle">← was v{{ ev.previous_version }}.{{ ev.previous_subversion or 0 }}</span>
+                    {% else %}
+                        <span class="subtle">← first publish</span>
+                    {% endif %}
+                </td>
+                <td class="muted">{{ ev.actor or '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if audit_history %}
+<div class="card flush" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Audit history</h2>
+        <span class="subtle">{{ audit_history|length }} event{{ 's' if audit_history|length != 1 else '' }} — newest first</span>
+    </div>
+    <div class="table-scroll">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 170px">When</th>
+                <th style="width: 150px">Event</th>
+                <th style="width: 100px">Version</th>
+                <th>Details</th>
+                <th style="width: 160px">Actor</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for ev in audit_history %}
+            <tr>
+                <td class="muted">{{ ev.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                <td>
+                    {% if ev.event_kind == 'frozen' %}
+                        <span class="badge frozen">Frozen</span>
+                    {% elif ev.event_kind == 'subversion_created' %}
+                        <span class="badge accept">Sub-version</span>
+                    {% elif ev.event_kind == 'publish' %}
+                        <span class="badge accept">Publish</span>
+                    {% elif ev.event_kind == 'rollback' %}
+                        <span class="badge warn">Rollback</span>
+                    {% elif ev.event_kind == 'placements_edited' %}
+                        <span class="badge draft">Edited</span>
+                    {% elif ev.event_kind == 'version_created' %}
+                        <span class="badge draft">Uploaded</span>
+                    {% elif ev.event_kind == 'locale_variant_created' %}
+                        <span class="badge draft">Locale added</span>
+                    {% else %}
+                        <span class="badge draft">{{ ev.event_kind }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if ev.version is not none %}
+                        <strong>v{{ ev.version }}.{{ ev.subversion or 0 }}</strong>
+                        {% if ev.locale and ev.locale != 'default' %}
+                            <span class="subtle">· {{ ev.locale }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="subtle">—</span>
+                    {% endif %}
+                </td>
+                <td class="muted" style="font-size: 12px">
+                    {% set s = ev.summary or {} %}
+                    {% if s.get('field_count') is not none %}
+                        {{ s['field_count'] }} field{{ 's' if s['field_count'] != 1 else '' }}
+                    {% endif %}
+                    {% if s.get('from_subversion') is not none %}
+                        <span class="subtle">· cloned from .{{ s['from_subversion'] }}</span>
+                    {% endif %}
+                    {% if s.get('previous_version') %}
+                        <span class="subtle">· was v{{ s['previous_version'] }}.{{ s.get('previous_subversion') or 0 }}</span>
+                    {% endif %}
+                    {% if s.get('flavor') %}
+                        <span class="subtle">· {{ s['flavor'] }}</span>
+                    {% endif %}
+                </td>
+                <td class="muted">{{ ev.actor or '—' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% if callers_30d %}
+<div class="card flush" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Who calls this?</h2>
+        <span class="subtle">Callers seen in the last 30 days — top {{ callers_30d|length }}</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Caller</th>
+                <th style="width: 100px; text-align: right">Renders</th>
+                <th style="width: 100px; text-align: right">Failed</th>
+                <th style="width: 180px">Last seen</th>
+                <th style="width: 120px"></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in callers_30d %}
+            <tr>
+                <td>
+                    {% if c.caller %}
+                        <span class="mono">{{ c.caller }}</span>
+                    {% else %}
+                        <span class="muted">(no caller)</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right"><strong>{{ c.total }}</strong></td>
+                <td style="text-align: right">
+                    {% if c.failed %}
+                        <span class="badge reject">{{ c.failed }}</span>
+                    {% else %}
+                        <span class="subtle">0</span>
+                    {% endif %}
+                </td>
+                <td class="muted">{{ c.last_seen.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    {% if c.caller %}
+                        <a href="/ui/renders?caller={{ c.caller|urlencode }}">View renders →</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if latest and latest.preflight.get('findings') %}
+<div class="card flush" style="margin-top: 16px">
+    <div class="card-header">
+        <h2>Latest preflight findings</h2>
+        <span class="subtle">v{{ latest.version }}</span>
+    </div>
+    <table class="findings-table">
+        <thead>
+            <tr>
+                <th style="width: 90px">Severity</th>
+                <th style="width: 160px">Code</th>
+                <th>Message</th>
+                <th>Hint</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for f in latest.preflight.get('findings', []) %}
+            <tr class="finding-row">
+                <td>
+                    {% if f.severity == 'error' %}<span class="badge reject">Error</span>
+                    {% else %}<span class="badge warn">Warn</span>{% endif %}
+                </td>
+                <td class="mono muted">{{ f.code }}</td>
+                <td class="msg">{{ f.message }}</td>
+                <td class="muted">{{ f.hint or '' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div id="preview-overlay" class="preview-overlay" role="dialog" aria-modal="true" aria-labelledby="preview-title">
+    <div class="preview-dialog">
+        <div class="preview-header">
+            <div class="preview-title">Preview <strong id="preview-title">—</strong></div>
+            <div class="preview-actions">
+                <a id="preview-open-tab" class="icon-btn" href="#" target="_blank" rel="noopener"
+                   title="Open in new tab" aria-label="Open in new tab">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 3H3v10h10v-3"/><path d="M10 2h4v4"/><path d="M14 2 8 8"/>
+                    </svg>
+                </a>
+                <button type="button" class="preview-close" title="Close (Esc)" aria-label="Close preview">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+                        <path d="M4 4l8 8M12 4l-8 8"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <iframe id="preview-frame" class="preview-frame" title="Document preview" src="about:blank"></iframe>
+    </div>
+</div>
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    const overlay = document.getElementById('preview-overlay');
+    const frame = document.getElementById('preview-frame');
+    const title = document.getElementById('preview-title');
+    const openTab = document.getElementById('preview-open-tab');
+    const closeBtn = overlay.querySelector('.preview-close');
+
+    function open(url, label) {
+        title.textContent = label || 'document';
+        openTab.href = url;
+        frame.src = url;
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function close() {
+        overlay.classList.remove('open');
+        frame.src = 'about:blank';
+        document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.preview-open').forEach(function (a) {
+        a.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            open(a.dataset.previewUrl, a.dataset.previewTitle);
+        });
+    });
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (ev) {
+        if (ev.target === overlay) close();
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && overlay.classList.contains('open')) close();
+    });
+
+    document.querySelectorAll('[data-toggle-older]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const tbody = btn.closest('tbody');
+            if (!tbody) return;
+            const hidden = tbody.classList.toggle('hide-older');
+            const label = btn.querySelector('.label');
+            const count = tbody.querySelectorAll('tr.older:not(.schema-row)').length;
+            if (label) {
+                label.textContent = hidden
+                    ? 'Show ' + count + ' older version' + (count !== 1 ? 's' : '')
+                    : 'Hide older versions';
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}

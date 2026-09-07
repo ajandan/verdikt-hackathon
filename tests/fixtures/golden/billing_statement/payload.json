@@ -1,0 +1,11 @@
+{
+  "account_number": "ACC-778899",
+  "statement_date": "2026-08-01",
+  "lines": [
+    {"date": "2026-07-03", "description": "Office visit", "amount": "125.00"},
+    {"date": "2026-07-15", "description": "Lab work",     "amount": "48.50"},
+    {"date": "2026-07-28", "description": "Prescription", "amount": "22.75"}
+  ],
+  "total_due": "196.25",
+  "due_date": "2026-08-31"
+}

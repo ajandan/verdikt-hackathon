@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Renders — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .toolbar {
+        display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+        padding: 14px 20px; background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: 0;
+        box-shadow: var(--shadow-xs);
+    }
+    .chip-group {
+        display: inline-flex; gap: 3px; padding: 3px;
+        background: var(--surface-2); border-radius: 10px;
+        border: 1px solid var(--border);
+    }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 12px; border-radius: 7px;
+        border: 1px solid transparent; background: transparent;
+        color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+        text-decoration: none; user-select: none; box-shadow: none;
+        transition: background var(--dur-fast) var(--ease-out),
+                    color var(--dur-fast) var(--ease-out),
+                    box-shadow var(--dur-fast) var(--ease-out);
+    }
+    .chip:hover { color: var(--text); background: transparent; text-decoration: none; box-shadow: none; }
+    .chip.active {
+        background: var(--surface); color: var(--brand);
+        box-shadow: var(--shadow-sm); font-weight: 600;
+    }
+    .card.flush.attached { border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden; }
+    .fail-cell {
+        max-width: 320px; color: var(--danger); font-size: 12.5px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    tr.render-row { cursor: pointer; }
+    tr.render-row.expanded { background: var(--surface-2); }
+    tr.render-detail { display: none; }
+    tr.render-detail.open { display: table-row; }
+    tr.render-detail td {
+        background: var(--surface-2); padding: 14px 24px 18px;
+        border-bottom: 1px solid var(--border);
+    }
+    tr.render-detail pre {
+        margin: 8px 0 0; max-height: 320px; overflow: auto;
+        font-size: 12px; white-space: pre-wrap; word-break: break-word;
+    }
+    tr.render-detail .detail-head {
+        display: flex; gap: 10px; align-items: center; font-size: 12px;
+        color: var(--text-muted); flex-wrap: wrap;
+    }
+    tr.render-detail .detail-head strong { color: var(--text); font-weight: 500; }
+    .caret {
+        display: inline-block; width: 10px; text-align: center;
+        color: var(--text-subtle); transition: transform 0.12s ease;
+    }
+    tr.render-row.expanded .caret { transform: rotate(90deg); color: var(--brand); }
+
+    .filters-row {
+        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        margin-top: 10px; padding-top: 10px;
+        border-top: 1px dashed var(--border);
+        width: 100%;
+    }
+    .filters-row .filter-input {
+        padding: 5px 10px; font-size: 12.5px; width: auto; min-width: 180px;
+        height: 30px;
+    }
+    .filters-row label {
+        margin: 0; font-size: 12px; color: var(--text-muted);
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .filters-row .clear-link {
+        color: var(--text-muted); font-size: 12px;
+        margin-left: auto; text-decoration: underline; text-underline-offset: 3px;
+    }
+    .empty .cta-row {
+        display: inline-flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; justify-content: center;
+    }
+    .empty pre.curl-example {
+        text-align: left; max-width: 560px; margin: 20px auto 0;
+        font-size: 11.5px; white-space: pre-wrap;
+    }
+</style>
+
+<section class="mb-6">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div class="min-w-0">
+            <h1 class="text-[26px] font-semibold tracking-tight leading-tight m-0">Renders</h1>
+            <p class="mt-1.5 text-ink-muted text-[14.5px] max-w-2xl m-0">Every render job across your tenants, newest first. Filter by state to triage failures.</p>
+        </div>
+    </div>
+</section>
+
+{% macro chip_href(overrides) -%}
+    /ui/renders?
+    {%- set parts = [] -%}
+    {%- for k, v in overrides.items() -%}
+        {%- if v -%}{%- set _ = parts.append(k ~ '=' ~ v) -%}{%- endif -%}
+    {%- endfor -%}
+    {%- if selected_tenant and 'tenant' not in overrides -%}
+        {%- set _ = parts.append('tenant=' ~ selected_tenant) -%}
+    {%- endif -%}
+    {%- if state_filter and 'state' not in overrides -%}
+        {%- set _ = parts.append('state=' ~ state_filter) -%}
+    {%- endif -%}
+    {%- if since_filter and 'since' not in overrides -%}
+        {%- set _ = parts.append('since=' ~ since_filter) -%}
+    {%- endif -%}
+    {{ parts|join('&') }}
+{%- endmacro %}
+<div class="toolbar">
+    <div class="chip-group" role="tablist" aria-label="Filter by state">
+        <a href="{{ chip_href({'state': ''}) }}" class="chip {% if not state_filter %}active{% endif %}">All</a>
+        <a href="{{ chip_href({'state': 'succeeded'}) }}" class="chip {% if state_filter == 'succeeded' %}active{% endif %}">Succeeded</a>
+        <a href="{{ chip_href({'state': 'failed'}) }}" class="chip {% if state_filter == 'failed' %}active{% endif %}">Failed</a>
+        <a href="{{ chip_href({'state': 'running'}) }}" class="chip {% if state_filter == 'running' %}active{% endif %}">Running</a>
+        <a href="{{ chip_href({'state': 'queued'}) }}" class="chip {% if state_filter == 'queued' %}active{% endif %}">Queued</a>
+    </div>
+    <div class="chip-group" role="tablist" aria-label="Filter by time range" style="margin-left: 8px">
+        <a href="{{ chip_href({'since': ''}) }}" class="chip {% if not since_filter %}active{% endif %}">All time</a>
+        <a href="{{ chip_href({'since': '24h'}) }}" class="chip {% if since_filter == '24h' %}active{% endif %}">24h</a>
+        <a href="{{ chip_href({'since': '7d'}) }}" class="chip {% if since_filter == '7d' %}active{% endif %}">7d</a>
+        <a href="{{ chip_href({'since': '30d'}) }}" class="chip {% if since_filter == '30d' %}active{% endif %}">30d</a>
+    </div>
+
+    <form action="/ui/renders" method="get" class="filters-row" role="search">
+        {% if selected_tenant %}<input type="hidden" name="tenant" value="{{ selected_tenant }}">{% endif %}
+        {% if state_filter %}<input type="hidden" name="state" value="{{ state_filter }}">{% endif %}
+        {% if since_filter %}<input type="hidden" name="since" value="{{ since_filter }}">{% endif %}
+        <label>
+            <span>Search</span>
+            <input type="search" name="q" value="{{ q_filter or '' }}" class="filter-input"
+                   placeholder="job id, caller, error text…" aria-label="Search job id, caller, or error text">
+        </label>
+        <label>
+            <span>Caller</span>
+            <input type="text" name="caller" value="{{ caller_filter or '' }}" class="filter-input"
+                   placeholder="e.g. agent://triage-bot" aria-label="Filter by caller substring">
+        </label>
+        <button type="submit" class="btn sm primary">Apply</button>
+        {% if q_filter or caller_filter or state_filter or since_filter %}
+            <a href="/ui/renders{% if selected_tenant %}?tenant={{ selected_tenant }}{% endif %}" class="clear-link">Clear all filters</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card flush attached">
+    {% if renders %}
+    <table id="renders-table">
+        <thead>
+            <tr>
+                <th style="width: 20px"></th>
+                <th>State</th>
+                <th>Template</th>
+                <th>Tenant</th>
+                <th>Caller</th>
+                <th>Submitted</th>
+                <th>Completed</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in renders %}
+            <tr class="render-row" tabindex="0" role="button"
+                aria-expanded="false" aria-controls="detail-{{ r.id }}"
+                data-render-row="{{ r.id }}">
+                <td><span class="caret">▸</span></td>
+                <td>
+                    {% if r.state == 'succeeded' %}
+                        <span class="badge accept">ok</span>
+                    {% elif r.state == 'failed' %}
+                        <span class="badge reject">failed</span>
+                    {% elif r.state == 'running' %}
+                        <span class="badge info">running</span>
+                    {% else %}
+                        <span class="badge draft">{{ r.state }}</span>
+                    {% endif %}
+                </td>
+                <td><a href="/ui/templates/{{ r.template_id }}">{{ r.template_name }}</a></td>
+                <td class="muted">{{ r.tenant_name }}</td>
+                <td class="muted">{{ r.caller or '—' }}</td>
+                <td class="muted">{{ r.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="muted">{% if r.completed_at %}{{ r.completed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+                <td class="fail-cell" title="{{ r.error or '' }}">{{ r.error or '' }}</td>
+            </tr>
+            <tr class="render-detail" id="detail-{{ r.id }}">
+                <td colspan="8">
+                    <div class="detail-head">
+                        <span>Job&nbsp;<strong style="font-family: ui-monospace, monospace">{{ r.id }}</strong></span>
+                        <span>·</span>
+                        <span>Submitted <strong>{{ r.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</strong></span>
+                        {% if r.completed_at %}
+                        <span>·</span>
+                        <span>Completed <strong>{{ r.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</strong></span>
+                        {% endif %}
+                        {% if r.state == 'succeeded' %}
+                        <span>·</span>
+                        <a href="/ui/jobs/{{ r.id }}/result">Download result</a>
+                        {% endif %}
+                    </div>
+                    {% if r.error %}
+                    <h3 style="margin: 12px 0 0; text-transform: none; letter-spacing: 0; color: var(--danger); font-size: 12px">Full error</h3>
+                    <pre>{{ r.error }}</pre>
+                    {% else %}
+                    <div class="muted" style="margin-top: 10px">No error output.</div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+        {% if state_filter or since_filter or q_filter or caller_filter %}
+            <h3>No renders match these filters</h3>
+            <p>Try widening the time range, clearing the state filter, or removing the search terms.</p>
+            <div class="cta-row">
+                <a href="/ui/renders{% if selected_tenant %}?tenant={{ selected_tenant }}{% endif %}" class="btn sm">Clear all filters</a>
+            </div>
+        {% else %}
+            <h3>No render jobs yet</h3>
+            <p>Once a caller submits a template for rendering it will appear here. Kick one off from a template, or POST to the API.</p>
+            <div class="cta-row">
+                <a href="/ui/templates" class="btn sm primary">Browse templates</a>
+                <a href="/ui/renders/new" class="btn sm">Render a template</a>
+            </div>
+            <pre class="curl-example">curl -X POST {{ request.base_url|string|replace('http://', 'https://')|trim('/') }}/api/render \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: {{ selected_tenant or '<tenant-uuid>' }}" \
+  -d '{"template_id": "<template-uuid>", "data": {"name": "Ada"}}'</pre>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var table = document.getElementById('renders-table');
+    if (!table) return;
+    function toggle(row) {
+        var id = row.getAttribute('data-render-row');
+        var detail = document.getElementById('detail-' + id);
+        if (!detail) return;
+        var open = row.classList.toggle('expanded');
+        detail.classList.toggle('open', open);
+        row.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    table.querySelectorAll('tr.render-row').forEach(function (row) {
+        row.addEventListener('click', function (e) {
+            // Preserve normal link clicks inside the row.
+            if (e.target.closest('a')) return;
+            toggle(row);
+        });
+        row.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                if (e.target.closest('a')) return;
+                e.preventDefault();
+                toggle(row);
+            }
+        });
+    });
+})();
+</script>
+
+{% if next_cursor or is_paged %}
+{% set trailing = ('&' ~ filter_qs) if filter_qs else '' %}
+<div class="flex items-center justify-between gap-3 mt-4 text-[13px] text-ink-muted">
+    <div>
+        {% if is_paged %}
+            <a href="/ui/renders?limit={{ page_size }}{{ trailing }}" class="btn sm">Back to start</a>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+        <span>Showing up to {{ page_size }} per page</span>
+        {% if next_cursor %}
+            <a href="/ui/renders?cursor={{ next_cursor }}&limit={{ page_size }}{{ trailing }}" class="btn sm primary">Next →</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

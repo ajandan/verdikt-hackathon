@@ -1,0 +1,559 @@
+{% extends "base.html" %}
+{% block title %}Templates — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    /* Page-local styles: only what Tailwind utilities can't express cleanly. */
+    .stats-grid {
+        display: grid; gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    @media (max-width: 640px) {
+        .stats-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+    .stat-card {
+        position: relative;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); padding: 20px 22px 18px;
+        box-shadow: var(--shadow-xs);
+        display: flex; flex-direction: column; gap: 10px;
+        overflow: hidden;
+        transition: border-color var(--dur) var(--ease-out),
+                    box-shadow var(--dur) var(--ease-out);
+    }
+    .stat-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: var(--text-subtle); opacity: 0.35;
+    }
+    .stat-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+    .stat-card .label {
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.08em; color: var(--text-subtle);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .stat-card .label .dot {
+        width: 6px; height: 6px; border-radius: 50%; background: var(--text-subtle);
+    }
+    .stat-card .value {
+        font-size: 32px; font-weight: 600; color: var(--text);
+        letter-spacing: -0.03em; line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-card .value.attention { color: var(--warn); }
+    .stat-card .value.zero { color: var(--text-muted); font-weight: 500; }
+    .stat-card .sub {
+        font-size: 12.5px; color: var(--text-muted);
+        display: flex; flex-wrap: wrap; gap: 4px 10px;
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-card .sub .ok { color: var(--success); font-weight: 600; }
+    .stat-card .sub .bad { color: var(--danger); font-weight: 600; }
+    .stat-card .sub .neutral { color: var(--text-muted); }
+    .stat-card.frozen-accent::before { background: var(--brand); opacity: 1; }
+    .stat-card.warn-accent::before   { background: var(--warn);  opacity: 1; }
+    .stat-card.info-accent::before   { background: var(--accent); opacity: 1; }
+    .stat-card.success-accent::before{ background: var(--success); opacity: 1; }
+    .stat-card.frozen-accent .label .dot { background: var(--brand); }
+    .stat-card.warn-accent .label .dot { background: var(--warn); }
+    .stat-card.info-accent .label .dot { background: var(--accent); }
+    .stat-card.success-accent .label .dot { background: var(--success); }
+
+    .toolbar {
+        display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+        padding: 14px 20px; background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: 0;
+        box-shadow: var(--shadow-xs);
+    }
+    .toolbar .search {
+        flex: 1; min-width: 220px; max-width: 380px; position: relative;
+    }
+    .toolbar .search input {
+        padding-left: 34px; height: 36px; font-size: 13.5px;
+        background: var(--surface-2); border-color: transparent;
+    }
+    .toolbar .search input:focus {
+        background: var(--surface); border-color: var(--brand);
+    }
+    .toolbar .search svg {
+        position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+        color: var(--text-subtle); pointer-events: none;
+    }
+    .chip-group {
+        display: inline-flex; gap: 3px; padding: 3px;
+        background: var(--surface-2); border-radius: 10px;
+        border: 1px solid var(--border);
+    }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 5px 12px; border-radius: 7px;
+        border: 1px solid transparent; background: transparent;
+        color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+        cursor: pointer; user-select: none; box-shadow: none;
+        transition: background var(--dur-fast) var(--ease-out),
+                    color var(--dur-fast) var(--ease-out),
+                    box-shadow var(--dur-fast) var(--ease-out);
+    }
+    .chip:hover { color: var(--text); background: transparent; box-shadow: none; }
+    .chip.active {
+        background: var(--surface); color: var(--brand);
+        box-shadow: var(--shadow-sm);
+        font-weight: 600;
+    }
+    .chip .count {
+        font-size: 10.5px; padding: 1px 6px; border-radius: 999px;
+        background: rgb(var(--text-muted-rgb) / 0.12); color: inherit;
+        font-variant-numeric: tabular-nums; font-weight: 600;
+    }
+    .chip.active .count { background: var(--brand-soft); }
+    .toolbar .visible-count { font-size: 12.5px; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+
+    .card.flush.attached { border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden; }
+    tr.hidden { display: none; }
+    tr.inactive td { background: var(--danger-soft); color: var(--text-muted); }
+    tr.inactive td strong { color: var(--text); font-weight: 500; }
+    tr.inactive:hover td { background: rgb(var(--danger-soft-rgb) / 0.85); }
+    #tpl-list-card td .badge { white-space: nowrap; }
+    .empty-filtered { padding: 40px 24px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
+    a.inactive-toggle {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 12.5px; color: var(--text-muted); cursor: pointer;
+        user-select: none; margin: 0; white-space: nowrap;
+        text-decoration: none;
+    }
+    a.inactive-toggle:hover { color: var(--text); text-decoration: none; }
+    .switch { position: relative; width: 32px; height: 18px; flex-shrink: 0; display: inline-block; }
+    .switch .track {
+        position: absolute; inset: 0; background: var(--border-strong, #cbd5e1);
+        border-radius: 999px; transition: background 0.15s ease;
+    }
+    .switch .thumb {
+        position: absolute; top: 2px; left: 2px;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        transition: transform 0.15s ease;
+    }
+    .switch.on .track { background: var(--brand); }
+    .switch.on .thumb { transform: translateX(14px); }
+
+    .row-open {
+        display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+        width: 30px; height: 30px; border-radius: 8px;
+        color: var(--text-muted); transition: background 0.12s ease, color 0.12s ease;
+    }
+    tr:hover .row-open { background: var(--brand-soft); color: var(--brand); }
+
+    .kbd {
+        display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px; padding: 1px 6px; border-radius: 5px;
+        background: var(--surface); color: var(--text-muted);
+        border: 1px solid var(--border);
+    }
+
+    /* Bulk-action row selection */
+    #tpl-list-card th.check-col,
+    #tpl-list-card td.check-col {
+        width: 36px; padding-left: 18px; padding-right: 0;
+    }
+    #tpl-list-card td.check-col input,
+    #tpl-list-card th.check-col input {
+        width: 15px; height: 15px; cursor: pointer; accent-color: var(--brand);
+    }
+    tr.selected td { background: var(--brand-soft); }
+    tr.selected:hover td { background: rgb(var(--brand-rgb) / 0.16); }
+    .bulk-bar {
+        position: sticky; bottom: 16px; z-index: 30;
+        display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+        margin: 16px auto 0; max-width: 720px; padding: 10px 14px;
+        background: var(--surface); border: 1px solid var(--border-strong);
+        border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    }
+    .bulk-bar.show { display: flex; }
+    .bulk-bar .count {
+        font-size: 13px; color: var(--text); font-weight: 500;
+    }
+    .bulk-bar .spacer { flex: 1; }
+    .bulk-bar .clear-selection {
+        font-size: 12.5px; color: var(--text-muted); background: transparent;
+        border: 0; padding: 4px 8px; cursor: pointer; box-shadow: none;
+    }
+    .bulk-bar .clear-selection:hover { color: var(--text); background: var(--surface-2); }
+
+    /* ---------- Mobile (≤640px) ----------
+       Narrow screens can't fit the 10-column table, the 4-up stat grid, or
+       the search+chips+toggle+count toolbar row without overflow. Hide the
+       lowest-value columns, drop card chrome, and let the toolbar stack. */
+    .tpl-col-tenant, .tpl-col-owner, .tpl-col-versions,
+    .tpl-col-lastrun, .tpl-col-created { }
+    @media (max-width: 640px) {
+        .stat-card { padding: 14px 16px 12px; gap: 6px; }
+        .stat-card .value { font-size: 26px; }
+        .stat-card .sub { font-size: 12px; }
+
+        .toolbar { padding: 12px; gap: 10px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+        .toolbar .search { flex-basis: 100%; max-width: none; min-width: 0; }
+        .toolbar .chip-group { flex-wrap: wrap; }
+        .toolbar .visible-count { margin-left: auto; }
+
+        .tpl-col-tenant, .tpl-col-owner, .tpl-col-versions,
+        .tpl-col-lastrun, .tpl-col-created { display: none; }
+
+        #tpl-list-card { overflow-x: auto; }
+        #tpl-list-card td, #tpl-list-card th { padding-left: 10px; padding-right: 10px; }
+        #tpl-list-card th.check-col, #tpl-list-card td.check-col { padding-left: 10px; width: 30px; }
+
+        .bulk-bar { margin-left: 8px; margin-right: 8px; padding: 8px 10px; }
+        .bulk-bar .count { font-size: 12.5px; }
+
+        .empty { padding-left: 20px; padding-right: 20px; }
+    }
+</style>
+
+<section class="mb-8">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div class="min-w-0">
+            <h1 class="text-[26px] font-semibold tracking-tight leading-tight m-0">Templates</h1>
+            <p class="mt-1.5 text-ink-muted text-[14.5px] max-w-2xl m-0">Design, freeze, and version DOCX, AcroForm PDF, and flat PDF templates for deterministic rendering across your tenants.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            {% if admin_user and all_tenants and all_tenants|length > 1 %}
+            <form action="/ui/" method="get" class="flex items-center gap-2 m-0">
+                <label class="text-[12.5px] text-ink-muted m-0">Tenant</label>
+                <select name="tenant" data-submit-form class="!w-auto min-w-[180px] !h-9 !text-[13px] !py-0">
+                    <option value="">All tenants</option>
+                    {% for t in all_tenants %}
+                        <option value="{{ t.id }}" {% if selected_tenant and (selected_tenant|string) == (t.id|string) %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn sm">Filter</button></noscript>
+            </form>
+            {% endif %}
+            <a href="/ui/upload" class="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg bg-brand text-white text-[13.5px] font-medium hover:bg-brand-hover transition-colors shadow-sm">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                Upload template
+            </a>
+        </div>
+    </div>
+</section>
+
+{% if stats %}
+<div class="stats-grid mb-6">
+    <div class="stat-card frozen-accent">
+        <span class="label"><span class="dot"></span>Templates</span>
+        <span class="value {% if stats.templates_total == 0 %}zero{% endif %}">{{ stats.templates_total }}</span>
+        <span class="sub">
+            <span class="ok">{{ stats.templates_frozen }} frozen</span>
+            <span class="neutral">·</span>
+            <span class="neutral">{{ stats.templates_draft }} draft</span>
+            {% if stats.templates_inactive %}
+                <span class="neutral">·</span>
+                <a href="/ui/?show_inactive=1{% if selected_tenant %}&tenant={{ selected_tenant }}{% endif %}" class="bad" style="text-decoration: none" title="Show inactive templates">{{ stats.templates_inactive }} inactive</a>
+            {% endif %}
+        </span>
+    </div>
+    <div class="stat-card warn-accent">
+        <span class="label"><span class="dot"></span>Pending drafts</span>
+        <span class="value {% if stats.pending_drafts %}attention{% else %}zero{% endif %}">{{ stats.pending_drafts }}</span>
+        <span class="sub">awaiting freeze</span>
+    </div>
+    <div class="stat-card info-accent">
+        <span class="label"><span class="dot"></span>Renders (24h)</span>
+        <span class="value {% if stats.renders_24h_total == 0 %}zero{% endif %}">{{ stats.renders_24h_total }}</span>
+        <span class="sub">
+            {% if stats.renders_24h_succeeded %}<span class="ok">{{ stats.renders_24h_succeeded }} ok</span>{% endif %}
+            {% if stats.renders_24h_failed %}
+                {% if stats.renders_24h_succeeded %}<span class="neutral">·</span>{% endif %}
+                <span class="bad">{{ stats.renders_24h_failed }} failed</span>
+            {% endif %}
+            {% if stats.renders_24h_in_flight %}
+                {% if stats.renders_24h_succeeded or stats.renders_24h_failed %}<span class="neutral">·</span>{% endif %}
+                <span class="neutral">{{ stats.renders_24h_in_flight }} in flight</span>
+            {% endif %}
+            {% if not (stats.renders_24h_succeeded or stats.renders_24h_failed or stats.renders_24h_in_flight) %}
+                <span class="neutral">no activity</span>
+            {% endif %}
+        </span>
+    </div>
+    <div class="stat-card {% if stats.warnings_count %}warn-accent{% else %}success-accent{% endif %}">
+        <span class="label"><span class="dot"></span>Warnings</span>
+        <span class="value {% if stats.warnings_count %}attention{% else %}zero{% endif %}">{{ stats.warnings_count }}</span>
+        <span class="sub">drafts with preflight findings</span>
+    </div>
+</div>
+{% endif %}
+
+{% if templates %}
+{% set frozen_rows = templates | selectattr('current_version') | list | length %}
+<div class="toolbar" role="search">
+    <label class="search" aria-label="Filter templates by name">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <input type="text" id="tpl-search" placeholder="Search templates…  press / to focus" autocomplete="off" spellcheck="false">
+    </label>
+    <div class="chip-group" role="tablist" aria-label="Filter by status">
+        <button type="button" class="chip active" data-status="all">All <span class="count">{{ templates|length }}</span></button>
+        <button type="button" class="chip" data-status="frozen">Frozen <span class="count">{{ frozen_rows }}</span></button>
+        <button type="button" class="chip" data-status="draft">Draft <span class="count">{{ templates|length - frozen_rows }}</span></button>
+    </div>
+    <div class="flex-1"></div>
+    {% set _toggle_qs = ('tenant=' ~ selected_tenant ~ '&' if selected_tenant else '') ~ ('' if show_inactive else 'show_inactive=1') %}
+    <a href="/ui/?{{ _toggle_qs }}" class="inactive-toggle" role="switch" aria-checked="{{ 'true' if show_inactive else 'false' }}" title="{{ 'Hide inactive templates' if show_inactive else 'Show inactive templates' }}">
+        <span>Show inactive</span>
+        <span class="switch {% if show_inactive %}on{% endif %}">
+            <span class="track"></span>
+            <span class="thumb"></span>
+        </span>
+    </a>
+    <span class="visible-count" id="tpl-visible-count" aria-live="polite">{{ templates|length }} shown</span>
+</div>
+<form id="bulk-form" action="/ui/templates/bulk" method="post">
+    {{ csrf_input(request) }}
+    <input type="hidden" name="action" id="bulk-action" value="">
+<div class="card flush attached" id="tpl-list-card">
+    <table class="sortable">
+        <thead>
+            <tr>
+                <th class="check-col" data-no-sort>
+                    <input type="checkbox" id="bulk-check-all" aria-label="Select all templates">
+                </th>
+                <th>Name</th>
+                <th>Status</th>
+                <th class="tpl-col-tenant">Tenant</th>
+                <th class="tpl-col-owner">Owner</th>
+                <th>Version</th>
+                <th class="tpl-col-versions">Versions</th>
+                <th class="tpl-col-lastrun">Last rendered</th>
+                <th class="tpl-col-created">Created</th>
+                <th data-no-sort style="width: 60px"></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in templates %}
+            <tr data-status="{% if t.current_version %}frozen{% else %}draft{% endif %}" data-name="{{ t.name|lower }}" data-active="{{ 'true' if t.is_active else 'false' }}"{% if not t.is_active %} class="inactive"{% endif %}>
+                <td class="check-col">
+                    <input type="checkbox" name="ids" value="{{ t.id }}" class="bulk-check" aria-label="Select {{ t.name }}">
+                </td>
+                <td><strong>{{ t.name }}</strong></td>
+                <td data-sort="{{ '0' if t.is_active else '1' }}">
+                    {% if t.is_active %}
+                        <span class="badge accept" title="Visible and renderable">Active</span>
+                    {% else %}
+                        <span class="badge reject" title="Hidden from listings by default; renders are refused">Inactive</span>
+                    {% endif %}
+                </td>
+                <td class="muted tpl-col-tenant">{{ t.tenant_name }}</td>
+                <td class="muted tpl-col-owner">{{ t.owner or '—' }}</td>
+                <td data-sort="{{ t.current_version or 0 }}">
+                    {% if t.current_version %}
+                        <span class="badge frozen">v{{ t.current_version }} · frozen</span>
+                    {% else %}
+                        <span class="badge draft">No frozen version</span>
+                    {% endif %}
+                </td>
+                <td class="muted tpl-col-versions">{{ t.version_count }}</td>
+                <td class="muted tpl-col-lastrun" data-sort="{{ t.last_rendered_at.isoformat() if t.last_rendered_at else '' }}">
+                    {% if t.last_rendered_at %}
+                        {{ t.last_rendered_at.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                        <span class="subtle">Never</span>
+                    {% endif %}
+                </td>
+                <td class="muted tpl-col-created" data-sort="{{ t.created_at.isoformat() }}">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="text-align: right">
+                    <a href="/ui/templates/{{ t.id }}" class="row-open" title="Open template" aria-label="Open {{ t.name }}">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 3l5 5-5 5"/></svg>
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div class="empty-filtered" id="tpl-empty-filtered" style="display: none">
+        No templates match your filters.
+    </div>
+</div>
+<div class="bulk-bar" id="bulk-bar" role="region" aria-label="Bulk actions">
+    <span class="count"><span id="bulk-count">0</span> selected</span>
+    <div class="spacer"></div>
+    <button type="submit" name="_a" value="activate" class="btn sm" data-bulk-action="activate"
+            data-confirm="Activate all selected templates? They'll become visible in listings and eligible for renders.">Activate</button>
+    <button type="submit" name="_a" value="deactivate" class="btn sm" data-bulk-action="deactivate"
+            data-confirm="Deactivate all selected templates? They'll be hidden from listings and refuse new renders. History is preserved.">Deactivate</button>
+    <button type="button" class="clear-selection" id="bulk-clear">Clear</button>
+</div>
+</form>
+{% if next_cursor or is_paged %}
+{% set base_extra = ('tenant=' ~ selected_tenant ~ '&' if selected_tenant else '') ~ ('show_inactive=1&' if show_inactive else '') %}{% set limit_qs = 'limit=' ~ page_size %}
+<div class="flex items-center justify-between gap-3 mt-4 text-[13px] text-ink-muted">
+    <div>
+        {% if is_paged %}
+            <a href="/ui/?{{ base_extra }}{{ limit_qs }}" class="btn sm">Back to start</a>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+        <span>Showing up to {{ page_size }} per page</span>
+        {% if next_cursor %}
+            <a href="/ui/?cursor={{ next_cursor }}&{{ base_extra }}{{ limit_qs }}" class="btn sm primary">Next →</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% else %}
+<div class="card">
+    <div class="empty">
+        <div class="empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h6"/></svg>
+        </div>
+        <h3>No templates yet</h3>
+        <p>Upload a DOCX, AcroForm PDF, or flat PDF to begin. Design-time AI will detect fields, and you'll freeze a version for deterministic rendering.</p>
+        <div class="flex justify-center items-center gap-2 flex-wrap">
+            <a class="btn primary" href="/ui/upload">Upload your first template</a>
+        </div>
+        <div class="flex justify-center items-center gap-2 flex-wrap mt-3">
+            <span class="text-ink-muted text-[13px]">Or try a sample:</span>
+            {% for kind, label, hint in [
+                ('docx', 'DOCX', 'Jinja-tagged Word template'),
+                ('acroform', 'AcroForm PDF', 'Fillable PDF, auto-mapped'),
+                ('flat', 'Flat PDF', 'Printed PDF, run AI Draw to place fields'),
+            ] %}
+            <form method="post" action="/ui/upload/sample" class="inline">
+                {{ csrf_input(request) }}
+                <input type="hidden" name="kind" value="{{ kind }}">
+                {% if selected_tenant %}
+                <input type="hidden" name="tenant_id" value="{{ selected_tenant }}">
+                {% endif %}
+                <button type="submit" class="btn ghost sm" title="{{ hint }}">
+                    {{ label }}
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if templates %}
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var search = document.getElementById('tpl-search');
+    var card = document.getElementById('tpl-list-card');
+    var counter = document.getElementById('tpl-visible-count');
+    var emptyMsg = document.getElementById('tpl-empty-filtered');
+    if (!search || !card) return;
+    var rows = card.querySelectorAll('tbody tr');
+    var chips = document.querySelectorAll('.chip[data-status]');
+    var currentStatus = 'all';
+    var currentQuery = '';
+
+    function applyFilters() {
+        var visible = 0;
+        rows.forEach(function (r) {
+            var okStatus = currentStatus === 'all' || r.getAttribute('data-status') === currentStatus;
+            var okName = currentQuery === '' || r.getAttribute('data-name').indexOf(currentQuery) !== -1;
+            if (okStatus && okName) {
+                r.classList.remove('hidden');
+                visible++;
+            } else {
+                r.classList.add('hidden');
+            }
+        });
+        if (counter) counter.textContent = visible + ' shown';
+        if (emptyMsg) emptyMsg.style.display = visible === 0 ? '' : 'none';
+    }
+
+    search.addEventListener('input', function () {
+        currentQuery = this.value.trim().toLowerCase();
+        applyFilters();
+    });
+    chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            chips.forEach(function (c) { c.classList.remove('active'); });
+            chip.classList.add('active');
+            currentStatus = chip.getAttribute('data-status');
+            applyFilters();
+        });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === '/' && document.activeElement && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            search.focus();
+        }
+    });
+
+    // Bulk actions: sync the sticky action bar with checkbox state, wire the
+    // header "select all" to the visible rows, and confirm before submit.
+    var form = document.getElementById('bulk-form');
+    var bar = document.getElementById('bulk-bar');
+    var countEl = document.getElementById('bulk-count');
+    var actionInput = document.getElementById('bulk-action');
+    var checkAll = document.getElementById('bulk-check-all');
+    var clearBtn = document.getElementById('bulk-clear');
+    if (form && bar && countEl && actionInput) {
+        var checkboxes = form.querySelectorAll('.bulk-check');
+        function visibleChecked() {
+            var out = [];
+            checkboxes.forEach(function (c) {
+                if (c.closest('tr').classList.contains('hidden')) return;
+                if (c.checked) out.push(c);
+            });
+            return out;
+        }
+        function refresh() {
+            var n = visibleChecked().length;
+            countEl.textContent = String(n);
+            bar.classList.toggle('show', n > 0);
+            checkboxes.forEach(function (c) {
+                c.closest('tr').classList.toggle('selected', c.checked);
+            });
+            if (checkAll) {
+                var totalVisible = 0;
+                checkboxes.forEach(function (c) {
+                    if (!c.closest('tr').classList.contains('hidden')) totalVisible++;
+                });
+                checkAll.checked = totalVisible > 0 && n === totalVisible;
+                checkAll.indeterminate = n > 0 && n < totalVisible;
+            }
+        }
+        checkboxes.forEach(function (c) { c.addEventListener('change', refresh); });
+        if (checkAll) {
+            checkAll.addEventListener('change', function () {
+                var want = checkAll.checked;
+                checkboxes.forEach(function (c) {
+                    if (c.closest('tr').classList.contains('hidden')) return;
+                    c.checked = want;
+                });
+                refresh();
+            });
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                checkboxes.forEach(function (c) { c.checked = false; });
+                if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+                refresh();
+            });
+        }
+        // Keep bulk-bar accurate when the search/status filters hide rows.
+        var origApply = applyFilters;
+        applyFilters = function () { origApply(); refresh(); };
+        bar.querySelectorAll('[data-bulk-action]').forEach(function (btn) {
+            btn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                var picked = visibleChecked();
+                if (!picked.length) return;
+                var proceed = function () {
+                    actionInput.value = btn.getAttribute('data-bulk-action');
+                    form.submit();
+                };
+                var msg = btn.getAttribute('data-confirm');
+                if (window.QuireUI && window.QuireUI.confirmDialog) {
+                    window.QuireUI.confirmDialog(msg + ' (' + picked.length + ' selected)').then(function (ok) {
+                        if (ok) proceed();
+                    });
+                } else if (window.confirm(msg)) {
+                    proceed();
+                }
+            });
+        });
+        refresh();
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

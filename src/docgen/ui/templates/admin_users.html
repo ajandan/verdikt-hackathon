@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Admin users — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .users-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .users-grid { grid-template-columns: 1fr; } }
+    .user-avatar {
+        width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+        display: inline-grid; place-items: center;
+        background: var(--brand-soft); color: var(--brand);
+        font-weight: 600; font-size: 13px;
+    }
+    .user-cell { display: flex; align-items: center; gap: 12px; }
+    .role-badge.super { background: var(--warning-soft); color: var(--warning); }
+    .role-badge.tenant { background: var(--brand-soft); color: var(--brand); }
+    .role-badge {
+        display: inline-block; font-size: 11px; font-weight: 600;
+        padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em;
+    }
+    .inline-form { display: inline; margin: 0; }
+    .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .tenant-toggle { display: none; }
+    .tenant-toggle.show { display: block; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Admin</a>
+    <span>/</span>
+    Portal users
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Portal users</h1>
+        <p class="page-subtitle">
+            Portal login identities. <strong>super_admin</strong> sees every tenant;
+            <strong>tenant_admin</strong> is pinned to one tenant's data.
+        </p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ users|length }} user{{ 's' if users|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="users-grid">
+    {% if users %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All admin users</h2>
+            <span class="subtle">Newest first</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Tenant</th>
+                    <th>Status</th>
+                    <th>Last login</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in users %}
+            {% set u = row.user %}
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <span class="user-avatar">{{ u.username[0]|upper }}</span>
+                            <strong>{{ u.username }}</strong>
+                        </div>
+                    </td>
+                    <td>
+                        {% if u.role == 'super_admin' %}
+                            <span class="role-badge super">super_admin</span>
+                        {% else %}
+                            <span class="role-badge tenant">tenant_admin</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted">
+                        {% if row.tenant_name %}{{ row.tenant_name }}{% else %}<span class="subtle">— (all)</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if u.is_active %}
+                            <span class="badge accept">Active</span>
+                        {% else %}
+                            <span class="badge reject">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted" data-sort="{{ u.last_login_at.isoformat() if u.last_login_at else '' }}">
+                        {% if u.last_login_at %}{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') }}{% else %}<span class="subtle">Never</span>{% endif %}
+                    </td>
+                    <td style="text-align: right">
+                        <div class="row-actions">
+                            {% if u.is_active %}
+                            <form action="/ui/admin/users/{{ u.id }}/activation" method="post" class="inline-form">
+                                {{ csrf_input(request) }}
+                                <input type="hidden" name="active" value="false">
+                                <button class="btn sm" type="submit">Disable</button>
+                            </form>
+                            {% else %}
+                            <form action="/ui/admin/users/{{ u.id }}/activation" method="post" class="inline-form">
+                                {{ csrf_input(request) }}
+                                <input type="hidden" name="active" value="true">
+                                <button class="btn sm" type="submit">Enable</button>
+                            </form>
+                            {% endif %}
+                            <form action="/ui/admin/users/{{ u.id }}/delete" method="post" class="inline-form"
+                                  data-confirm='Delete user "{{ u.username }}"? This cannot be undone.'>
+                                {{ csrf_input(request) }}
+                                <button class="btn sm danger" type="submit">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+            </div>
+            <h3>No admin users yet</h3>
+            <p>Create the first one on the right. Break-glass env-var admin still works.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Create admin user</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">
+            <strong>super_admin</strong> = cross-tenant. <strong>tenant_admin</strong> = pinned to one tenant.
+        </p>
+        <form action="/ui/admin/users" method="post" id="new-admin-user-form">
+            {{ csrf_input(request) }}
+            <label>Username
+                <input type="text" name="username" required autocomplete="off" placeholder="e.g. alice">
+            </label>
+            <label style="margin-top: 12px">Password
+                <input type="password" name="password" required minlength="8" placeholder="At least 8 characters">
+            </label>
+            <label style="margin-top: 12px">Role
+                <select name="role" id="new-user-role">
+                    <option value="tenant_admin">tenant_admin</option>
+                    <option value="super_admin">super_admin</option>
+                </select>
+            </label>
+            <label class="tenant-toggle show" id="tenant-select-wrap" style="margin-top: 12px">Tenant
+                <select name="tenant_id" id="new-user-tenant">
+                    <option value="">— select tenant —</option>
+                    {% for t in all_tenants %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create user
+                </button>
+            </div>
+        </form>
+        <script nonce="{{ csp_nonce(request) }}">
+            (function () {
+                var role = document.getElementById('new-user-role');
+                var wrap = document.getElementById('tenant-select-wrap');
+                var tenantSel = document.getElementById('new-user-tenant');
+                function sync() {
+                    var isTenant = role.value === 'tenant_admin';
+                    wrap.classList.toggle('show', isTenant);
+                    tenantSel.required = isTenant;
+                }
+                role.addEventListener('change', sync);
+                sync();
+            })();
+        </script>
+    </div>
+</div>
+{% endblock %}

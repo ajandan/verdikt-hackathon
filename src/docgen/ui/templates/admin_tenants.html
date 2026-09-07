@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Tenants — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .tenants-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .tenants-grid { grid-template-columns: 1fr; } }
+    .tenant-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+        background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .tenant-avatar {
+        width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+        display: inline-grid; place-items: center;
+        background: var(--brand-soft); color: var(--brand);
+        font-weight: 600; font-size: 13px;
+    }
+    .tenant-cell {
+        display: flex; align-items: center; gap: 12px;
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Tenants</h1>
+        <p class="page-subtitle">Each tenant scopes templates, renders, and API keys. Click into a tenant to manage its keys.</p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ tenants|length }} tenant{{ 's' if tenants|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="tenants-grid">
+    {% if tenants %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All tenants</h2>
+            <span class="subtle">Newest first</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Tenant ID</th>
+                    <th>Created</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in tenants %}
+                <tr>
+                    <td>
+                        <div class="tenant-cell">
+                            <span class="tenant-avatar">{{ t.name[0]|upper }}</span>
+                            <strong>{{ t.name }}</strong>
+                        </div>
+                    </td>
+                    <td><span class="tenant-id" title="{{ t.id }}">{{ t.id|string|truncate(14, True, '') }}…</span></td>
+                    <td class="muted" data-sort="{{ t.created_at.isoformat() }}">{{ t.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                    <td style="text-align: right"><a href="/ui/admin/tenants/{{ t.id }}/keys">Manage keys →</a></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 8l9-5 9 5v9l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v10"/></svg>
+            </div>
+            <h3>No tenants yet</h3>
+            <p>Create your first tenant on the right to start issuing API keys.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Create tenant</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">A tenant is the isolation boundary for templates, renders, and keys.</p>
+        <form action="/ui/admin/tenants" method="post">
+            {{ csrf_input(request) }}
+            <label>Name
+                <input type="text" name="name" required placeholder="acme-health" autofocus>
+                <div class="muted" style="font-size: 12px; margin-top: 6px">Lowercase, kebab-case recommended.</div>
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create tenant
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

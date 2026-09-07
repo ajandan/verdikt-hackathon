@@ -1,0 +1,11 @@
+{
+  "letter_date": "2026-08-06",
+  "member_name": "Alice Example",
+  "member_id": "M-000042",
+  "claim_id": "CLM-2026-000042",
+  "claim_date": "2026-07-14",
+  "amount": "1234.56",
+  "denial_reason": "service not covered under plan effective 2026-01-01",
+  "appeal_phone": "1-800-555-0199",
+  "agent_name": "B. Jones"
+}

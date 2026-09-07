@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} — mapping wizard{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .wizard-grid {
+        display: grid; grid-template-columns: 400px minmax(0, 1fr);
+        gap: 20px; align-items: start;
+    }
+    @media (max-width: 1000px) { .wizard-grid { grid-template-columns: 1fr; } }
+    .left-col { position: sticky; top: 80px; max-height: calc(100vh - 100px); overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+    .sample-card { overflow: auto; }
+    .test-card { }
+    .test-card .test-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .test-card textarea.payload-json {
+        width: 100%; min-height: 220px; box-sizing: border-box;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; line-height: 1.55; padding: 8px 10px;
+        border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2);
+        color: var(--text); resize: vertical;
+    }
+    .test-card .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .sample-pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; line-height: 1.55; white-space: pre; margin: 0;
+        padding: 12px 16px;
+    }
+    .leaf-list { padding: 8px 0; }
+    .leaf-row {
+        display: flex; gap: 8px; align-items: baseline;
+        padding: 3px 16px; font-size: 12px; color: var(--text-muted);
+    }
+    .leaf-row .path {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text);
+    }
+    .leaf-row .val {
+        color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .field-row {
+        display: grid;
+        grid-template-columns: 200px 1fr 140px 120px 40px;
+        gap: 8px; align-items: center;
+        padding: 10px 12px; border-bottom: 1px solid var(--border);
+    }
+    .field-row.header {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+        color: var(--text-muted); font-weight: 600; background: var(--surface-2);
+    }
+    .field-row.header > div { padding: 2px 0; }
+    .field-row .fname {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; color: var(--text); font-weight: 500;
+    }
+    .field-row .fname .type { color: var(--text-muted); font-weight: 400; font-size: 11px; margin-left: 4px; }
+    .field-row .fname .req-dot { color: var(--brand); font-weight: 700; margin-left: 4px; }
+    .field-row select, .field-row input[type=text] {
+        padding: 6px 8px; font-size: 12px; width: 100%; box-sizing: border-box;
+    }
+    .field-row .status-dot { text-align: center; font-size: 16px; }
+    .status-mapped { color: var(--brand); }
+    .status-unmapped { color: var(--text-subtle); }
+    .status-warn { color: var(--warn); }
+    .drift-banner {
+        padding: 14px 16px; background: var(--warn-soft); border: 1px solid rgb(var(--warn-rgb) / 0.35);
+        border-radius: var(--radius); color: var(--text); font-size: 13px;
+        margin-bottom: 16px; display: flex; gap: 12px; align-items: flex-start;
+    }
+    .drift-banner strong { color: var(--text); }
+    .drift-banner svg { color: var(--warn); }
+    .drift-banner form { display: inline; }
+    .drift-banner button {
+        background: var(--warn); color: #fff; border: none; padding: 6px 12px;
+        border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;
+        margin-top: 8px;
+    }
+    .action-bar {
+        display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+        padding: 16px 20px; background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow-sm);
+        position: sticky; bottom: 16px; margin-top: 16px; z-index: 5;
+    }
+    .action-bar .count { color: var(--text-muted); font-size: 13px; margin-right: auto; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a> <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a> <span>/</span>
+    <a href="/ui/templates/{{ template.id }}/profiles">Caller profiles</a> <span>/</span>
+    {{ profile.caller }} · {{ profile.name }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>{{ profile.name }} <span style="color: var(--text-muted); font-weight: 500">— {{ profile.caller }}</span></h1>
+        <p class="page-subtitle">
+            Bind each template field to a JSON path from the caller's sample, or a constant.
+            <strong>Test render</strong> runs the mapped sample end-to-end so you can see the output docx.
+        </p>
+        <div class="muted" style="margin-top: 8px">
+            Pinned to <strong>v{{ profile.version }}</strong> · {{ schema_fields|length }} template field{{ 's' if schema_fields|length != 1 else '' }}
+        </div>
+    </div>
+</div>
+
+{% if drift %}
+<div class="drift-banner">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink: 0; margin-top: 2px">
+        <circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/>
+    </svg>
+    <div style="flex: 1">
+        <strong>Template moved on: v{{ drift.latest_version }} is now the current version.</strong>
+        <div style="margin-top: 4px">
+            {% if drift.added %}Added: <code>{{ drift.added|join(', ') }}</code>{% endif %}
+            {% if drift.added and drift.removed %} · {% endif %}
+            {% if drift.removed %}Removed: <code>{{ drift.removed|join(', ') }}</code>{% endif %}
+            {% if not drift.added and not drift.removed %}Schema unchanged — safe upgrade.{% endif %}
+        </div>
+        <form action="/ui/profiles/{{ profile.id }}/upgrade" method="post">
+            {{ csrf_input(request) }}
+            <button type="submit">Upgrade profile to v{{ drift.latest_version }}</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="wizard-grid">
+    <div class="left-col">
+        <form action="/ui/profiles/{{ profile.id }}/test" method="post" class="card test-card">
+            {{ csrf_input(request) }}
+            <div class="test-actions">
+                <button class="primary" type="submit">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 3l10 5-10 5V3z"/></svg>
+                    Test render
+                </button>
+                <span class="subtle" style="font-size: 12px">Runs mapping + render on the JSON below.</span>
+            </div>
+            <label for="test-payload" style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block">
+                Sample payload (editable — not saved)
+            </label>
+            <textarea id="test-payload" class="payload-json" name="payload" spellcheck="false">{{ sample_json }}</textarea>
+            <div class="hint">Leave blank to use the saved sample. Edits here only affect this test run.</div>
+        </form>
+
+        <div class="card flush sample-card">
+            <div class="card-header">
+                <h2>Caller sample</h2>
+                <span class="subtle">{{ leaves|length }} leaf path{{ 's' if leaves|length != 1 else '' }}</span>
+            </div>
+            <div class="leaf-list">
+            {% for path, val in leaves %}
+                <div class="leaf-row">
+                    <span class="path">{{ path }}</span>
+                    <span class="val">= {{ val|string|truncate(30) }}</span>
+                </div>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <form action="/ui/profiles/{{ profile.id }}" method="post">
+        {{ csrf_input(request) }}
+        <div class="card flush">
+            <div class="card-header">
+                <h2>Field mapping</h2>
+                <span class="subtle">One row per template field</span>
+            </div>
+            <div class="field-row header">
+                <div>Template field</div>
+                <div>Source (JSON path or constant)</div>
+                <div>Transform</div>
+                <div>Arg</div>
+                <div style="text-align: center">Status</div>
+            </div>
+            {% for f in schema_fields %}
+            {% set current = profile.mapping.get(f.name, {}) %}
+            {% set has_const = 'constant' in current %}
+            {% set mode = 'constant' if has_const else ('source' if current.get('source') else 'none') %}
+            {% set tform = (current.get('transform') or '').split(':', 1) %}
+            {% set tname = tform[0] if tform else '' %}
+            {% set targ = tform[1] if tform|length > 1 else '' %}
+            {% set status = 'mapped' if (has_const or current.get('source')) else ('warn' if f.required else 'unmapped') %}
+            <div class="field-row">
+                <div class="fname">
+                    {{ f.name }}
+                    <span class="type">{{ f.type }}</span>
+                    {% if f.required %}<span class="req-dot" title="required">●</span>{% endif %}
+                </div>
+                <div>
+                    <select name="mode_{{ f.name }}" class="js-mode-select" data-field-name="{{ f.name }}"
+                            style="width: 90px; display: inline-block">
+                        <option value="source" {% if mode == 'source' %}selected{% endif %}>path</option>
+                        <option value="constant" {% if mode == 'constant' %}selected{% endif %}>const</option>
+                        <option value="none" {% if mode == 'none' %}selected{% endif %}>skip</option>
+                    </select>
+                    <select name="source_{{ f.name }}" data-mode-target="source-{{ f.name }}"
+                            style="width: calc(100% - 100px); display: inline-block"
+                            {% if mode != 'source' %}hidden{% endif %}>
+                        <option value="">— pick a path —</option>
+                        {% for path, val in leaves %}
+                            <option value="{{ path }}" {% if current.get('source') == path %}selected{% endif %}>
+                                {{ path }} = {{ val|string|truncate(24) }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" name="constant_{{ f.name }}"
+                           data-mode-target="constant-{{ f.name }}"
+                           value="{{ current.get('constant', '') }}"
+                           placeholder="literal value"
+                           style="width: calc(100% - 100px); display: inline-block"
+                           {% if mode != 'constant' %}hidden{% endif %}>
+                </div>
+                <div>
+                    <select name="transform_{{ f.name }}">
+                        {% for t in transforms %}
+                            <option value="{{ t }}" {% if tname == t %}selected{% endif %}>{{ t or '— none —' }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <input type="text" name="transform_arg_{{ f.name }}" value="{{ targ }}"
+                           placeholder="e.g. MM/DD/YYYY">
+                </div>
+                <div class="status-dot status-{{ status }}"
+                     title="{% if status == 'mapped' %}Mapped{% elif status == 'warn' %}Required but unmapped{% else %}Unmapped (optional){% endif %}">
+                    {% if status == 'mapped' %}●{% elif status == 'warn' %}!{% else %}○{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="action-bar">
+            <span class="count">
+                {{ profile.mapping|length }}/{{ schema_fields|length }} fields mapped ·
+                changes save when you click Save.
+            </span>
+            <a class="btn" href="/ui/templates/{{ template.id }}/profiles">Back</a>
+            <button class="primary" type="submit">Save mapping</button>
+        </div>
+    </form>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+document.querySelectorAll('.js-mode-select').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+        var fname = sel.getAttribute('data-field-name');
+        var mode = sel.value;
+        var src = document.querySelector('[name="source_' + fname + '"]');
+        var con = document.querySelector('[name="constant_' + fname + '"]');
+        if (src) src.hidden = (mode !== 'source');
+        if (con) con.hidden = (mode !== 'constant');
+    });
+});
+</script>
+{% endblock %}

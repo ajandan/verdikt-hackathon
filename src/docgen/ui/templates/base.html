@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Quire{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='32' y2='32' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='%232f8f76'/><stop offset='1' stop-color='%231e5f4f'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><circle cx='14' cy='14.5' r='6.5' stroke='white' stroke-width='2.2' fill='none'/><path d='M17.5 18 L23 23.5' stroke='white' stroke-width='2.4' stroke-linecap='round'/></svg>">
+    <link rel="preconnect" href="https://rsms.me/">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    {# Set theme before paint to avoid flash-of-wrong-theme. #}
+    <script nonce="{{ csp_nonce(request) }}">
+        (function () {
+            try {
+                var saved = localStorage.getItem('quire_theme') || localStorage.getItem('docgen_theme');
+                if (saved === 'dark' || saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                    document.documentElement.classList.toggle('dark', saved === 'dark');
+                } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
+    <link rel="stylesheet" href="/static/app.css">
+    <style nonce="{{ csp_nonce(request) }}">
+        /* ---------- Design tokens ------------------------------------------------
+           v2 refresh — inspired by Linear / Vercel / Cal.com:
+             • zinc-family neutrals (crisper than slate at the edges)
+             • cool indigo brand (37 99 235 → 79 70 229) with a subtle violet accent
+             • layered elevation shadows (softer, tinted with brand blue)
+             • Inter with cv11+ss01+tnum for a polished typographic feel
+             • generous radii (14/18/22) so cards feel less "engineered" and more
+               product-designed
+           ------------------------------------------------------------------------ */
+        :root {
+            /* neutrals — warm "ink" palette, matched to the marketing landing */
+            --bg-rgb: 246 245 241;               /* ink-50  #f6f5f1 */
+            --surface-rgb: 255 255 255;
+            --surface-2-rgb: 250 249 244;        /* between ink-50 and paper */
+            --surface-3-rgb: 238 236 228;        /* ink-100 #eeece4 */
+            --border-rgb: 220 216 200;           /* ink-200 #dcd8c8 */
+            --border-strong-rgb: 169 163 148;    /* ink-300 #a9a394 */
+            --text-rgb: 20 20 16;                /* ink-900 #141410 */
+            --text-muted-rgb: 108 104 88;        /* ink-500 #6c6858 */
+            --text-subtle-rgb: 169 163 148;      /* ink-300 #a9a394 */
+
+            /* brand — "seal" governance green (from landing) */
+            --brand-rgb: 47 143 118;             /* seal-500 #2f8f76 */
+            --brand-hover-rgb: 30 95 79;         /* seal-700 #1e5f4f */
+            --brand-fg-rgb: 246 245 241;         /* ink-50 for buttons */
+            --accent-rgb: 30 95 79;              /* seal-700 for depth */
+
+            /* semantic — emerald / amber / rose */
+            --success-rgb: 5 150 105;
+            --success-soft-rgb: 220 252 231;
+            --warn-rgb: 180 83 9;
+            --warn-soft-rgb: 254 243 199;
+            --danger-rgb: 220 38 38;
+            --danger-soft-rgb: 254 226 226;
+            --info-rgb: 14 116 144;
+            --info-soft-rgb: 224 242 254;
+
+            --bg: rgb(var(--bg-rgb));
+            --surface: rgb(var(--surface-rgb));
+            --surface-2: rgb(var(--surface-2-rgb));
+            --surface-3: rgb(var(--surface-3-rgb));
+            --border: rgb(var(--border-rgb));
+            --border-strong: rgb(var(--border-strong-rgb));
+            --text: rgb(var(--text-rgb));
+            --text-muted: rgb(var(--text-muted-rgb));
+            --text-subtle: rgb(var(--text-subtle-rgb));
+            --brand: rgb(var(--brand-rgb));
+            --brand-hover: rgb(var(--brand-hover-rgb));
+            --brand-soft: rgb(var(--brand-rgb) / 0.09);
+            --brand-softer: rgb(var(--brand-rgb) / 0.05);
+            --brand-fg: rgb(var(--brand-fg-rgb));
+            --accent: rgb(var(--accent-rgb));
+            --accent-soft: rgb(var(--accent-rgb) / 0.11);
+            --success: rgb(var(--success-rgb));
+            --success-soft: rgb(var(--success-soft-rgb));
+            --warn: rgb(var(--warn-rgb));
+            --warn-soft: rgb(var(--warn-soft-rgb));
+            --danger: rgb(var(--danger-rgb));
+            --danger-soft: rgb(var(--danger-soft-rgb));
+            --info: rgb(var(--info-rgb));
+            --info-soft: rgb(var(--info-soft-rgb));
+
+            /* elevation — layered, subtly warm-tinted so light-mode cards
+               feel like paper rather than screens */
+            --shadow-xs: 0 1px 1px rgb(24 24 28 / 0.03);
+            --shadow-sm: 0 1px 2px rgb(24 24 28 / 0.04), 0 1px 1px rgb(24 24 28 / 0.02);
+            --shadow: 0 4px 8px -3px rgb(24 24 28 / 0.05), 0 1px 3px rgb(24 24 28 / 0.04);
+            --shadow-md: 0 8px 16px -6px rgb(24 24 28 / 0.08), 0 2px 4px rgb(24 24 28 / 0.04);
+            --shadow-lg: 0 18px 40px -14px rgb(24 24 28 / 0.16), 0 6px 12px -6px rgb(24 24 28 / 0.08);
+            --shadow-brand: 0 8px 20px -6px rgb(var(--brand-rgb) / 0.35), 0 2px 4px rgb(var(--brand-rgb) / 0.15);
+
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 22px;
+            --sidebar-w: 244px;
+
+            /* motion */
+            --ease-out: cubic-bezier(0.2, 0, 0, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --dur-fast: 120ms;
+            --dur: 180ms;
+            --dur-slow: 260ms;
+        }
+        html.dark {
+            /* warm-ink dark: ink-900 rooted, layered surfaces climb from it */
+            --bg-rgb: 20 20 16;                  /* ink-900 */
+            --surface-rgb: 30 30 24;
+            --surface-2-rgb: 40 39 32;
+            --surface-3-rgb: 52 50 42;
+            --border-rgb: 58 56 47;              /* ink-700 */
+            --border-strong-rgb: 108 104 88;     /* ink-500 */
+            --text-rgb: 246 245 241;             /* ink-50 */
+            --text-muted-rgb: 169 163 148;       /* ink-300 */
+            --text-subtle-rgb: 140 136 118;
+
+            --brand-rgb: 142 199 181;            /* seal-300 (lighter for dark) */
+            --brand-hover-rgb: 47 143 118;       /* seal-500 */
+            --brand-fg-rgb: 20 20 16;            /* ink-900 for buttons */
+            --accent-rgb: 47 143 118;
+
+            --success-rgb: 52 211 153;
+            --success-soft-rgb: 15 40 32;
+            --warn-rgb: 251 191 36;
+            --warn-soft-rgb: 45 34 12;
+            --danger-rgb: 251 113 133;
+            --danger-soft-rgb: 47 20 24;
+            --info-rgb: 103 232 249;
+            --info-soft-rgb: 12 34 42;
+
+            --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.30);
+            --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.25);
+            --shadow: 0 4px 10px -3px rgb(0 0 0 / 0.5), 0 1px 3px rgb(0 0 0 / 0.3);
+            --shadow-md: 0 10px 20px -6px rgb(0 0 0 / 0.55), 0 3px 6px rgb(0 0 0 / 0.35);
+            --shadow-lg: 0 24px 50px -14px rgb(0 0 0 / 0.75), 0 8px 16px -6px rgb(0 0 0 / 0.5);
+            --shadow-brand: 0 8px 20px -6px rgb(var(--brand-rgb) / 0.45), 0 2px 4px rgb(var(--brand-rgb) / 0.2);
+        }
+        [data-theme="dark"] { color-scheme: dark; }
+        [data-theme="light"] { color-scheme: light; }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-feature-settings: 'cv11', 'ss01';
+            margin: 0; background: var(--bg); color: var(--text);
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+        }
+        a { color: var(--brand); text-decoration: none; }
+        a:hover { color: var(--brand-hover); }
+
+        /* ============================================================
+           Legacy component classes (kept so unmigrated pages still work)
+           ============================================================ */
+
+        /* --- Cards ---
+           Base card uses --radius-lg for a softer, more product feel. A very
+           light default shadow keeps the plane distinct; the surface can lift
+           to --shadow-sm on hover for interactive cards (add .card-interactive). */
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 24px; margin-bottom: 20px;
+            box-shadow: var(--shadow-xs);
+            transition: box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+        }
+        .card-interactive:hover {
+            box-shadow: var(--shadow-md); border-color: var(--border-strong);
+        }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 24px; border-bottom: 1px solid var(--border);
+        }
+        .card-header h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+        .card-body { padding: 24px; }
+        .card.flush { padding: 0; }
+
+        /* --- Tables --- */
+        table { border-collapse: separate; border-spacing: 0; width: 100%; }
+        th, td {
+            padding: 14px 24px; text-align: left; vertical-align: middle;
+            border-bottom: 1px solid var(--border); font-size: 14px;
+        }
+        th {
+            background: var(--surface-2); font-weight: 600; font-size: 11px;
+            color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody tr { transition: background var(--dur-fast) var(--ease-out); }
+        tbody tr:hover { background: var(--brand-softer); }
+        tbody tr:last-child td { border-bottom: 0; }
+        td strong { font-weight: 600; color: var(--text); }
+        /* Numeric columns render with tabular figures for tidy alignment. */
+        td.num, th.num, .tabular { font-variant-numeric: tabular-nums; }
+
+        table.sortable th[data-sortable] {
+            cursor: pointer; user-select: none; position: relative;
+            padding-right: 28px;
+            transition: color var(--dur-fast) var(--ease-out);
+        }
+        table.sortable th[data-sortable]:hover { color: var(--text); }
+        table.sortable th[data-sortable]::after {
+            content: ''; position: absolute; right: 12px; top: 50%;
+            width: 8px; height: 8px; transform: translateY(-50%);
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path fill='none' stroke='%239ca3af' stroke-width='1.2' d='M2 3l2-2 2 2M2 5l2 2 2-2'/></svg>");
+            background-repeat: no-repeat; opacity: 0.7;
+        }
+        table.sortable th[aria-sort="ascending"]::after {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path fill='none' stroke='%234f46e5' stroke-width='1.6' d='M2 5l2-2 2 2'/></svg>");
+            opacity: 1;
+        }
+        table.sortable th[aria-sort="descending"]::after {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'><path fill='none' stroke='%234f46e5' stroke-width='1.6' d='M2 3l2 2 2-2'/></svg>");
+            opacity: 1;
+        }
+
+        /* --- Forms --- */
+        input[type=text], input[type=password], input[type=email],
+        input[type=file], input[type=number], input[type=search],
+        input[type=url], textarea, select {
+            font: inherit; padding: 9px 12px;
+            border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+            width: 100%; background: var(--surface); color: var(--text);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none; border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / 0.18);
+        }
+        /* Global keyboard-focus ring. `:focus-visible` fires on Tab
+           traversal but not on mouse click, so pointer users don't see
+           a ring on every button they hit. Applies to everything that
+           takes focus except form inputs (already handled above with
+           their own border+shadow treatment). */
+        a:focus-visible,
+        button:focus-visible,
+        .btn:focus-visible,
+        .icon-btn:focus-visible,
+        .nav-link:focus-visible,
+        [role="button"]:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Skip-to-content: hidden off-screen until Tab focuses it,
+           then it snaps into the top-left corner so keyboard users can
+           bypass the sidebar + topbar. Screen-reader users get the same
+           first landmark without visual disruption. */
+        .skip-link {
+            position: absolute; top: 8px; left: 8px;
+            background: var(--brand); color: var(--brand-fg);
+            padding: 8px 14px; border-radius: var(--radius-sm);
+            font-size: 14px; font-weight: 500;
+            z-index: 1000;
+            transform: translateY(-200%);
+            transition: transform 0.15s ease;
+        }
+        .skip-link:focus,
+        .skip-link:focus-visible {
+            transform: translateY(0);
+            color: var(--brand-fg); text-decoration: none;
+            outline: 2px solid var(--brand-fg);
+            outline-offset: 2px;
+        }
+        input[type=file] { padding: 6px; }
+        textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.55; }
+        label {
+            display: block; margin-top: 14px; margin-bottom: 6px;
+            font-weight: 500; font-size: 13px; color: var(--text);
+        }
+
+        /* --- Buttons ---
+           Subtle surface for secondary buttons; primary uses the indigo brand
+           with a matching soft brand-tint shadow so CTAs "lift" toward the reader. */
+        button, .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 9px 14px; border: 1px solid var(--border-strong);
+            border-radius: var(--radius-sm); background: var(--surface); cursor: pointer;
+            font: inherit; font-size: 13.5px; font-weight: 500;
+            color: var(--text); text-decoration: none; letter-spacing: -0.005em;
+            transition: background var(--dur-fast) var(--ease-out),
+                        border-color var(--dur-fast) var(--ease-out),
+                        box-shadow var(--dur-fast) var(--ease-out),
+                        transform 0.06s ease;
+            box-shadow: var(--shadow-xs);
+        }
+        button:hover, .btn:hover {
+            background: var(--surface-2); text-decoration: none;
+            border-color: var(--border-strong); box-shadow: var(--shadow-sm);
+        }
+        button:active, .btn:active { transform: translateY(0.5px); box-shadow: var(--shadow-xs); }
+        button.primary, .btn.primary {
+            background: var(--brand); color: var(--brand-fg); border-color: var(--brand);
+            box-shadow: var(--shadow-brand);
+        }
+        button.primary:hover, .btn.primary:hover {
+            background: var(--brand-hover); border-color: var(--brand-hover); color: var(--brand-fg);
+            box-shadow: var(--shadow-brand);
+        }
+        button.danger, .btn.danger {
+            background: var(--danger); color: #fff; border-color: var(--danger);
+        }
+        button.danger:hover, .btn.danger:hover { filter: brightness(0.95); }
+        button.ghost, .btn.ghost {
+            background: transparent; border-color: transparent; box-shadow: none;
+        }
+        button.ghost:hover, .btn.ghost:hover { background: var(--surface-2); box-shadow: none; }
+        button.sm, .btn.sm { padding: 6px 10px; font-size: 12.5px; }
+
+        /* --- Badges ---
+           Slightly tighter type, thin border ring pulled from the colour itself
+           (currentColor at 20% alpha) so badges read cleanly against both light
+           and dark surfaces without picking up a hard grey stroke. */
+        .badge {
+            display: inline-flex; align-items: center; padding: 2px 9px;
+            border-radius: 999px; font-size: 11.5px; font-weight: 600;
+            border: 1px solid transparent; letter-spacing: 0.005em;
+            line-height: 1.5;
+        }
+        .badge.accept, .badge.success { background: var(--success-soft); color: var(--success); border-color: rgb(var(--success-rgb) / 0.16); }
+        .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: rgb(var(--warn-rgb) / 0.18); }
+        .badge.reject, .badge.danger { background: var(--danger-soft); color: var(--danger); border-color: rgb(var(--danger-rgb) / 0.18); }
+        .badge.frozen, .badge.info { background: var(--info-soft); color: var(--info); border-color: rgb(var(--info-rgb) / 0.16); }
+        .badge.draft { background: var(--surface-2); color: var(--text-muted); border-color: var(--border); }
+        .badge.brand { background: var(--brand-soft); color: var(--brand); border-color: rgb(var(--brand-rgb) / 0.18); }
+        .badge.accent { background: var(--accent-soft); color: var(--accent); border-color: rgb(var(--accent-rgb) / 0.20); }
+
+        /* --- Layout helpers (still used by legacy pages) --- */
+        .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .stack { display: flex; flex-direction: column; gap: 12px; }
+        .between { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+        .spacer { flex: 1; }
+        .muted { color: var(--text-muted); font-size: 13px; }
+        .subtle { color: var(--text-subtle); font-size: 12px; }
+        .mono, code, pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 13px;
+        }
+        code {
+            background: var(--surface-2); padding: 1px 6px; border-radius: 5px;
+            border: 1px solid var(--border);
+        }
+        pre {
+            background: var(--surface-2); padding: 14px 16px;
+            border-radius: var(--radius-sm); border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        pre code { background: transparent; border: 0; padding: 0; }
+
+        h1 { margin: 0 0 12px; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+        h2 { margin: 24px 0 12px; font-size: 16px; font-weight: 600; }
+        h3 { margin: 20px 0 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        p { margin: 0 0 12px; }
+
+        .page-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 24px; margin-bottom: 28px;
+        }
+        .page-header h1 {
+            font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.02em;
+        }
+        .page-header .page-subtitle { color: var(--text-muted); font-size: 14.5px; margin: 0; }
+        .page-header .page-actions { display: flex; gap: 8px; align-items: center; }
+
+        /* --- Empty state --- */
+        .empty {
+            text-align: center; padding: 56px 24px;
+        }
+        .empty-icon {
+            width: 56px; height: 56px; border-radius: var(--radius);
+            background: var(--brand-soft); color: var(--brand);
+            display: inline-grid; place-items: center; margin-bottom: 16px;
+        }
+        .empty h3 { margin: 0 0 6px; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 16px; }
+        .empty p { color: var(--text-muted); font-size: 14px; margin: 0 0 18px; max-width: 40ch; margin-left: auto; margin-right: auto; }
+
+        /* ============================================================
+           App shell (Tailwind utilities used inline in markup below)
+           ============================================================ */
+
+        /* Generous vertical breathing room below the topbar so the page
+           title has real air. Explicit CSS (not utilities) so a stale CSS
+           cache in the browser can't shrink it back down. */
+        .app-main-content {
+            padding-top: 56px;
+            padding-bottom: 56px;
+        }
+        @media (max-width: 768px) {
+            .app-main-content { padding-top: 40px; padding-bottom: 40px; }
+        }
+
+        /* Brand mark glow — subtle shadow tinted with the brand color so it lifts against the sidebar. */
+        .brand-mark-glow {
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+                0 6px 16px -6px rgb(var(--brand-rgb) / 0.55),
+                0 2px 6px -2px rgb(15 23 42 / 0.15);
+        }
+        .brand-mark-glow svg { display: block; }
+
+        /* Sidebar
+           Uses a subtle surface-2 base so it visually recedes behind the
+           content pane. Active nav rows get a left-indicator bar (3px pill)
+           in the brand colour + a soft brand tint — a well-worn pattern from
+           Linear, Vercel, Cal.com dashboards. */
+        .app-sidebar {
+            width: var(--sidebar-w); flex: 0 0 var(--sidebar-w);
+            background: var(--surface-2); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            position: sticky; top: 0; height: 100vh;
+        }
+        .app-sidebar .nav-link {
+            position: relative;
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px 8px 14px; border-radius: 8px;
+            color: var(--text-muted); font-weight: 500; font-size: 13.5px;
+            letter-spacing: -0.005em;
+            transition: background var(--dur-fast) var(--ease-out),
+                        color var(--dur-fast) var(--ease-out);
+        }
+        .app-sidebar .nav-link:hover { background: var(--surface-3); color: var(--text); text-decoration: none; }
+        .app-sidebar .nav-link.active {
+            background: var(--brand-soft); color: var(--brand); font-weight: 600;
+        }
+        .app-sidebar .nav-link.active::before {
+            content: ''; position: absolute; left: -14px; top: 6px; bottom: 6px;
+            width: 3px; border-radius: 0 3px 3px 0;
+            background: var(--brand);
+        }
+        .app-sidebar .nav-link .icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.9; }
+        .app-sidebar .nav-link.active .icon { opacity: 1; }
+        .app-sidebar .nav-section {
+            padding: 16px 12px 6px; font-size: 10.5px; font-weight: 600;
+            color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.09em;
+        }
+
+        /* Icon button */
+        .icon-btn {
+            background: transparent; border: 1px solid transparent; color: var(--text-muted);
+            padding: 6px; border-radius: 8px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            box-shadow: none;
+            transition: background var(--dur-fast) var(--ease-out),
+                        color var(--dur-fast) var(--ease-out),
+                        border-color var(--dur-fast) var(--ease-out);
+        }
+        .icon-btn:hover { background: var(--surface-3); color: var(--text); box-shadow: none; }
+
+        /* --- Toasts --- */
+        .toast-region {
+            position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none; max-width: min(420px, calc(100vw - 40px));
+        }
+        .toast {
+            pointer-events: auto;
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 12px 14px; border-radius: var(--radius);
+            background: var(--surface); border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            font-size: 14px; color: var(--text);
+            opacity: 0; transform: translateY(8px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            position: relative; overflow: hidden;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast::before {
+            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+            background: var(--text-subtle);
+        }
+        .toast.info::before { background: var(--info); }
+        .toast.success::before { background: var(--success); }
+        .toast.error::before { background: var(--danger); }
+        .toast.warn::before { background: var(--warn); }
+        .toast .toast-body { flex: 1; min-width: 0; padding-left: 6px; word-wrap: break-word; }
+        .toast .toast-close {
+            background: transparent; border: 0; padding: 2px; margin: -2px;
+            color: var(--text-subtle); cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 4px; box-shadow: none;
+        }
+        .toast .toast-close:hover { background: var(--surface-2); color: var(--text); }
+
+        .flash {
+            padding: 12px 16px; border-radius: var(--radius); margin-bottom: 16px;
+            font-size: 14px; border: 1px solid transparent;
+        }
+        .flash.info { background: var(--info-soft); color: var(--info); border-color: rgb(3 105 161 / 0.15); }
+        .flash.error { background: var(--danger-soft); color: var(--danger); border-color: rgb(220 38 38 / 0.15); }
+        .flash.success { background: var(--success-soft); color: var(--success); border-color: rgb(22 163 74 / 0.15); }
+
+        /* Theme toggle icons swap */
+        .theme-toggle .sun { display: none; }
+        .theme-toggle .moon { display: inline-block; }
+        html.dark .theme-toggle .sun { display: inline-block; }
+        html.dark .theme-toggle .moon { display: none; }
+
+        /* Sidebar overlay on mobile */
+        .sidebar-backdrop {
+            position: fixed; inset: 0; background: rgb(15 23 42 / 0.5);
+            z-index: 40; display: none;
+        }
+        .sidebar-backdrop.open { display: block; }
+
+        @media (max-width: 900px) {
+            .app-sidebar {
+                position: fixed; top: 0; left: 0; z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.2s ease;
+                box-shadow: var(--shadow-lg);
+            }
+            .app-sidebar.open { transform: translateX(0); }
+            .app-main { padding-left: 0 !important; }
+            .hide-mobile { display: none !important; }
+        }
+        @media (min-width: 901px) {
+            .show-mobile-only { display: none !important; }
+        }
+
+        /* Motion-safety: kill non-essential transitions/animations for users
+           who set prefers-reduced-motion. Transitions we care about
+           (loading spinners, essential feedback) can opt out via
+           `.motion-essential`. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition-duration: 0.001ms !important;
+                animation-duration: 0.001ms !important;
+                animation-iteration-count: 1 !important;
+                scroll-behavior: auto !important;
+            }
+            .motion-essential { transition-duration: revert !important; animation-duration: revert !important; }
+        }
+
+        /* ---------- Command palette (Cmd/Ctrl+K) ---------- */
+        .cmdk-hint {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 5px 6px 5px 10px;
+            border: 1px solid var(--border); border-radius: 8px;
+            background: var(--surface); color: var(--text-muted);
+            font-size: 12.5px; cursor: text; user-select: none;
+            box-shadow: var(--shadow-xs);
+            transition: color var(--dur-fast) var(--ease-out),
+                        border-color var(--dur-fast) var(--ease-out),
+                        box-shadow var(--dur-fast) var(--ease-out);
+        }
+        .cmdk-hint:hover {
+            color: var(--text); border-color: var(--border-strong);
+            box-shadow: var(--shadow-sm);
+        }
+        .cmdk-hint kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 10.5px; padding: 1px 6px; border-radius: 4px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            color: var(--text-muted); font-weight: 500;
+        }
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgb(15 23 42 / 0.45);
+            z-index: 100; display: none;
+            align-items: flex-start; justify-content: center;
+            padding: 12vh 16px 0;
+            backdrop-filter: blur(2px);
+        }
+        .modal-backdrop.open { display: flex; }
+        /* Belt-and-braces so setting `.hidden = true` on a modal that
+           still has `.open` (or any future variant) actually hides it —
+           author rules beat the UA `[hidden] { display: none }` default. */
+        .modal-backdrop[hidden] { display: none; }
+        .cmdk-panel {
+            width: 100%; max-width: 560px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+            overflow: hidden; display: flex; flex-direction: column;
+            max-height: 60vh;
+        }
+        .cmdk-input {
+            width: 100%; border: 0; padding: 16px 18px;
+            font-size: 15px; background: transparent; color: var(--text);
+            border-bottom: 1px solid var(--border); border-radius: 0;
+        }
+        .cmdk-input:focus { outline: none; box-shadow: none; border-color: var(--border); }
+        .cmdk-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
+        .cmdk-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            color: var(--text); font-size: 14px;
+        }
+        .cmdk-item:hover, .cmdk-item[aria-selected="true"] { background: var(--surface-2); }
+        .cmdk-item .kind {
+            font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+            color: var(--text-subtle); padding: 2px 6px; border-radius: 4px;
+            background: var(--surface-2); flex-shrink: 0;
+        }
+        .cmdk-item[aria-selected="true"] .kind { background: var(--surface); }
+        .cmdk-item .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cmdk-item .hint { color: var(--text-muted); font-size: 12.5px; }
+        .cmdk-footer {
+            padding: 8px 14px; border-top: 1px solid var(--border);
+            background: var(--surface-2); color: var(--text-subtle);
+            font-size: 12px; display: flex; gap: 14px; align-items: center;
+        }
+        .cmdk-footer kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px; padding: 1px 5px; border-radius: 4px;
+            background: var(--surface); border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .cmdk-empty { padding: 24px 18px; color: var(--text-muted); font-size: 13.5px; text-align: center; }
+
+        /* ---------- Keyboard shortcut cheat-sheet ---------- */
+        .shortcuts-panel {
+            width: 100%; max-width: 520px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+            padding: 22px 24px 20px;
+        }
+        .shortcuts-panel h3 {
+            margin: 0 0 14px; font-size: 15px; font-weight: 600;
+            color: var(--text); text-transform: none; letter-spacing: 0;
+        }
+        .shortcuts-panel dl {
+            margin: 0; display: grid; grid-template-columns: max-content 1fr;
+            gap: 8px 18px; align-items: baseline;
+        }
+        .shortcuts-panel dt {
+            display: inline-flex; gap: 4px; align-items: center;
+            justify-content: flex-end;
+        }
+        .shortcuts-panel dt kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px; padding: 2px 7px; border-radius: 5px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            color: var(--text); box-shadow: 0 1px 0 rgb(15 23 42 / 0.04);
+            min-width: 22px; text-align: center;
+        }
+        .shortcuts-panel dd {
+            margin: 0; color: var(--text); font-size: 13.5px; line-height: 1.5;
+        }
+        .shortcuts-panel .shortcuts-foot {
+            margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+            color: var(--text-muted); font-size: 12px; text-align: right;
+        }
+
+        /* ---------- In-page confirm modal ---------- */
+        .confirm-panel {
+            width: 100%; max-width: 440px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+            padding: 22px 22px 18px;
+        }
+        .confirm-panel h3 {
+            margin: 0 0 8px; font-size: 15px; font-weight: 600;
+            color: var(--text); text-transform: none; letter-spacing: 0;
+        }
+        .confirm-panel p {
+            margin: 0 0 18px; color: var(--text-muted); font-size: 14px;
+            line-height: 1.5;
+        }
+        .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="antialiased">
+{% if bare %}
+    {% block bare_content %}{% endblock %}
+{% else %}
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div class="flex min-h-screen">
+    <aside id="app-sidebar" class="app-sidebar">
+        <a href="/ui/" class="flex items-center gap-3 px-5 pt-6 pb-5 no-underline text-ink hover:text-ink">
+            <span class="w-10 h-10 rounded-xl grid place-items-center overflow-hidden brand-mark-glow" aria-hidden="true">
+                <svg viewBox="0 0 32 32" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="quire-mark-sidebar" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                            <stop offset="0" stop-color="#8ec7b5"/>
+                            <stop offset="0.55" stop-color="#2f8f76"/>
+                            <stop offset="1" stop-color="#1e5f4f"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="32" height="32" rx="8" fill="url(#quire-mark-sidebar)"/>
+                    <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
+                    <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+                </svg>
+            </span>
+            <span class="font-semibold text-[18px] tracking-tight leading-none">Quire</span>
+        </a>
+
+        <div class="px-3 pt-3 flex-1 overflow-y-auto">
+            <div class="nav-section">Workspace</div>
+            <nav class="flex flex-col gap-0.5">
+                <a href="/ui/dashboard{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l6-5 6 5"/><path d="M4 7v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"/></svg>
+                    Dashboard
+                </a>
+                <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+                    Templates
+                </a>
+                <a href="/ui/renders{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'renders' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
+                    Renders
+                </a>
+                <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>
+                    Upload template
+                </a>
+            </nav>
+
+            {% if admin_user %}
+            <div class="nav-section">Administration</div>
+            <nav class="flex flex-col gap-0.5">
+                {% set path = request.url.path if request else '' %}
+                <a href="{% if sidebar_selected_tenant_id %}/ui/admin/tenants/{{ sidebar_selected_tenant_id }}/keys{% else %}/ui/admin/tenants{% endif %}" class="nav-link {% if '/ui/admin/tenants' in path %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l5-3 5 3v6l-5 3-5-3z"/><path d="M3 6l5 3 5-3M8 9v6"/></svg>
+                    Tenants &amp; keys
+                </a>
+                {% if is_super_admin %}
+                <a href="/ui/admin/users" class="nav-link {% if '/ui/admin/users' in path %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="2.5"/><path d="M3 14c0-2.5 2.5-4 5-4s5 1.5 5 4"/></svg>
+                    Portal users
+                </a>
+                {% endif %}
+            </nav>
+            {% endif %}
+
+            <div class="nav-section">Reference</div>
+            <nav class="flex flex-col gap-0.5">
+                <a href="/docs" target="_blank" rel="noopener" class="nav-link">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3H4a1 1 0 0 0-1 1z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg>
+                    API docs
+                </a>
+            </nav>
+        </div>
+
+        {% if admin_user %}
+        <div class="border-t border-line px-3 py-3 mt-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold flex-shrink-0 shadow-brand" style="background: linear-gradient(135deg, rgb(var(--brand-rgb) / 0.85), rgb(var(--brand-hover-rgb))); color: rgb(var(--brand-fg-rgb));">{{ admin_user[0]|upper }}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-semibold truncate leading-tight">{{ admin_user }}</div>
+                    <div class="text-[11px] text-ink-subtle leading-tight">Admin</div>
+                </div>
+                <form action="/ui/logout" method="post" class="m-0">
+                    {{ csrf_input(request) }}
+                    <button type="submit" class="icon-btn" title="Sign out" aria-label="Sign out">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2M10 11l3-3-3-3M13 8H6"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="border-t border-line px-3 py-3 mt-2">
+            <a class="btn primary sm" href="/ui/login" style="width: 100%; justify-content: center">Sign in</a>
+        </div>
+        {% endif %}
+    </aside>
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+    <div class="flex-1 min-w-0 app-main">
+        <header class="sticky top-0 z-20 bg-surface/85 backdrop-blur-md border-b border-line">
+            <div class="flex items-center gap-3 px-5 md:px-8 h-14">
+                <button type="button" id="sidebar-toggle" class="icon-btn show-mobile-only" aria-label="Open sidebar">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
+                </button>
+                <div class="text-[13px] font-medium text-ink-muted min-w-0 truncate tracking-tight">
+                    {% block topbar_title %}{{ self.title() }}{% endblock %}
+                </div>
+                <div class="flex-1"></div>
+                <div class="flex items-center gap-2">
+                    {% block topbar_actions %}{% endblock %}
+                    <button type="button" id="cmdk-open" class="cmdk-hint hide-mobile" title="Open command palette (Cmd/Ctrl+K)" aria-label="Open command palette">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+                        <span>Jump to…</span>
+                        <kbd id="cmdk-hint-key">Ctrl K</kbd>
+                    </button>
+                    <button type="button" id="theme-toggle" class="icon-btn theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+                        <svg class="moon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 9.5A5 5 0 0 1 6.5 3a5 5 0 1 0 6.5 6.5z"/></svg>
+                        <svg class="sun" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main id="main-content" tabindex="-1" class="app-main-content px-5 md:px-8 max-w-[1280px] mx-auto animate-fade-in">
+            {% if flash %}
+                <noscript><div class="flash {{ flash_kind or 'info' }}">{{ flash }}</div></noscript>
+                <div class="flash {{ flash_kind or 'info' }}" data-flash data-flash-kind="{{ flash_kind or 'info' }}" style="display:none">{{ flash }}</div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+<div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+<div id="cmdk-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cmdk-input" hidden>
+    <div class="cmdk-panel" id="cmdk-panel">
+        <input id="cmdk-input" class="cmdk-input" type="text" placeholder="Jump to a template, tenant, or action…" autocomplete="off" spellcheck="false">
+        <ul class="cmdk-list" id="cmdk-list" role="listbox"></ul>
+        <div class="cmdk-empty" id="cmdk-empty" hidden>No matches.</div>
+        <div class="cmdk-footer">
+            <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+            <span><kbd>Enter</kbd> open</span>
+            <span><kbd>Esc</kbd> close</span>
+        </div>
+    </div>
+</div>
+
+<div id="shortcuts-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" hidden>
+    <div class="shortcuts-panel">
+        <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+        <dl>
+            <dt><kbd id="shortcut-cmdk">Ctrl</kbd><kbd>K</kbd></dt>
+            <dd>Open command palette (jump to any template, tenant, or page)</dd>
+            <dt><kbd>/</kbd></dt>
+            <dd>Open command palette (when not in an input)</dd>
+            <dt><kbd>?</kbd></dt>
+            <dd>Show this help</dd>
+            <dt><kbd>Esc</kbd></dt>
+            <dd>Close any open dialog</dd>
+            <dt><kbd>Enter</kbd></dt>
+            <dd>Confirm the current dialog</dd>
+            <dt><kbd>↑</kbd><kbd>↓</kbd></dt>
+            <dd>Navigate lists in the palette</dd>
+            <dt><kbd>Tab</kbd></dt>
+            <dd>Skip to main content from the sidebar</dd>
+        </dl>
+        <div class="shortcuts-foot">Press <kbd>Esc</kbd> to close</div>
+    </div>
+</div>
+
+<div id="confirm-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-title" hidden>
+    <div class="confirm-panel">
+        <h3 id="confirm-title">Please confirm</h3>
+        <p id="confirm-message">Are you sure?</p>
+        <div class="confirm-actions">
+            <button type="button" class="btn" id="confirm-cancel">Cancel</button>
+            <button type="button" class="btn primary" id="confirm-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+<script nonce="{{ csp_nonce(request) }}">
+    window.QuireUI = (function () {
+        function setTheme(theme) {
+            if (theme === 'dark' || theme === 'light') {
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.classList.toggle('dark', theme === 'dark');
+                try { localStorage.setItem('quire_theme', theme); } catch (e) {}
+            }
+        }
+        function toggleTheme() {
+            var isDark = document.documentElement.classList.contains('dark');
+            setTheme(isDark ? 'light' : 'dark');
+        }
+
+        function showToast(message, kind, timeoutMs) {
+            var region = document.getElementById('toast-region');
+            if (!region) return;
+            kind = kind || 'info';
+            timeoutMs = timeoutMs == null ? 5000 : timeoutMs;
+            var el = document.createElement('div');
+            el.className = 'toast ' + kind;
+            el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+            var body = document.createElement('div');
+            body.className = 'toast-body';
+            body.textContent = message;
+            var close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'toast-close';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
+            el.appendChild(body); el.appendChild(close);
+            region.appendChild(el);
+            requestAnimationFrame(function () { el.classList.add('show'); });
+            var remaining = timeoutMs, startedAt = Date.now(), timer = null;
+            function dismiss() {
+                if (timer) { clearTimeout(timer); timer = null; }
+                el.classList.remove('show');
+                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
+            }
+            function start() { if (remaining <= 0) return; startedAt = Date.now(); timer = setTimeout(dismiss, remaining); }
+            function pause() { if (timer) { clearTimeout(timer); timer = null; remaining -= (Date.now() - startedAt); } }
+            close.addEventListener('click', dismiss);
+            el.addEventListener('mouseenter', pause);
+            el.addEventListener('mouseleave', start);
+            if (timeoutMs > 0) start();
+            return dismiss;
+        }
+
+        function bootstrapFlashes() {
+            document.querySelectorAll('[data-flash]').forEach(function (n) {
+                showToast(n.textContent.trim(), n.getAttribute('data-flash-kind') || 'info');
+                n.parentNode && n.parentNode.removeChild(n);
+            });
+        }
+
+        function initSortableTables() {
+            document.querySelectorAll('table.sortable').forEach(function (table) {
+                var ths = table.tHead ? table.tHead.rows[0].cells : [];
+                for (var i = 0; i < ths.length; i++) {
+                    (function (idx, th) {
+                        if (th.hasAttribute('data-no-sort')) return;
+                        th.setAttribute('data-sortable', '');
+                        th.setAttribute('aria-sort', 'none');
+                        th.addEventListener('click', function () { sortBy(table, idx, th); });
+                    })(i, ths[i]);
+                }
+            });
+        }
+        function cellValue(row, idx) {
+            var td = row.cells[idx];
+            if (!td) return '';
+            return (td.getAttribute('data-sort') || td.textContent || '').trim();
+        }
+        function sortBy(table, idx, th) {
+            var tbody = table.tBodies[0]; if (!tbody) return;
+            var rows = Array.prototype.slice.call(tbody.rows);
+            var current = th.getAttribute('aria-sort');
+            var dir = current === 'ascending' ? 'descending' : 'ascending';
+            var headers = table.tHead.rows[0].cells;
+            for (var i = 0; i < headers.length; i++) headers[i].setAttribute('aria-sort', 'none');
+            th.setAttribute('aria-sort', dir);
+            var sample = cellValue(rows[0] || {cells: []}, idx);
+            var asNumber = sample !== '' && !isNaN(parseFloat(sample)) && isFinite(sample);
+            rows.sort(function (a, b) {
+                var av = cellValue(a, idx), bv = cellValue(b, idx);
+                if (asNumber) {
+                    av = parseFloat(av); bv = parseFloat(bv);
+                    if (isNaN(av)) av = -Infinity;
+                    if (isNaN(bv)) bv = -Infinity;
+                } else { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+                if (av < bv) return dir === 'ascending' ? -1 : 1;
+                if (av > bv) return dir === 'ascending' ? 1 : -1;
+                return 0;
+            });
+            var frag = document.createDocumentFragment();
+            rows.forEach(function (r) { frag.appendChild(r); });
+            tbody.appendChild(frag);
+        }
+
+        function initSidebarToggle() {
+            var btn = document.getElementById('sidebar-toggle');
+            var sidebar = document.getElementById('app-sidebar');
+            var backdrop = document.getElementById('sidebar-backdrop');
+            if (!btn || !sidebar || !backdrop) return;
+            function open() { sidebar.classList.add('open'); backdrop.classList.add('open'); }
+            function close() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+            btn.addEventListener('click', open);
+            backdrop.addEventListener('click', close);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('open')) close();
+            });
+        }
+
+        function initThemeToggle() {
+            // Inline `onclick=` handlers are blocked by CSP once a nonce is
+            // present on script-src (CSP3 ignores 'unsafe-inline' in that
+            // case). Wire the toggle here so it runs under the nonce-tagged
+            // script block instead.
+            var btn = document.getElementById('theme-toggle');
+            if (btn) btn.addEventListener('click', toggleTheme);
+        }
+
+        // In-page confirm modal — Promise-based replacement for window.confirm.
+        // Style matches the app; also plays nice with keyboard (Esc cancels,
+        // Enter submits) and pointer users.
+        var _confirmPending = null;
+        function confirmDialog(message, title) {
+            var backdrop = document.getElementById('confirm-backdrop');
+            var msgEl = document.getElementById('confirm-message');
+            var titleEl = document.getElementById('confirm-title');
+            var okBtn = document.getElementById('confirm-ok');
+            if (!backdrop || !msgEl || !okBtn) return Promise.resolve(window.confirm(message));
+            msgEl.textContent = message || 'Are you sure?';
+            if (titleEl) titleEl.textContent = title || 'Please confirm';
+            backdrop.hidden = false; backdrop.classList.add('open');
+            setTimeout(function () { okBtn.focus(); }, 30);
+            return new Promise(function (resolve) { _confirmPending = resolve; });
+        }
+        function initConfirmModal() {
+            var backdrop = document.getElementById('confirm-backdrop');
+            var okBtn = document.getElementById('confirm-ok');
+            var cancelBtn = document.getElementById('confirm-cancel');
+            if (!backdrop || !okBtn || !cancelBtn) return;
+            function close(result) {
+                backdrop.classList.remove('open'); backdrop.hidden = true;
+                if (_confirmPending) { var r = _confirmPending; _confirmPending = null; r(result); }
+            }
+            okBtn.addEventListener('click', function () { close(true); });
+            cancelBtn.addEventListener('click', function () { close(false); });
+            backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(false); });
+            document.addEventListener('keydown', function (e) {
+                if (backdrop.hidden) return;
+                if (e.key === 'Escape') { e.preventDefault(); close(false); }
+                if (e.key === 'Enter') { e.preventDefault(); close(true); }
+            });
+        }
+
+        function initDataDelegates() {
+            // Generic replacements for inline `onclick`/`onsubmit`/`onchange`
+            // attributes, which CSP blocks alongside the theme toggle.
+            //   [data-confirm="msg"]     — form or button; cancel if user says no
+            //   [data-submit-form]       — input/select; submit enclosing form on change
+            document.querySelectorAll('form[data-confirm]').forEach(function (f) {
+                f.addEventListener('submit', function (e) {
+                    if (f.dataset.confirmed === '1') return;
+                    e.preventDefault();
+                    confirmDialog(f.getAttribute('data-confirm')).then(function (ok) {
+                        if (!ok) return;
+                        f.dataset.confirmed = '1';
+                        if (typeof f.requestSubmit === 'function') f.requestSubmit();
+                        else f.submit();
+                    });
+                });
+            });
+            document.querySelectorAll('button[data-confirm], [type="submit"][data-confirm]').forEach(function (b) {
+                b.addEventListener('click', function (e) {
+                    if (b.dataset.confirmed === '1') return;
+                    e.preventDefault(); e.stopPropagation();
+                    confirmDialog(b.getAttribute('data-confirm')).then(function (ok) {
+                        if (!ok) return;
+                        b.dataset.confirmed = '1';
+                        b.click();
+                    });
+                });
+            });
+            document.querySelectorAll('[data-submit-form]').forEach(function (el) {
+                el.addEventListener('change', function () {
+                    if (el.form) el.form.submit();
+                });
+            });
+        }
+
+        // Focus first meaningful input on page load — but only in "form-first"
+        // pages. Skip when the user has arrived from a link (likely reading, not
+        // editing) or when a search input isn't the primary CTA.
+        function initFocusFirst() {
+            var el = document.querySelector('[data-autofocus]');
+            if (el && typeof el.focus === 'function') {
+                try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+            }
+        }
+
+        // ---------- Keyboard cheat-sheet ----------
+        function _shortcutsOpen() {
+            var backdrop = document.getElementById('shortcuts-backdrop');
+            if (!backdrop) return;
+            backdrop.hidden = false; backdrop.classList.add('open');
+        }
+        function _shortcutsClose() {
+            var backdrop = document.getElementById('shortcuts-backdrop');
+            if (!backdrop) return;
+            backdrop.classList.remove('open'); backdrop.hidden = true;
+        }
+        function initShortcuts() {
+            var backdrop = document.getElementById('shortcuts-backdrop');
+            if (!backdrop) return;
+            var cmdkKey = document.getElementById('shortcut-cmdk');
+            var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+            if (cmdkKey) cmdkKey.textContent = isMac ? '⌘' : 'Ctrl';
+            backdrop.addEventListener('click', function (e) { if (e.target === backdrop) _shortcutsClose(); });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !backdrop.hidden) { e.preventDefault(); _shortcutsClose(); return; }
+                if (e.key !== '?') return;
+                var tag = (document.activeElement && document.activeElement.tagName) || '';
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+                if (document.activeElement && document.activeElement.isContentEditable) return;
+                e.preventDefault();
+                if (backdrop.hidden) _shortcutsOpen(); else _shortcutsClose();
+            });
+        }
+
+        // ---------- Command palette ----------
+        // Loads /ui/_palette.json on first open (cached for the session).
+        var _paletteData = null;
+        var _paletteLoaded = false;
+        var _paletteActions = [
+            { kind: 'nav', label: 'Dashboard', hint: 'operational overview', href: '/ui/dashboard' },
+            { kind: 'nav', label: 'Templates', hint: 'browse templates', href: '/ui/' },
+            { kind: 'nav', label: 'Renders', hint: 'render history', href: '/ui/renders' },
+            { kind: 'nav', label: 'Upload template', hint: 'add a new .docx or .pdf', href: '/ui/upload' },
+            { kind: 'nav', label: 'API docs', hint: 'swagger UI', href: '/docs' },
+            { kind: 'action', label: 'Toggle theme', hint: 'switch light/dark', run: toggleTheme },
+        ];
+        function _fuzzyScore(hay, needle) {
+            if (!needle) return 1;
+            hay = hay.toLowerCase(); needle = needle.toLowerCase();
+            if (hay === needle) return 1000;
+            if (hay.startsWith(needle)) return 500;
+            if (hay.indexOf(needle) !== -1) return 250;
+            var hi = 0, s = 0;
+            for (var i = 0; i < needle.length; i++) {
+                var idx = hay.indexOf(needle[i], hi);
+                if (idx === -1) return 0;
+                s += (i === 0 ? 20 : 10) - (idx - hi);
+                hi = idx + 1;
+            }
+            return Math.max(1, s);
+        }
+        function _paletteEntries() {
+            var out = _paletteActions.slice();
+            if (_paletteData) {
+                (_paletteData.templates || []).forEach(function (t) {
+                    out.push({ kind: 'template', label: t.name, hint: t.tenant || '', href: '/ui/templates/' + t.id });
+                });
+                (_paletteData.tenants || []).forEach(function (t) {
+                    out.push({ kind: 'tenant', label: t.name, hint: 'switch workspace', href: '/ui/dashboard?tenant=' + t.id });
+                });
+            }
+            return out;
+        }
+        function _renderPaletteList(query) {
+            var list = document.getElementById('cmdk-list');
+            var empty = document.getElementById('cmdk-empty');
+            if (!list) return;
+            var entries = _paletteEntries();
+            var scored = entries
+                .map(function (e) { return { e: e, s: _fuzzyScore(e.label + ' ' + (e.hint || ''), query) }; })
+                .filter(function (r) { return r.s > 0; })
+                .sort(function (a, b) { return b.s - a.s; })
+                .slice(0, 40);
+            list.innerHTML = '';
+            scored.forEach(function (r, i) {
+                var e = r.e;
+                var li = document.createElement('li');
+                li.className = 'cmdk-item';
+                li.setAttribute('role', 'option');
+                if (i === 0) li.setAttribute('aria-selected', 'true');
+                var kind = document.createElement('span'); kind.className = 'kind'; kind.textContent = e.kind;
+                var label = document.createElement('span'); label.className = 'label'; label.textContent = e.label;
+                var hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = e.hint || '';
+                li.appendChild(kind); li.appendChild(label); li.appendChild(hint);
+                li.addEventListener('click', function () { _paletteRun(e); });
+                list.appendChild(li);
+            });
+            if (empty) empty.hidden = scored.length !== 0;
+        }
+        function _paletteRun(entry) {
+            _paletteClose();
+            if (entry.run) { try { entry.run(); } catch (e) {} return; }
+            if (entry.href) window.location.href = entry.href;
+        }
+        function _paletteOpen() {
+            var backdrop = document.getElementById('cmdk-backdrop');
+            var input = document.getElementById('cmdk-input');
+            if (!backdrop || !input) return;
+            backdrop.hidden = false; backdrop.classList.add('open');
+            input.value = '';
+            _renderPaletteList('');
+            setTimeout(function () { input.focus(); }, 30);
+            if (!_paletteLoaded) {
+                _paletteLoaded = true;
+                fetch('/ui/_palette.json', { credentials: 'same-origin' })
+                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) { if (j) { _paletteData = j; _renderPaletteList(input.value || ''); } })
+                    .catch(function () { /* silent — palette still works with static actions */ });
+            }
+        }
+        function _paletteClose() {
+            var backdrop = document.getElementById('cmdk-backdrop');
+            if (!backdrop) return;
+            backdrop.classList.remove('open'); backdrop.hidden = true;
+        }
+        function _paletteSelected() {
+            return document.querySelector('#cmdk-list .cmdk-item[aria-selected="true"]');
+        }
+        function _paletteMove(dir) {
+            var items = document.querySelectorAll('#cmdk-list .cmdk-item');
+            if (!items.length) return;
+            var cur = _paletteSelected();
+            var idx = cur ? Array.prototype.indexOf.call(items, cur) : -1;
+            if (cur) cur.removeAttribute('aria-selected');
+            idx = (idx + dir + items.length) % items.length;
+            items[idx].setAttribute('aria-selected', 'true');
+            if (items[idx].scrollIntoView) items[idx].scrollIntoView({ block: 'nearest' });
+        }
+        function initCmdK() {
+            var openBtn = document.getElementById('cmdk-open');
+            var backdrop = document.getElementById('cmdk-backdrop');
+            var input = document.getElementById('cmdk-input');
+            var hintKey = document.getElementById('cmdk-hint-key');
+            if (!backdrop || !input) return;
+            var isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+            if (hintKey) hintKey.textContent = isMac ? '⌘ K' : 'Ctrl K';
+            if (openBtn) openBtn.addEventListener('click', _paletteOpen);
+            backdrop.addEventListener('click', function (e) { if (e.target === backdrop) _paletteClose(); });
+            input.addEventListener('input', function () { _renderPaletteList(input.value); });
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'ArrowDown') { e.preventDefault(); _paletteMove(1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); _paletteMove(-1); }
+                else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    var sel = _paletteSelected();
+                    if (sel) sel.click();
+                } else if (e.key === 'Escape') { e.preventDefault(); _paletteClose(); }
+            });
+            document.addEventListener('keydown', function (e) {
+                if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+                    e.preventDefault();
+                    if (backdrop.hidden) _paletteOpen(); else _paletteClose();
+                } else if (e.key === '/' && !backdrop.hidden === false) {
+                    // '/' opens palette when nothing else has focus (skip inputs)
+                    var tag = (document.activeElement && document.activeElement.tagName) || '';
+                    if (backdrop.hidden && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+                        e.preventDefault(); _paletteOpen();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            bootstrapFlashes();
+            initSortableTables();
+            initSidebarToggle();
+            initThemeToggle();
+            initConfirmModal();
+            initDataDelegates();
+            initFocusFirst();
+            initCmdK();
+            initShortcuts();
+        });
+
+        return {
+            setTheme: setTheme, toggleTheme: toggleTheme,
+            showToast: showToast, confirmDialog: confirmDialog,
+            openPalette: _paletteOpen,
+            openShortcuts: _shortcutsOpen,
+        };
+    })();
+</script>
+{% endif %}
+</body>
+</html>

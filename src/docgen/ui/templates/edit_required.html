@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Edit required flags — {{ template.name }} v{{ version.version }}.{{ version.subversion }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .req-table td, .req-table th { vertical-align: middle; }
+    .req-table td.name { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 600; }
+    .req-table td.type-cell { width: 100px; }
+    .req-table td.req-cell { width: 90px; text-align: center; }
+    .req-table td.desc { color: var(--text-muted); }
+    .req-table input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+    .type-badge {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px; padding: 2px 8px; border-radius: 4px;
+        background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    }
+    .bulk-actions {
+        display: flex; gap: 8px; align-items: center;
+        padding: 8px 0; font-size: 13px;
+    }
+    .bulk-actions button {
+        background: none; border: 1px solid var(--border);
+        color: var(--brand); padding: 4px 10px; border-radius: 4px;
+        cursor: pointer; font: inherit; font-size: 12px;
+    }
+    .bulk-actions button:hover { background: var(--brand-soft); }
+    .form-actions {
+        display: flex; gap: 10px; justify-content: flex-end;
+        margin-top: 16px;
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a>
+    <span class="dot">/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+    <span class="dot">/</span>
+    Edit required — v{{ version.version }}.{{ version.subversion }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Edit required flags</h1>
+        <div class="meta-chips" style="color: var(--text-muted); font-size: 13px; margin-top: 6px">
+            <span class="badge draft">Draft</span>
+            <span class="dot">·</span>
+            <span>v{{ version.version }}.{{ version.subversion }}</span>
+            <span class="dot">·</span>
+            <span>{{ fields|length }} field{{ 's' if fields|length != 1 else '' }}</span>
+            {% if version.locale != 'default' %}
+            <span class="dot">·</span>
+            <span>Locale <strong style="color: var(--text)">{{ version.locale }}</strong></span>
+            {% endif %}
+        </div>
+        <p class="muted" style="font-size: 13px; margin: 8px 0 0; max-width: 720px">
+            The tagged .docx is unchanged — only the schema is up for edit. Toggling a
+            required flag here updates every locale of v{{ version.version }}.{{ version.subversion }}
+            at once. Save to keep the draft; Freeze &amp; save to lock the new hash.
+        </p>
+    </div>
+</div>
+
+<form method="post" action="/ui/versions/{{ version.id }}/edit-required" id="req-form">
+    {{ csrf_input(request) }}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>Fields</h2>
+            <div class="bulk-actions">
+                <button type="button" data-bulk="all">All required</button>
+                <button type="button" data-bulk="none">None required</button>
+                <button type="button" data-bulk="invert">Invert</button>
+            </div>
+        </div>
+        {% if fields %}
+        <table class="req-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th class="type-cell">Type</th>
+                    <th class="req-cell">Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for f in fields %}
+                <tr>
+                    <td class="name">{{ f.name }}</td>
+                    <td class="type-cell"><span class="type-badge">{{ f.type }}{% if f.type == 'list' and f.item_type %}&lt;{{ f.item_type }}&gt;{% endif %}</span></td>
+                    <td class="req-cell">
+                        <input type="checkbox" name="required__{{ f.name }}" {% if f.required %}checked{% endif %}>
+                    </td>
+                    <td class="desc">{{ f.description or '—' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="card-body">
+            <p class="muted" style="margin: 0">This version has no fields.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="form-actions">
+        <a class="btn" href="/ui/templates/{{ template.id }}">Cancel</a>
+        <button type="submit" class="btn" name="action" value="save">Save draft</button>
+        <button type="submit" class="btn primary" name="action" value="freeze"
+                data-confirm="Freeze v{{ version.version }}.{{ version.subversion }} with the current required flags? A fresh version_hash is computed; publish separately to serve it.">
+            Freeze &amp; save
+        </button>
+    </div>
+</form>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var boxes = document.querySelectorAll('#req-form input[type="checkbox"][name^="required__"]');
+    document.querySelectorAll('[data-bulk]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var mode = btn.getAttribute('data-bulk');
+            boxes.forEach(function (b) {
+                if (mode === 'all') b.checked = true;
+                else if (mode === 'none') b.checked = false;
+                else if (mode === 'invert') b.checked = !b.checked;
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}

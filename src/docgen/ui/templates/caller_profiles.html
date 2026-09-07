@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Caller profiles — {{ template.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .empty {
+        padding: 40px 20px; text-align: center; color: var(--text-muted);
+        background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
+    }
+    .empty svg { color: var(--text-subtle); margin-bottom: 12px; }
+    .drift-pill {
+        display: inline-block; padding: 1px 6px; border-radius: 4px;
+        background: var(--warn-soft); color: var(--warn); border: 1px solid rgb(var(--warn-rgb) / 0.35);
+        font-size: 11px; font-weight: 600; margin-left: 6px;
+    }
+    .field-count { color: var(--text-muted); font-size: 12px; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a>
+    <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+    <span>/</span>
+    Caller profiles
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Caller profiles</h1>
+        <p class="page-subtitle">
+            Saved translations from a calling app's native JSON to this template's schema.
+            Callers use <code>POST /render/mapped</code> with a <code>profile_id</code> and send their raw JSON —
+            no per-template payload shaping in their code.
+        </p>
+    </div>
+    <div class="page-actions">
+        <a class="btn primary" href="/ui/templates/{{ template.id }}/profiles/new">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+            New profile
+        </a>
+    </div>
+</div>
+
+{% if profiles %}
+<div class="card flush">
+    <table>
+        <thead>
+            <tr>
+                <th>Caller</th>
+                <th>Name</th>
+                <th>Pinned version</th>
+                <th>Mapped fields</th>
+                <th>Updated</th>
+                <th style="text-align: right">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for p in profiles %}
+            <tr>
+                <td class="mono">{{ p.caller }}</td>
+                <td><strong>{{ p.name }}</strong></td>
+                <td>
+                    v{{ p.version }}
+                    {% if current_version and p.version != current_version %}
+                        <span class="drift-pill" title="Template current version is v{{ current_version }}">v{{ current_version }} available</span>
+                    {% endif %}
+                </td>
+                <td class="field-count">{{ p.mapping|length }} field{{ 's' if p.mapping|length != 1 else '' }}</td>
+                <td class="muted">{{ p.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="text-align: right">
+                    <a href="/ui/profiles/{{ p.id }}">Edit →</a>
+                    <span class="subtle"> · </span>
+                    <form action="/ui/profiles/{{ p.id }}/delete" method="post" style="display: inline"
+                          data-confirm="Delete profile {{ p.name }}?">
+                        {{ csrf_input(request) }}
+                        <button type="submit" class="linklike"
+                                style="background: none; border: none; padding: 0; color: var(--danger); cursor: pointer; font: inherit; display: inline; box-shadow: none; vertical-align: baseline">
+                            Delete
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty">
+    <svg width="32" height="32" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25">
+        <path d="M3 4h10v9H3z"/><path d="M6 7h4M6 10h4"/>
+    </svg>
+    <div><strong>No caller profiles yet.</strong></div>
+    <div style="margin-top: 6px">Create one so calling apps can send their native JSON without knowing this template's schema.</div>
+    <div style="margin-top: 16px">
+        <a class="btn primary" href="/ui/templates/{{ template.id }}/profiles/new">Create the first profile</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

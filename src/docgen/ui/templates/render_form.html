@@ -1,0 +1,724 @@
+{% extends "base.html" %}
+{% block title %}Render — {{ template.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .render-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 420px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1100px) { .render-grid { grid-template-columns: 1fr; } }
+    .schema-card { position: sticky; top: 80px; max-height: calc(100vh - 100px); display: flex; flex-direction: column; }
+    .schema-scroll { overflow-y: auto; flex: 1; min-height: 0; }
+    .schema-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .schema-table thead th {
+        position: sticky; top: 0; z-index: 1;
+        background: var(--surface-2);
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-subtle); font-weight: 600;
+        padding: 8px 12px; text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    .schema-table tbody tr { transition: background 0.08s ease; }
+    .schema-table tbody tr:hover { background: var(--surface-2); }
+    .schema-table tbody tr + tr td { border-top: 1px solid var(--border); }
+    .schema-table td { padding: 8px 12px; font-size: 13px; vertical-align: top; }
+    .schema-table td.name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; color: var(--text); font-weight: 500;
+        word-break: break-all; line-height: 1.45;
+    }
+    .schema-table td.type { width: 1%; white-space: nowrap; }
+    .schema-table td.type .type-pill {
+        display: inline-block; padding: 2px 7px; border-radius: 3px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px; color: var(--text-muted);
+        background: var(--surface-2); border: 1px solid var(--border);
+    }
+    .schema-table td.req { width: 1%; text-align: center; padding-right: 14px; }
+    .req-yes { color: var(--brand); font-weight: 700; font-size: 14px; }
+    .req-no { color: var(--text-subtle); font-size: 14px; }
+    .schema-legend {
+        padding: 8px 14px; border-top: 1px solid var(--border);
+        display: flex; gap: 12px; align-items: center;
+        font-size: 10px; color: var(--text-subtle);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .schema-legend .req-yes, .schema-legend .req-no { font-size: 11px; margin-right: 2px; }
+    .schema-legend .hint { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 10px; }
+    .version-hash-inline {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+        background: var(--surface-2); padding: 2px 6px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .payload-textarea {
+        min-height: 320px; font-size: 13px; line-height: 1.6;
+    }
+    .result-card {
+        border-color: var(--success);
+        background: linear-gradient(180deg, rgba(22,163,74,0.03), transparent 60%);
+    }
+    .result-card.failed {
+        border-color: var(--danger);
+        background: linear-gradient(180deg, rgba(220,38,38,0.03), transparent 60%);
+    }
+    .result-meta {
+        display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+        font-size: 13px; color: var(--text-muted); margin: 8px 0 16px;
+    }
+    .result-meta .dot { color: var(--text-subtle); }
+    .job-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text);
+    }
+    .profiles-card { margin-bottom: 16px; }
+    .profiles-card .profile-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 12px; border-top: 1px solid var(--border);
+    }
+    .profiles-card .profile-row:first-of-type { border-top: none; }
+    .profiles-card .profile-row .meta { flex: 1; min-width: 0; }
+    .profiles-card .profile-row .caller {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+    }
+    .profiles-card .profile-row .name { font-size: 13px; color: var(--text); font-weight: 500; }
+    .profiles-card .empty { padding: 12px 14px; font-size: 12px; color: var(--text-muted); }
+    .profiles-card form { margin: 0; display: inline; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/">Templates</a>
+    <span>/</span>
+    <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+    <span>/</span>
+    Render v{{ version.version }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>Render <span style="color: var(--text-muted); font-weight: 500">— v{{ version.version }}</span> <span class="badge frozen" style="margin-left: 6px">Frozen</span></h1>
+        <p class="page-subtitle">
+            Deterministic render — no AI in the loop. Same payload in, same document out.
+        </p>
+        <div class="muted" style="margin-top: 8px">
+            version_hash <span class="version-hash-inline" title="{{ version.version_hash }}">{{ version.version_hash }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="render-grid">
+    <div>
+        {% if profiles %}
+        <div class="card flush profiles-card">
+            <div class="card-header">
+                <h2>Caller profiles</h2>
+                <span class="subtle">{{ profiles|length }} profile{{ 's' if profiles|length != 1 else '' }} — uses saved sample by default; edit the payload below to override with caller-native JSON</span>
+            </div>
+            {% for p in profiles %}
+            <div class="profile-row">
+                <div class="meta">
+                    <div class="name">{{ p.name }}</div>
+                    <div class="caller">{{ p.caller }} · v{{ p.version }} · {{ p.mapping|length }} field{{ 's' if p.mapping|length != 1 else '' }} mapped</div>
+                </div>
+                <a class="btn" href="/ui/profiles/{{ p.id }}">Edit</a>
+                <form action="/ui/profiles/{{ p.id }}/test" method="post" class="profile-test-form">
+                    {{ csrf_input(request) }}
+                    <input type="hidden" name="payload" value="">
+                    <button class="primary" type="submit">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 3l10 5-10 5V3z"/></svg>
+                        Test render
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <form action="/ui/templates/{{ template.id }}/render" method="post">
+            {{ csrf_input(request) }}
+            <div class="card">
+                <input type="hidden" name="version" value="{{ version.version }}">
+                {% if available_locales and available_locales|length > 1 %}
+                <label>Locale
+                    <select id="render-locale-picker" name="locale" data-nav-base="/ui/templates/{{ template.id }}/render?version={{ version.version }}&locale=">
+                        {% for loc in available_locales %}
+                            <option value="{{ loc }}"{% if loc == selected_locale %} selected{% endif %}>{{ loc }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="muted" style="font-size: 12px; margin-top: 6px">All locales of v{{ version.version }} share the same schema — changing locale swaps the .docx only.</div>
+                </label>
+                {% else %}
+                <input type="hidden" name="locale" value="{{ selected_locale or 'default' }}">
+                {% endif %}
+                <label for="payload-textarea">Payload
+                    <textarea id="payload-textarea" class="payload-textarea" name="payload" rows="16" required>{{ example_payload }}</textarea>
+                    <div class="muted" style="font-size: 12px; margin-top: 6px">JSON body. Prefilled with an example for this schema — edit the values.</div>
+                </label>
+                {% if version.pdf_flavor %}
+                <input type="hidden" name="output_format" value="pdf">
+                <div class="muted" style="font-size: 12px; margin-top: -8px; margin-bottom: 12px">
+                    Output format: <strong>PDF</strong> — PDF templates always render to PDF.
+                </div>
+                {% else %}
+                <label>Output format
+                    <select name="output_format">
+                        <option value="docx">DOCX (native)</option>
+                        <option value="pdf">PDF (requires LibreOffice in container)</option>
+                    </select>
+                </label>
+                {% endif %}
+                <label>Caller identifier <span class="subtle">(optional, recorded in provenance)</span>
+                    <input type="text" name="caller" placeholder="e.g. agent://triage-bot or user@example.com">
+                </label>
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: stretch; flex-wrap: nowrap; white-space: nowrap">
+                    <button class="primary" type="submit" style="flex: 0 0 auto; margin: 0; line-height: 1.2">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 3l10 5-10 5V3z"/></svg>
+                        Render document
+                    </button>
+                    <button type="button" id="generate-test-data-btn" class="btn" style="flex: 0 0 auto; margin: 0; line-height: 1.2">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v3M8 11v3M2 8h3M11 8h3M3.5 3.5l2 2M10.5 10.5l2 2M3.5 12.5l2-2M10.5 5.5l2-2"/></svg>
+                        Generate test data
+                    </button>
+                    <button type="button" id="copy-curl-btn"
+                            class="btn"
+                            data-template-id="{{ template.id }}"
+                            data-version="{{ version.version }}"
+                            style="flex: 0 0 auto; margin: 0; line-height: 1.2"
+                            title="Copy an equivalent cURL command to your clipboard (uses your API key placeholder)">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="4" y="4" width="9" height="9" rx="1"/><path d="M11 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1"/></svg>
+                        Copy as cURL
+                    </button>
+                    <a class="btn" href="/ui/templates/{{ template.id }}" style="flex: 0 0 auto; margin: 0; line-height: 1.2">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M10 3L5 8l5 5"/></svg>
+                        Back to versions
+                    </a>
+                </div>
+            </div>
+        </form>
+
+        {% if last_job %}
+        <div class="card result-card{% if last_job.state == 'failed' %} failed{% endif %}" style="margin-top: 16px">
+            <div class="between">
+                <div style="min-width: 0">
+                    <div style="display: flex; align-items: center; gap: 8px">
+                        {% if last_job.state == 'succeeded' %}
+                            <span class="badge accept">Succeeded</span>
+                        {% elif last_job.state == 'failed' %}
+                            <span class="badge reject">Failed</span>
+                        {% else %}
+                            <span class="badge draft">{{ last_job.state }}</span>
+                        {% endif %}
+                        <strong style="font-size: 15px">Last render</strong>
+                    </div>
+                    <div class="result-meta">
+                        <span>Job <span class="job-id">{{ last_job.id }}</span></span>
+                        <span class="dot">·</span>
+                        <span>{{ last_job.result_bytes or 0 }} bytes</span>
+                        <span class="dot">·</span>
+                        <span>Format: {{ last_job.output_format }}</span>
+                    </div>
+                </div>
+                {% if last_job.state == 'succeeded' %}
+                <a class="btn primary" href="/ui/jobs/{{ last_job.id }}/result">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 2v9M8 11l-3-3M8 11l3-3"/><path d="M3 13h10"/></svg>
+                    Download
+                </a>
+                {% endif %}
+            </div>
+            {% if last_job.error %}
+                <h3 style="margin-top: 12px; text-transform: none; letter-spacing: 0; color: var(--danger); font-size: 13px">Error</h3>
+                <pre>{{ last_job.error }}</pre>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card flush schema-card">
+        <div class="card-header">
+            <h2>Schema</h2>
+            <span class="subtle">{{ schema_fields|length }} field{{ 's' if schema_fields|length != 1 else '' }}</span>
+        </div>
+        <div class="schema-scroll">
+            <table class="schema-table">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Type</th>
+                        <th style="text-align: center">Req</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for f in schema_fields %}
+                    <tr>
+                        <td class="name" title="{{ f.description or f.name }}">{{ f.name }}</td>
+                        <td class="type"><span class="type-pill">{{ f.type }}</span></td>
+                        <td class="req">
+                            {% if f.required %}<span class="req-yes" title="Required">●</span>{% else %}<span class="req-no" title="Optional">○</span>{% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="schema-legend">
+            <span><span class="req-yes">●</span> required</span>
+            <span><span class="req-no">○</span> optional</span>
+            <span class="hint">Hover for description</span>
+        </div>
+    </div>
+</div>
+
+{% set schema_fields_dumped = [] %}
+{% for f in schema_fields %}{% set _ = schema_fields_dumped.append(f.model_dump()) %}{% endfor %}
+<script nonce="{{ csp_nonce(request) }}" id="schema-fields-data" type="application/json">{{ schema_fields_dumped|tojson }}</script>
+<script nonce="{{ csp_nonce(request) }}">
+// Profile Test render: forward the payload textarea only when the user has
+// edited it away from the template-native example (which wouldn't match the
+// profile's caller-native JSON paths). Untouched → server falls back to the
+// profile's saved sample_payload.
+(function () {
+    const payloadEl = document.getElementById('payload-textarea');
+    if (!payloadEl) return;
+    const initial = payloadEl.value;
+    document.querySelectorAll('form.profile-test-form').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            const hidden = form.querySelector('input[name="payload"]');
+            if (!hidden) return;
+            const current = payloadEl.value || '';
+            hidden.value = current.trim() && current !== initial ? current : '';
+        });
+    });
+})();
+</script>
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    const btn = document.getElementById('generate-test-data-btn');
+    const textarea = document.getElementById('payload-textarea');
+    const schemaEl = document.getElementById('schema-fields-data');
+    if (!btn || !textarea || !schemaEl) return;
+
+    let schemaFields;
+    try { schemaFields = JSON.parse(schemaEl.textContent || '[]'); }
+    catch (e) { schemaFields = []; }
+
+    const FIRST_NAMES = ['James', 'Mary', 'Robert', 'Patricia', 'John', 'Jennifer', 'Michael', 'Linda', 'David', 'Elizabeth', 'William', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen', 'Christopher', 'Nancy', 'Daniel', 'Lisa', 'Matthew', 'Betty', 'Anthony', 'Helen', 'Mark', 'Sandra'];
+    const LAST_NAMES = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson'];
+    const US_STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
+    const US_CITIES = ['Springfield', 'Franklin', 'Clinton', 'Georgetown', 'Madison', 'Bristol', 'Fairview', 'Salem', 'Arlington', 'Riverside', 'Burlington', 'Manchester', 'Oakland', 'Auburn', 'Ashland', 'Kingston', 'Milton', 'Newport', 'Chester', 'Lexington'];
+    const STREETS = ['Main St', 'Oak Ave', 'Maple Dr', 'Elm St', 'Cedar Ln', 'Washington Blvd', 'Park Ave', 'Lake Dr', 'Church St', 'Sunset Blvd', 'Highland Ave', 'Willow Way', 'Pine St', 'Broadway', 'Franklin Ave'];
+    const MEDS = ['Enbrel (etanercept)', 'Humira (adalimumab)', 'Xarelto (rivaroxaban)', 'Eliquis (apixaban)', 'Trulicity (dulaglutide)', 'Ozempic (semaglutide)', 'Keytruda (pembrolizumab)', 'Opdivo (nivolumab)', 'Rituxan (rituximab)', 'Herceptin (trastuzumab)', 'Remicade (infliximab)', 'Stelara (ustekinumab)'];
+    const STRENGTHS = ['25 mg/0.5 mL', '50 mg/mL', '100 mg', '200 mg', '40 mg/0.4 mL', '150 mg/mL', '500 mg', '1 g'];
+    const DIRECTIONS = ['Inject 50 mg subcutaneously once weekly', 'Take 1 tablet by mouth once daily', 'Inject 40 mg SC every other week', 'Infuse 375 mg/m² IV over 90 minutes', 'Take 2 capsules by mouth twice daily with food'];
+    const FORMULATIONS = ['Prefilled syringe', 'Autoinjector', 'Single-use vial', 'Tablet', 'IV infusion', 'Oral suspension'];
+    const ALLERGIES = ['NKDA', 'Penicillin', 'Sulfa', 'Latex', 'Codeine', 'Iodine contrast', 'Aspirin'];
+    const OTHER_MEDS_LIST = ['None', 'Lisinopril 10 mg daily', 'Metformin 500 mg BID', 'Atorvastatin 20 mg qHS', 'Levothyroxine 75 mcg daily', 'Amlodipine 5 mg daily'];
+    const REL_TO_PATIENT = ['Spouse', 'Parent', 'Adult child', 'Sibling', 'Legal guardian', 'Caregiver'];
+    const CONTACT_TITLES = ['Office Manager', 'Nurse Practitioner', 'Medical Assistant', 'RN', 'Practice Coordinator'];
+
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    const randFloat = (min, max, dp) => parseFloat((Math.random() * (max - min) + min).toFixed(dp ?? 2));
+    const pad = (n, w) => String(n).padStart(w, '0');
+    const initial = () => String.fromCharCode(65 + randInt(0, 25));
+
+    const mdyStr = (d) => pad(d.getMonth() + 1, 2) + '/' + pad(d.getDate(), 2) + '/' + d.getFullYear();
+    const isoStr = (d) => d.toISOString().slice(0, 10);
+    const daysFromNow = (n) => new Date(Date.now() + n * 86400000);
+    const randomBirthMDY = () => mdyStr(new Date(randInt(1940, 2005), randInt(0, 11), randInt(1, 28)));
+    const usPhone = () => '(' + randInt(200, 989) + ') ' + randInt(200, 989) + '-' + pad(randInt(0, 9999), 4);
+    const npi = () => String(randInt(1000000000, 1999999999));
+    const dea = () => {
+        const L = 'ABCDEFGHJKLMNPRSTUX';
+        return L[randInt(0, L.length - 1)] + L[randInt(0, L.length - 1)] + pad(randInt(0, 9999999), 7);
+    };
+    const stateLicense = () => 'MD' + pad(randInt(10000, 999999), 6);
+    const ssnFull = () => pad(randInt(100, 899), 3) + '-' + pad(randInt(10, 99), 2) + '-' + pad(randInt(1000, 9999), 4);
+
+    function buildContext() {
+        const first = pick(FIRST_NAMES);
+        const last = pick(LAST_NAMES);
+        const mi = initial();
+        const patientName = first + ' ' + last;
+        const state = pick(US_STATES);
+        const city = pick(US_CITIES);
+        const provFirst = pick(FIRST_NAMES);
+        const provLast = pick(LAST_NAMES);
+        const contactFirst = pick(FIRST_NAMES);
+        const contactLast = pick(LAST_NAMES);
+        const med = pick(MEDS);
+        const strength = pick(STRENGTHS);
+        // Pick ONE insurance line to mark as chosen
+        const insuranceKeys = [
+            'patient_ins_i_do_not_have_health',
+            'patient_ins_medicare_part_d',
+            'patient_medicare_part_without_supplemental_secon',
+            'patient_medicare_part_supplemental_secondary',
+            'patient_ins_medicare_advantage_plan',
+            'patient_ins_medicaid',
+            'patient_ins_va_military',
+            'patient_ins_private_excluding_medicare_part_d',
+        ];
+        return {
+            first, last, mi, patientName,
+            fullName: first + ' ' + mi + '. ' + last,
+            dobMDY: randomBirthMDY(),
+            ssn: ssnFull(),
+            ssnLast4: pad(randInt(0, 9999), 4),
+            address: randInt(100, 9999) + ' ' + pick(STREETS),
+            address2: pick(['Apt ' + randInt(1, 300), 'Suite ' + randInt(100, 500), 'Unit ' + randInt(1, 50), '']),
+            city, state,
+            zip: pad(randInt(10000, 99999), 5),
+            phone: usPhone(),
+            todayMDY: mdyStr(new Date()),
+            futureAdminMDY: (offset) => mdyStr(daysFromNow(offset)),
+            providerName: 'Dr. ' + provFirst + ' ' + provLast + ', MD',
+            providerAddress: randInt(100, 9999) + ' ' + pick(STREETS),
+            providerAddress2: 'Suite ' + randInt(100, 999),
+            providerCity: pick(US_CITIES),
+            providerZip: pad(randInt(10000, 99999), 5),
+            providerPhone: usPhone(),
+            providerFax: usPhone(),
+            npi: npi(),
+            dea: dea(),
+            license: stateLicense(),
+            contactName: contactFirst + ' ' + contactLast + ', ' + pick(CONTACT_TITLES),
+            med, strength,
+            directions: pick(DIRECTIONS),
+            formulation: pick(FORMULATIONS),
+            allergies: pick(ALLERGIES),
+            otherMeds: pick(OTHER_MEDS_LIST),
+            chosenInsuranceKey: pick(insuranceKeys),
+            insuranceKeys,
+        };
+    }
+
+    // Infer a realistic value from the field's human-readable label (e.g.
+    // "First Name", "Date of Birth", "ZIP Code"). Returns null when no
+    // pattern matches, so the caller falls back to name-based inference.
+    function valueFromLabel(rawLabel, ctx) {
+        const label = (rawLabel || '').trim();
+        if (!label) return null;
+        const l = label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (!l) return null;
+        const has = (...needles) => needles.some(n => l.includes(n));
+        const eq = (...forms) => forms.some(f => l === f);
+
+        // Signatures & names
+        if (has('signature')) return ctx.patientName;
+        if (eq('first name', 'given name', 'first', 'patient first name', 'fname')) return ctx.first;
+        if (eq('last name', 'family name', 'surname', 'patient last name', 'lname')) return ctx.last;
+        if (eq('middle initial', 'mi', 'm i', 'middle')) return ctx.mi;
+        if (has('full name') || eq('name', 'patient name', 'legal name', 'print name', 'printed name')) return ctx.patientName;
+        if (has('provider name') || has('physician name') || has('doctor name') || has('prescriber name')) return ctx.providerName;
+        if (has('contact name') || has('office contact')) return ctx.contactName;
+
+        // Dates
+        if (has('date of birth') || eq('dob', 'birth date', 'birthdate', 'birthday')) return ctx.dobMDY;
+        if (has('date') || has('mm dd yyyy') || has('m d y')) return ctx.todayMDY;
+
+        // Address
+        if (has('street 2') || has('address 2') || has('apt') || has('apartment') || has('suite') || has('unit')) return ctx.address2 || ('Apt ' + Math.floor(Math.random() * 300 + 1));
+        if (has('street') || has('address') || has('mailing')) return ctx.address;
+        if (eq('city', 'town')) return ctx.city;
+        if (eq('state', 'province')) return ctx.state;
+        if (has('zip') || has('postal')) return ctx.zip;
+        if (has('country')) return 'USA';
+
+        // Contact
+        if (has('email') || has('e mail')) return (ctx.first + '.' + ctx.last + Math.floor(Math.random() * 99 + 1) + '@example.com').toLowerCase();
+        if (has('fax')) return ctx.providerFax;
+        if (has('cell') || has('mobile')) return ctx.phone;
+        if (has('phone') || has('telephone') || has('tel')) return ctx.phone;
+
+        // Identifiers
+        if (has('last 4') && has('ssn')) return ctx.ssnLast4;
+        if (has('ssn') || has('social security')) return ctx.ssn;
+        if (has('npi')) return ctx.npi;
+        if (has('dea')) return ctx.dea;
+        if (has('license') || has('lic')) return ctx.license;
+        if (has('member id') || has('policy') || has('subscriber') || has('group')) return 'MBR' + Math.floor(Math.random() * 9000000 + 1000000);
+        if (has('mrn') || has('medical record')) return 'MRN' + Math.floor(Math.random() * 900000 + 100000);
+
+        // Medical
+        if (has('allerg')) return ctx.allergies;
+        if (has('other med') || has('current med') || has('concurrent')) return ctx.otherMeds;
+        if (has('diagnosis') || has('icd')) return 'M06.9 (Rheumatoid arthritis, unspecified)';
+        if (has('strength') || has('dose per') || has('mg per') || has('dosage')) return ctx.strength;
+        if (has('direction') || has('sig') && !has('signature')) return ctx.directions;
+        if (has('medication') || has('drug name') || has('rx') || has('prescription')) return ctx.med;
+        if (has('quantity') || has('qty')) return String(Math.floor(Math.random() * 5 + 1));
+        if (has('refill')) return String(Math.floor(Math.random() * 12));
+        if (has('frequency') || has('freq') || eq('how often')) return 'Once weekly';
+        if (has('weight')) return String(Math.floor(Math.random() * 60 + 130)) + ' lbs';
+        if (has('height')) return "5'" + Math.floor(Math.random() * 12) + '"';
+
+        // Demographics
+        if (has('age')) return String(Math.floor(Math.random() * 60 + 25));
+        if (eq('sex', 'gender')) return Math.random() < 0.5 ? 'M' : 'F';
+        if (has('relationship') || has('relation to')) return 'Self';
+        if (has('household size') || has('num people')) return String(Math.floor(Math.random() * 5 + 1));
+        if (has('income') || has('salary') || has('annual')) return '$' + (Math.floor(Math.random() * 105 + 15) * 1000).toLocaleString('en-US');
+        if (has('occupation') || has('job title')) return 'Software Engineer';
+        if (has('employer')) return 'Acme Corp';
+
+        // Free-form
+        if (has('note') || has('comment') || has('remarks') || has('explanation') || has('describe') || has('reason')) return 'N/A';
+        if (has('specify') || has('other')) return 'N/A';
+
+        return null;
+    }
+
+    function stringValue(rawName, ctx, rawLabel) {
+        const name = rawName || '';
+        const n = name.toLowerCase();
+
+        // Insurance checkbox-style radio group — one checked, rest blank
+        if (ctx.insuranceKeys.includes(name)) return name === ctx.chosenInsuranceKey ? 'Yes' : '';
+
+        // Label-based inference — the label is what the human sees on the
+        // form ("First Name", "Date of Birth"), so patterns match reliably
+        // even for opaque payload keys like "field_name_1" or
+        // "patient_info_dob_1a".
+        const labelValue = valueFromLabel(rawLabel, ctx);
+        if (labelValue !== null) return labelValue;
+
+        // --- Explicit field-name matches (this schema) ---
+        // Demographics header block (name_1 = first, le_initial = MI, name_2 = last)
+        if (n === 'field_name_1') return ctx.first;
+        if (n === 'field_name_2') return ctx.last;
+        if (n === 'field_le_initial') return ctx.mi;
+        if (n === 'field_ss') return ctx.ssn;
+        if (n === 'field_city') return ctx.city;
+        if (n === 'field_state') return ctx.state;
+        if (n === 'field_zip') return ctx.zip;
+        if (n === 'field_phone_num') return ctx.phone;
+        if (n === 'field_date_birth_mm_dd_yyyy') return ctx.dobMDY;
+
+        // Income
+        if (n === 'patient_income_num_people_household') return String(randInt(1, 6));
+        if (n === 'patient_income_annual_household_before_taxes') return '$' + (randInt(15, 120) * 1000).toLocaleString('en-US');
+
+        // Authorized representatives
+        if (n === 'patient_auth_name_rep_1' || n === 'patient_auth_name_rep_2') return pick(FIRST_NAMES) + ' ' + pick(LAST_NAMES);
+        if (n === 'patient_auth_other_specify' || n === 'patient_auth_other_specify_2') return pick(REL_TO_PATIENT);
+
+        // Patient signature block
+        if (n === 'i_certify_name_patient' || n === 'sig_patient' || n === 'my_sig_patient_name') return ctx.patientName;
+        if (n === 'sig_patient_date_mm_dd_yyyy' || n === 'my_sig_date_mm_dd_yyyy' || n === 'rx_sig_today_s_date_mm_dd_yyyy') return ctx.todayMDY;
+        if (n === 'my_sig_date_birth_mm_dd_yyyy') return ctx.dobMDY;
+        if (n === 'my_sig_med_s_requested_specify_formulation_type') return ctx.med + ' — ' + ctx.formulation;
+        if (n === 'my_sig_rx_name') return ctx.med;
+        if (n === 'my_sig_contact_name') return ctx.contactName;
+        if (n === 'my_sig_contact_phone') return ctx.providerPhone;
+        if (n === 'my_sig_contact_fax') return ctx.providerFax;
+
+        // Text Field N — generic filler with sane defaults by neighbourhood
+        if (n === 'text field 179') return ctx.patientName;               // near signature block
+        if (n === 'text field 197') return ctx.address2 || 'Apt 4B';       // patient_info address line 2
+        if (n === 'text field 259') return 'N/A';                          // near Rx notes
+
+        // Oncology infusion — sequential dates
+        if (n === 'infused_oncology_administration_date') return ctx.futureAdminMDY(randInt(7, 30));
+        if (n === 'infused_oncology_administration_date_2') return ctx.futureAdminMDY(randInt(35, 60));
+        if (n === 'infused_oncology_administration_date_3') return ctx.futureAdminMDY(randInt(65, 90));
+        if (n.startsWith('infused_oncology_dosage')) return randInt(100, 800) + ' mg';
+        if (n.startsWith('infused_oncology_vial_size')) return pick(['100 mg', '250 mg', '500 mg']);
+        if (n.startsWith('infused_oncology_vials')) return String(randInt(1, 6));
+
+        // Patient info block (mirror of demographics)
+        if (n === 'patient_info_name') return ctx.patientName;
+        if (n === 'patient_info_date_birth_mm_dd_yyyy') return ctx.dobMDY;
+        if (n === 'patient_info_address') return ctx.address;
+        if (n === 'patient_info_state') return ctx.state;
+        if (n === 'patient_info_zip') return ctx.zip;
+        if (n === 'patient_info_phone') return ctx.phone;
+        if (n === 'patient_info_drug_allergies') return ctx.allergies;
+        if (n === 'patient_info_other_meds') return ctx.otherMeds;
+
+        // Rx (prescription) block
+        if (n === 'rx_i_med') return ctx.med;
+        if (n === 'rx_i_strength') return ctx.strength;
+        if (n === 'rx_i_maximum_dose_per_day') return pick(['50 mg/day', '100 mg/day', '200 mg/day', 'Per package insert']);
+        if (n === 'rx_i_directions') return ctx.directions;
+        if (n === 'rx_i_refill') return String(randInt(0, 11));
+
+        // Healthcare provider block
+        if (n === 'hc_prov_name_title') return ctx.providerName;
+        if (n === 'hc_prov_dea_as') return ctx.dea;
+        if (n === 'hc_prov_state_license') return ctx.license;
+        if (n === 'hc_prov_address') return ctx.providerAddress;
+        if (n === 'hc_prov_address_2') return ctx.providerAddress2;
+        if (n === 'hc_prov_city') return ctx.providerCity;
+        if (n === 'hc_prov_zip') return ctx.providerZip;
+        if (n === 'hc_prov_npi') return ctx.npi;
+        if (n === 'hc_prov_phone' || n === 'hc_prov_office_contact_phone') return ctx.providerPhone;
+        if (n === 'hc_prov_fax_num') return ctx.providerFax;
+        if (n === 'hc_prov_office_contact_name') return ctx.contactName;
+
+        // --- Generic name-hint fallbacks ---
+        if (n.includes('email')) return (pick(FIRST_NAMES) + '.' + pick(LAST_NAMES) + randInt(1, 99) + '@example.com').toLowerCase();
+        if (n.includes('fax')) return usPhone();
+        if (n.includes('phone') || n.includes('mobile') || n.includes('tel')) return usPhone();
+        if (n.includes('mm_dd_yyyy') || (n.includes('date') && !n.includes('update'))) return ctx.todayMDY;
+        if (n.includes('first_name') || n === 'first' || n === 'given_name') return pick(FIRST_NAMES);
+        if (n.includes('last_name') || n.includes('surname') || n.includes('family_name')) return pick(LAST_NAMES);
+        if (n.includes('initial')) return initial();
+        if (n === 'name' || n.endsWith('_name') || n.includes('full_name') || n.includes('patient_name')) return pick(FIRST_NAMES) + ' ' + pick(LAST_NAMES);
+        if (n.includes('address') || n.includes('street')) return randInt(100, 9999) + ' ' + pick(STREETS);
+        if (n.includes('city')) return pick(US_CITIES);
+        if (n.includes('state')) return pick(US_STATES);
+        if (n.includes('zip') || n.includes('postal')) return pad(randInt(10000, 99999), 5);
+        if (n.includes('npi')) return npi();
+        if (n.includes('dea')) return dea();
+        if (n.includes('license')) return stateLicense();
+        if (n.includes('ssn') || n === 'field_ss') return ssnFull();
+        if (n.includes('id') || n.includes('ref') || n.includes('code')) return 'REF-' + randInt(10000, 99999);
+        if (n.includes('url') || n.includes('link') || n.includes('website')) return 'https://example.com/' + randInt(1, 9999);
+        if (n.includes('desc') || n.includes('note') || n.includes('comment')) return 'N/A';
+        // Last-resort filler — if we truly can't infer anything, use the
+        // label (what the user reads on the form) or an innocuous string,
+        // never the opaque payload key.
+        return (rawLabel && rawLabel.trim()) ? rawLabel.trim() : 'N/A';
+    }
+
+    function booleanValue(rawName, ctx) {
+        // Insurance/coverage checkboxes act as a radio group — mark exactly one true.
+        if (ctx.insuranceKeys.includes(rawName)) return rawName === ctx.chosenInsuranceKey;
+        return Math.random() > 0.5;
+    }
+
+    function numberValue(name, isInt) {
+        const n = (name || '').toLowerCase();
+        if (n.includes('age')) return randInt(18, 90);
+        if (n.includes('year')) return randInt(2020, 2030);
+        if (n.includes('qty') || n.includes('quantity') || n.includes('count') || n.includes('vials')) return randInt(1, 10);
+        if (n.includes('price') || n.includes('amount') || n.includes('total') || n.includes('cost') || n.includes('salary') || n.includes('income')) {
+            return isInt ? randInt(1000, 100000) : randFloat(10, 10000, 2);
+        }
+        if (n.includes('percent') || n.includes('rate')) return isInt ? randInt(0, 100) : randFloat(0, 100, 2);
+        return isInt ? randInt(1, 1000) : randFloat(0, 1000, 2);
+    }
+
+    function generateValueForField(field, ctx) {
+        const label = field.description || '';
+        switch (field.type) {
+            case 'string':  return stringValue(field.name, ctx, label);
+            case 'integer': return numberValue(field.name, true);
+            case 'number':  return numberValue(field.name, false);
+            case 'boolean': return booleanValue(field.name, ctx);
+            case 'date':    return isoStr(daysFromNow(randInt(-30, 30)));
+            case 'list': {
+                const count = randInt(1, 3);
+                const items = [];
+                for (let i = 0; i < count; i++) {
+                    if (field.fields && field.fields.length) items.push(generateObject(field.fields, ctx));
+                    else if (field.item_type) items.push(generateValueForField({name: field.name + '_item', type: field.item_type}, ctx));
+                    else items.push(stringValue(field.name + '_item', ctx, label));
+                }
+                return items;
+            }
+            case 'object':
+                return field.fields && field.fields.length ? generateObject(field.fields, ctx) : {};
+            default:
+                return null;
+        }
+    }
+
+    function generateObject(fields, ctx) {
+        const out = {};
+        for (const f of fields) out[f.name] = generateValueForField(f, ctx);
+        return out;
+    }
+
+    btn.addEventListener('click', function () {
+        const ctx = buildContext();
+        const data = generateObject(schemaFields, ctx);
+        textarea.value = JSON.stringify(data, null, 2);
+    });
+})();
+
+(function () {
+    var sel = document.getElementById('render-locale-picker');
+    if (!sel) return;
+    var base = sel.getAttribute('data-nav-base') || '';
+    sel.addEventListener('change', function () {
+        window.location.href = base + encodeURIComponent(sel.value);
+    });
+})();
+
+// Copy-as-cURL — build a runnable curl command against /v1/render with the
+// current payload + version. Uses a placeholder for the API key so the copy
+// is safe to share in a bug report or notebook.
+(function () {
+    var btn = document.getElementById('copy-curl-btn');
+    var textarea = document.getElementById('payload-textarea');
+    var localePicker = document.getElementById('render-locale-picker');
+    var localeHidden = document.querySelector('input[name="locale"]');
+    var formatSel = document.querySelector('select[name="output_format"]');
+    var formatHidden = document.querySelector('input[name="output_format"]');
+    if (!btn || !textarea) return;
+    var templateId = btn.getAttribute('data-template-id');
+    var version = btn.getAttribute('data-version');
+
+    function shQuote(s) {
+        // Single-quote for shells: end quote, escape any embedded single quote, reopen.
+        return "'" + String(s).replace(/'/g, "'\\''") + "'";
+    }
+
+    btn.addEventListener('click', function () {
+        var raw = (textarea.value || '').trim();
+        var payload;
+        try { payload = raw ? JSON.parse(raw) : {}; }
+        catch (e) {
+            window.QuireUI.showToast('Payload is not valid JSON — fix it first.', 'error');
+            return;
+        }
+        var locale = (localePicker && localePicker.value) || (localeHidden && localeHidden.value) || 'default';
+        var outFmt = (formatSel && formatSel.value) || (formatHidden && formatHidden.value) || 'docx';
+        var origin = window.location.origin;
+        var body = {
+            template_id: templateId,
+            version: parseInt(version, 10),
+            locale: locale,
+            data: payload,
+            output_format: outFmt,
+        };
+        var bodyStr = JSON.stringify(body, null, 2);
+        var lines = [
+            'curl -X POST ' + shQuote(origin + '/render') + ' \\',
+            '  -H ' + shQuote('X-API-Key: <YOUR_API_KEY>') + ' \\',
+            '  -H ' + shQuote('Content-Type: application/json') + ' \\',
+            '  --data-binary @- <<' + "'JSON'",
+            bodyStr,
+            'JSON',
+        ];
+        var cmd = lines.join('\n');
+        function fallback() {
+            try {
+                var ta = document.createElement('textarea');
+                ta.value = cmd; ta.style.position = 'fixed'; ta.style.left = '-1000px';
+                document.body.appendChild(ta); ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                return true;
+            } catch (e) { return false; }
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd)
+                .then(function () { window.QuireUI.showToast('cURL command copied — replace <YOUR_API_KEY>.', 'success'); })
+                .catch(function () {
+                    if (fallback()) window.QuireUI.showToast('cURL command copied — replace <YOUR_API_KEY>.', 'success');
+                    else window.QuireUI.showToast('Could not copy to clipboard.', 'error');
+                });
+        } else if (fallback()) {
+            window.QuireUI.showToast('cURL command copied — replace <YOUR_API_KEY>.', 'success');
+        } else {
+            window.QuireUI.showToast('Could not copy to clipboard.', 'error');
+        }
+    });
+})();
+</script>
+{% endblock %}

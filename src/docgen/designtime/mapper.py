@@ -3,21 +3,29 @@
 Reads the *blank* template from blob storage, extracts its text, hands it to the
 tenant's configured provider (Tenant.ai_provider_config overlays global env). Never
 called at render time.
+
+The provider call is routed through preflight_dispatch so the same code path
+serves both the current in-process backend (`DOCGEN_PREFLIGHT_BACKEND=inline`)
+and the Nebius Serverless Job container (`subprocess` today, `nebius_job` once
+the Jobs API integration lands). Default stays `inline` so nothing regresses.
 """
 from __future__ import annotations
 
 import uuid
 
+import structlog
 from jinja2 import Environment, meta, nodes
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgen.config import get_settings
 from docgen.core.preflight import _extract_document_xml, _extract_text_with_tags, _parse_jinja
 from docgen.core.schema_infer import FieldSpec
-from docgen.providers import get_provider
+from docgen.designtime.preflight_dispatch import dispatch_preflight_and_label
 from docgen.providers.base import MappingProposal, Suggestion
 from docgen.store.blob import get_object
 from docgen.store.models import Template, TemplateVersion, Tenant
+
+log = structlog.get_logger(__name__)
 
 
 async def propose_mapping_for_version(session: AsyncSession, version_id: uuid.UUID) -> MappingProposal:
@@ -36,11 +44,29 @@ async def propose_mapping_for_version(session: AsyncSession, version_id: uuid.UU
 
     settings = get_settings()
     docx_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
+
+    proposal, result = await dispatch_preflight_and_label(
+        template_bytes=docx_bytes,
+        kind="docx",
+        provider_config=tenant_config,
+    )
+
+    log.info(
+        "mapping_proposed",
+        version_id=str(version_id),
+        template_id=str(tv.template_id),
+        backend=settings.preflight_backend,
+        provider=result.get("provider"),
+        elapsed_seconds=result.get("elapsed_seconds"),
+        template_hash=result.get("template_hash"),
+        suggestion_count=len(proposal.suggestions),
+    )
+
+    # Orphan backfill still needs the flattened template text. Kept here rather
+    # than folded into preflight_job so the job's JSON stays provider-oriented
+    # and the DB-adjacent completion step lives next to the SQLAlchemy layer.
     document_xml = _extract_document_xml(docx_bytes)
     text = _extract_text_with_tags(document_xml)
-
-    provider = get_provider(tenant_config)
-    proposal = await provider.propose_mapping(text)
     _backfill_orphan_suggestions(proposal, text)
     return proposal
 

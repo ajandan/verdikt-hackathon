@@ -97,8 +97,24 @@ def _extract_json(text: str) -> dict[str, Any]:
     ('Here is the answer: {...}. Let me know if...') or emits multiple
     objects — the greedy match spans them all and json.loads chokes at a
     random offset. Bracket-counting is cheap and correct.
+
+    Also handles reasoning-mode preambles: MiniCPM-V-4.5 and similar
+    open-source VLMs sometimes emit `<think>...</think>` chain-of-thought
+    before the JSON body, and can truncate mid-preamble if max_tokens is
+    too tight. Strip closed `<think>...</think>` blocks; if a `<think>`
+    opens but doesn't close, drop everything up to (and including) the
+    last visible reasoning line so we still find a JSON body if one is
+    present after — otherwise the extractor's ValueError below propagates.
     """
     stripped = text.strip()
+    # Strip closed <think>...</think> blocks anywhere in the response.
+    stripped = re.sub(r"<think>[\s\S]*?</think>", "", stripped, flags=re.IGNORECASE)
+    # If an unterminated <think> remains, everything after it is reasoning
+    # tail with no JSON — trim it so the caller's error message quotes the
+    # actual model output rather than the CoT preamble.
+    m = re.search(r"<think>", stripped, flags=re.IGNORECASE)
+    if m:
+        stripped = stripped[: m.start()].strip()
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
         stripped = re.sub(r"\s*```\s*$", "", stripped)
@@ -300,6 +316,7 @@ async def _run_ocr_via_vision_chat(
     chat_model: str,
     base_url: str,
     concurrency: int,
+    extra_body: dict[str, Any] | None = None,
 ) -> dict[int, str]:
     """OCR a PDF by prompting a vision chat model page-by-page.
 
@@ -320,7 +337,7 @@ async def _run_ocr_via_vision_chat(
         async with sem:
             image_png = _render_page_plain(pdf_bytes, page_num)
             b64 = base64.b64encode(image_png).decode("ascii")
-            body = {
+            body: dict[str, Any] = {
                 "model": chat_model,
                 "messages": [
                     {
@@ -337,7 +354,12 @@ async def _run_ocr_via_vision_chat(
                     }
                 ],
                 "temperature": 0.0,
+                # A dense form page fits comfortably in 2-3k tokens; 4k
+                # leaves headroom without inviting the model to ramble.
+                "max_tokens": 4096,
             }
+            if extra_body:
+                body.update(extra_body)
             try:
                 resp = await client.post(
                     f"{base_url}/chat/completions",
@@ -371,6 +393,7 @@ async def _label_one_batch(
     api_key: str,
     chat_model: str,
     base_url: str = _DEFAULT_MISTRAL_BASE_URL,
+    extra_body: dict[str, Any] | None = None,
 ) -> dict[int, dict[str, str]]:
     b64 = base64.b64encode(image_png).decode("ascii")
     # OpenAI-standard nested-object shape. Both Mistral and Nebius Token
@@ -386,7 +409,7 @@ async def _label_one_batch(
         index_list=index_list,
         ocr_text=ocr_text or "(no OCR text extracted for this page)",
     )
-    body = {
+    body: dict[str, Any] = {
         "model": chat_model,
         "messages": [
             {
@@ -395,7 +418,13 @@ async def _label_one_batch(
             }
         ],
         "temperature": 0.0,
+        # ~200 chars per label × 20-field batch + JSON overhead ≈ 4-5k
+        # tokens. Give reasoning-mode models room to think and still emit
+        # the JSON body without truncation.
+        "max_tokens": 8192,
     }
+    if extra_body:
+        body.update(extra_body)
     resp = await client.post(
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -838,10 +867,11 @@ async def _detect_one_page_vision(
     api_key: str,
     chat_model: str,
     base_url: str = _DEFAULT_MISTRAL_BASE_URL,
+    extra_body: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Vision fallback for pages with no vector geometry (scanned rasters)."""
     b64 = base64.b64encode(image_png).decode("ascii")
-    body = {
+    body: dict[str, Any] = {
         "model": chat_model,
         "messages": [
             {
@@ -856,7 +886,10 @@ async def _detect_one_page_vision(
             }
         ],
         "temperature": 0.0,
+        "max_tokens": 8192,
     }
+    if extra_body:
+        body.update(extra_body)
     resp = await client.post(
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
@@ -895,6 +928,7 @@ async def detect_fields_in_pdf(
     chat_model: str = "pixtral-12b-2409",
     timeout: float = 180.0,
     base_url: str = _DEFAULT_MISTRAL_BASE_URL,
+    extra_body: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Detect fillable field bounding boxes on a flat PDF, page by page.
 
@@ -977,6 +1011,7 @@ async def detect_fields_in_pdf(
                             page_num=page_num,
                             api_key=api_key, chat_model=chat_model,
                             base_url=base_url,
+                            extra_body=extra_body,
                         )
                     except Exception:
                         # A single bad model response (garbled JSON, transient
@@ -1024,6 +1059,7 @@ async def label_fields_in_pdf(
     base_url: str = _DEFAULT_MISTRAL_BASE_URL,
     ocr_via_vision_chat: bool = False,
     ocr_concurrency: int = _BATCH_CONCURRENCY,
+    extra_body: dict[str, Any] | None = None,
 ) -> dict[int, dict[str, str]]:
     """OCR the whole PDF, then match numbered widgets to captions per page.
 
@@ -1060,6 +1096,7 @@ async def label_fields_in_pdf(
                 chat_model=chat_model,
                 base_url=base_url,
                 concurrency=ocr_concurrency,
+                extra_body=extra_body,
             )
         else:
             ocr_by_page = await _run_ocr(
@@ -1094,6 +1131,7 @@ async def label_fields_in_pdf(
                     page_num=page_num,
                     api_key=api_key, chat_model=chat_model,
                     base_url=base_url,
+                    extra_body=extra_body,
                 )
 
         results = await asyncio.gather(

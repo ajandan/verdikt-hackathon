@@ -1795,6 +1795,13 @@ def _pick_pdf_vision_backend(settings: Any) -> dict[str, Any] | None:
             # Kept only so the label kwargs dict is uniform; ignored when
             # ocr_via_vision_chat is True.
             "ocr_model": "",
+            # MiniCPM-V-4.5 (and other open-source VLMs served by vLLM on
+            # Nebius) default to a reasoning mode that emits
+            # `<think>...</think>` before the JSON body and often truncates
+            # mid-preamble on dense pages. `chat_template_kwargs` is the
+            # vLLM-flavored knob to suppress it — Nebius accepts it and
+            # non-thinking models silently ignore it.
+            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
         }
     if settings.mistral_api_key:
         return {
@@ -1806,6 +1813,8 @@ def _pick_pdf_vision_backend(settings: Any) -> dict[str, Any] | None:
             "timeout": settings.mistral_timeout_seconds,
             "ocr_via_vision_chat": False,
             "ocr_concurrency": 4,
+            # Mistral rejects unknown top-level params — leave empty.
+            "extra_body": None,
         }
     return None
 
@@ -1856,6 +1865,7 @@ async def placements_ai_draw(
             chat_model=backend["chat_model"],
             timeout=backend["timeout"],
             base_url=backend["base_url"],
+            extra_body=backend["extra_body"],
         )
     except Exception as e:
         log.warning(
@@ -1957,6 +1967,7 @@ async def placements_ai_detect(
             base_url=backend["base_url"],
             ocr_via_vision_chat=backend["ocr_via_vision_chat"],
             ocr_concurrency=backend["ocr_concurrency"],
+            extra_body=backend["extra_body"],
         )
     except Exception as e:
         log.warning(
@@ -2052,6 +2063,7 @@ async def placements_ai_realign(
             chat_model=backend["chat_model"],
             timeout=backend["timeout"],
             base_url=backend["base_url"],
+            extra_body=backend["extra_body"],
         )
     except Exception as e:
         log.warning(
@@ -2080,6 +2092,7 @@ async def placements_ai_realign(
             base_url=backend["base_url"],
             ocr_via_vision_chat=backend["ocr_via_vision_chat"],
             ocr_concurrency=backend["ocr_concurrency"],
+            extra_body=backend["extra_body"],
         )
     except Exception as e:
         log.warning(

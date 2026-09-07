@@ -33,9 +33,26 @@ class Settings(BaseSettings):
     ai_model: str = ""
     ai_timeout_seconds: float = 60.0
 
-    # Alternate labeler: Mistral OCR (placement editor "OCR Label" button).
-    # Independent of ai_provider — set the key to enable, leave blank to hide
-    # the button in the UI.
+    # PDF field labeler / detector for the placement editor's "OCR Label",
+    # "AI Draw", and "AI Realign" buttons. Two backends are supported and the
+    # router in ui/routes.py prefers Nebius when configured:
+    #
+    #   Nebius (recommended) — reuses the same DOCGEN_AI_API_KEY as the
+    #   design-time text LLM. OCR is done by prompting the vision model per
+    #   page against the OpenAI-compatible chat/completions endpoint, so no
+    #   separate OCR service is required. Default model MiniCPM-V-4.5 is an
+    #   open-source vision-LM strong on document layouts.
+    nebius_vision_base_url: str = "https://api.studio.nebius.com/v1"
+    nebius_vision_model: str = "openbmb/MiniCPM-V-4_5"
+    nebius_vision_timeout_seconds: float = 180.0
+    # Concurrency ceiling for the per-page OCR passes (each page is one chat
+    # call). 4 keeps well under Nebius' default rate limits for serverless
+    # while still finishing a 10-page form in ~one round-trip.
+    nebius_vision_ocr_concurrency: int = 4
+
+    # Legacy Mistral labeler — still supported as a fallback if
+    # DOCGEN_MISTRAL_API_KEY is set and Nebius vision isn't wired up.
+    # Independent of ai_provider.
     mistral_api_key: str | None = None
     mistral_ocr_model: str = "mistral-ocr-latest"
     # Vision-capable chat model that reads the OCR transcript + annotated PNG

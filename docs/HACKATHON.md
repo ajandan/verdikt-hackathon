@@ -48,18 +48,26 @@ byte-identical, audit-friendly merge.
 6. **Demo script** — [`docs/demo-script.md`](demo-script.md) — < 3 min beats
    for the required YouTube video, tuned to the four judging criteria
    (technical implementation, design, potential impact, quality of idea).
+7. **PDF vision path on Nebius Token Factory** — the placement editor's
+   AI Draw / OCR Label / AI Realign buttons now route through an
+   OpenAI-compatible vision-LM served on Nebius (default:
+   `openbmb/MiniCPM-V-4_5`, an open-source vision model strong on
+   document layouts). Per-page OCR is done via chat/completions against
+   the same Nebius base URL, so the whole design-time AI surface — text
+   and vision — is on Nebius under a single key. Router in
+   `src/docgen/ui/routes.py::_pick_pdf_vision_backend` prefers Nebius
+   whenever `DOCGEN_AI_PROVIDER=nebius`; legacy Mistral OCR is preserved
+   as a fallback (`DOCGEN_MISTRAL_API_KEY`) so existing deploys keep
+   working without changes.
 
 ## What was kept, and why
 
-- **Document ingest / OCR** stays on Mistral OCR. NVIDIA's open-source
-  vision-language models are strong on natural-image tasks but weaker on the
-  dense-table and multi-column-layout PDFs that document generation depends
-  on. Swapping ingest would regress product quality without changing
-  hackathon compliance — the `≥ 1 NVIDIA OSS model` requirement is already
-  satisfied by the design-time LLM. Kept as-is.
 - **Deterministic render path** is unchanged and has no dependency on any
   AI provider. The package boundary is enforced in tests
   (`core/` does not import `providers/`).
+- **Legacy Mistral OCR path** is kept behind a feature gate for any
+  deploy that already has a Mistral key configured. New deploys should
+  leave `DOCGEN_MISTRAL_API_KEY` blank and rely on Nebius vision.
 
 ## Judging-criteria mapping
 

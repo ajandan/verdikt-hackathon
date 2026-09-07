@@ -1767,6 +1767,55 @@ def _placements_equal(a: list[dict[str, Any]], b: list[dict[str, Any]]) -> bool:
     return True
 
 
+def _pick_pdf_vision_backend(settings: Any) -> dict[str, Any] | None:
+    """Pick the vision backend for the AI PDF endpoints, or None if neither
+    is configured.
+
+    Preference order:
+      1. Nebius Token Factory (reuses `DOCGEN_AI_API_KEY`). Only wins when
+         `ai_provider == "nebius"` AND the key is set — otherwise a Nebius
+         key configured for text-only Nemotron use wouldn't accidentally be
+         reused against a vision model that isn't on the account.
+      2. Legacy Mistral (`DOCGEN_MISTRAL_API_KEY`). Preserved so existing
+         deploys keep working.
+
+    Returns a dict with the kwargs `detect_fields_in_pdf` / `label_fields_in_pdf`
+    expect, plus a `provider` tag for log lines. `None` means the caller
+    should surface the standard 400 "not configured" error.
+    """
+    if settings.ai_provider == "nebius" and settings.ai_api_key:
+        return {
+            "provider": "nebius",
+            "api_key": settings.ai_api_key,
+            "chat_model": settings.nebius_vision_model,
+            "base_url": settings.nebius_vision_base_url,
+            "timeout": settings.nebius_vision_timeout_seconds,
+            "ocr_via_vision_chat": True,
+            "ocr_concurrency": settings.nebius_vision_ocr_concurrency,
+            # Kept only so the label kwargs dict is uniform; ignored when
+            # ocr_via_vision_chat is True.
+            "ocr_model": "",
+        }
+    if settings.mistral_api_key:
+        return {
+            "provider": "mistral",
+            "api_key": settings.mistral_api_key,
+            "chat_model": settings.mistral_chat_model,
+            "ocr_model": settings.mistral_ocr_model,
+            "base_url": "https://api.mistral.ai/v1",
+            "timeout": settings.mistral_timeout_seconds,
+            "ocr_via_vision_chat": False,
+            "ocr_concurrency": 4,
+        }
+    return None
+
+
+_PDF_VISION_UNCONFIGURED = (
+    "Vision provider not configured. Set DOCGEN_AI_PROVIDER=nebius plus "
+    "DOCGEN_AI_API_KEY (recommended) or DOCGEN_MISTRAL_API_KEY in .env."
+)
+
+
 @router.post("/versions/{version_id}/placements/ai-draw")
 async def placements_ai_draw(
     version_id: uuid.UUID,
@@ -1792,11 +1841,9 @@ async def placements_ai_draw(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    if not settings.mistral_api_key:
-        raise HTTPException(
-            400,
-            "Vision provider not configured. Set DOCGEN_MISTRAL_API_KEY in .env.",
-        )
+    backend = _pick_pdf_vision_backend(settings)
+    if backend is None:
+        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
 
     from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
 
@@ -1805,14 +1852,16 @@ async def placements_ai_draw(
     try:
         boxes = await detect_fields_in_pdf(
             pdf_bytes,
-            api_key=settings.mistral_api_key,
-            chat_model=settings.mistral_chat_model,
-            timeout=settings.mistral_timeout_seconds,
+            api_key=backend["api_key"],
+            chat_model=backend["chat_model"],
+            timeout=backend["timeout"],
+            base_url=backend["base_url"],
         )
     except Exception as e:
         log.warning(
             "pdf_ai_draw_failed",
             version_id=str(tv.id),
+            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI field detection failed: {e}") from e
@@ -1865,11 +1914,9 @@ async def placements_ai_detect(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    if not settings.mistral_api_key:
-        raise HTTPException(
-            400,
-            "Labeling provider not configured. Set DOCGEN_MISTRAL_API_KEY in .env.",
-        )
+    backend = _pick_pdf_vision_backend(settings)
+    if backend is None:
+        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
 
     body = await request.json()
     incoming = body.get("placements")
@@ -1902,16 +1949,20 @@ async def placements_ai_detect(
         labels_by_index = await label_fields_in_pdf(
             pdf_bytes,
             fields,
-            api_key=settings.mistral_api_key,
-            ocr_model=settings.mistral_ocr_model,
-            chat_model=settings.mistral_chat_model,
-            timeout=settings.mistral_timeout_seconds,
+            api_key=backend["api_key"],
+            ocr_model=backend["ocr_model"],
+            chat_model=backend["chat_model"],
+            timeout=backend["timeout"],
             pdf_flavor=tv.pdf_flavor,
+            base_url=backend["base_url"],
+            ocr_via_vision_chat=backend["ocr_via_vision_chat"],
+            ocr_concurrency=backend["ocr_concurrency"],
         )
     except Exception as e:
         log.warning(
             "pdf_ai_label_failed",
             version_id=str(tv.id),
+            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI labeling failed: {e}") from e
@@ -1965,7 +2016,7 @@ async def placements_ai_realign(
     a toast with the counts.
 
     Guarded on the same conditions as the label endpoint above: draft only,
-    Mistral key required. Reuses the same OCR + vision configuration."""
+    vision backend required. Reuses the same OCR + vision configuration."""
     tv = await session.get(TemplateVersion, version_id)
     if tv is None:
         raise HTTPException(404, "Version not found")
@@ -1977,11 +2028,9 @@ async def placements_ai_realign(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    if not settings.mistral_api_key:
-        raise HTTPException(
-            400,
-            "AI provider not configured. Set DOCGEN_MISTRAL_API_KEY in .env.",
-        )
+    backend = _pick_pdf_vision_backend(settings)
+    if backend is None:
+        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
 
     body = await request.json()
     incoming = body.get("placements")
@@ -1999,14 +2048,16 @@ async def placements_ai_realign(
     try:
         detected = await detect_fields_in_pdf(
             pdf_bytes,
-            api_key=settings.mistral_api_key,
-            chat_model=settings.mistral_chat_model,
-            timeout=settings.mistral_timeout_seconds,
+            api_key=backend["api_key"],
+            chat_model=backend["chat_model"],
+            timeout=backend["timeout"],
+            base_url=backend["base_url"],
         )
     except Exception as e:
         log.warning(
             "pdf_ai_realign_detect_failed",
             version_id=str(tv.id),
+            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI field detection failed: {e}") from e
@@ -2022,15 +2073,19 @@ async def placements_ai_realign(
         labels_by_index = await label_fields_in_pdf(
             pdf_bytes,
             label_input,
-            api_key=settings.mistral_api_key,
-            ocr_model=settings.mistral_ocr_model,
-            chat_model=settings.mistral_chat_model,
-            timeout=settings.mistral_timeout_seconds,
+            api_key=backend["api_key"],
+            ocr_model=backend["ocr_model"],
+            chat_model=backend["chat_model"],
+            timeout=backend["timeout"],
+            base_url=backend["base_url"],
+            ocr_via_vision_chat=backend["ocr_via_vision_chat"],
+            ocr_concurrency=backend["ocr_concurrency"],
         )
     except Exception as e:
         log.warning(
             "pdf_ai_realign_label_failed",
             version_id=str(tv.id),
+            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI field labeling failed: {e}") from e

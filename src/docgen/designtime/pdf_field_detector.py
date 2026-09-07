@@ -1,13 +1,25 @@
-"""Mistral OCR + vision field labeler for PDF templates.
+"""Vision-model OCR + field labeler for PDF templates.
 
-Per page:
-  1. `/v1/ocr` (mistral-ocr-latest) gives an accurate markdown transcript.
-  2. That transcript, plus a rendered PNG of the page with red rectangles
-     and yellow "#N" tags burned onto every field widget, is sent to a
-     Mistral vision chat model (pixtral-12b-2409). The model matches each
-     numbered widget to the caption that sits next to it — picking the
-     wording from the OCR transcript so it doesn't have to visually read
-     small print, and using the image only for spatial grounding.
+Provider-agnostic — the callers (`ui/routes.py`) pick between two backends:
+
+  * Nebius Token Factory hosting an open-source vision-LM (default:
+    MiniCPM-V-4.5). OpenAI-compatible chat/completions dialect, so OCR is
+    done by prompting the same model per page to emit a markdown
+    transcript. Preferred whenever `DOCGEN_AI_API_KEY` is set and
+    `DOCGEN_AI_PROVIDER=nebius`. Zero extra keys, one integration point.
+  * Mistral (legacy). Dedicated `/v1/ocr` endpoint plus a separate vision
+    chat model. Used only when `DOCGEN_MISTRAL_API_KEY` is set and Nebius
+    isn't. Kept for back-compat.
+
+Per page the pipeline is the same regardless of backend:
+  1. Get a clean markdown transcript of the page text (Mistral `/v1/ocr`
+     or one vision-model chat call, depending on backend).
+  2. Send that transcript plus a rendered PNG of the page with red
+     rectangles and yellow "#N" tags burned onto every field widget to a
+     vision chat model. The model matches each numbered widget to the
+     caption that sits next to it — picking the wording from the OCR
+     transcript so it doesn't have to visually read small print, and
+     using the image only for spatial grounding.
 
 Returns `{index: {"label": ..., "section": ...}}`. Section is the field's
 group heading on the page ("Patient Information Section", etc.), which the
@@ -26,7 +38,9 @@ import httpx
 
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
-_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
+# Default backend base URL. Callers override to point at Nebius Token Factory
+# or another OpenAI-compatible host.
+_DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
 # Rasterization scale for the annotated page image (2x native ~ 1700x2200
 # on US-letter — enough resolution for the model to read small captions
 # without blowing up payload size).
@@ -227,8 +241,14 @@ async def _run_ocr(
     *,
     api_key: str,
     ocr_model: str,
+    base_url: str = _DEFAULT_MISTRAL_BASE_URL,
 ) -> dict[int, str]:
-    """POST /v1/ocr and return {page_num (1-based): markdown}."""
+    """POST /v1/ocr and return {page_num (1-based): markdown}.
+
+    Only used for the Mistral backend, which exposes a dedicated OCR
+    endpoint. Nebius / OpenAI-compat hosts should call
+    `_run_ocr_via_vision_chat` instead.
+    """
     b64 = base64.b64encode(pdf_bytes).decode("ascii")
     body = {
         "model": ocr_model,
@@ -239,7 +259,7 @@ async def _run_ocr(
         "include_image_base64": False,
     }
     resp = await client.post(
-        f"{_MISTRAL_BASE_URL}/ocr",
+        f"{base_url}/ocr",
         headers={"Authorization": f"Bearer {api_key}"},
         json=body,
     )
@@ -257,6 +277,90 @@ async def _run_ocr(
     return out
 
 
+_OCR_VISION_PROMPT = """Transcribe every visible piece of text on this PDF page as clean markdown.
+
+Rules:
+- Use `##` for major section headings and `###` for sub-headings, preserving
+  the printed wording verbatim (case + punctuation).
+- Preserve the reading order top-to-bottom, left-to-right.
+- Keep line breaks between distinct captions so downstream matching can key
+  off them.
+- Skip blank fillable underlines and empty boxes — they contain no text.
+- Do NOT invent, translate, or paraphrase. If a word is illegible, replace
+  it with `[?]` rather than guessing.
+- Return ONLY the transcript. No preamble, no code fences, no closing
+  commentary."""
+
+
+async def _run_ocr_via_vision_chat(
+    client: httpx.AsyncClient,
+    pdf_bytes: bytes,
+    *,
+    api_key: str,
+    chat_model: str,
+    base_url: str,
+    concurrency: int,
+) -> dict[int, str]:
+    """OCR a PDF by prompting a vision chat model page-by-page.
+
+    Used when the backend (e.g. Nebius Token Factory) doesn't ship a
+    dedicated OCR endpoint. One chat/completions call per page, run in
+    parallel up to `concurrency`. Cheaper to reason about than juggling two
+    providers, and MiniCPM-V-4.5 handles form transcription cleanly at the
+    default 2× render scale.
+    """
+    import pymupdf  # type: ignore[import-untyped]
+
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+        page_count = doc.page_count
+
+    sem = asyncio.Semaphore(concurrency)
+
+    async def one(page_num: int) -> tuple[int, str]:
+        async with sem:
+            image_png = _render_page_plain(pdf_bytes, page_num)
+            b64 = base64.b64encode(image_png).decode("ascii")
+            body = {
+                "model": chat_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{b64}",
+                                },
+                            },
+                            {"type": "text", "text": _OCR_VISION_PROMPT},
+                        ],
+                    }
+                ],
+                "temperature": 0.0,
+            }
+            try:
+                resp = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json=body,
+                )
+                resp.raise_for_status()
+            except Exception:
+                # A single page failing OCR shouldn't abort the whole labeler.
+                # Downstream logic tolerates a page with empty transcript by
+                # falling back to the image-only prompt.
+                return page_num, ""
+            content = resp.json()["choices"][0]["message"]["content"]
+            text = str(content or "").strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:markdown|md)?\s*", "", text)
+                text = re.sub(r"\s*```\s*$", "", text)
+            return page_num, text.strip()
+
+    results = await asyncio.gather(*(one(p) for p in range(1, page_count + 1)))
+    return {p: t for p, t in results if t}
+
+
 async def _label_one_batch(
     client: httpx.AsyncClient,
     image_png: bytes,
@@ -266,11 +370,15 @@ async def _label_one_batch(
     page_num: int,
     api_key: str,
     chat_model: str,
+    base_url: str = _DEFAULT_MISTRAL_BASE_URL,
 ) -> dict[int, dict[str, str]]:
     b64 = base64.b64encode(image_png).decode("ascii")
+    # OpenAI-standard nested-object shape. Both Mistral and Nebius Token
+    # Factory accept it; the Mistral shorthand (bare data URL string) is not
+    # portable to Nebius.
     image_part = {
         "type": "image_url",
-        "image_url": f"data:image/png;base64,{b64}",
+        "image_url": {"url": f"data:image/png;base64,{b64}"},
     }
     index_list = ", ".join(f"#{int(f['index'])}" for f in fields)
     prompt = _PROMPT_TEMPLATE.format(
@@ -289,7 +397,7 @@ async def _label_one_batch(
         "temperature": 0.0,
     }
     resp = await client.post(
-        f"{_MISTRAL_BASE_URL}/chat/completions",
+        f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
         json=body,
     )
@@ -729,6 +837,7 @@ async def _detect_one_page_vision(
     page_num: int,
     api_key: str,
     chat_model: str,
+    base_url: str = _DEFAULT_MISTRAL_BASE_URL,
 ) -> list[dict[str, Any]]:
     """Vision fallback for pages with no vector geometry (scanned rasters)."""
     b64 = base64.b64encode(image_png).decode("ascii")
@@ -738,7 +847,10 @@ async def _detect_one_page_vision(
             {
                 "role": "user",
                 "content": [
-                    {"type": "image_url", "image_url": f"data:image/png;base64,{b64}"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64}"},
+                    },
                     {"type": "text", "text": _DETECT_PROMPT_TEMPLATE.format(page_num=page_num)},
                 ],
             }
@@ -746,7 +858,7 @@ async def _detect_one_page_vision(
         "temperature": 0.0,
     }
     resp = await client.post(
-        f"{_MISTRAL_BASE_URL}/chat/completions",
+        f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
         json=body,
     )
@@ -782,6 +894,7 @@ async def detect_fields_in_pdf(
     api_key: str,
     chat_model: str = "pixtral-12b-2409",
     timeout: float = 180.0,
+    base_url: str = _DEFAULT_MISTRAL_BASE_URL,
 ) -> list[dict[str, Any]]:
     """Detect fillable field bounding boxes on a flat PDF, page by page.
 
@@ -863,6 +976,7 @@ async def detect_fields_in_pdf(
                             client, image_png,
                             page_num=page_num,
                             api_key=api_key, chat_model=chat_model,
+                            base_url=base_url,
                         )
                     except Exception:
                         # A single bad model response (garbled JSON, transient
@@ -907,6 +1021,9 @@ async def label_fields_in_pdf(
     chat_model: str = "pixtral-12b-2409",
     timeout: float = 180.0,
     pdf_flavor: str | None = None,
+    base_url: str = _DEFAULT_MISTRAL_BASE_URL,
+    ocr_via_vision_chat: bool = False,
+    ocr_concurrency: int = _BATCH_CONCURRENCY,
 ) -> dict[int, dict[str, str]]:
     """OCR the whole PDF, then match numbered widgets to captions per page.
 
@@ -919,6 +1036,12 @@ async def label_fields_in_pdf(
     the whole widget rect, anything else uses the flat-detection underline
     bar. See `_annotate_and_render_page` for the rationale.
 
+    `ocr_via_vision_chat=True` skips the dedicated `/v1/ocr` endpoint (which
+    only Mistral exposes) and instead prompts `chat_model` per page for a
+    markdown transcript. Set this for Nebius or any OpenAI-compat host that
+    doesn't ship a document-OCR endpoint. `ocr_model` is ignored in that
+    mode.
+
     Returns a mapping from field `index` to `{"label": ..., "section": ...}`.
     Indices the model omits (or returns empty for) are absent from the dict.
     """
@@ -930,9 +1053,21 @@ async def label_fields_in_pdf(
         by_page.setdefault(int(f.get("page") or 1), []).append(f)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        ocr_by_page = await _run_ocr(
-            client, pdf_bytes, api_key=api_key, ocr_model=ocr_model,
-        )
+        if ocr_via_vision_chat:
+            ocr_by_page = await _run_ocr_via_vision_chat(
+                client, pdf_bytes,
+                api_key=api_key,
+                chat_model=chat_model,
+                base_url=base_url,
+                concurrency=ocr_concurrency,
+            )
+        else:
+            ocr_by_page = await _run_ocr(
+                client, pdf_bytes,
+                api_key=api_key,
+                ocr_model=ocr_model,
+                base_url=base_url,
+            )
 
         batches: list[tuple[int, bytes, str, list[dict[str, Any]]]] = []
         for page_num in sorted(by_page):
@@ -958,6 +1093,7 @@ async def label_fields_in_pdf(
                     client, image_png, ocr_text, batch,
                     page_num=page_num,
                     api_key=api_key, chat_model=chat_model,
+                    base_url=base_url,
                 )
 
         results = await asyncio.gather(

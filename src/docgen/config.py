@@ -33,6 +33,18 @@ class Settings(BaseSettings):
     ai_model: str = ""
     ai_timeout_seconds: float = 60.0
 
+    # Where the design-time preflight + AI mapping proposal runs.
+    #   inline      — in-process, same worker as the web request (current).
+    #   subprocess  — shell out to the standalone preflight_job CLI. Same
+    #                 contract as the Nebius Serverless Job image, so this
+    #                 mode is a local proxy for the real thing until the
+    #                 Nebius Jobs API is wired.
+    #   nebius_job  — submit to Nebius Serverless Jobs. NOT YET IMPLEMENTED;
+    #                 selecting this raises at startup so it can't silently
+    #                 fall back to inline.
+    preflight_backend: Literal["inline", "subprocess", "nebius_job"] = "inline"
+    preflight_subprocess_timeout_seconds: float = 300.0
+
     # PDF field labeler / detector for the placement editor's "OCR Label",
     # "AI Draw", and "AI Realign" buttons. Two backends are supported and the
     # router in ui/routes.py prefers Nebius when configured:

@@ -15,7 +15,12 @@ from __future__ import annotations
 from docgen.providers.openai_compat import OpenAICompatProvider
 
 DEFAULT_BASE_URL = "https://api.studio.nebius.com/v1"
-DEFAULT_MODEL = "nvidia/Llama-3_3-Nemotron-Super-49B-v1"
+# NVIDIA Nemotron 3 Nano — MoE with ~3B active parameters, 262K context.
+# Best price/latency of the four Nemotron variants Nebius currently serves via
+# public (serverless) inference. Verified end-to-end for JSON-mode field
+# extraction from template text. Override via DOCGEN_AI_MODEL if you want to
+# A/B a larger Nemotron variant (e.g. nvidia/nemotron-3-super-120b-a12b).
+DEFAULT_MODEL = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 
 
 class NebiusProvider(OpenAICompatProvider):

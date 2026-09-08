@@ -271,23 +271,33 @@ async def freeze_pdf_version(
         )
 
     named_placements = [p for p in placements if p.get("name")]
-    names = [p["name"] for p in named_placements]
-    if len(names) != len(set(names)):
-        # Duplicates would collide as payload keys and validation would be
-        # ambiguous. Preflight warns on this for acroform; freeze rejects.
-        seen: dict[str, int] = {}
-        for n in names:
-            seen[n] = seen.get(n, 0) + 1
-        dupes = sorted(k for k, v in seen.items() if v > 1)
-        raise ValueError(
-            f"Freeze rejected: duplicate placement names: {dupes}. "
-            "Rename them in the editor so each field maps to a unique payload key."
+
+    # Multiple widgets can legitimately share a name — radio-button groups
+    # in the AcroForm spec use one field name across N widgets, one per
+    # radio option. Dedupe by name for the schema so each unique name maps
+    # to a single payload key; keep all widget positions in placements so
+    # the renderer stamps every location.
+    seen_names: set[str] = set()
+    unique_named: list[dict] = []
+    for p in named_placements:
+        if p["name"] in seen_names:
+            continue
+        seen_names.add(p["name"])
+        unique_named.append(p)
+    dupe_count = len(named_placements) - len(unique_named)
+    if dupe_count:
+        log.info(
+            "pdf_freeze_deduped_placement_names",
+            version_id=str(tv.id),
+            widget_count=len(named_placements),
+            unique_field_count=len(unique_named),
+            merged=dupe_count,
         )
 
     settings = get_settings()
     src = get_object(settings.s3_bucket_templates, tv.blob_key)
 
-    fields = [_pdf_field_spec(p) for p in named_placements]
+    fields = [_pdf_field_spec(p) for p in unique_named]
     schema = TemplateSchema(fields=fields).model_dump(mode="json")
 
     # Cross-locale invariant — PDF templates default to locale='default' today,
@@ -415,13 +425,17 @@ async def create_pdf_subversion(
         raise ValueError("Parent version is not frozen — edit it directly instead.")
 
     named_placements = [p for p in placements if p.get("name")]
-    names = [p["name"] for p in named_placements]
-    if len(names) != len(set(names)):
-        seen: dict[str, int] = {}
-        for n in names:
-            seen[n] = seen.get(n, 0) + 1
-        dupes = sorted(k for k, v in seen.items() if v > 1)
-        raise ValueError(f"Duplicate placement names: {dupes}")
+
+    # Radio-button groups share one name across N widgets — dedupe by name
+    # for the schema; all widgets stay in placements for rendering. Same
+    # rationale as freeze_pdf_version above.
+    seen_names: set[str] = set()
+    unique_named: list[dict] = []
+    for p in named_placements:
+        if p["name"] in seen_names:
+            continue
+        seen_names.add(p["name"])
+        unique_named.append(p)
 
     # Enforce "only highest sub is editable" server-side too. If a newer
     # sub exists for this (template, version, locale), reject — the editor
@@ -443,7 +457,7 @@ async def create_pdf_subversion(
     settings = get_settings()
     src = get_object(settings.s3_bucket_templates, parent.blob_key)
 
-    fields = [_pdf_field_spec(p) for p in named_placements]
+    fields = [_pdf_field_spec(p) for p in unique_named]
     schema = TemplateSchema(fields=fields).model_dump(mode="json")
 
     new_sub = max_sub + 1

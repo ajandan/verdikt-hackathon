@@ -84,6 +84,7 @@ from docgen.store.blob import get_object, put_object
 from docgen.store.models import (
     ApiKey,
     CallerProfile,
+    InboxEvent,
     Provenance,
     PublishEvent,
     RenderJob,
@@ -1771,61 +1772,9 @@ def _placements_equal(a: list[dict[str, Any]], b: list[dict[str, Any]]) -> bool:
     return True
 
 
-def _pick_pdf_vision_backend(settings: Any) -> dict[str, Any] | None:
-    """Pick the vision backend for the AI PDF endpoints, or None if neither
-    is configured.
-
-    Preference order:
-      1. Nebius Token Factory (reuses `DOCGEN_AI_API_KEY`). Only wins when
-         `ai_provider == "nebius"` AND the key is set — otherwise a Nebius
-         key configured for text-only Nemotron use wouldn't accidentally be
-         reused against a vision model that isn't on the account.
-      2. Legacy Mistral (`DOCGEN_MISTRAL_API_KEY`). Preserved so existing
-         deploys keep working.
-
-    Returns a dict with the kwargs `detect_fields_in_pdf` / `label_fields_in_pdf`
-    expect, plus a `provider` tag for log lines. `None` means the caller
-    should surface the standard 400 "not configured" error.
-    """
-    if settings.ai_provider == "nebius" and settings.ai_api_key:
-        return {
-            "provider": "nebius",
-            "api_key": settings.ai_api_key,
-            "chat_model": settings.nebius_vision_model,
-            "base_url": settings.nebius_vision_base_url,
-            "timeout": settings.nebius_vision_timeout_seconds,
-            "ocr_via_vision_chat": True,
-            "ocr_concurrency": settings.nebius_vision_ocr_concurrency,
-            # Kept only so the label kwargs dict is uniform; ignored when
-            # ocr_via_vision_chat is True.
-            "ocr_model": "",
-            # MiniCPM-V-4.5 (and other open-source VLMs served by vLLM on
-            # Nebius) default to a reasoning mode that emits
-            # `<think>...</think>` before the JSON body and often truncates
-            # mid-preamble on dense pages. `chat_template_kwargs` is the
-            # vLLM-flavored knob to suppress it — Nebius accepts it and
-            # non-thinking models silently ignore it.
-            "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
-        }
-    if settings.mistral_api_key:
-        return {
-            "provider": "mistral",
-            "api_key": settings.mistral_api_key,
-            "chat_model": settings.mistral_chat_model,
-            "ocr_model": settings.mistral_ocr_model,
-            "base_url": "https://api.mistral.ai/v1",
-            "timeout": settings.mistral_timeout_seconds,
-            "ocr_via_vision_chat": False,
-            "ocr_concurrency": 4,
-            # Mistral rejects unknown top-level params — leave empty.
-            "extra_body": None,
-        }
-    return None
-
-
-_PDF_VISION_UNCONFIGURED = (
-    "Vision provider not configured. Set DOCGEN_AI_PROVIDER=nebius plus "
-    "DOCGEN_AI_API_KEY (recommended) or DOCGEN_MISTRAL_API_KEY in .env."
+from docgen.designtime.pdf_vision_backend import (
+    PDF_VISION_UNCONFIGURED as _PDF_VISION_UNCONFIGURED,
+    pick_pdf_vision_backend as _pick_pdf_vision_backend,
 )
 
 
@@ -3486,6 +3435,123 @@ async def admin_revoke_key(
 
 
 # ---------------------------------------------------------------------------
+# Admin: per-tenant inbox settings
+#
+# The inbox agent uses `tenants.inbound_config` to decide (a) which sender
+# domains map to this tenant, (b) an optional subject_tag to force-route,
+# (c) the auto-publish threshold, and (d) extra CC addresses on outbound
+# replies. Both super_admin (any tenant) and tenant_admin (their own) can
+# edit — scope is enforced by _enforce_scope.
+# ---------------------------------------------------------------------------
+
+
+def _parse_lines(raw: str | None) -> list[str]:
+    """Split a textarea value into deduped, non-empty, stripped lines.
+
+    Users type one item per line; commas within a line also split. Case
+    normalization (lowercase) is applied to domains only, in the caller.
+    """
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for chunk in raw.replace(",", "\n").splitlines():
+        v = chunk.strip()
+        if not v or v in seen:
+            continue
+        seen.add(v)
+        out.append(v)
+    return out
+
+
+@router.get("/admin/tenants/{tenant_id}/inbox", response_class=HTMLResponse)
+async def admin_inbox_settings(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    _enforce_scope(request, tenant_id)
+    from docgen.store.models import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+    settings = get_settings()
+    cfg = dict(tenant.inbound_config or {})
+    return templates.TemplateResponse(
+        request,
+        "admin_inbox_settings.html",
+        await _base_ctx(
+            request,
+            session,
+            active="admin",
+            tenant=tenant,
+            inbox_username=settings.inbox_username,
+            inbox_enabled=settings.inbox_enabled,
+            sender_domains="\n".join(cfg.get("sender_domains", []) or []),
+            subject_tag=cfg.get("subject_tag", "") or "",
+            notify_addresses="\n".join(cfg.get("notify_addresses", []) or []),
+            auto_approve_threshold=cfg.get("auto_approve_threshold", 99.0),
+        ),
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/inbox", response_model=None)
+async def admin_save_inbox_settings(
+    tenant_id: uuid.UUID,
+    request: Request,
+    sender_domains: str = Form(""),
+    subject_tag: str = Form(""),
+    notify_addresses: str = Form(""),
+    auto_approve_threshold: str = Form("99"),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    _enforce_scope(request, tenant_id)
+    from docgen.store.models import Tenant
+    from sqlalchemy.orm.attributes import flag_modified
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    try:
+        threshold = float(auto_approve_threshold.strip() or "99")
+    except ValueError:
+        return _redirect(
+            f"/ui/admin/tenants/{tenant_id}/inbox",
+            flash="Auto-approve threshold must be a number between 0 and 100.",
+            flash_kind="error",
+        )
+    threshold = max(0.0, min(100.0, threshold))
+
+    cfg = dict(tenant.inbound_config or {})
+    cfg["sender_domains"] = [d.lower() for d in _parse_lines(sender_domains)]
+    tag = subject_tag.strip()
+    if tag:
+        cfg["subject_tag"] = tag
+    else:
+        cfg.pop("subject_tag", None)
+    cfg["notify_addresses"] = _parse_lines(notify_addresses)
+    cfg["auto_approve_threshold"] = threshold
+    tenant.inbound_config = cfg
+    flag_modified(tenant, "inbound_config")
+    await session.commit()
+    log.info(
+        "tenant_inbox_settings_saved",
+        tenant_id=str(tenant_id),
+        sender_domains=len(cfg["sender_domains"]),
+        subject_tag=bool(tag),
+        notify_addresses=len(cfg["notify_addresses"]),
+        threshold=threshold,
+    )
+    return _redirect(
+        f"/ui/admin/tenants/{tenant_id}/inbox",
+        flash="Inbox routing settings saved.",
+        flash_kind="success",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Admin: portal users (super_admin-only)
 #
 # Adds/deactivates admin_users rows so tenants can be given their own UI login
@@ -4159,3 +4225,227 @@ async def _resolve_default_frozen(
     q = q.limit(1)
     result = await session.execute(q)
     return result.scalar_one_or_none()
+
+
+# ---------------------------------------------------------------------------
+# Inbox agent — human-in-the-loop review of email-ingested templates
+# ---------------------------------------------------------------------------
+
+_INBOX_REVIEW_FILTERS = ("pending_review", "auto_approved", "approved", "rejected")
+_INBOX_STATUS_FILTERS = ("pending", "processing", "succeeded", "failed", "skipped")
+
+
+@router.get("/inbox", response_class=HTMLResponse)
+async def inbox_list(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant: str | None = None,
+    review: str | None = None,
+    status: str | None = None,
+) -> HTMLResponse:
+    """Every email the agent has received, newest first.
+
+    Default view is unfiltered so operators can see the full flow — ingested,
+    skipped (bad sender, no attachment), replies to prior notifications, and
+    everything else. Two independent filters:
+      - `review` = review-state (pending_review / auto_approved / approved / rejected)
+      - `status` = ingest status (pending / processing / succeeded / failed / skipped)
+    """
+    from docgen.store.models import Tenant
+
+    tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
+    ident = _identity(request)
+    if ident is not None and ident.role == "tenant_admin" and ident.tenant_id is not None:
+        tenants_stmt = tenants_stmt.where(Tenant.id == ident.tenant_id)
+    tenants_res = await session.execute(tenants_stmt)
+    all_tenants = tenants_res.scalars().all()
+
+    tenant_uuid = _resolve_list_tenant_filter(request, tenant)
+    review_filter = review if review in _INBOX_REVIEW_FILTERS else None
+    status_filter = status if status in _INBOX_STATUS_FILTERS else None
+
+    q = (
+        select(
+            InboxEvent.id,
+            InboxEvent.from_addr,
+            InboxEvent.subject,
+            InboxEvent.received_at,
+            InboxEvent.status,
+            InboxEvent.review_state,
+            InboxEvent.score,
+            InboxEvent.error,
+            InboxEvent.template_id,
+            InboxEvent.template_version_id,
+            InboxEvent.attachment_name,
+            InboxEvent.reply_message_id,
+            InboxEvent.tenant_id,
+            Template.name.label("template_name"),
+            Tenant.name.label("tenant_name"),
+        )
+        .join(Tenant, Tenant.id == InboxEvent.tenant_id, isouter=True)
+        .join(Template, Template.id == InboxEvent.template_id, isouter=True)
+        .order_by(InboxEvent.received_at.desc(), InboxEvent.id.desc())
+        .limit(200)
+    )
+    if tenant_uuid is not None:
+        q = q.where(InboxEvent.tenant_id == tenant_uuid)
+    if review_filter is not None:
+        q = q.where(InboxEvent.review_state == review_filter)
+    if status_filter is not None:
+        q = q.where(InboxEvent.status == status_filter)
+
+    rows = [dict(r._mapping) for r in (await session.execute(q)).all()]
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_list.html",
+        await _base_ctx(
+            request,
+            session,
+            active="inbox",
+            all_tenants=all_tenants,
+            selected_tenant=tenant_uuid,
+            events=rows,
+            review_filter=review_filter,
+            status_filter=status_filter,
+        ),
+    )
+
+
+async def _load_inbox_event(
+    session: AsyncSession, event_id: uuid.UUID
+) -> InboxEvent:
+    ev = await session.get(InboxEvent, event_id)
+    if ev is None:
+        raise HTTPException(404, "Not found")
+    return ev
+
+
+@router.get("/inbox/{event_id}", response_class=HTMLResponse)
+async def inbox_detail(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    ev = await _load_inbox_event(session, event_id)
+    # Ingest events with no tenant (unresolved sender) are visible to
+    # super_admin only — enforce_scope on a None tenant_id is a no-op,
+    # so gate here.
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    template = None
+    tv = None
+    if ev.template_id is not None:
+        template = await session.get(Template, ev.template_id)
+    if ev.template_version_id is not None:
+        tv = await session.get(TemplateVersion, ev.template_version_id)
+
+    tenant = None
+    if ev.tenant_id is not None:
+        from docgen.store.models import Tenant
+        tenant = await session.get(Tenant, ev.tenant_id)
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_detail.html",
+        await _base_ctx(
+            request,
+            session,
+            active="inbox",
+            event=ev,
+            template=template,
+            template_version=tv,
+            tenant=tenant,
+            cc_addrs=list(ev.cc_addrs or []),
+        ),
+    )
+
+
+@router.post("/inbox/{event_id}/approve", response_model=None)
+async def inbox_approve(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+    if ev.review_state in ("approved", "auto_approved"):
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash="Already approved.",
+            flash_kind="info",
+        )
+    if ev.template_id is None or ev.template_version_id is None:
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash="Cannot approve — ingest never produced a template version.",
+            flash_kind="error",
+        )
+    tv = await session.get(TemplateVersion, ev.template_version_id)
+    if tv is None:
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash="Template version missing — cannot publish.",
+            flash_kind="error",
+        )
+    actor = getattr(request.state, "admin_user", None) or "inbox-review"
+    try:
+        await publish_version(
+            session,
+            template_id=ev.template_id,
+            tenant_id=ev.tenant_id,
+            version=tv.version,
+            subversion=tv.subversion,
+            actor=actor,
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash=f"Publish failed: {e}",
+            flash_kind="error",
+        )
+    ev.review_state = "approved"
+    await session.commit()
+    return _redirect(
+        f"/ui/inbox/{event_id}",
+        flash=f"Approved and published v{tv.version}.{tv.subversion}.",
+        flash_kind="success",
+    )
+
+
+@router.post("/inbox/{event_id}/reject", response_model=None)
+async def inbox_reject(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+    if ev.review_state == "rejected":
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash="Already rejected.",
+            flash_kind="info",
+        )
+    if ev.review_state in ("approved", "auto_approved"):
+        return _redirect(
+            f"/ui/inbox/{event_id}",
+            flash="Cannot reject — already published. Deactivate the template instead.",
+            flash_kind="error",
+        )
+    ev.review_state = "rejected"
+    await session.commit()
+    return _redirect(
+        f"/ui/inbox/{event_id}",
+        flash="Marked as rejected. The template version remains as a draft.",
+        flash_kind="success",
+    )

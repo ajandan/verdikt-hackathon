@@ -480,8 +480,10 @@ async def test_freeze_pdf_rejects_empty_placements(default_tenant: uuid.UUID) ->
 
 
 @pytest.mark.asyncio
-async def test_freeze_pdf_rejects_duplicate_names(default_tenant: uuid.UUID) -> None:
-    """Two placements with the same name would collide as payload keys."""
+async def test_freeze_pdf_dedupes_shared_names(default_tenant: uuid.UUID) -> None:
+    """Multiple widgets sharing a name (radio-button groups per PDF spec)
+    collapse to one schema field but keep all widget positions in
+    placements so the renderer stamps every location."""
     async with async_session() as session:
         template, tv, _ = await upload_pdf_template(
             session,
@@ -492,8 +494,7 @@ async def test_freeze_pdf_rejects_duplicate_names(default_tenant: uuid.UUID) -> 
         version_id = tv.id
         template_id = template.id
 
-        # Manually seed duplicate placements — the editor's UI wouldn't allow
-        # this, but a savvy caller could POST them anyway; freeze must reject.
+        # Two widgets, same name — the AcroForm equivalent of a radio group.
         tv.pdf_field_placements = {
             "placements": [
                 {"name": "dup", "page": 1, "x_pct": 0.1, "y_pct": 0.1,
@@ -506,8 +507,14 @@ async def test_freeze_pdf_rejects_duplicate_names(default_tenant: uuid.UUID) -> 
 
     try:
         async with async_session() as session:
-            with pytest.raises(ValueError, match="duplicate placement names"):
-                await freeze_pdf_version(session, version_id=version_id)
+            frozen = await freeze_pdf_version(session, version_id=version_id)
+            assert frozen.is_frozen
+            # Schema: one field for the shared name.
+            names = [f["name"] for f in (frozen.schema or {}).get("fields", [])]
+            assert names == ["dup"]
+            # Placements: both widget positions preserved for rendering.
+            widgets = (frozen.pdf_field_placements or {}).get("placements", [])
+            assert len(widgets) == 2
     finally:
         await _cleanup_template(template_id)
 

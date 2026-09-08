@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Inbox routing — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .kv-inline {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px; color: var(--text);
+        background: var(--surface-2); padding: 3px 8px; border-radius: 4px;
+        border: 1px solid var(--border);
+    }
+    .settings-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .settings-grid { grid-template-columns: 1fr; } }
+    .form-row { margin-bottom: 18px; }
+    .form-row label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: var(--text); margin-bottom: 4px;
+    }
+    .form-row .hint {
+        display: block; font-size: 12px; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .form-row textarea, .form-row input {
+        width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+    }
+    .form-row textarea { min-height: 100px; }
+    .side-card h3 {
+        margin: 0 0 6px; font-size: 13px; color: var(--text);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .side-card p { font-size: 12.5px; color: var(--text-muted); margin: 6px 0; }
+    .disabled-note {
+        border: 1px solid var(--warning, #d97706);
+        background: var(--warning-soft, rgba(217,119,6,0.08));
+        padding: 10px 14px; border-radius: 8px; font-size: 12.5px;
+        margin-bottom: 16px;
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a> ›
+    <span>{{ tenant.name }}</span> ›
+    Inbox routing
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">Inbox routing</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Rules the inbox agent uses to decide that an incoming email belongs to
+    <strong>{{ tenant.name }}</strong>, and how to reply.
+</p>
+
+{% if not inbox_enabled %}
+<div class="disabled-note">
+    Inbox polling is currently <strong>disabled</strong> at the deployment level
+    (<code>DOCGEN_INBOX_ENABLED=false</code>). Save your rules now; they'll take
+    effect the moment the operator enables the poller.
+</div>
+{% endif %}
+
+<div class="settings-grid">
+    <form method="post" action="/ui/admin/tenants/{{ tenant.id }}/inbox" class="card">
+        {{ csrf_input(request) }}
+
+        <div class="form-row">
+            <label for="sender_domains">Sender domains</label>
+            <span class="hint">One per line (or comma-separated). Sub-domains match: <code>acme.com</code> matches <code>billing.acme.com</code>. Case-insensitive.</span>
+            <textarea id="sender_domains" name="sender_domains" placeholder="acme.com&#10;acme-corp.io">{{ sender_domains }}</textarea>
+        </div>
+
+        <div class="form-row">
+            <label for="subject_tag">Subject tag (optional)</label>
+            <span class="hint">If set, an email whose subject contains this tag is routed here <em>even when</em> the sender domain matches multiple tenants. Example: <code>[tenant:acme]</code>.</span>
+            <input type="text" id="subject_tag" name="subject_tag" value="{{ subject_tag }}" placeholder="[tenant:acme]">
+        </div>
+
+        <div class="form-row">
+            <label for="auto_approve_threshold">Auto-publish threshold</label>
+            <span class="hint">Templates ingested with confidence score at or above this value are auto-published. Anything below waits for a human. Range: 0–100.</span>
+            <input type="number" id="auto_approve_threshold" name="auto_approve_threshold"
+                   value="{{ auto_approve_threshold }}" min="0" max="100" step="0.5" style="max-width: 140px">
+        </div>
+
+        <div class="form-row">
+            <label for="notify_addresses">Notify addresses</label>
+            <span class="hint">Extra addresses CC'd on every outbound reply from the inbox agent (e.g. team distros, on-call). One per line.</span>
+            <textarea id="notify_addresses" name="notify_addresses" placeholder="ops@acme.com&#10;templates-review@acme.com">{{ notify_addresses }}</textarea>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn primary">Save routing settings</button>
+            <a href="/ui/admin/tenants" class="btn">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-card">
+        <h3>Where to email</h3>
+        {% if inbox_username %}
+        <p>Ask your business stakeholders to send template attachments to:</p>
+        <div class="kv-inline">{{ inbox_username }}</div>
+        {% else %}
+        <p>No inbox address is configured on this deploy yet. Set <code>DOCGEN_INBOX_USERNAME</code> in the operator's <code>.env</code>.</p>
+        {% endif %}
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 14px 0">
+        <h3>How routing works</h3>
+        <p>The subject tag wins when both are set. If neither rule matches, the email is logged as unroutable and a bounce is sent to the sender.</p>
+        <h3 style="margin-top: 14px">Reply to approve</h3>
+        <p>The stakeholder can reply <code>APPROVE</code> or <code>REJECT</code> to the notification email; the agent applies the decision without a portal login.</p>
+    </aside>
+</div>
+{% endblock %}

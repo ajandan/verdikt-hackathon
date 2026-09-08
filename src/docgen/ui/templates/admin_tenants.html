@@ -61,7 +61,11 @@
                     </td>
                     <td><span class="tenant-id" title="{{ t.id }}">{{ t.id|string|truncate(14, True, '') }}…</span></td>
                     <td class="muted" data-sort="{{ t.created_at.isoformat() }}">{{ t.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
-                    <td style="text-align: right"><a href="/ui/admin/tenants/{{ t.id }}/keys">Manage keys →</a></td>
+                    <td style="text-align: right">
+                        <a href="/ui/admin/tenants/{{ t.id }}/inbox">Inbox routing</a>
+                        &nbsp;·&nbsp;
+                        <a href="/ui/admin/tenants/{{ t.id }}/keys">Manage keys →</a>
+                    </td>
                 </tr>
             {% endfor %}
             </tbody>

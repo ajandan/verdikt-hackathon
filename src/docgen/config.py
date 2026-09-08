@@ -138,6 +138,39 @@ class Settings(BaseSettings):
     # the tools return relative paths only. Example: "https://quire.example.com".
     public_base_url: str = ""
 
+    # Inbox agent (Phase 1). Off by default so a fresh clone or a deploy with
+    # no mailbox credentials doesn't crash-loop the poller. Turn on only when
+    # inbox_* + smtp_* below are filled in and the mailbox has been verified.
+    inbox_enabled: bool = False
+    # IMAP fetch — poll on an interval, mark UNSEEN messages as read on
+    # successful ingest. Any provider works; a single-purpose demo account
+    # with an app-specific password is the simplest option.
+    inbox_imap_host: str = ""
+    inbox_imap_port: int = 993
+    inbox_username: str = ""
+    inbox_password: str = ""
+    inbox_mailbox: str = "INBOX"
+    inbox_poll_interval_seconds: float = 60.0
+    # Ceiling on attachment size the agent will accept per email. Anything
+    # larger is logged as skipped rather than pulled into memory.
+    inbox_max_attachment_bytes: int = 20 * 1024 * 1024
+
+    # SMTP send — the reply-all path uses these credentials. Kept separate
+    # from IMAP so operators can point outbound at a relay while pulling
+    # inbound from a different mailbox if they want to.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    # RFC 5322 From header on outbound replies. Falls back to smtp_username
+    # if empty. Keep this the same as the polled mailbox so replies thread.
+    smtp_from: str = ""
+    smtp_use_starttls: bool = True
+
+    # Deep-link base used in the "Review in admin portal" line of the reply
+    # email. Empty = omit the link. Usually matches public_base_url.
+    admin_base_url: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

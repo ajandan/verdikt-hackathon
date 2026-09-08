@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Inbox event — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .kv {
+        display: grid; grid-template-columns: 160px 1fr; gap: 6px 20px;
+        font-size: 13.5px;
+    }
+    .kv dt { color: var(--text-muted); font-weight: 500; }
+    .kv dd { margin: 0; word-break: break-word; }
+    .score-big {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        font-variant-numeric: tabular-nums;
+    }
+    .score-big .n { font-size: 32px; font-weight: 700; }
+    .score-big .u { color: var(--text-muted); font-size: 14px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .actions form { margin: 0; }
+    .card + .card { margin-top: 16px; }
+    .err-block {
+        background: var(--surface-2); border: 1px solid var(--border);
+        padding: 10px 14px; border-radius: 8px; font-size: 12.5px;
+        color: var(--danger); white-space: pre-wrap; word-break: break-word;
+    }
+</style>
+
+<section class="mb-4">
+    <a href="/ui/inbox{% if tenant %}?tenant={{ tenant.id }}{% endif %}" class="text-[13px] text-ink-muted">← Back to inbox</a>
+    <h1 class="text-[24px] font-semibold tracking-tight leading-tight mt-2 mb-1">
+        {{ event.subject or '(no subject)' }}
+    </h1>
+    <p class="text-ink-muted text-[13.5px] m-0">
+        From <strong>{{ event.from_addr }}</strong> ·
+        Received {{ event.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
+    </p>
+</section>
+
+<div class="card">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Confidence score</div>
+            <div class="score-big">
+                <span class="n">{% if event.score is not none %}{{ '%.1f'|format(event.score) }}{% else %}—{% endif %}</span>
+                <span class="u">/ 100</span>
+            </div>
+        </div>
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Review state</div>
+            {% if event.review_state == 'pending_review' %}
+                <span class="badge draft">pending review</span>
+            {% elif event.review_state == 'auto_approved' %}
+                <span class="badge accept">auto-approved</span>
+            {% elif event.review_state == 'approved' %}
+                <span class="badge accept">approved</span>
+            {% elif event.review_state == 'rejected' %}
+                <span class="badge reject">rejected</span>
+            {% else %}
+                <span class="badge">{{ event.status }}</span>
+            {% endif %}
+        </div>
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Ingest status</div>
+            {% if event.status == 'succeeded' %}
+                <span class="badge accept">succeeded</span>
+            {% elif event.status == 'failed' %}
+                <span class="badge reject">failed</span>
+            {% elif event.status == 'skipped' %}
+                <span class="badge">skipped</span>
+            {% else %}
+                <span class="badge draft">{{ event.status }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="actions">
+        {% if event.review_state == 'pending_review' and event.template_version_id %}
+            <form method="post" action="/ui/inbox/{{ event.id }}/approve">
+                {{ csrf_input(request) }}
+                <button type="submit" class="btn primary">Approve &amp; publish</button>
+            </form>
+            <form method="post" action="/ui/inbox/{{ event.id }}/reject">
+                {{ csrf_input(request) }}
+                <button type="submit" class="btn">Reject</button>
+            </form>
+        {% elif event.review_state in ('approved', 'auto_approved') %}
+            <span class="text-ink-muted text-[13px]">Already published. Manage the template from its detail page.</span>
+        {% elif event.review_state == 'rejected' %}
+            <span class="text-ink-muted text-[13px]">Rejected. The draft version is retained but not published.</span>
+        {% elif not event.template_version_id %}
+            <span class="text-ink-muted text-[13px]">No template version was created — nothing to approve.</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Message</h2>
+    <dl class="kv">
+        <dt>From</dt><dd>{{ event.from_addr }}</dd>
+        <dt>To</dt><dd>{{ event.to_addr or '—' }}</dd>
+        <dt>Cc</dt><dd>{% if cc_addrs %}{{ cc_addrs|join(', ') }}{% else %}—{% endif %}</dd>
+        <dt>Subject</dt><dd>{{ event.subject or '—' }}</dd>
+        <dt>Message-ID</dt><dd style="font-family: ui-monospace, monospace; font-size: 12px">{{ event.message_id }}</dd>
+        <dt>Reply Message-ID</dt><dd style="font-family: ui-monospace, monospace; font-size: 12px">{{ event.reply_message_id or '—' }}</dd>
+        <dt>Attachment</dt><dd>{{ event.attachment_name or '—' }}</dd>
+        {% if event.attachment_hash %}
+        <dt>Attachment sha256</dt><dd style="font-family: ui-monospace, monospace; font-size: 12px">{{ event.attachment_hash }}</dd>
+        {% endif %}
+    </dl>
+</div>
+
+{% if event.body_text %}
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Body</h2>
+    <pre style="margin: 0; max-height: 320px; overflow: auto; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; white-space: pre-wrap; word-break: break-word;">{{ event.body_text }}</pre>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Template</h2>
+    <dl class="kv">
+        <dt>Tenant</dt>
+        <dd>{% if tenant %}{{ tenant.name }}{% else %}<span class="muted">(unresolved sender)</span>{% endif %}</dd>
+        <dt>Template</dt>
+        <dd>
+            {% if template %}
+                <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+            {% else %}—{% endif %}
+        </dd>
+        <dt>Version</dt>
+        <dd>
+            {% if template_version %}
+                v{{ template_version.version }}.{{ template_version.subversion }}
+                ({{ template_version.locale }}{% if template_version.is_frozen %}, frozen{% endif %})
+            {% else %}—{% endif %}
+        </dd>
+        {% if template_version %}
+        <dt>Mapping review</dt>
+        <dd><a href="/ui/versions/{{ template_version.id }}/map">Open mapping wizard</a></dd>
+        {% endif %}
+    </dl>
+</div>
+
+{% if event.error %}
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Error</h2>
+    <div class="err-block">{{ event.error }}</div>
+</div>
+{% endif %}
+{% endblock %}

@@ -105,6 +105,9 @@
             tenant_id <span class="tenant-id-chip" title="{{ tenant.id }}">{{ tenant.id }}</span>
         </div>
     </div>
+    <div class="page-actions">
+        <a href="/ui/admin/tenants/{{ tenant.id }}/inbox" class="btn sm">Inbox routing</a>
+    </div>
 </div>
 
 {% if new_key %}

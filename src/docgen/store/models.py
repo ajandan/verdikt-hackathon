@@ -36,6 +36,14 @@ class Tenant(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     key_ref: Mapped[str | None] = mapped_column(String(255))
     ai_provider_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    # Inbox-agent settings. Keys the agent reads:
+    #   sender_domains: [str]            allow-list, case-insensitive
+    #   subject_tag: str | None          e.g. "[tenant:acme]", matched first
+    #   auto_approve_threshold: float    0..100, publish when score >= this
+    #   notify_addresses: [str]          extra CC on outbound replies
+    inbound_config: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -369,6 +377,74 @@ class CallerProfile(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     mapping: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     sample_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class InboxEvent(Base):
+    """One row per email the inbox agent has seen.
+
+    Written unconditionally by the poller (even when the sender doesn't
+    resolve to a tenant) so operators can debug ingestion. The unique
+    constraint on `message_id` is what makes the poller idempotent across
+    restarts. `reply_message_id` holds the Message-ID of our outbound
+    reply and is what Phase-3 reply-to-approve matches against.
+    """
+
+    __tablename__ = "inbox_events"
+    __table_args__ = (
+        UniqueConstraint("message_id", name="uq_inbox_events_message_id"),
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'succeeded', 'failed', 'skipped')",
+            name="ck_inbox_events_status",
+        ),
+        CheckConstraint(
+            "review_state IS NULL OR review_state IN "
+            "('auto_approved', 'pending_review', 'approved', 'rejected')",
+            name="ck_inbox_events_review_state",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    message_id: Mapped[str] = mapped_column(String(512), nullable=False)
+    from_addr: Mapped[str] = mapped_column(String(320), nullable=False)
+    to_addr: Mapped[str | None] = mapped_column(String(320))
+    cc_addrs: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    subject: Mapped[str | None] = mapped_column(String(998))
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("templates.id", ondelete="SET NULL"), nullable=True
+    )
+    template_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("template_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # 0..100 confidence produced by propose_mapping. Null if the pipeline
+    # failed before scoring.
+    score: Mapped[float | None] = mapped_column()
+    review_state: Mapped[str | None] = mapped_column(String(32), index=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    reply_message_id: Mapped[str | None] = mapped_column(String(512), index=True)
+    attachment_name: Mapped[str | None] = mapped_column(String(255))
+    attachment_hash: Mapped[str | None] = mapped_column(String(64))
+    # First ~8KB of the plain-text body, truncated by the poller. Rendered on
+    # the review page so operators can see what was received without
+    # re-fetching from IMAP.
+    body_text: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

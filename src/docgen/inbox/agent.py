@@ -46,6 +46,7 @@ from docgen.inbox.resolver import (
     resolve_tenant,
 )
 from docgen.inbox.synth import synth_payload
+from docgen.inbox.test_executor import ExecutedTrial, execute_test_matrix
 from docgen.providers.base import MappingProposal
 from docgen.store.models import (
     InboxEvent,
@@ -518,7 +519,8 @@ def _run_async_pipeline(
 
 
 def _test_render(tv: TemplateVersion, *, settings: Settings) -> tuple[bytes | None, str, str | None]:
-    """Try one merge with a synthesized payload. Returns (bytes, ext, error)."""
+    """One-shot test render — used as a fallback when the multi-test matrix
+    produces no trials (e.g. schema-invalid). Returns (bytes, ext, error)."""
     try:
         payload = synth_payload(tv.schema)
     except Exception as e:
@@ -539,6 +541,16 @@ def _build_reply_subject(original: str | None) -> str:
     return f"Re: {base}"
 
 
+def _html_escape(value: str) -> str:
+    """Minimal escape for values that land inline in the reply HTML."""
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
 def _build_reply_body(
     *,
     tenant_name: str,
@@ -552,8 +564,17 @@ def _build_reply_body(
     freeze_ok: bool,
     admin_link: str | None,
     template_link: str | None,
+    trials: list[ExecutedTrial],
+    trial_download_urls: dict[int, str | None],
 ) -> tuple[str, str]:
-    """Return (plain_text, html) reply bodies."""
+    """Return (plain_text, html) reply bodies.
+
+    `trials` and `trial_download_urls` drive the AI test-results table
+    that lets the reviewer see per-trial verdicts + downloads inline.
+    Downloads are optional (None when the deploy has no public_base_url
+    to build absolute URLs against, or when the trial's artifact wasn't
+    persisted).
+    """
     if not freeze_ok:
         headline = "Template ingest failed — could not freeze the mapping."
     elif render_error:
@@ -569,6 +590,11 @@ def _build_reply_body(
             f"(score {score:.1f} < threshold {threshold:.1f})."
         )
 
+    passed_count = sum(1 for t in trials if t.passed)
+    trial_summary = (
+        f"{passed_count}/{len(trials)} trials passed" if trials else None
+    )
+
     lines = [
         headline,
         "",
@@ -579,32 +605,142 @@ def _build_reply_body(
         f"Confidence score:  {score:.1f}",
         f"Auto-publish at:   {threshold:.1f}",
     ]
+    if trial_summary:
+        lines.append(f"AI test summary:   {trial_summary}")
     if template_link:
         lines += ["", f"Open the template: {template_link}"]
     if admin_link:
         lines += [f"Review the ingest: {admin_link}"]
+    if trials:
+        lines += ["", "AI test trials:"]
+        for t in trials:
+            status = "PASS" if t.passed else "FAIL"
+            lines.append(f"  {t.ordinal}. [{status}] {t.name} — {t.verdict}")
+            download_url = trial_download_urls.get(t.ordinal)
+            if download_url:
+                lines.append(f"     Download: {download_url}")
     lines += [
         "",
         "A test-rendered document is attached so you can spot-check the field mapping.",
         "Reply APPROVE to publish, or REJECT to discard.",
     ]
     text = "\n".join(lines)
-    html_lines = [f"<p>{headline}</p>", "<ul>"]
-    html_lines.append(f"<li><strong>Tenant:</strong> {tenant_name}</li>")
-    html_lines.append(f"<li><strong>Template:</strong> {template_name}</li>")
-    html_lines.append(f"<li><strong>Template ID:</strong> <code>{template_id}</code></li>")
-    html_lines.append(f"<li><strong>Version ID:</strong> <code>{template_version_id}</code></li>")
-    html_lines.append(f"<li><strong>Score:</strong> {score:.1f} (auto-publish threshold {threshold:.1f})</li>")
-    if template_link:
-        html_lines.append(f'<li><a href="{template_link}">Open the template</a></li>')
-    if admin_link:
-        html_lines.append(f'<li><a href="{admin_link}">Review the ingest</a></li>')
-    html_lines.append("</ul>")
+
+    html_lines = [f"<p>{_html_escape(headline)}</p>", "<ul>"]
     html_lines.append(
-        "<p>Test-rendered document is attached. Reply <b>APPROVE</b> to publish "
+        f"<li><strong>Tenant:</strong> {_html_escape(tenant_name)}</li>"
+    )
+    html_lines.append(
+        f"<li><strong>Template:</strong> {_html_escape(template_name)}</li>"
+    )
+    html_lines.append(
+        f"<li><strong>Template ID:</strong> <code>{template_id}</code></li>"
+    )
+    html_lines.append(
+        f"<li><strong>Version ID:</strong> <code>{template_version_id}</code></li>"
+    )
+    html_lines.append(
+        f"<li><strong>Score:</strong> {score:.1f} "
+        f"(auto-publish threshold {threshold:.1f})</li>"
+    )
+    if trial_summary:
+        html_lines.append(
+            f"<li><strong>AI tests:</strong> {_html_escape(trial_summary)}</li>"
+        )
+    if template_link:
+        html_lines.append(
+            f'<li><a href="{_html_escape(template_link)}">Open the template</a></li>'
+        )
+    if admin_link:
+        html_lines.append(
+            f'<li><a href="{_html_escape(admin_link)}">Review the ingest</a></li>'
+        )
+    html_lines.append("</ul>")
+
+    if trials:
+        html_lines.append(_build_trials_table_html(trials, trial_download_urls))
+
+    html_lines.append(
+        "<p>The first test render is attached. Reply <b>APPROVE</b> to publish "
         "or <b>REJECT</b> to discard.</p>"
     )
     return text, "".join(html_lines)
+
+
+def _build_trials_table_html(
+    trials: list[ExecutedTrial],
+    trial_download_urls: dict[int, str | None],
+) -> str:
+    """Reply-friendly summary table of AI test trials.
+
+    Uses inline styles because email clients strip <style> blocks; the
+    color choices mirror the admin portal's success/danger palette so
+    reviewers get the same visual language in both surfaces.
+    """
+    parts: list[str] = []
+    parts.append("<h3 style=\"margin:20px 0 8px;font-size:15px\">AI-planned test trials</h3>")
+    parts.append(
+        "<table cellspacing=\"0\" cellpadding=\"6\" "
+        "style=\"border-collapse:collapse;border:1px solid #d0d7de;"
+        "font-family:-apple-system,Segoe UI,sans-serif;font-size:13px;width:100%\">"
+    )
+    parts.append(
+        "<thead><tr style=\"background:#f6f8fa;text-align:left\">"
+        "<th style=\"border-bottom:1px solid #d0d7de;padding:8px\">#</th>"
+        "<th style=\"border-bottom:1px solid #d0d7de;padding:8px\">Trial</th>"
+        "<th style=\"border-bottom:1px solid #d0d7de;padding:8px\">Result</th>"
+        "<th style=\"border-bottom:1px solid #d0d7de;padding:8px\">AI verdict</th>"
+        "<th style=\"border-bottom:1px solid #d0d7de;padding:8px\">Download</th>"
+        "</tr></thead><tbody>"
+    )
+    for t in trials:
+        badge_color = "#1a7f37" if t.passed else "#cf222e"
+        badge_bg = "#dafbe1" if t.passed else "#ffebe9"
+        badge_text = "PASS" if t.passed else "FAIL"
+        url = trial_download_urls.get(t.ordinal)
+        if url:
+            dl = (
+                f'<a href="{_html_escape(url)}" '
+                f'style="color:#0969da;text-decoration:none">Download</a>'
+            )
+        else:
+            dl = "<span style=\"color:#57606a\">—</span>"
+        parts.append(
+            "<tr>"
+            f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">{t.ordinal}</td>"
+            f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">"
+            f"<strong>{_html_escape(t.name)}</strong>"
+            + (f"<br><span style=\"color:#57606a;font-size:12px\">{_html_escape(t.description)}</span>" if t.description else "")
+            + "</td>"
+            f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">"
+            f"<span style=\"background:{badge_bg};color:{badge_color};padding:2px 8px;"
+            f"border-radius:10px;font-weight:600;font-size:11.5px\">{badge_text}</span></td>"
+            f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">"
+            f"{_html_escape(t.verdict) if t.verdict else '<span style=\"color:#57606a\">—</span>'}</td>"
+            f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">{dl}</td>"
+            "</tr>"
+        )
+    parts.append("</tbody></table>")
+    return "".join(parts)
+
+
+def _trial_download_url(
+    settings: Settings, test_result_id: uuid.UUID
+) -> str | None:
+    """Absolute signed URL for a persisted trial artifact, or None if the
+    deployment has no public base URL to hang it off.
+
+    Signing is safe here — the token binds to the test_result_id and the
+    route re-loads the row for authorization. Missing base URL yields
+    None so the email skips the link rather than emitting a broken /path.
+    """
+    from docgen.auth import sign_inbox_test_token
+
+    base = (settings.public_base_url or settings.admin_base_url or "").rstrip("/")
+    if not base:
+        return None
+    token = sign_inbox_test_token(str(test_result_id))
+    return f"{base}/downloads/inbox-test/{test_result_id}?token={token}"
 
 
 def _build_reject_body(reason: str) -> tuple[str, str]:
@@ -695,10 +831,39 @@ def process_message(
 
     event.template_id = template.id
     event.template_version_id = tv.id
+    session.commit()  # make event.id visible to the FK on inbox_test_results
 
+    executed_trials: list[ExecutedTrial] = []
     rendered, ext, render_error = (None, "docx", "freeze_failed")
     if freeze_ok:
-        rendered, ext, render_error = _test_render(tv, settings=settings)
+        # Multi-test matrix: N AI-planned trials, each rendered, persisted,
+        # and scored by the verdict LLM. The first trial doubles as the
+        # legacy single-render sample so the reply still attaches one
+        # concrete artifact for offline spot-checking.
+        try:
+            executed_trials = execute_test_matrix(
+                session,
+                event_id=event.id,
+                tv=tv,
+                tenant_ai_provider_config=tenant.ai_provider_config or None,
+                settings=settings,
+            )
+        except Exception as e:
+            log.warning(
+                "inbox_test_matrix_failed",
+                event_id=str(event.id),
+                error=f"{type(e).__name__}: {e}",
+            )
+        if executed_trials:
+            first = executed_trials[0]
+            rendered = first.rendered
+            ext = first.ext
+            render_error = first.render_error
+        else:
+            # Matrix produced nothing (schema-invalid, planner exception).
+            # Fall back to the single-render path so the reply still tells
+            # the sender whether the template renders at all.
+            rendered, ext, render_error = _test_render(tv, settings=settings)
 
     score = _score(proposal, render_ok=render_error is None, freeze_ok=freeze_ok)
     event.score = score
@@ -751,6 +916,14 @@ def process_message(
 
     admin_link = _admin_link_for(settings, event.id)
     template_link = _template_link_for(settings, template.id)
+    trial_download_urls: dict[int, str | None] = {
+        t.ordinal: (
+            _trial_download_url(settings, t.test_result_id)
+            if t.test_result_id is not None
+            else None
+        )
+        for t in executed_trials
+    }
     body_text, body_html = _build_reply_body(
         tenant_name=tenant.name,
         template_name=template.name,
@@ -763,6 +936,8 @@ def process_message(
         freeze_ok=freeze_ok,
         admin_link=admin_link,
         template_link=template_link,
+        trials=executed_trials,
+        trial_download_urls=trial_download_urls,
     )
 
     attachments: list[Attachment] = []

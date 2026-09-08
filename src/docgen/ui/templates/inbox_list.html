@@ -195,7 +195,11 @@
                     {% else %}<span class="muted">—</span>
                     {% endif %}
                 </td>
-                <td><a href="/ui/inbox/{{ e.id }}" class="btn sm">Open</a></td>
+                <td>
+                    <a href="/ui/inbox/{{ e.id }}" class="icon-btn" title="Review this ingest" aria-label="Review this ingest">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+                    </a>
+                </td>
             </tr>
         {% endfor %}
         </tbody>

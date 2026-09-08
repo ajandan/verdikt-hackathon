@@ -285,6 +285,38 @@ def verify_download_token(token: str, job_id: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Signed inbox-test download tokens (email-embedded artifact URLs)
+# ---------------------------------------------------------------------------
+# The inbox reply table gives reviewers a per-row download link for each
+# AI-planned test render. Emails are opened days after they arrive, so the
+# 15-minute job-download TTL is too short. A dedicated 30-day serializer
+# keeps that concern separated from live job artifacts.
+
+INBOX_TEST_TOKEN_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+
+
+def _inbox_test_serializer() -> URLSafeTimedSerializer:
+    s = get_settings()
+    secret = s.download_token_secret or s.session_secret
+    return URLSafeTimedSerializer(secret, salt="docgen-inbox-test")
+
+
+def sign_inbox_test_token(test_result_id: str) -> str:
+    return _inbox_test_serializer().dumps({"r": test_result_id})
+
+
+def verify_inbox_test_token(token: str, test_result_id: str) -> bool:
+    """True iff the token is valid and bound to this test_result_id."""
+    try:
+        data = _inbox_test_serializer().loads(
+            token, max_age=INBOX_TEST_TOKEN_MAX_AGE_SECONDS
+        )
+    except (BadSignature, SignatureExpired):
+        return False
+    return isinstance(data, dict) and data.get("r") == test_result_id
+
+
+# ---------------------------------------------------------------------------
 # ApiKey middleware
 # ---------------------------------------------------------------------------
 
@@ -302,6 +334,9 @@ def _bypass_api_auth(path: str) -> bool:
 
 
 _JOB_RESULT_PATH = re.compile(r"^/jobs/([^/]+)/result$")
+_INBOX_TEST_DOWNLOAD_PATH = re.compile(
+    r"^/downloads/inbox-test/([^/]+)$"
+)
 
 
 def _download_token_tenant(request: Request) -> str | None:
@@ -318,12 +353,38 @@ def _download_token_tenant(request: Request) -> str | None:
     return verify_download_token(token, m.group(1))
 
 
+def _inbox_test_token_valid(request: Request) -> bool:
+    """True iff the request is a signed inbox-test download URL.
+
+    Unlike job artifacts (which carry a tenant scope in the token) these
+    URLs are self-contained: the token binds solely to a test-result id
+    and the route re-loads the row to authorize the blob fetch.
+    """
+    if request.method != "GET":
+        return False
+    m = _INBOX_TEST_DOWNLOAD_PATH.fullmatch(request.url.path)
+    if m is None:
+        return False
+    token = request.query_params.get("token")
+    if not token:
+        return False
+    return verify_inbox_test_token(token, m.group(1))
+
+
 class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
     """Enforces `Authorization: Bearer <api key>` on REST endpoints."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
         if _bypass_api_auth(path):
+            return await call_next(request)
+
+        # Signed inbox-test-download URLs are embedded in outbound reply
+        # emails and clicked days later, so they use a self-contained
+        # 30-day token that binds to a specific InboxTestResult row. The
+        # route itself re-reads the row to authorize the blob fetch, so
+        # this middleware only needs to accept a valid signature.
+        if _inbox_test_token_valid(request):
             return await call_next(request)
 
         # Short-lived signed URLs for job artifacts bypass Bearer auth. The

@@ -454,3 +454,41 @@ class InboxEvent(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class InboxTestResult(Base):
+    """One AI-planned test-render trial for an ingested template.
+
+    Persisted so reviewers see the same set of trials in the email reply
+    and the admin portal, with per-row downloads of the rendered artifact
+    and the AI's verdict on whether the output looks right. Rows cascade
+    with the parent inbox_events row — trials are useless without the
+    event that produced them.
+    """
+
+    __tablename__ = "inbox_test_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "inbox_event_id", "ordinal", name="uq_inbox_test_results_event_ordinal"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_uuid
+    )
+    inbox_event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inbox_events.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    data_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    blob_key: Mapped[str | None] = mapped_column(String(512))
+    ext: Mapped[str | None] = mapped_column(String(8))
+    verdict: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

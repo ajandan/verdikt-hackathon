@@ -85,6 +85,7 @@ from docgen.store.models import (
     ApiKey,
     CallerProfile,
     InboxEvent,
+    InboxTestResult,
     Provenance,
     PublishEvent,
     RenderJob,
@@ -4348,6 +4349,21 @@ async def inbox_detail(
         from docgen.store.models import Tenant
         tenant = await session.get(Tenant, ev.tenant_id)
 
+    # Per-event AI test-render trials, ordered so the summary table always
+    # reads Test 1 → Test N regardless of insert order.
+    from docgen.auth import sign_inbox_test_token
+
+    trials_result = await session.execute(
+        select(InboxTestResult)
+        .where(InboxTestResult.inbox_event_id == ev.id)
+        .order_by(InboxTestResult.ordinal.asc())
+    )
+    trials = list(trials_result.scalars().all())
+    # Sign download tokens once per row so the template stays a dumb renderer.
+    trial_download_tokens = {
+        str(t.id): sign_inbox_test_token(str(t.id)) for t in trials
+    }
+
     return templates.TemplateResponse(
         request,
         "inbox_detail.html",
@@ -4360,6 +4376,8 @@ async def inbox_detail(
             template_version=tv,
             tenant=tenant,
             cc_addrs=list(ev.cc_addrs or []),
+            trials=trials,
+            trial_download_tokens=trial_download_tokens,
         ),
     )
 

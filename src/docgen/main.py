@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from docgen.api.routes import router as rest_router
+from docgen.downloads import router as downloads_router
 from docgen.auth import (
     SESSION_COOKIE,
     AdminSessionMiddleware,
@@ -190,6 +191,7 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     app.include_router(rest_router)
     app.include_router(ui_router)
+    app.include_router(downloads_router)
 
     if not (_STATIC_DIR / "app.css").exists():
         log.warning(

@@ -174,6 +174,95 @@ def _record_event_row(
     return row
 
 
+async def _draw_pdf_placements(
+    session,
+    *,
+    tv_id: uuid.UUID,
+    pdf_bytes: bytes,
+) -> None:
+    """Synthesize placements for a flat PDF via the vision detector.
+
+    Mirrors the manual `/versions/{id}/placements/ai-draw` UI endpoint —
+    for PDFs with no AcroForm widgets, upload_pdf_template leaves the
+    placement list empty, which would otherwise trip freeze's
+    "no field placements" reject. Vision detects field boxes on each
+    page and writes them so the downstream labeler + freeze see the same
+    shape as an AcroForm PDF.
+
+    Best-effort: no backend or a failed detection leaves placements empty
+    and the caller falls through to the existing freeze-fails path.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
+    from docgen.designtime.pdf_vision_backend import pick_pdf_vision_backend
+
+    settings = get_settings()
+    backend = pick_pdf_vision_backend(settings)
+    if backend is None:
+        log.info("inbox_pdf_ai_draw_skipped", reason="no_vision_backend")
+        return
+
+    tv = await session.get(TemplateVersion, tv_id)
+    if tv is None or tv.pdf_flavor != "flat":
+        return
+    existing = list((tv.pdf_field_placements or {}).get("placements") or [])
+    if existing:
+        return
+
+    try:
+        boxes = await detect_fields_in_pdf(
+            pdf_bytes,
+            api_key=backend["api_key"],
+            chat_model=backend["chat_model"],
+            timeout=backend["timeout"],
+            base_url=backend["base_url"],
+            extra_body=backend["extra_body"],
+        )
+    except Exception as e:
+        log.warning(
+            "inbox_pdf_ai_draw_failed",
+            version_id=str(tv_id),
+            provider=backend["provider"],
+            error=f"{type(e).__name__}: {e}",
+        )
+        return
+
+    placements: list[dict] = []
+    for i, b in enumerate(boxes, start=1):
+        ftype = str(b.get("field_type") or "text")
+        placements.append({
+            "name": f"field_{i}",
+            "page": int(b["page"]),
+            "x_pct": float(b["x_pct"]),
+            "y_pct": float(b["y_pct"]),
+            "w_pct": float(b["w_pct"]),
+            "h_pct": float(b["h_pct"]),
+            "field_type": ftype,
+            "payload_type": "boolean" if ftype == "checkbox" else "string",
+        })
+
+    if not placements:
+        log.info(
+            "inbox_pdf_ai_draw_empty",
+            version_id=str(tv_id),
+            provider=backend["provider"],
+        )
+        return
+
+    stored = dict(tv.pdf_field_placements or {})
+    stored["placements"] = placements
+    tv.pdf_field_placements = stored
+    flag_modified(tv, "pdf_field_placements")
+    await session.commit()
+    log.info(
+        "inbox_pdf_ai_drawn",
+        version_id=str(tv_id),
+        provider=backend["provider"],
+        detected=len(placements),
+    )
+
+
 async def _label_pdf_placements(
     session,
     *,
@@ -354,12 +443,19 @@ def _run_async_pipeline(
         async with async_session() as session:
             if attachment.kind == "pdf":
                 # PDF pipeline derives schema from placements — no mapping
-                # proposal needed. Before freezing we run the same vision
-                # labeler the /placements/ai-detect UI endpoint uses so
-                # human-readable labels flow into FieldSpec.description
-                # (drives synth_payload realism + reply-attachment quality).
-                # Labeling is best-effort: a vision failure must not block
-                # ingest; we fall back to raw AcroForm names.
+                # proposal needed. Two vision steps mirror what the manual
+                # UI offers on the placement editor:
+                #   (a) `_draw_pdf_placements` — flat PDF only, synthesizes
+                #       boxes so the freeze step has something to work with
+                #       (equivalent of the "AI Draw" button).
+                #   (b) `_label_pdf_placements` — labels every placement so
+                #       FieldSpec.description gets a human caption (drives
+                #       synth_payload realism + score-vs-threshold gating).
+                # Both are best-effort: a vision failure falls back to the
+                # empty-placements freeze reject, same as today.
+                await _draw_pdf_placements(
+                    session, tv_id=tv.id, pdf_bytes=attachment.content
+                )
                 await _label_pdf_placements(
                     session, tv_id=tv.id, pdf_bytes=attachment.content
                 )
@@ -441,6 +537,7 @@ def _build_reply_subject(original: str | None) -> str:
 def _build_reply_body(
     *,
     tenant_name: str,
+    template_name: str,
     template_id: uuid.UUID,
     template_version_id: uuid.UUID,
     score: float,
@@ -471,6 +568,7 @@ def _build_reply_body(
         headline,
         "",
         f"Tenant:            {tenant_name}",
+        f"Template:          {template_name}",
         f"Template ID:       {template_id}",
         f"Version ID:        {template_version_id}",
         f"Confidence score:  {score:.1f}",
@@ -488,6 +586,7 @@ def _build_reply_body(
     text = "\n".join(lines)
     html_lines = [f"<p>{headline}</p>", "<ul>"]
     html_lines.append(f"<li><strong>Tenant:</strong> {tenant_name}</li>")
+    html_lines.append(f"<li><strong>Template:</strong> {template_name}</li>")
     html_lines.append(f"<li><strong>Template ID:</strong> <code>{template_id}</code></li>")
     html_lines.append(f"<li><strong>Version ID:</strong> <code>{template_version_id}</code></li>")
     html_lines.append(f"<li><strong>Score:</strong> {score:.1f} (auto-publish threshold {threshold:.1f})</li>")
@@ -638,6 +737,7 @@ def process_message(
     template_link = _template_link_for(settings, template.id)
     body_text, body_html = _build_reply_body(
         tenant_name=tenant.name,
+        template_name=template.name,
         template_id=template.id,
         template_version_id=tv.id,
         score=score,

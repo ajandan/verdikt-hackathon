@@ -249,6 +249,8 @@
     <div>
         <h1>{{ template.name }}</h1>
         <div class="meta-chips">
+            <span>ID: <span class="version-hash" title="{{ template.id }}" data-copy="{{ template.id }}" style="cursor: copy">{{ template.id }}</span></span>
+            <span class="dot">·</span>
             <span>Owner: <strong style="color: var(--text)">{{ template.owner or '—' }}</strong></span>
             <span class="dot">·</span>
             <span>Created {{ template.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
@@ -783,6 +785,18 @@
     });
     document.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape' && overlay.classList.contains('open')) close();
+    });
+
+    document.querySelectorAll('[data-copy]').forEach(function (el) {
+        el.addEventListener('click', function () {
+            const val = el.getAttribute('data-copy');
+            if (!val || !navigator.clipboard) return;
+            navigator.clipboard.writeText(val).then(function () {
+                const orig = el.getAttribute('title') || '';
+                el.setAttribute('title', 'Copied!');
+                setTimeout(function () { el.setAttribute('title', orig); }, 1200);
+            }).catch(function () {});
+        });
     });
 
     document.querySelectorAll('[data-toggle-older]').forEach(function (btn) {

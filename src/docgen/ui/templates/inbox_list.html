@@ -29,15 +29,46 @@
         background: var(--surface); color: var(--brand);
         box-shadow: var(--shadow-sm); font-weight: 600;
     }
-    .card.flush.attached { border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden; }
-    .score-cell { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .card.flush.attached {
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        overflow: hidden;
+    }
+    .card.flush.attached table { width: 100%; table-layout: fixed; }
+    .card.flush.attached th, .card.flush.attached td {
+        vertical-align: middle;
+    }
+    .col-received  { width: 128px; }
+    .col-from      { width: 210px; }
+    .col-subject   { width: auto;  }
+    .col-tenant    { width: 90px;  }
+    .col-template  { width: 170px; }
+    .col-score     { width: 72px;  }
+    .col-ingest    { width: 108px; }
+    .col-review    { width: 108px; }
+    .col-action    { width: 84px;  }
+    .card.flush.attached td.muted,
+    .card.flush.attached td.score-cell,
+    .card.flush.attached td:first-child,
+    .card.flush.attached td:last-child { white-space: nowrap; }
+    .card.flush.attached td .badge { white-space: nowrap; }
+    .score-cell { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
     .subject-cell {
-        max-width: 360px; overflow: hidden; text-overflow: ellipsis;
-        white-space: nowrap;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.4;
+        white-space: normal;
     }
     .from-cell {
-        max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
+    }
+    .template-cell a {
+        display: inline-block; max-width: 100%;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        vertical-align: bottom;
     }
     .attach-chip {
         display: inline-flex; align-items: center; gap: 4px;
@@ -103,6 +134,17 @@
 <div class="card flush attached">
     {% if events %}
     <table>
+        <colgroup>
+            <col class="col-received">
+            <col class="col-from">
+            <col class="col-subject">
+            <col class="col-tenant">
+            <col class="col-template">
+            <col class="col-score">
+            <col class="col-ingest">
+            <col class="col-review">
+            <col class="col-action">
+        </colgroup>
         <thead>
             <tr>
                 <th>Received</th>
@@ -127,9 +169,9 @@
                     {% if e.attachment_name %}<span class="attach-chip" title="{{ e.attachment_name }}">📎</span>{% endif %}
                 </td>
                 <td class="muted">{{ e.tenant_name or '—' }}</td>
-                <td>
+                <td class="template-cell">
                     {% if e.template_id %}
-                        <a href="/ui/templates/{{ e.template_id }}">{{ e.template_name or e.template_id }}</a>
+                        <a href="/ui/templates/{{ e.template_id }}" title="{{ e.template_name or e.template_id }}">{{ e.template_name or e.template_id }}</a>
                     {% else %}
                         <span class="muted">—</span>
                     {% endif %}

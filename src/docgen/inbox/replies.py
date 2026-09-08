@@ -24,6 +24,10 @@ _DECISION_REJECT = "reject"
 
 # Trailing punctuation we tolerate on decision words ("APPROVE!", "reject.").
 _PUNCTUATION = ".!?,;:"
+# Markdown/rich-text formatting characters clients wrap around words when
+# users bold or italicize their reply — Gmail's compose-with-format emits
+# "*APPROVE*" when the user bolds it, which otherwise breaks the match.
+_FORMATTING_CHARS = "*_~`\"'"
 
 
 def _is_quoted(line: str) -> bool:
@@ -37,7 +41,7 @@ def _is_preamble(line: str) -> bool:
 
 
 def _normalize_word(word: str) -> str:
-    return word.strip().rstrip(_PUNCTUATION).lower()
+    return word.strip().strip(_FORMATTING_CHARS).rstrip(_PUNCTUATION).strip(_FORMATTING_CHARS).lower()
 
 
 def parse_decision(body: str) -> str | None:

@@ -78,12 +78,13 @@ def resolve_tenant(
     return None
 
 
-def auto_approve_threshold(tenant: Tenant, *, default: float = 100.0) -> float:
+def auto_approve_threshold(tenant: Tenant, *, default: float = 99.0) -> float:
     """Score at or above which the agent auto-publishes without review.
 
-    Default is 100: any missed AI label (raw AcroForm name still in
-    a placement's description) drops the score below 100 in `_score`,
-    forcing human review.
+    Default is 99: room for a single acroform-default label to slip
+    through on large forms without gating the whole ingest. Operators
+    who want strict "zero misses" auto-publish can raise the tenant's
+    inbound_config.auto_approve_threshold to 100.
     """
     raw = _config_of(tenant).get("auto_approve_threshold")
     try:

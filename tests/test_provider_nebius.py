@@ -7,8 +7,31 @@ from __future__ import annotations
 
 import pytest
 
+from docgen.config import get_settings
 from docgen.providers import get_provider
 from docgen.providers.nebius import DEFAULT_BASE_URL, DEFAULT_MODEL, NebiusProvider
+
+
+@pytest.fixture(autouse=True)
+def _isolate_from_env(monkeypatch):
+    """The developer's local .env may set real Nebius credentials; these
+    tests assume a clean environment. Wipe the AI vars, disable .env-file
+    loading (pydantic-settings reads it directly, not via os.environ), and
+    clear the Settings lru_cache so each test sees only tenant_config.
+    """
+    from docgen.config import Settings
+
+    for var in (
+        "DOCGEN_AI_PROVIDER",
+        "DOCGEN_AI_API_KEY",
+        "DOCGEN_AI_BASE_URL",
+        "DOCGEN_AI_MODEL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_nebius_requires_api_key() -> None:

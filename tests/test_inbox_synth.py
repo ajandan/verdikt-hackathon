@@ -88,6 +88,9 @@ def test_uses_description_when_present():
         ]
     }
     payload = synth_payload(schema)
-    # Description should be visible in the sample so the reply PDF looks
-    # populated rather than filled with opaque field-key placeholders.
-    assert "First Name" in payload["field_xyz"]
+    # Description-driven pattern match should produce a realistic sample
+    # (a real first name) — never the raw field key, which would leak an
+    # opaque token like "field_xyz" into the reply PDF.
+    value = payload["field_xyz"]
+    assert value and "field_xyz" not in value
+

@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from docgen.config import Settings, get_settings
 from docgen.core.render_pipeline import execute_merge
+from docgen.designtime.audit import record_audit_event
 from docgen.designtime.freeze import freeze_pdf_version, freeze_version
 from docgen.designtime.mapper import propose_mapping_for_version
 from docgen.designtime.publish import publish_version
@@ -110,18 +111,22 @@ _ACROFORM_DEFAULT_LABEL_RE = re.compile(
 
 
 def _is_default_label(name: str | None, description: str | None) -> bool:
-    """True when a schema field's description didn't get a real AI label.
+    """True when a PDF acroform field's description is still a raw default.
 
-    Signals a labeler miss: an empty description, a description that
-    still equals the field's raw name, or a description that matches an
-    AcroForm auto-name pattern like "Text Field 158".
+    Only fires on positive detection — a description that matches the
+    "Text Field 158" acroform auto-name pattern, or a description that
+    equals a similarly-shaped name. Docx placeholders (`{{ member_name }}`)
+    have no separate description because the token itself is the label, so
+    empty descriptions are neutral, not a miss.
     """
     desc = (description or "").strip()
     if not desc:
+        return False
+    if _ACROFORM_DEFAULT_LABEL_RE.match(desc):
         return True
-    if desc == (name or "").strip():
-        return True
-    return bool(_ACROFORM_DEFAULT_LABEL_RE.match(desc))
+    return desc == (name or "").strip() and bool(
+        _ACROFORM_DEFAULT_LABEL_RE.match(desc)
+    )
 
 
 def _score(proposal: MappingProposal, *, render_ok: bool, freeze_ok: bool) -> float:
@@ -718,6 +723,17 @@ def process_message(
             _run_async(_publish())
             auto_approved = True
             event.review_state = "auto_approved"
+            _write_template_audit(
+                template_id=template.id,
+                template_version_id=tv.id,
+                event_kind="inbox_auto_approved",
+                actor=f"inbox-auto:{msg.from_addr}",
+                summary={
+                    "inbox_event_id": str(event.id),
+                    "score": score,
+                    "threshold": threshold,
+                },
+            )
         except Exception as e:
             # Don't fail the whole event — freeze already succeeded and the
             # sender still gets their test PDF. Just record and leave for
@@ -822,6 +838,52 @@ def _try_send_reject_reply(
 # ---------------------------------------------------------------------------
 
 
+def _write_template_audit(
+    *,
+    template_id: uuid.UUID | None,
+    template_version_id: uuid.UUID | None,
+    event_kind: str,
+    actor: str,
+    summary: dict[str, Any] | None = None,
+) -> None:
+    """Write a template_audit_events row from the sync inbox agent.
+
+    The audit helper is async-only (shared with the designtime pipeline),
+    so we open a short-lived async session and commit it independently of
+    the inbox's sync session. No-op when there's no template to audit
+    against — some inbox events (freeze-fail before a template row exists,
+    sender-mismatch on an orphan parent) legitimately have no target.
+    Failures are logged, never raised: an audit gap is better than losing
+    the underlying user-visible action.
+    """
+    if template_id is None:
+        return
+
+    async def _write():
+        from docgen.store.db import async_session
+
+        async with async_session() as s:
+            await record_audit_event(
+                s,
+                template_id=template_id,
+                version_id=template_version_id,
+                event_kind=event_kind,
+                actor=actor,
+                summary=summary,
+            )
+            await s.commit()
+
+    try:
+        _run_async(_write())
+    except Exception as e:  # pragma: no cover — logged and swallowed
+        log.warning(
+            "inbox_audit_write_failed",
+            event_kind=event_kind,
+            template_id=str(template_id),
+            error=str(e),
+        )
+
+
 def _record_reply_event(
     session: Session,
     *,
@@ -892,6 +954,16 @@ def _process_reply(
     if not sender_matches(msg.from_addr, parent):
         detail = f"sender_mismatch:{msg.from_addr}"
         row = _record_reply_event(session, msg=msg, parent=parent, detail=detail)
+        _write_template_audit(
+            template_id=parent.template_id,
+            template_version_id=parent.template_version_id,
+            event_kind="inbox_sender_mismatch",
+            actor=f"spoofed:{msg.from_addr}",
+            summary={
+                "inbox_event_id": str(parent.id),
+                "expected_from": parent.from_addr,
+            },
+        )
         _send_reply_ack(
             msg,
             settings=settings,
@@ -998,6 +1070,13 @@ def _process_reply(
         session.add(parent)
         session.commit()
 
+        _write_template_audit(
+            template_id=parent.template_id,
+            template_version_id=parent.template_version_id,
+            event_kind="inbox_approved",
+            actor=f"reply-approve:{msg.from_addr}",
+            summary={"inbox_event_id": str(parent.id)},
+        )
         row = _record_reply_event(session, msg=msg, parent=parent, detail="approved")
         _send_reply_ack(
             msg,
@@ -1011,6 +1090,13 @@ def _process_reply(
     parent.review_state = "rejected"
     session.add(parent)
     session.commit()
+    _write_template_audit(
+        template_id=parent.template_id,
+        template_version_id=parent.template_version_id,
+        event_kind="inbox_rejected",
+        actor=f"reply-reject:{msg.from_addr}",
+        summary={"inbox_event_id": str(parent.id)},
+    )
     row = _record_reply_event(session, msg=msg, parent=parent, detail="rejected")
     _send_reply_ack(
         msg,

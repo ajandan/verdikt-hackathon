@@ -3,9 +3,31 @@ from __future__ import annotations
 
 import pytest
 
+from docgen.config import get_settings
 from docgen.providers import get_provider
 from docgen.providers.openai_compat import OpenAICompatProvider
 from docgen.providers.stub import StubProvider
+
+
+@pytest.fixture(autouse=True)
+def _isolate_from_env(monkeypatch):
+    """Force each test to see the built-in Settings defaults, ignoring any
+    ambient .env that a developer might have populated for real dev work.
+    Pydantic-settings reads .env directly, so we also disable env_file.
+    """
+    from docgen.config import Settings
+
+    for var in (
+        "DOCGEN_AI_PROVIDER",
+        "DOCGEN_AI_API_KEY",
+        "DOCGEN_AI_BASE_URL",
+        "DOCGEN_AI_MODEL",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def test_get_provider_defaults_to_env_stub() -> None:

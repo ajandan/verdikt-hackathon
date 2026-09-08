@@ -614,6 +614,14 @@
                         <span class="badge draft">Uploaded</span>
                     {% elif ev.event_kind == 'locale_variant_created' %}
                         <span class="badge draft">Locale added</span>
+                    {% elif ev.event_kind == 'inbox_approved' %}
+                        <span class="badge accept">Approved by email</span>
+                    {% elif ev.event_kind == 'inbox_auto_approved' %}
+                        <span class="badge accept">Auto-approved</span>
+                    {% elif ev.event_kind == 'inbox_rejected' %}
+                        <span class="badge reject">Rejected by email</span>
+                    {% elif ev.event_kind == 'inbox_sender_mismatch' %}
+                        <span class="badge warn">Spoofed reply</span>
                     {% else %}
                         <span class="badge draft">{{ ev.event_kind }}</span>
                     {% endif %}
@@ -641,6 +649,12 @@
                     {% endif %}
                     {% if s.get('flavor') %}
                         <span class="subtle">· {{ s['flavor'] }}</span>
+                    {% endif %}
+                    {% if s.get('score') is not none and s.get('threshold') is not none %}
+                        <span class="subtle">· score {{ s['score'] }}/{{ s['threshold'] }}</span>
+                    {% endif %}
+                    {% if s.get('expected_from') %}
+                        <span class="subtle">· expected {{ s['expected_from'] }}</span>
                     {% endif %}
                 </td>
                 <td class="muted">{{ ev.actor or '—' }}</td>

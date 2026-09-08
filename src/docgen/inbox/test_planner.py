@@ -132,13 +132,17 @@ def plan_trials(
     ai_api_key: str | None,
     ai_model: str,
     timeout: float,
+    ai_provider: str = "",
     count: int = DEFAULT_TRIAL_COUNT,
 ) -> list[Trial]:
     """Ask the design-time LLM for `count` varied payloads.
 
     `provider_config` overlays the global env-derived settings, same
-    precedence rule as :func:`docgen.providers.get_provider`. A stub or
-    misconfigured provider falls back to deterministic synth variants.
+    precedence rule as :func:`docgen.providers.get_provider`. When the
+    tenant's provider_config omits `provider`, we fall back to the
+    deployment-wide `ai_provider` (from DOCGEN_AI_PROVIDER) so a
+    single-tenant install without per-tenant overrides still hits the LLM.
+    A stub or misconfigured provider falls back to deterministic synth.
     """
     # Validate the schema up front — if it's malformed, the fallback would
     # crash inside synth_payload with a less useful error. TemplateSchema
@@ -146,7 +150,7 @@ def plan_trials(
     TemplateSchema.model_validate(schema_dict)
 
     cfg = provider_config or {}
-    provider_name = cfg.get("provider") or ""
+    provider_name = cfg.get("provider") or ai_provider or ""
     base_url = cfg.get("base_url") or ai_base_url
     api_key = cfg.get("api_key") or ai_api_key
     model = cfg.get("model") or ai_model

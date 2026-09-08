@@ -185,6 +185,7 @@ def score_trial(
     ai_model: str,
     timeout: float,
     schema: dict[str, Any] | None = None,
+    ai_provider: str = "",
 ) -> Verdict:
     """Ask the LLM if the render output matches the payload.
 
@@ -200,7 +201,7 @@ def score_trial(
         )
 
     cfg = provider_config or {}
-    provider_name = cfg.get("provider") or ""
+    provider_name = cfg.get("provider") or ai_provider or ""
     base_url = cfg.get("base_url") or ai_base_url
     api_key = cfg.get("api_key") or ai_api_key
     model = cfg.get("model") or ai_model

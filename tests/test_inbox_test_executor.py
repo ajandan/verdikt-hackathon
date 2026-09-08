@@ -53,6 +53,7 @@ def _settings():
         ai_base_url=None,
         ai_api_key=None,
         ai_model="",
+        ai_provider="stub",
         ai_timeout_seconds=1.0,
     )
 

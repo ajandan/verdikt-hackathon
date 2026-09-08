@@ -110,6 +110,7 @@ def execute_test_matrix(
             ai_base_url=settings.ai_base_url,
             ai_api_key=settings.ai_api_key,
             ai_model=settings.ai_model,
+            ai_provider=settings.ai_provider,
             timeout=settings.ai_timeout_seconds,
             count=count,
         )
@@ -172,6 +173,7 @@ def execute_test_matrix(
             ai_base_url=settings.ai_base_url,
             ai_api_key=settings.ai_api_key,
             ai_model=settings.ai_model,
+            ai_provider=settings.ai_provider,
             timeout=settings.ai_timeout_seconds,
             schema=tv.schema or None,
         )

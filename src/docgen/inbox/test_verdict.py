@@ -34,26 +34,41 @@ _MAX_EXTRACTED_CHARS = 12_000
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 _SYSTEM_PROMPT = """You are a QA reviewer inspecting a document that was rendered from a
-template. You are given (a) the input payload the renderer received and (b) the
-plain-text extract of the rendered document.
+template. You are given (a) the frozen field schema, (b) the input payload the
+renderer received, and (c) the plain-text extract of the rendered document.
 
-Judge whether every payload value appears somewhere in the rendered output — the
-correct value, in a plausible location. If the rendered output looks garbled
-(placeholder tokens still present, values missing or truncated in a way that
-suggests a mapping bug), fail the trial.
+Judge two things:
+
+1. Fidelity — does every payload value appear in the rendered output in a
+   plausible location? Placeholder tokens leaking through ("{{ ... }}",
+   "[MEMBER_NAME]") or missing values are failures.
+2. Semantic placement — did each value land in the FIELD IT BELONGS TO?
+   Common mapping bugs to hunt for:
+     - a ZIP/postal code sitting in the state or city slot (or vice versa)
+     - a state abbreviation in the country or city slot
+     - an email address in a phone-number field (or vice versa)
+     - a first name in a last-name field
+     - a currency amount in a date/quantity slot
+     - dates in the wrong format for a field labeled as a date
+     - numeric IDs in a name/description slot
+   Use the schema (field name + description + type) to decide what each
+   field is meant to hold. If the rendered output shows a value in the
+   wrong slot, that is a FAIL even if every value is technically present.
 
 Return STRICT JSON:
 
 {
   "passed": true | false,
-  "verdict": "<one sentence explaining what you saw>"
+  "verdict": "<one or two sentences explaining what you saw; if fields look swapped, name them>"
 }
 
 Rules:
-- `passed: true` when the render faithfully reflects the payload.
-- `passed: false` when values are missing, placeholders leak through
-  (e.g. "{{ ... }}" or "[MEMBER_NAME]"), or the output looks structurally wrong.
-- Keep `verdict` short (<= 200 chars). Reference concrete evidence.
+- `passed: true` when the render faithfully reflects the payload AND every
+  value is in the right slot for its field.
+- `passed: false` when values are missing, placeholders leak through, or a
+  value is in the wrong semantic slot (e.g. ZIP in the state field).
+- Keep `verdict` short (<= 300 chars). Reference concrete evidence and, when
+  fields appear swapped, name the specific fields.
 - Do NOT include any text outside the JSON object.
 """
 
@@ -132,6 +147,33 @@ def _fallback_verdict(reason: str) -> Verdict:
     return Verdict(passed=True, verdict=f"Not AI-evaluated: {reason}")
 
 
+def _format_schema_summary(schema: dict[str, Any] | None) -> str:
+    """Compact human-readable schema for the verdict prompt.
+
+    The LLM needs to know what each field is *supposed* to hold to detect
+    semantic slot errors (ZIP in state, email in phone). We include name +
+    type + description because description often carries the disambiguating
+    hint the labeler produced (e.g. "5-digit ZIP", "2-letter state").
+    """
+    if not schema:
+        return "(no schema available)"
+    fields = schema.get("fields") or []
+    if not fields:
+        return "(no schema fields)"
+    lines: list[str] = []
+    for f in fields:
+        name = str(f.get("name") or "").strip()
+        if not name:
+            continue
+        ftype = str(f.get("type") or "string")
+        desc = str(f.get("description") or "").strip()
+        line = f"- {name} ({ftype})"
+        if desc:
+            line += f": {desc}"
+        lines.append(line)
+    return "\n".join(lines) if lines else "(no schema fields)"
+
+
 def score_trial(
     *,
     payload: dict[str, Any],
@@ -142,6 +184,7 @@ def score_trial(
     ai_api_key: str | None,
     ai_model: str,
     timeout: float,
+    schema: dict[str, Any] | None = None,
 ) -> Verdict:
     """Ask the LLM if the render output matches the payload.
 
@@ -173,7 +216,9 @@ def score_trial(
         return _fallback_verdict("no AI provider configured")
 
     user_prompt = (
-        "Input payload:\n"
+        "Schema fields:\n"
+        + _format_schema_summary(schema)
+        + "\n\nInput payload:\n"
         + json.dumps(payload, indent=2, default=str)
         + "\n\nRendered document text:\n---\n"
         + rendered_text

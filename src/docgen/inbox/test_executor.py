@@ -173,6 +173,7 @@ def execute_test_matrix(
             ai_api_key=settings.ai_api_key,
             ai_model=settings.ai_model,
             timeout=settings.ai_timeout_seconds,
+            schema=tv.schema or None,
         )
 
         executed.append(

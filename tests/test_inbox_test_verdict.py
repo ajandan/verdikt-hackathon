@@ -97,6 +97,54 @@ def test_llm_response_flows_through(monkeypatch) -> None:
     assert "Alice" in v.verdict or "payload" in v.verdict
 
 
+def test_schema_reaches_prompt_for_semantic_check(monkeypatch) -> None:
+    """When a schema is passed, the field names + types show up in the user
+    prompt so the LLM can flag semantic-slot swaps (ZIP in state, etc.)."""
+    captured: dict[str, Any] = {}
+
+    class _Resp:
+        def raise_for_status(self): return None
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "passed": False,
+                "verdict": "zip_code and state appear swapped.",
+            })}}]}
+
+    class _Client:
+        def __init__(self, *a, **kw): ...
+        def __enter__(self): return self
+        def __exit__(self, *a): return None
+        def post(self, url, headers, json):  # noqa: A002
+            captured["body"] = json
+            return _Resp()
+
+    monkeypatch.setattr(test_verdict.httpx, "Client", _Client)
+
+    v = score_trial(
+        payload={"zip_code": "CA", "state": "94103"},
+        rendered_text="ZIP: CA\nState: 94103",
+        render_error=None,
+        provider_config={"provider": "nebius"},
+        ai_base_url=None,
+        ai_api_key="nb-secret",
+        ai_model="",
+        timeout=1.0,
+        schema={
+            "fields": [
+                {"name": "zip_code", "type": "string", "description": "5-digit ZIP"},
+                {"name": "state", "type": "string", "description": "2-letter state abbreviation"},
+            ]
+        },
+    )
+    # Schema summary must show up in the user prompt so the LLM has context.
+    user_msg = captured["body"]["messages"][1]["content"]
+    assert "zip_code" in user_msg and "5-digit ZIP" in user_msg
+    assert "state" in user_msg and "2-letter" in user_msg
+    # The verdict names the swapped fields — this is what the reviewer sees.
+    assert v.passed is False
+    assert "zip_code" in v.verdict and "state" in v.verdict
+
+
 def test_llm_says_fail(monkeypatch) -> None:
     class _Resp:
         def raise_for_status(self): return None

@@ -10,6 +10,11 @@
     .schema-table td.type-cell { width: 100px; }
     .schema-table td.req-cell { width: 90px; }
     .schema-table td.desc { color: var(--text-muted); }
+    .schema-table td.fmt { color: var(--text-muted); font-size: 12px; }
+    .schema-table td.fmt .fmt-row { display: block; line-height: 1.5; }
+    .schema-table td.fmt .fmt-key { color: var(--text-muted); font-weight: 500; margin-right: 4px; }
+    .schema-table td.fmt .fmt-val { color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+    .schema-table td.fmt .fmt-empty { color: var(--text-muted); opacity: 0.6; }
     .schema-json {
         background: var(--surface-2); border: 1px solid var(--border);
         border-radius: var(--radius); padding: 12px 14px;
@@ -83,6 +88,7 @@
                 <th class="type-cell">Type</th>
                 <th class="req-cell">Required</th>
                 <th>Description</th>
+                <th>Format hints</th>
             </tr>
         </thead>
         <tbody>
@@ -98,6 +104,18 @@
                     {% endif %}
                 </td>
                 <td class="desc">{{ f.description or '—' }}</td>
+                <td class="fmt">
+                    {% if f.format %}
+                        {% if f.format.caption %}<span class="fmt-row"><span class="fmt-key">caption:</span><span class="fmt-val">{{ f.format.caption }}</span></span>{% endif %}
+                        {% if f.format.section %}<span class="fmt-row"><span class="fmt-key">section:</span><span class="fmt-val">{{ f.format.section }}</span></span>{% endif %}
+                        {% if f.format.pattern %}<span class="fmt-row"><span class="fmt-key">pattern:</span><span class="fmt-val">{{ f.format.pattern }}</span></span>{% endif %}
+                        {% if f.format.max_length is not none %}<span class="fmt-row"><span class="fmt-key">max_length:</span><span class="fmt-val">{{ f.format.max_length }}</span></span>{% endif %}
+                        {% if f.format.example %}<span class="fmt-row"><span class="fmt-key">example:</span><span class="fmt-val">{{ f.format.example }}</span></span>{% endif %}
+                        {% if f.format.group %}<span class="fmt-row"><span class="fmt-key">group:</span><span class="fmt-val">{{ f.format.group }}{% if f.format.group_role %} ({{ f.format.group_role }}){% endif %}</span></span>{% endif %}
+                    {% else %}
+                        <span class="fmt-empty">—</span>
+                    {% endif %}
+                </td>
             </tr>
         {% endfor %}
         </tbody>

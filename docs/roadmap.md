@@ -63,7 +63,8 @@ stripped from the output).
   `GET /ui/versions/{id}/pdf-preview-merged` renders a sample payload
   through the real pipeline for preview-at-freeze. Bonus beyond the
   original scope: `/placements/ai-draw` and `/placements/ai-detect`
-  endpoints propose boxes for flat PDFs (Mistral OCR + vision model).
+  endpoints propose boxes for flat PDFs (deterministic pymupdf geometry
+  + text-only NVIDIA Nemotron labeler on Nebius Token Factory).
   Coverage in `tests/test_pdf_template.py`
   (`test_pdf_page_preview_endpoint_returns_png`, `test_placements_save_persists`,
   `test_freeze_pdf_happy_path`, `test_freeze_pdf_rejects_empty_placements`,

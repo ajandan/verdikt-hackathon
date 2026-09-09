@@ -78,10 +78,7 @@ services:
       DOCGEN_AI_API_KEY: ${DOCGEN_AI_API_KEY:-}
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
-      DOCGEN_NEBIUS_VISION_MODEL: ${DOCGEN_NEBIUS_VISION_MODEL:-openbmb/MiniCPM-V-4_5}
-      DOCGEN_MISTRAL_API_KEY: ${DOCGEN_MISTRAL_API_KEY:-}
-      DOCGEN_MISTRAL_OCR_MODEL: ${DOCGEN_MISTRAL_OCR_MODEL:-mistral-ocr-latest}
-      DOCGEN_MISTRAL_CHAT_MODEL: ${DOCGEN_MISTRAL_CHAT_MODEL:-pixtral-12b-2409}
+      DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
       DOCGEN_ENV: ${DOCGEN_ENV:-development}
       DOCGEN_ADMIN_PASSWORD_HASH: ${DOCGEN_ADMIN_PASSWORD_HASH:-}
       # No fallback: dev users must set DOCGEN_SESSION_SECRET (see .env.example
@@ -137,20 +134,17 @@ services:
       DOCGEN_ENV: ${DOCGEN_ENV:-development}
       DOCGEN_SESSION_SECRET: ${DOCGEN_SESSION_SECRET:?set DOCGEN_SESSION_SECRET in .env}
       DOCGEN_WEBHOOK_SIGNING_SECRET: ${DOCGEN_WEBHOOK_SIGNING_SECRET:?set DOCGEN_WEBHOOK_SIGNING_SECRET in .env}
-      # Vision-backend envs — the inbox agent's PDF branch calls
-      # label_fields_in_pdf via pick_pdf_vision_backend, which reads these
+      # PDF labeler envs — the inbox agent's PDF branch calls
+      # label_fields_in_pdf via pick_pdf_labeler_backend, which reads these
       # settings. Without them the labeler no-ops (inbox_pdf_ai_label_skipped
-      # reason=no_vision_backend) and templates ingest with raw AcroForm
+      # reason=no_labeler_backend) and templates ingest with raw AcroForm
       # names as labels.
       DOCGEN_AI_PROVIDER: ${DOCGEN_AI_PROVIDER:-stub}
       DOCGEN_AI_BASE_URL: ${DOCGEN_AI_BASE_URL:-}
       DOCGEN_AI_API_KEY: ${DOCGEN_AI_API_KEY:-}
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
-      DOCGEN_NEBIUS_VISION_MODEL: ${DOCGEN_NEBIUS_VISION_MODEL:-openbmb/MiniCPM-V-4_5}
-      DOCGEN_MISTRAL_API_KEY: ${DOCGEN_MISTRAL_API_KEY:-}
-      DOCGEN_MISTRAL_OCR_MODEL: ${DOCGEN_MISTRAL_OCR_MODEL:-mistral-ocr-latest}
-      DOCGEN_MISTRAL_CHAT_MODEL: ${DOCGEN_MISTRAL_CHAT_MODEL:-pixtral-12b-2409}
+      DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
       DOCGEN_INBOX_ENABLED: ${DOCGEN_INBOX_ENABLED:-false}
       DOCGEN_INBOX_IMAP_HOST: ${DOCGEN_INBOX_IMAP_HOST:-}
       DOCGEN_INBOX_IMAP_PORT: ${DOCGEN_INBOX_IMAP_PORT:-993}

@@ -167,7 +167,9 @@ def execute_test_matrix(
 
         verdict = score_trial(
             payload=trial.payload,
+            rendered=rendered,
             rendered_text=rendered_text,
+            ext=ext,
             render_error=render_error,
             provider_config=tenant_ai_provider_config,
             ai_base_url=settings.ai_base_url,

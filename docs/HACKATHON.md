@@ -48,26 +48,25 @@ byte-identical, audit-friendly merge.
 6. **Demo script** — [`docs/demo-script.md`](demo-script.md) — < 3 min beats
    for the required YouTube video, tuned to the four judging criteria
    (technical implementation, design, potential impact, quality of idea).
-7. **PDF vision path on Nebius Token Factory** — the placement editor's
-   AI Draw / OCR Label / AI Realign buttons now route through an
-   OpenAI-compatible vision-LM served on Nebius (default:
-   `openbmb/MiniCPM-V-4_5`, an open-source vision model strong on
-   document layouts). Per-page OCR is done via chat/completions against
-   the same Nebius base URL, so the whole design-time AI surface — text
-   and vision — is on Nebius under a single key. Router in
-   `src/docgen/ui/routes.py::_pick_pdf_vision_backend` prefers Nebius
-   whenever `DOCGEN_AI_PROVIDER=nebius`; legacy Mistral OCR is preserved
-   as a fallback (`DOCGEN_MISTRAL_API_KEY`) so existing deploys keep
-   working without changes.
+7. **PDF field labeler on Nebius Token Factory** — the placement editor's
+   AI Label / AI Realign buttons and the inbox agent's PDF ingest now
+   detect fillable regions from PDF geometry (pymupdf — no model call)
+   and label each region from the page's printed captions using a
+   text-only NVIDIA Nemotron reasoning model on Nebius Token Factory
+   (default: `nvidia/nemotron-3-super-120b-a12b`, chosen for reliable
+   one-shot JSON output). The whole design-time AI surface is Nemotron
+   under a single Nebius API key. Router lives in
+   `src/docgen/designtime/pdf_labeler_backend.py::pick_pdf_labeler_backend`.
 
 ## What was kept, and why
 
 - **Deterministic render path** is unchanged and has no dependency on any
   AI provider. The package boundary is enforced in tests
   (`core/` does not import `providers/`).
-- **Legacy Mistral OCR path** is kept behind a feature gate for any
-  deploy that already has a Mistral key configured. New deploys should
-  leave `DOCGEN_MISTRAL_API_KEY` blank and rely on Nebius vision.
+- **Deterministic PDF geometry detection** (`_drawings_to_fields`,
+  `_detect_cells`, `_geometric_labels_for_widgets`) handles both AcroForm
+  widgets and flat-PDF cells without a vision model — labeling is the
+  only step that calls out to the LLM.
 
 ## Judging-criteria mapping
 

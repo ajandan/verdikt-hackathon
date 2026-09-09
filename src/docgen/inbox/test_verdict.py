@@ -1,17 +1,17 @@
-"""AI verdict scorer — asks the design-time LLM whether a rendered trial
-output looks correct given its input payload.
+"""AI verdict scorer — asks a text-only NVIDIA Nemotron model whether a
+rendered trial output looks correct given its input payload.
 
-Runs alongside the multi-test executor: for each trial, extract text from
-the rendered artifact (docx or pdf), hand it to the LLM with the input
-payload, and get back a boolean pass/fail plus a one-sentence explanation.
-The verdict is what the reviewer reads in the email summary table and on
-the admin portal so they can approve/reject with context, not just a
-green-tick/red-cross.
+For both PDF and DOCX outputs we send the payload JSON alongside a
+plain-text extract of the rendered document (pymupdf `get_text("blocks")`
+with y-cluster + x sort so filled AcroForms read in visual order). The
+scorer used to rasterize PDF pages to PNG and hand them to a vision-LM,
+but no NVIDIA vision model is available on Nebius Token Factory yet — the
+text path is the compliant option, and Nemotron-Super handles the QA
+prompt reliably.
 
-Best-effort semantics mirror the planner: no AI provider configured, or
-any HTTP/JSON error, yields a "not evaluated" verdict marked as passing
-(so the trial isn't spuriously failed) with an explanation the reviewer
-can see.
+Failure semantics: an unreachable model or an empty content response marks
+the trial as FAILED with a note. This stops fallback silence from
+inflating scores when reasoning models return empty content.
 """
 from __future__ import annotations
 
@@ -27,48 +27,25 @@ from lxml import etree
 
 log = structlog.get_logger(__name__)
 
-# Cap the extracted text handed to the model — a long form is ~15 KB, well
-# under this. Keeps the request bounded when someone ingests a novel-length
-# template.
 _MAX_EXTRACTED_CHARS = 12_000
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
-_SYSTEM_PROMPT = """You are a QA reviewer inspecting a document that was rendered from a
+_SYSTEM_PROMPT_TEXT = """You are a QA reviewer inspecting a document that was rendered from a
 template. You are given (a) the frozen field schema, (b) the input payload the
 renderer received, and (c) the plain-text extract of the rendered document.
 
-Judge two things:
-
-1. Fidelity — does every payload value appear in the rendered output in a
-   plausible location? Placeholder tokens leaking through ("{{ ... }}",
-   "[MEMBER_NAME]") or missing values are failures.
-2. Semantic placement — did each value land in the FIELD IT BELONGS TO?
-   Common mapping bugs to hunt for:
-     - a ZIP/postal code sitting in the state or city slot (or vice versa)
-     - a state abbreviation in the country or city slot
-     - an email address in a phone-number field (or vice versa)
-     - a first name in a last-name field
-     - a currency amount in a date/quantity slot
-     - dates in the wrong format for a field labeled as a date
-     - numeric IDs in a name/description slot
-   Use the schema (field name + description + type) to decide what each
-   field is meant to hold. If the rendered output shows a value in the
-   wrong slot, that is a FAIL even if every value is technically present.
-
-Return STRICT JSON:
+Judge fidelity + semantic placement. Return STRICT JSON:
 
 {
   "passed": true | false,
-  "verdict": "<one or two sentences explaining what you saw; if fields look swapped, name them>"
+  "verdict": "<one or two sentences>"
 }
 
 Rules:
 - `passed: true` when the render faithfully reflects the payload AND every
   value is in the right slot for its field.
-- `passed: false` when values are missing, placeholders leak through, or a
-  value is in the wrong semantic slot (e.g. ZIP in the state field).
-- Keep `verdict` short (<= 300 chars). Reference concrete evidence and, when
-  fields appear swapped, name the specific fields.
+- `passed: false` when values are missing or in the wrong semantic slot.
+- Keep `verdict` short (<= 300 chars).
 - Do NOT include any text outside the JSON object.
 """
 
@@ -82,7 +59,6 @@ class Verdict:
 
 
 def _extract_docx_text(docx_bytes: bytes) -> str:
-    """Flatten every <w:t> run into a plain string."""
     with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
         try:
             xml = zf.read("word/document.xml")
@@ -97,16 +73,26 @@ def _extract_docx_text(docx_bytes: bytes) -> str:
 
 
 def _extract_pdf_text(pdf_bytes: bytes) -> str:
-    """Text extract from PDF. Best-effort — returns "" if no extractor works."""
+    """Text extract from a rendered PDF.
+
+    Uses pymupdf `get_text("blocks")` with y-cluster + x sort so a filled
+    AcroForm reads in visual order instead of content-stream order.
+    """
     try:
-        import pdfplumber  # type: ignore[import-not-found]
+        import pymupdf  # type: ignore[import-untyped]
 
         parts: list[str] = []
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            for page in pdf.pages:
-                txt = page.extract_text() or ""
-                if txt:
-                    parts.append(txt)
+        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+            for page in doc:
+                blocks = page.get_text("blocks") or []
+                blocks.sort(key=lambda b: (round(b[1] / 8.0), b[0]))
+                page_lines = [
+                    (b[4] or "").strip()
+                    for b in blocks
+                    if isinstance(b[4], str) and b[4].strip()
+                ]
+                if page_lines:
+                    parts.append("\n".join(page_lines))
         return "\n".join(parts)
     except Exception:
         pass
@@ -128,11 +114,7 @@ def _extract_pdf_text(pdf_bytes: bytes) -> str:
 
 
 def extract_rendered_text(rendered: bytes, ext: str) -> str:
-    """Return plain-text extract for the verdict prompt.
-
-    Truncates at `_MAX_EXTRACTED_CHARS` so a huge template can't blow the
-    context window on the verdict call.
-    """
+    """Public text-extract entry point retained for compatibility."""
     if ext == "pdf":
         text = _extract_pdf_text(rendered)
     else:
@@ -143,18 +125,16 @@ def extract_rendered_text(rendered: bytes, ext: str) -> str:
 
 
 def _fallback_verdict(reason: str) -> Verdict:
-    """No AI available — pass the trial with a note so it's not silently green."""
-    return Verdict(passed=True, verdict=f"Not AI-evaluated: {reason}")
+    """AI unreachable — mark the trial as FAILED so scores aren't inflated.
+
+    Earlier revisions returned passed=True with a note; that let empty-content
+    responses from reasoning models silently green-light trials. Reviewers
+    now see an explicit failure with the reason and can retry manually.
+    """
+    return Verdict(passed=False, verdict=f"AI verdict unavailable ({reason}) — needs manual review")
 
 
 def _format_schema_summary(schema: dict[str, Any] | None) -> str:
-    """Compact human-readable schema for the verdict prompt.
-
-    The LLM needs to know what each field is *supposed* to hold to detect
-    semantic slot errors (ZIP in state, email in phone). We include name +
-    type + description because description often carries the disambiguating
-    hint the labeler produced (e.g. "5-digit ZIP", "2-letter state").
-    """
     if not schema:
         return "(no schema available)"
     fields = schema.get("fields") or []
@@ -174,10 +154,70 @@ def _format_schema_summary(schema: dict[str, Any] | None) -> str:
     return "\n".join(lines) if lines else "(no schema fields)"
 
 
+def _post_verdict(
+    *,
+    body: dict[str, Any],
+    base_url: str,
+    api_key: str,
+    timeout_s: float,
+    provider_name: str,
+    model: str,
+) -> Verdict:
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "api-key": api_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=timeout_s) as client:
+            resp = client.post(
+                f"{base_url.rstrip('/')}/chat/completions",
+                headers=headers,
+                json=body,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        if not content:
+            raise ValueError("empty content in LLM response")
+        # Reasoning models sometimes wrap JSON in ```json fences even when
+        # response_format was requested. Strip fences before parsing.
+        text = str(content).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[: -3]
+            text = text.strip()
+            if text.startswith("json"):
+                text = text[4:].lstrip()
+        parsed = json.loads(text)
+    except (
+        httpx.HTTPError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as e:
+        log.warning(
+            "inbox_test_verdict_llm_failed",
+            error=f"{type(e).__name__}: {e}",
+            provider=provider_name,
+            model=model,
+        )
+        return _fallback_verdict(f"AI unreachable ({type(e).__name__})")
+
+    passed = bool(parsed.get("passed"))
+    verdict = str(parsed.get("verdict") or "").strip() or "No verdict returned."
+    return Verdict(passed=passed, verdict=verdict[:1000])
+
+
 def score_trial(
     *,
     payload: dict[str, Any],
+    rendered: bytes | None,
     rendered_text: str,
+    ext: str,
     render_error: str | None,
     provider_config: dict[str, Any] | None,
     ai_base_url: str | None,
@@ -189,25 +229,26 @@ def score_trial(
 ) -> Verdict:
     """Ask the LLM if the render output matches the payload.
 
-    When the render failed outright, we short-circuit with a fail verdict
-    that names the error — no need to burn a model call.
+    Sends the text extract + payload JSON to the configured text model
+    (Nemotron-Super on Nebius by default) for both PDF and DOCX outputs.
+
+    Fallback: when the model is unreachable or returns empty content, the
+    trial is marked FAILED so the score isn't silently inflated.
     """
     if render_error:
         return Verdict(passed=False, verdict=f"Render failed: {render_error}")
+
+    cfg = provider_config or {}
+    provider_name = cfg.get("provider") or ai_provider or ""
+    api_key = cfg.get("api_key") or ai_api_key
+
     if not rendered_text.strip():
         return Verdict(
             passed=False,
             verdict="Render produced no extractable text — likely an empty or malformed document.",
         )
 
-    cfg = provider_config or {}
-    provider_name = cfg.get("provider") or ai_provider or ""
     base_url = cfg.get("base_url") or ai_base_url
-    api_key = cfg.get("api_key") or ai_api_key
-    # Verdict scoring runs on its own model — the design-time Nemotron-Nano
-    # is a reasoning model that spirals on QA tasks and exhausts its output
-    # tokens on the reasoning trace. Tenant config's `verdict_model` wins,
-    # then the deployment-wide setting, then the design-time model.
     model = cfg.get("verdict_model") or ai_model
     timeout_s = float(cfg.get("timeout_seconds") or timeout)
 
@@ -232,54 +273,23 @@ def score_trial(
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _SYSTEM_PROMPT_TEXT},
             {"role": "user", "content": user_prompt},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.0,
-        # Cap generation so a runaway response can't stall the executor.
-        # 4000 leaves plenty of room for a two-sentence verdict.
         "max_tokens": 4000,
-        # Suppress the vLLM reasoning trace — Nemotron models default to it
-        # and will happily spend their entire output budget on <think>
-        # tokens, returning empty `content`. This one-shot pass/fail call
-        # doesn't need chain-of-thought.
-        "chat_template_kwargs": {"thinking": False},
+        # vLLM-hosted Nemotron reasoning models honour this top-level knob;
+        # without it they burn the output-token budget on a <think> preamble
+        # and return empty `content`. The correct key is `enable_thinking`,
+        # not `thinking` — the wrong spelling silently no-ops.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "api-key": api_key,
-        "Content-Type": "application/json",
-    }
-    try:
-        with httpx.Client(timeout=timeout_s) as client:
-            resp = client.post(
-                f"{base_url.rstrip('/')}/chat/completions",
-                headers=headers,
-                json=body,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        if not content:
-            raise ValueError("empty content in LLM response")
-        parsed = json.loads(content)
-    except (
-        httpx.HTTPError,
-        KeyError,
-        IndexError,
-        TypeError,
-        ValueError,
-        json.JSONDecodeError,
-    ) as e:
-        log.warning(
-            "inbox_test_verdict_llm_failed",
-            error=f"{type(e).__name__}: {e}",
-            provider=provider_name,
-            model=model,
-        )
-        return _fallback_verdict(f"AI unreachable ({type(e).__name__})")
-
-    passed = bool(parsed.get("passed"))
-    verdict = str(parsed.get("verdict") or "").strip() or "No verdict returned."
-    return Verdict(passed=passed, verdict=verdict[:1000])
+    return _post_verdict(
+        body=body,
+        base_url=base_url,
+        api_key=api_key,
+        timeout_s=timeout_s,
+        provider_name=provider_name,
+        model=model,
+    )

@@ -53,32 +53,14 @@ class Settings(BaseSettings):
     preflight_backend: Literal["inline", "subprocess", "nebius_job"] = "inline"
     preflight_subprocess_timeout_seconds: float = 300.0
 
-    # PDF field labeler / detector for the placement editor's "OCR Label",
-    # "AI Draw", and "AI Realign" buttons. Two backends are supported and the
-    # router in ui/routes.py prefers Nebius when configured:
-    #
-    #   Nebius (recommended) — reuses the same DOCGEN_AI_API_KEY as the
-    #   design-time text LLM. OCR is done by prompting the vision model per
-    #   page against the OpenAI-compatible chat/completions endpoint, so no
-    #   separate OCR service is required. Default model MiniCPM-V-4.5 is an
-    #   open-source vision-LM strong on document layouts.
-    nebius_vision_base_url: str = "https://api.studio.nebius.com/v1"
-    nebius_vision_model: str = "openbmb/MiniCPM-V-4_5"
-    nebius_vision_timeout_seconds: float = 180.0
-    # Concurrency ceiling for the per-page OCR passes (each page is one chat
-    # call). 4 keeps well under Nebius' default rate limits for serverless
-    # while still finishing a 10-page form in ~one round-trip.
-    nebius_vision_ocr_concurrency: int = 4
-
-    # Legacy Mistral labeler — still supported as a fallback if
-    # DOCGEN_MISTRAL_API_KEY is set and Nebius vision isn't wired up.
-    # Independent of ai_provider.
-    mistral_api_key: str | None = None
-    mistral_ocr_model: str = "mistral-ocr-latest"
-    # Vision-capable chat model that reads the OCR transcript + annotated PNG
-    # and matches numbered widgets to captions.
-    mistral_chat_model: str = "pixtral-12b-2409"
-    mistral_timeout_seconds: float = 180.0
+    # PDF field labeler — reasoning model used by the placement editor's
+    # "AI Label fields" / "AI Realign" buttons and the inbox PDF ingest.
+    # Reuses DOCGEN_AI_API_KEY + DOCGEN_AI_BASE_URL. Detection itself is
+    # deterministic geometry (pymupdf) with no model call; the labeler only
+    # matches already-detected rects to their printed captions using the
+    # page's OCR text. Nemotron-Super is the default because it produces
+    # reliable one-shot JSON without a reasoning-mode preamble.
+    pdf_labeler_model: str = "nvidia/nemotron-3-super-120b-a12b"
 
     sync_render_max_bytes: int = Field(default=512 * 1024)
     pdf_conversion_timeout_seconds: float = 60.0

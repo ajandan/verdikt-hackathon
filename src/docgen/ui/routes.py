@@ -1773,9 +1773,9 @@ def _placements_equal(a: list[dict[str, Any]], b: list[dict[str, Any]]) -> bool:
     return True
 
 
-from docgen.designtime.pdf_vision_backend import (
-    PDF_VISION_UNCONFIGURED as _PDF_VISION_UNCONFIGURED,
-    pick_pdf_vision_backend as _pick_pdf_vision_backend,
+from docgen.designtime.pdf_labeler_backend import (
+    LABELER_UNCONFIGURED as _PDF_LABELER_UNCONFIGURED,
+    pick_pdf_labeler_backend as _pick_pdf_labeler_backend,
 )
 
 
@@ -1785,7 +1785,7 @@ async def placements_ai_draw(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Detect fillable field boxes on a flat PDF (no widgets) via Mistral vision.
+    """Detect fillable field boxes on a flat PDF via deterministic geometry.
 
     Only valid for `pdf_flavor == "flat"` — acroform templates already have
     widget-derived placements. Returns a list of placement proposals with
@@ -1804,28 +1804,17 @@ async def placements_ai_draw(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    backend = _pick_pdf_vision_backend(settings)
-    if backend is None:
-        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
 
     from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
 
     pdf_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
 
     try:
-        boxes = await detect_fields_in_pdf(
-            pdf_bytes,
-            api_key=backend["api_key"],
-            chat_model=backend["chat_model"],
-            timeout=backend["timeout"],
-            base_url=backend["base_url"],
-            extra_body=backend["extra_body"],
-        )
+        boxes = await detect_fields_in_pdf(pdf_bytes)
     except Exception as e:
         log.warning(
             "pdf_ai_draw_failed",
             version_id=str(tv.id),
-            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI field detection failed: {e}") from e
@@ -1859,13 +1848,14 @@ async def placements_ai_detect(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Label existing placements via Mistral OCR + vision.
+    """Label existing placements via text-only Nemotron.
 
-    Positions come from the PDF widgets (accurate); the labeler runs OCR on
-    the whole PDF for a clean text transcript, then asks a vision model to
-    match each numbered widget to its caption using the transcript as ground
-    truth. The response is a proposal — the client applies suggested labels
-    to matching placement indices and the user reviews before saving.
+    Positions come from the PDF widgets or a prior AI-draw pass (accurate);
+    the labeler extracts per-line OCR text with pymupdf and asks Nemotron
+    to match each field rect to its caption based on coordinates + text.
+    No image is sent to the model. The response is a proposal — the client
+    applies suggested labels to matching placement indices and the user
+    reviews before saving.
     """
     tv = await session.get(TemplateVersion, version_id)
     if tv is None:
@@ -1878,9 +1868,9 @@ async def placements_ai_detect(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    backend = _pick_pdf_vision_backend(settings)
+    backend = _pick_pdf_labeler_backend(settings)
     if backend is None:
-        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
+        raise HTTPException(400, _PDF_LABELER_UNCONFIGURED)
 
     body = await request.json()
     incoming = body.get("placements")
@@ -1914,13 +1904,10 @@ async def placements_ai_detect(
             pdf_bytes,
             fields,
             api_key=backend["api_key"],
-            ocr_model=backend["ocr_model"],
-            chat_model=backend["chat_model"],
+            text_model=backend["text_model"],
+            base_url=backend["base_url"],
             timeout=backend["timeout"],
             pdf_flavor=tv.pdf_flavor,
-            base_url=backend["base_url"],
-            ocr_via_vision_chat=backend["ocr_via_vision_chat"],
-            ocr_concurrency=backend["ocr_concurrency"],
             extra_body=backend["extra_body"],
         )
     except Exception as e:
@@ -1993,9 +1980,9 @@ async def placements_ai_realign(
         raise HTTPException(409, "Version is published — placements are immutable")
 
     settings = get_settings()
-    backend = _pick_pdf_vision_backend(settings)
+    backend = _pick_pdf_labeler_backend(settings)
     if backend is None:
-        raise HTTPException(400, _PDF_VISION_UNCONFIGURED)
+        raise HTTPException(400, _PDF_LABELER_UNCONFIGURED)
 
     body = await request.json()
     incoming = body.get("placements")
@@ -2011,19 +1998,11 @@ async def placements_ai_realign(
     pdf_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
 
     try:
-        detected = await detect_fields_in_pdf(
-            pdf_bytes,
-            api_key=backend["api_key"],
-            chat_model=backend["chat_model"],
-            timeout=backend["timeout"],
-            base_url=backend["base_url"],
-            extra_body=backend["extra_body"],
-        )
+        detected = await detect_fields_in_pdf(pdf_bytes)
     except Exception as e:
         log.warning(
             "pdf_ai_realign_detect_failed",
             version_id=str(tv.id),
-            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         raise HTTPException(502, f"AI field detection failed: {e}") from e
@@ -2040,12 +2019,9 @@ async def placements_ai_realign(
             pdf_bytes,
             label_input,
             api_key=backend["api_key"],
-            ocr_model=backend["ocr_model"],
-            chat_model=backend["chat_model"],
-            timeout=backend["timeout"],
+            text_model=backend["text_model"],
             base_url=backend["base_url"],
-            ocr_via_vision_chat=backend["ocr_via_vision_chat"],
-            ocr_concurrency=backend["ocr_concurrency"],
+            timeout=backend["timeout"],
             extra_body=backend["extra_body"],
         )
     except Exception as e:
@@ -4386,12 +4362,14 @@ async def inbox_detail(
 
 
 def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
-    """Return the AI models that ran for this inbox event, in pipeline order.
+    """Return the stages that ran for this inbox event, in pipeline order.
 
     Reflects the same precedence resolve_tenant / test_planner / test_verdict
     use at runtime: tenant.ai_provider_config wins, then deployment settings,
-    then the provider's built-in defaults. Vision rows only appear for PDF
-    templates, since the DOCX path doesn't invoke the labeler.
+    then the provider's built-in defaults. PDF-specific rows only appear for
+    PDF templates. AcroForm labeling is deterministic (widget rects + page
+    text-span geometry — no model call), so its row shows provider="local"
+    with no model rather than a misleading vision-model tag.
     """
     settings = get_settings()
     cfg = (tenant.ai_provider_config if tenant else None) or {}
@@ -4409,6 +4387,14 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
         or design_model
     )
 
+    is_pdf = tv is not None and tv.pdf_flavor is not None
+    verdict_row = {
+        "stage": "Test verdict scorer",
+        "model": verdict_model,
+        "provider": provider,
+        "purpose": "Reviews each rendered trial for missing values and slot swaps.",
+    }
+
     rows: list[dict[str, str]] = [
         {
             "stage": "Mapping proposal / test planner",
@@ -4416,28 +4402,29 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
             "provider": provider,
             "purpose": "Extracts field candidates and generates the 5 test payloads.",
         },
-        {
-            "stage": "Test verdict scorer",
-            "model": verdict_model,
-            "provider": provider,
-            "purpose": "Reviews each rendered trial for missing values and slot swaps.",
-        },
+        verdict_row,
     ]
 
-    is_pdf = tv is not None and tv.pdf_flavor is not None
     if is_pdf:
-        rows.insert(0, {
-            "stage": "PDF vision labeler",
-            "model": settings.nebius_vision_model,
-            "provider": "nebius",
-            "purpose": "Reads the PDF page image and captions each field placement.",
-        })
-        if tv.pdf_flavor == "flat":
+        if tv.pdf_flavor == "acroform":
             rows.insert(0, {
-                "stage": "PDF vision detector (AI Draw)",
-                "model": settings.nebius_vision_model,
-                "provider": "nebius",
-                "purpose": "Locates form-field regions on flat (non-AcroForm) PDFs.",
+                "stage": "PDF field labeler",
+                "model": "(deterministic geometry — no model call)",
+                "provider": "local",
+                "purpose": "Matches each AcroForm widget to its printed caption using widget rects + page text-span bboxes.",
+            })
+        else:
+            rows.insert(0, {
+                "stage": "PDF field labeler",
+                "model": settings.pdf_labeler_model,
+                "provider": provider,
+                "purpose": "Captions each detected placement using pymupdf-extracted OCR text and rect coordinates — no page image sent to the model.",
+            })
+            rows.insert(0, {
+                "stage": "PDF field detector (AI Draw)",
+                "model": "(deterministic geometry — no model call)",
+                "provider": "local",
+                "purpose": "Locates form-field regions on flat PDFs by scanning pymupdf drawing primitives (underlines, cells).",
             })
 
     return rows

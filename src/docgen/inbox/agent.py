@@ -130,20 +130,36 @@ def _is_default_label(name: str | None, description: str | None) -> bool:
     )
 
 
-def _score(proposal: MappingProposal, *, render_ok: bool, freeze_ok: bool) -> float:
+_TRIAL_SCORE_MAX = 50.0
+_TRIAL_SCORE_PER_PASS = 10.0
+_LABEL_SCORE_MAX = 50.0
+
+
+def _score(
+    proposal: MappingProposal,
+    *,
+    freeze_ok: bool,
+    executed_trials: list[ExecutedTrial] | None = None,
+) -> float:
     """Compute a 0-100 confidence score for the ingested template.
 
-    Only a fully-labeled + successfully-rendered template earns 100. Any
-    field the AI missed (raw AcroForm name still in the description)
-    drags the score down proportionally, which — combined with the 100
-    auto-approve threshold — forces human review whenever the labeler
-    didn't get every field.
+    Two independent halves so a fully-labeled template that fails every
+    trial can't cruise past auto-approval, and a partially-labeled
+    template that renders perfectly still earns meaningful credit:
+      - Field identification (50 pts): proportional to labeled / total.
+        A field labeled with the raw AcroForm default (e.g. "Text Field
+        158") counts as unlabeled.
+      - Trial verdicts (50 pts): 10 pts per trial the AI verdict marked
+        passed, capped at 50 (5 trials × 10 = full credit).
+
+    Freeze failure short-circuits to 0 — there's no meaningful template
+    to score if it never made it into the catalog.
     """
     if not freeze_ok:
         return 0.0
     total = len(proposal.suggestions)
     if total == 0:
-        base = 0.0
+        label_score = 0.0
     else:
         labeled = sum(
             1
@@ -151,10 +167,11 @@ def _score(proposal: MappingProposal, *, render_ok: bool, freeze_ok: bool) -> fl
             if s.source == "ai"
             and not _is_default_label(s.field.name, s.field.description)
         )
-        base = 100.0 * (labeled / total)
-    if not render_ok:
-        base = min(base, 50.0)
-    return round(base, 2)
+        label_score = _LABEL_SCORE_MAX * (labeled / total)
+    trials = executed_trials or []
+    trial_passes = sum(1 for t in trials if t.passed)
+    trial_score = min(_TRIAL_SCORE_MAX, _TRIAL_SCORE_PER_PASS * trial_passes)
+    return round(label_score + trial_score, 2)
 
 
 def _record_event_row(
@@ -186,28 +203,21 @@ async def _draw_pdf_placements(
     tv_id: uuid.UUID,
     pdf_bytes: bytes,
 ) -> None:
-    """Synthesize placements for a flat PDF via the vision detector.
+    """Synthesize placements for a flat PDF via deterministic geometry.
 
     Mirrors the manual `/versions/{id}/placements/ai-draw` UI endpoint —
     for PDFs with no AcroForm widgets, upload_pdf_template leaves the
     placement list empty, which would otherwise trip freeze's
-    "no field placements" reject. Vision detects field boxes on each
-    page and writes them so the downstream labeler + freeze see the same
-    shape as an AcroForm PDF.
+    "no field placements" reject. Geometric detection (pymupdf drawing
+    primitives) locates field regions on each page and writes them so the
+    downstream labeler + freeze see the same shape as an AcroForm PDF.
 
-    Best-effort: no backend or a failed detection leaves placements empty
-    and the caller falls through to the existing freeze-fails path.
+    Best-effort: any failure leaves placements empty and the caller falls
+    through to the existing freeze-fails path.
     """
     from sqlalchemy.orm.attributes import flag_modified
 
     from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
-    from docgen.designtime.pdf_vision_backend import pick_pdf_vision_backend
-
-    settings = get_settings()
-    backend = pick_pdf_vision_backend(settings)
-    if backend is None:
-        log.info("inbox_pdf_ai_draw_skipped", reason="no_vision_backend")
-        return
 
     tv = await session.get(TemplateVersion, tv_id)
     if tv is None or tv.pdf_flavor != "flat":
@@ -217,19 +227,11 @@ async def _draw_pdf_placements(
         return
 
     try:
-        boxes = await detect_fields_in_pdf(
-            pdf_bytes,
-            api_key=backend["api_key"],
-            chat_model=backend["chat_model"],
-            timeout=backend["timeout"],
-            base_url=backend["base_url"],
-            extra_body=backend["extra_body"],
-        )
+        boxes = await detect_fields_in_pdf(pdf_bytes)
     except Exception as e:
         log.warning(
             "inbox_pdf_ai_draw_failed",
             version_id=str(tv_id),
-            provider=backend["provider"],
             error=f"{type(e).__name__}: {e}",
         )
         return
@@ -252,7 +254,6 @@ async def _draw_pdf_placements(
         log.info(
             "inbox_pdf_ai_draw_empty",
             version_id=str(tv_id),
-            provider=backend["provider"],
         )
         return
 
@@ -264,7 +265,6 @@ async def _draw_pdf_placements(
     log.info(
         "inbox_pdf_ai_drawn",
         version_id=str(tv_id),
-        provider=backend["provider"],
         detected=len(placements),
     )
 
@@ -278,10 +278,10 @@ async def _label_pdf_placements(
     """Label the freshly-uploaded PDF's placements.
 
     AcroForm templates label deterministically from widget rects + page
-    text-span geometry — no vision model needed, no vision backend
-    required. Flat PDFs still go through the vision labeler because the
-    boxes come from `_draw_pdf_placements` and don't have printed
-    captions attached to them geometrically.
+    text-span geometry — no model call needed. Flat PDFs go through the
+    text-only Nemotron labeler because the boxes come from
+    `_draw_pdf_placements` and don't have printed captions attached to
+    them geometrically.
 
     Best-effort: any error (missing backend, HTTP timeout, JSON parse
     failure) is logged and swallowed — freeze proceeds with raw AcroForm
@@ -295,8 +295,8 @@ async def _label_pdf_placements(
         _geometric_labels_for_widgets,
         label_fields_in_pdf,
     )
+    from docgen.designtime.pdf_labeler_backend import pick_pdf_labeler_backend
     from docgen.designtime.pdf_payload_key import shorten_payload_key, slugify_key
-    from docgen.designtime.pdf_vision_backend import pick_pdf_vision_backend
 
     tv = await session.get(TemplateVersion, tv_id)
     if tv is None or not tv.pdf_field_placements:
@@ -341,22 +341,19 @@ async def _label_pdf_placements(
         provider_tag = "geometric"
     else:
         settings = get_settings()
-        backend = pick_pdf_vision_backend(settings)
+        backend = pick_pdf_labeler_backend(settings)
         if backend is None:
-            log.info("inbox_pdf_ai_label_skipped", reason="no_vision_backend")
+            log.info("inbox_pdf_ai_label_skipped", reason="no_labeler_backend")
             return
         try:
             labels_by_index = await label_fields_in_pdf(
                 pdf_bytes,
                 fields,
                 api_key=backend["api_key"],
-                ocr_model=backend["ocr_model"],
-                chat_model=backend["chat_model"],
+                text_model=backend["text_model"],
+                base_url=backend["base_url"],
                 timeout=backend["timeout"],
                 pdf_flavor=tv.pdf_flavor,
-                base_url=backend["base_url"],
-                ocr_via_vision_chat=backend["ocr_via_vision_chat"],
-                ocr_concurrency=backend["ocr_concurrency"],
                 extra_body=backend["extra_body"],
             )
         except Exception as e:
@@ -901,7 +898,7 @@ def process_message(
             # the sender whether the template renders at all.
             rendered, ext, render_error = _test_render(tv, settings=settings)
 
-    score = _score(proposal, render_ok=render_error is None, freeze_ok=freeze_ok)
+    score = _score(proposal, freeze_ok=freeze_ok, executed_trials=executed_trials)
     event.score = score
     threshold = auto_approve_threshold(tenant)
 

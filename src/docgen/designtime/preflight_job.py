@@ -9,7 +9,8 @@ storage, keeping the request path free of multi-second inference latency.
 
 Contract (input):
     template bytes on disk (--input path)
-    kind = "docx" (prototype scope — .pdf follows once vision-LM path lands here)
+    kind = "docx" (prototype scope — .pdf detect/label follows once the
+                   Nemotron labeler path lands in this job container)
     provider config = same overlay shape as Tenant.ai_provider_config
         { provider, base_url, api_key, model, timeout_seconds }
     (falls back to DOCGEN_AI_* env if not supplied)

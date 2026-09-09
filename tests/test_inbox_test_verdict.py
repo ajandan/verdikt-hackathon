@@ -1,15 +1,23 @@
 """AI verdict scorer behavior for the multi-test executor.
 
 Score_trial returns a pass/fail + one-sentence explanation for each
-rendered trial. Tests cover the three paths reviewers care about:
+rendered trial. Tests cover the reviewer-visible paths:
 
   - render errored → auto-fail, no LLM call (verdict names the error)
-  - no AI provider → auto-pass with a "not evaluated" note
+  - no AI provider / unreachable → auto-fail with a note (used to be an
+    auto-pass; that silently inflated scores when reasoning models
+    returned empty content, so unreachable-model trials now fail loudly)
   - LLM answers → pass/fail flows through as-is
+
+These tests exercise the DOCX (text) path. The PDF path uses the vision
+model with page-image content parts; that's covered by the smoke test
+against a rendered blob rather than a unit test to avoid mocking the
+image encoder + vision endpoint.
 """
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import httpx
 
@@ -17,52 +25,43 @@ from docgen.inbox import test_verdict
 from docgen.inbox.test_verdict import Verdict, score_trial
 
 
-def test_render_error_short_circuits_to_fail() -> None:
-    """A render_failed trial must not spend a model call to fail it."""
-    v = score_trial(
+def _call(**overrides):
+    """Default DOCX-path kwargs so each test only sets what it exercises."""
+    kwargs = dict(
         payload={"foo": "bar"},
-        rendered_text="",
-        render_error="render_failed: OSError: disk full",
+        rendered=None,
+        rendered_text="some rendered content",
+        ext="docx",
+        render_error=None,
         provider_config={"provider": "nebius"},
         ai_base_url=None,
         ai_api_key="nb-secret",
         ai_model="",
         timeout=1.0,
     )
+    kwargs.update(overrides)
+    return score_trial(**kwargs)
+
+
+def test_render_error_short_circuits_to_fail() -> None:
+    v = _call(rendered_text="", render_error="render_failed: OSError: disk full")
     assert isinstance(v, Verdict)
     assert v.passed is False
     assert "render_failed" in v.verdict.lower() or "render failed" in v.verdict.lower()
 
 
 def test_empty_rendered_text_fails() -> None:
-    v = score_trial(
-        payload={"foo": "bar"},
-        rendered_text="   \n\n",
-        render_error=None,
-        provider_config={"provider": "nebius"},
-        ai_base_url=None,
-        ai_api_key="nb-secret",
-        ai_model="",
-        timeout=1.0,
-    )
+    v = _call(rendered_text="   \n\n")
     assert v.passed is False
 
 
-def test_no_provider_passes_with_note() -> None:
-    """No AI available → don't spuriously fail the trial. Verdict must
-    make it obvious no AI actually looked at the output."""
-    v = score_trial(
-        payload={"foo": "bar"},
-        rendered_text="some rendered content",
-        render_error=None,
-        provider_config=None,
-        ai_base_url=None,
-        ai_api_key=None,
-        ai_model="",
-        timeout=1.0,
-    )
-    assert v.passed is True
-    assert "not ai-evaluated" in v.verdict.lower()
+def test_no_provider_fails_with_note() -> None:
+    """No AI available → fail the trial loudly. Old behavior was auto-pass
+    with a note, but that silently inflated scores whenever the model
+    returned empty content."""
+    v = _call(provider_config=None, ai_api_key=None)
+    assert v.passed is False
+    assert "manual review" in v.verdict.lower() or "unavailable" in v.verdict.lower()
 
 
 def test_llm_response_flows_through(monkeypatch) -> None:
@@ -83,23 +82,12 @@ def test_llm_response_flows_through(monkeypatch) -> None:
 
     monkeypatch.setattr(test_verdict.httpx, "Client", _Client)
 
-    v = score_trial(
-        payload={"member_name": "Alice"},
-        rendered_text="Dear Alice, ...",
-        render_error=None,
-        provider_config={"provider": "nebius"},
-        ai_base_url=None,
-        ai_api_key="nb-secret",
-        ai_model="",
-        timeout=1.0,
-    )
+    v = _call(payload={"member_name": "Alice"}, rendered_text="Dear Alice, ...")
     assert v.passed is True
     assert "Alice" in v.verdict or "payload" in v.verdict
 
 
 def test_schema_reaches_prompt_for_semantic_check(monkeypatch) -> None:
-    """When a schema is passed, the field names + types show up in the user
-    prompt so the LLM can flag semantic-slot swaps (ZIP in state, etc.)."""
     captured: dict[str, Any] = {}
 
     class _Resp:
@@ -120,15 +108,9 @@ def test_schema_reaches_prompt_for_semantic_check(monkeypatch) -> None:
 
     monkeypatch.setattr(test_verdict.httpx, "Client", _Client)
 
-    v = score_trial(
+    v = _call(
         payload={"zip_code": "CA", "state": "94103"},
         rendered_text="ZIP: CA\nState: 94103",
-        render_error=None,
-        provider_config={"provider": "nebius"},
-        ai_base_url=None,
-        ai_api_key="nb-secret",
-        ai_model="",
-        timeout=1.0,
         schema={
             "fields": [
                 {"name": "zip_code", "type": "string", "description": "5-digit ZIP"},
@@ -136,11 +118,9 @@ def test_schema_reaches_prompt_for_semantic_check(monkeypatch) -> None:
             ]
         },
     )
-    # Schema summary must show up in the user prompt so the LLM has context.
     user_msg = captured["body"]["messages"][1]["content"]
     assert "zip_code" in user_msg and "5-digit ZIP" in user_msg
     assert "state" in user_msg and "2-letter" in user_msg
-    # The verdict names the swapped fields — this is what the reviewer sees.
     assert v.passed is False
     assert "zip_code" in v.verdict and "state" in v.verdict
 
@@ -163,21 +143,17 @@ def test_llm_says_fail(monkeypatch) -> None:
 
     monkeypatch.setattr(test_verdict.httpx, "Client", _Client)
 
-    v = score_trial(
+    v = _call(
         payload={"member_name": "Alice"},
         rendered_text="Dear {{ member_name }}, ...",
-        render_error=None,
-        provider_config={"provider": "nebius"},
-        ai_base_url=None,
-        ai_api_key="nb-secret",
-        ai_model="",
-        timeout=1.0,
     )
     assert v.passed is False
     assert "placeholder" in v.verdict.lower()
 
 
-def test_llm_http_error_passes_with_note(monkeypatch) -> None:
+def test_llm_http_error_fails_with_note(monkeypatch) -> None:
+    """AI unreachable now fails the trial. Reviewers see the reason and
+    can retry manually — better than silently green-lighting the trial."""
     class _Client:
         def __init__(self, *a, **kw): ...
         def __enter__(self): return self
@@ -187,17 +163,6 @@ def test_llm_http_error_passes_with_note(monkeypatch) -> None:
 
     monkeypatch.setattr(test_verdict.httpx, "Client", _Client)
 
-    v = score_trial(
-        payload={"member_name": "Alice"},
-        rendered_text="Dear Alice, ...",
-        render_error=None,
-        provider_config={"provider": "nebius"},
-        ai_base_url=None,
-        ai_api_key="nb-secret",
-        ai_model="",
-        timeout=1.0,
-    )
-    # AI unreachable is an infra failure, not a template failure — don't
-    # spuriously fail the trial. The note tells the reviewer why.
-    assert v.passed is True
-    assert "unreachable" in v.verdict.lower() or "not ai" in v.verdict.lower()
+    v = _call(payload={"member_name": "Alice"}, rendered_text="Dear Alice, ...")
+    assert v.passed is False
+    assert "unreachable" in v.verdict.lower() or "unavailable" in v.verdict.lower()

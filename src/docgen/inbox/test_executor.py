@@ -87,27 +87,35 @@ def _content_type(ext: str) -> str:
     )
 
 
-def _payload_has_non_latin1(payload: dict[str, Any]) -> bool:
-    """True when any string value contains characters outside Latin-1.
+def _sanitize_non_latin1(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    """Empty out string values with codepoints > 0xFF; return (clean, skipped).
 
-    The AcroForm renderer ships with a Helvetica-family font that has no
-    CJK / Devanagari / Arabic / Cyrillic-extended glyphs — those codepoints
-    render as `.notdef` substitutions ("II" / "IIII") which is a known
-    limitation of the current pipeline. We skip these trials rather than
-    fail them so the reviewer sees an honest "not supported" rather than
-    a misleading render bug.
+    The AcroForm renderer's default font (Helvetica family) has no CJK /
+    Devanagari / Cyrillic-extended glyphs — those codepoints render as
+    `.notdef` substitutions ("II" / "IIII"). Rather than nuking the whole
+    trial, sanitize only the offending scalar values so the rest of the
+    document still renders and the verdict can score the fields that
+    survived. `skipped` names the fields that were emptied so the reply
+    UI can flag them explicitly.
     """
+    skipped: list[str] = []
 
-    def _walk(v: Any) -> bool:
+    def _clean(v: Any, path: str) -> Any:
         if isinstance(v, str):
-            return any(ord(ch) > 0xFF for ch in v)
+            if any(ord(ch) > 0xFF for ch in v):
+                skipped.append(path)
+                return ""
+            return v
         if isinstance(v, dict):
-            return any(_walk(x) for x in v.values())
+            return {k: _clean(x, f"{path}.{k}" if path else k) for k, x in v.items()}
         if isinstance(v, list):
-            return any(_walk(x) for x in v)
-        return False
+            return [_clean(x, f"{path}[{i}]") for i, x in enumerate(v)]
+        return v
 
-    return _walk(payload)
+    cleaned = {k: _clean(v, k) for k, v in payload.items()}
+    return cleaned, skipped
 
 
 def execute_test_matrix(
@@ -154,53 +162,22 @@ def execute_test_matrix(
     rows: list[InboxTestResult] = []
 
     for i, trial in enumerate(trials, start=1):
-        # Skip trials whose payload carries characters outside Latin-1 —
-        # the AcroForm renderer's default font can't glyph-map them, so a
-        # render would just produce substitution characters and a
-        # misleading FAIL verdict. Mark as PASS with a "skipped" note.
-        trial_ext = "pdf" if tv.pdf_flavor is not None else "docx"
-        if _payload_has_non_latin1(trial.payload):
+        # Sanitize per-field: any string value carrying codepoints > 0xFF
+        # is emptied so the rest of the document still renders. The
+        # skipped-field list is prepended to the verdict so the reviewer
+        # can tell which fields the renderer couldn't handle.
+        render_payload, skipped_fields = _sanitize_non_latin1(trial.payload)
+        if skipped_fields:
             log.info(
-                "inbox_test_matrix_trial_skipped_unicode",
+                "inbox_test_matrix_trial_sanitized_unicode",
                 event_id=str(event_id),
                 ordinal=i,
                 name=trial.name,
+                skipped_fields=skipped_fields,
             )
-            skip_note = (
-                "Skipped: payload contains non-Latin-1 characters; the "
-                "AcroForm renderer's default font does not embed those "
-                "glyphs. Known pipeline limitation — trial passed by policy."
-            )
-            executed.append(
-                ExecutedTrial(
-                    ordinal=i,
-                    name=trial.name,
-                    description=trial.description,
-                    payload=trial.payload,
-                    rendered=None,
-                    ext=trial_ext,
-                    render_error=None,
-                    passed=True,
-                    verdict=skip_note,
-                    blob_key=None,
-                )
-            )
-            rows.append(
-                InboxTestResult(
-                    inbox_event_id=event_id,
-                    ordinal=i,
-                    name=trial.name,
-                    data_json=trial.payload,
-                    blob_key=None,
-                    ext=None,
-                    verdict=skip_note,
-                    passed=True,
-                )
-            )
-            continue
 
         rendered, ext, render_error = _render_one(
-            tv, trial.payload, settings=settings
+            tv, render_payload, settings=settings
         )
 
         blob_key: str | None = None
@@ -238,8 +215,12 @@ def execute_test_matrix(
                     error=f"{type(e).__name__}: {e}",
                 )
 
+        # Score against the render_payload — that's what actually reached
+        # the rendered document. If any fields were sanitized out, the
+        # verdict rightly won't find them in the text; that's a known
+        # limitation, not a failure, so we prepend a skip note.
         verdict = score_trial(
-            payload=trial.payload,
+            payload=render_payload,
             rendered=rendered,
             rendered_text=rendered_text,
             ext=ext,
@@ -255,6 +236,17 @@ def execute_test_matrix(
             timeout=settings.ai_timeout_seconds,
             schema=tv.schema or None,
         )
+        if skipped_fields:
+            skip_note = (
+                f"[Sanitized {len(skipped_fields)} field(s) with non-Latin-1 "
+                f"characters — known font limitation: {', '.join(skipped_fields[:5])}"
+                + ("…" if len(skipped_fields) > 5 else "")
+                + "] "
+            )
+            verdict = type(verdict)(
+                passed=verdict.passed,
+                verdict=(skip_note + verdict.verdict)[:1000],
+            )
 
         executed.append(
             ExecutedTrial(

@@ -28,10 +28,15 @@ dependencies = [
     "docxtpl>=0.19",
     "python-docx>=1.1",
     # PDF templating stack (kind='pdf'):
-    #   pypdf     — AcroForm widget read + fill, page merge for flat overlay
-    #   pymupdf   — page-image previews for the flat placement editor + preflight
-    #   reportlab — draw the value overlay layer before merging with pypdf
+    #   pypdf      — AcroForm widget read + fill, page merge for flat overlay
+    #   pypdfium2  — page-image previews for the flat placement editor + preflight (Apache-2.0)
+    #   pdfplumber — vector geometry + text-with-bboxes for field detection (MIT)
+    #   reportlab  — draw the value overlay layer before merging with pypdf
     "pypdf>=5.0",
+    "pypdfium2>=4.30",
+    "pdfplumber>=0.11",
+    # pymupdf is being phased out (ADR-0001 Option 2) — kept during incremental
+    # migration so tests pass at each step; removed in the final cleanup commit.
     "pymupdf>=1.24",
     "reportlab>=4.0",
     "jinja2>=3.1.5",

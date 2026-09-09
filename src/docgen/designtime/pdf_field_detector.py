@@ -30,6 +30,8 @@ from typing import Any
 
 import httpx
 
+from docgen.designtime.geometry import Rect
+
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
 # Nebius Token Factory returns 429/503 during transient overload. One failed
@@ -167,7 +169,7 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
 
     # Grab all text spans once so we can reject lines that sit under body
     # text (underline decorations, strikethroughs).
-    text_spans: list[Any] = []
+    text_spans: list[Rect] = []
     try:
         td = page.get_text("dict")
         for block in td.get("blocks", []):
@@ -175,18 +177,18 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
                 for span in line.get("spans", []):
                     bbox = span.get("bbox")
                     if bbox and len(bbox) == 4:
-                        text_spans.append(pymupdf.Rect(*bbox))
+                        text_spans.append(Rect(*bbox))
     except Exception:
         pass
 
-    def _text_covers(rect: Any, threshold: float = 0.4) -> bool:
+    def _text_covers(rect: Rect, threshold: float = 0.4) -> bool:
         """True if body-text spans cover >threshold of `rect`'s width —
         indicating an underline/strikethrough decoration rather than a blank
         field."""
         if rect.width <= 0:
             return False
         covered = 0.0
-        y_band = pymupdf.Rect(
+        y_band = Rect(
             rect.x0, rect.y0 - 12.0, rect.x1, rect.y1 + _TEXT_OVERLAP_TOL_PT
         )
         for span in text_spans:
@@ -255,7 +257,7 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
     _UNDERLINE_DOWN = -1.0
 
     for x0, y0, x1, _y1 in lines:
-        rect = pymupdf.Rect(x0, y0 - _UNDERLINE_UP, x1, y0 + _UNDERLINE_DOWN)
+        rect = Rect(x0, y0 - _UNDERLINE_UP, x1, y0 + _UNDERLINE_DOWN)
         if _text_covers(rect):
             continue  # underline decoration under body text
         if _is_grid_line(x0, y0, x1):
@@ -282,7 +284,7 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
         # lines but tall-slim filled shapes). Treat as text field.
         if h < 4.0 and w >= _MIN_LINE_LEN_PT:
             line_y = ry0 + h / 2.0
-            candidate = pymupdf.Rect(
+            candidate = Rect(
                 rx0, line_y - _UNDERLINE_UP, rx1, line_y + _UNDERLINE_DOWN
             )
             if _text_covers(candidate):
@@ -310,7 +312,7 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
         if w <= _MAX_CHECKBOX_PT and h <= _MAX_CHECKBOX_PT and 0.6 <= aspect <= 1.6:
             ftype = "checkbox"
         else:
-            rect = pymupdf.Rect(rx0, ry0, rx1, ry1)
+            rect = Rect(rx0, ry0, rx1, ry1)
             if _text_covers(rect):
                 continue
             ftype = "text"
@@ -622,7 +624,7 @@ def _geometric_labels_for_widgets(
                             if not text or not bbox or len(bbox) != 4:
                                 continue
                             spans.append({
-                                "rect": pymupdf.Rect(*bbox),
+                                "rect": Rect(*bbox),
                                 "text": text,
                                 "size": float(span.get("size") or 0),
                                 "flags": int(span.get("flags") or 0),
@@ -636,7 +638,7 @@ def _geometric_labels_for_widgets(
             for f in page_fields:
                 try:
                     idx = int(f["index"])
-                    wr = pymupdf.Rect(
+                    wr = Rect(
                         float(f.get("x_pct") or 0) * pw,
                         float(f.get("y_pct") or 0) * ph,
                         (float(f.get("x_pct") or 0) + float(f.get("w_pct") or 0)) * pw,

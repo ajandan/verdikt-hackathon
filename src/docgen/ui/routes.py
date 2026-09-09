@@ -1467,12 +1467,15 @@ async def placement_editor(
 
     # Page count lives inside the PDF; read it lazily so we don't pay the
     # cost when other routes fetch the version row.
-    import pymupdf  # type: ignore[import-untyped]
+    import pypdfium2  # type: ignore[import-untyped]
 
     settings = get_settings()
     pdf_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-        page_count = doc.page_count
+    doc = pypdfium2.PdfDocument(pdf_bytes)
+    try:
+        page_count = len(doc)
+    finally:
+        doc.close()
 
     template = await session.get(Template, tv.template_id)
     placements = (tv.pdf_field_placements or {}).get("placements", [])
@@ -2100,21 +2103,28 @@ async def pdf_page_preview(
     try:
         png = get_object(settings.s3_bucket_documents, cache_key)
     except Exception:
-        # Cache miss: raster the page. pymupdf is imported lazily so the
-        # UI module doesn't pay the ~150ms import cost at process start.
-        import pymupdf  # type: ignore[import-untyped]
+        # Cache miss: raster the page. pypdfium2 (Apache-2.0, wraps Google's
+        # PDFium) is imported lazily so the UI module doesn't pay the import
+        # cost at process start.
+        import pypdfium2  # type: ignore[import-untyped]
 
         pdf_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
-        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-            if page_num > doc.page_count:
+        doc = pypdfium2.PdfDocument(pdf_bytes)
+        try:
+            page_count = len(doc)
+            if page_num > page_count:
                 raise HTTPException(
-                    404, f"page_num {page_num} > page_count {doc.page_count}"
+                    404, f"page_num {page_num} > page_count {page_count}"
                 ) from None
-            page = doc.load_page(page_num - 1)
+            page = doc[page_num - 1]
             # 150 DPI = 2.083x the 72-DPI PDF user space. Enough for
             # legible text in the editor without blowing up payload size.
-            pix = page.get_pixmap(matrix=pymupdf.Matrix(2.083, 2.083), alpha=False)
-            png = pix.tobytes("png")
+            pil_image = page.render(scale=2.083).to_pil()
+            buf = io.BytesIO()
+            pil_image.save(buf, format="PNG")
+            png = buf.getvalue()
+        finally:
+            doc.close()
         put_object(settings.s3_bucket_documents, cache_key, png, content_type="image/png")
 
     return StreamingResponse(

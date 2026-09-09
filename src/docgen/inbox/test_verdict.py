@@ -2,11 +2,12 @@
 rendered trial output looks correct given its input payload.
 
 For both PDF and DOCX outputs we send the payload JSON alongside a
-plain-text extract of the rendered document (pymupdf `get_text("blocks")`
-with y-cluster + x sort so filled AcroForms read in visual order). The
+plain-text extract of the rendered document. PDF text extraction uses
+pdfplumber (`page.extract_words()`) with a y-cluster + x sort so filled
+AcroForms read in visual order instead of content-stream order. The
 scorer used to rasterize PDF pages to PNG and hand them to a vision-LM,
-but no NVIDIA vision model is available on Nebius Token Factory yet — the
-text path is the compliant option, and Nemotron-Super handles the QA
+but no NVIDIA vision model is available on Nebius Token Factory yet —
+the text path is the compliant option, and Nemotron-Super handles the QA
 prompt reliably.
 
 Failure semantics: an unreachable model or an empty content response marks
@@ -83,22 +84,36 @@ def _extract_docx_text(docx_bytes: bytes) -> str:
 def _extract_pdf_text(pdf_bytes: bytes) -> str:
     """Text extract from a rendered PDF.
 
-    Uses pymupdf `get_text("blocks")` with y-cluster + x sort so a filled
-    AcroForm reads in visual order instead of content-stream order.
+    Uses pdfplumber `page.extract_words()` and reassembles words into rows
+    with a y-cluster (round(top / 8.0)) + x sort so a filled AcroForm
+    reads in visual order instead of content-stream order.
     """
     try:
-        import pymupdf  # type: ignore[import-untyped]
+        import pdfplumber  # type: ignore[import-untyped]
 
         parts: list[str] = []
-        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-            for page in doc:
-                blocks = page.get_text("blocks") or []
-                blocks.sort(key=lambda b: (round(b[1] / 8.0), b[0]))
-                page_lines = [
-                    (b[4] or "").strip()
-                    for b in blocks
-                    if isinstance(b[4], str) and b[4].strip()
-                ]
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                words = page.extract_words() or []
+                if not words:
+                    continue
+                # Bucket words into visual rows so a two-column form reads
+                # left-to-right, top-to-bottom rather than page-content-stream
+                # order. 8pt buckets are wider than the largest font size we
+                # expect to render at (12pt body), so a single visual row
+                # never gets split across two buckets.
+                rows: dict[int, list[tuple[float, str]]] = {}
+                for w in words:
+                    bucket = round(float(w["top"]) / 8.0)
+                    rows.setdefault(bucket, []).append(
+                        (float(w["x0"]), str(w["text"]))
+                    )
+                page_lines: list[str] = []
+                for bucket in sorted(rows):
+                    row = sorted(rows[bucket], key=lambda t: t[0])
+                    line = " ".join(text for _x, text in row).strip()
+                    if line:
+                        page_lines.append(line)
                 if page_lines:
                     parts.append("\n".join(page_lines))
         return "\n".join(parts)

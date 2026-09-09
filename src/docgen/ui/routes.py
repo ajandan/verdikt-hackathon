@@ -4364,6 +4364,8 @@ async def inbox_detail(
         str(t.id): sign_inbox_test_token(str(t.id)) for t in trials
     }
 
+    models_used = _resolve_inbox_models(tenant=tenant, tv=tv)
+
     return templates.TemplateResponse(
         request,
         "inbox_detail.html",
@@ -4378,8 +4380,67 @@ async def inbox_detail(
             cc_addrs=list(ev.cc_addrs or []),
             trials=trials,
             trial_download_tokens=trial_download_tokens,
+            models_used=models_used,
         ),
     )
+
+
+def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
+    """Return the AI models that ran for this inbox event, in pipeline order.
+
+    Reflects the same precedence resolve_tenant / test_planner / test_verdict
+    use at runtime: tenant.ai_provider_config wins, then deployment settings,
+    then the provider's built-in defaults. Vision rows only appear for PDF
+    templates, since the DOCX path doesn't invoke the labeler.
+    """
+    settings = get_settings()
+    cfg = (tenant.ai_provider_config if tenant else None) or {}
+    provider = cfg.get("provider") or settings.ai_provider or "stub"
+
+    from docgen.providers.nebius import DEFAULT_MODEL as _NEBIUS_DEFAULT
+
+    default_design_model = (
+        _NEBIUS_DEFAULT if provider == "nebius" else (settings.ai_model or "—")
+    )
+    design_model = cfg.get("model") or settings.ai_model or default_design_model
+    verdict_model = (
+        cfg.get("verdict_model")
+        or settings.ai_verdict_model
+        or design_model
+    )
+
+    rows: list[dict[str, str]] = [
+        {
+            "stage": "Mapping proposal / test planner",
+            "model": design_model,
+            "provider": provider,
+            "purpose": "Extracts field candidates and generates the 5 test payloads.",
+        },
+        {
+            "stage": "Test verdict scorer",
+            "model": verdict_model,
+            "provider": provider,
+            "purpose": "Reviews each rendered trial for missing values and slot swaps.",
+        },
+    ]
+
+    is_pdf = tv is not None and tv.pdf_flavor is not None
+    if is_pdf:
+        rows.insert(0, {
+            "stage": "PDF vision labeler",
+            "model": settings.nebius_vision_model,
+            "provider": "nebius",
+            "purpose": "Reads the PDF page image and captions each field placement.",
+        })
+        if tv.pdf_flavor == "flat":
+            rows.insert(0, {
+                "stage": "PDF vision detector (AI Draw)",
+                "model": settings.nebius_vision_model,
+                "provider": "nebius",
+                "purpose": "Locates form-field regions on flat (non-AcroForm) PDFs.",
+            })
+
+    return rows
 
 
 @router.post("/inbox/{event_id}/approve", response_model=None)

@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     ai_model: str = ""
     ai_timeout_seconds: float = 60.0
 
+    # Model used for the inbox test-verdict scoring pass. Kept separate from
+    # `ai_model` because the primary design-time model (Nemotron-Nano) is a
+    # reasoning model that spirals on QA tasks and exhausts its output tokens
+    # on the reasoning trace, returning empty content. Nemotron-Super with
+    # thinking disabled is fast + reliable for one-shot JSON verdicts.
+    # Blank falls back to `ai_model`.
+    ai_verdict_model: str = "nvidia/nemotron-3-super-120b-a12b"
+
     # Where the design-time preflight + AI mapping proposal runs.
     #   inline      — in-process, same worker as the web request (current).
     #   subprocess  — shell out to the standalone preflight_job CLI. Same

@@ -200,8 +200,17 @@ def plan_trials(
             resp.raise_for_status()
             data = resp.json()
         content = data["choices"][0]["message"]["content"]
+        if not content:
+            raise ValueError("empty content in LLM response")
         parsed = json.loads(content)
-    except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as e:
+    except (
+        httpx.HTTPError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as e:
         log.warning(
             "inbox_test_planner_llm_failed",
             error=f"{type(e).__name__}: {e}",

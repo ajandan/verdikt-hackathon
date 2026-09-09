@@ -204,7 +204,11 @@ def score_trial(
     provider_name = cfg.get("provider") or ai_provider or ""
     base_url = cfg.get("base_url") or ai_base_url
     api_key = cfg.get("api_key") or ai_api_key
-    model = cfg.get("model") or ai_model
+    # Verdict scoring runs on its own model — the design-time Nemotron-Nano
+    # is a reasoning model that spirals on QA tasks and exhausts its output
+    # tokens on the reasoning trace. Tenant config's `verdict_model` wins,
+    # then the deployment-wide setting, then the design-time model.
+    model = cfg.get("verdict_model") or ai_model
     timeout_s = float(cfg.get("timeout_seconds") or timeout)
 
     if provider_name == "nebius":
@@ -233,6 +237,14 @@ def score_trial(
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.0,
+        # Cap generation so a runaway response can't stall the executor.
+        # 4000 leaves plenty of room for a two-sentence verdict.
+        "max_tokens": 4000,
+        # Suppress the vLLM reasoning trace — Nemotron models default to it
+        # and will happily spend their entire output budget on <think>
+        # tokens, returning empty `content`. This one-shot pass/fail call
+        # doesn't need chain-of-thought.
+        "chat_template_kwargs": {"thinking": False},
     }
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -249,8 +261,17 @@ def score_trial(
             resp.raise_for_status()
             data = resp.json()
         content = data["choices"][0]["message"]["content"]
+        if not content:
+            raise ValueError("empty content in LLM response")
         parsed = json.loads(content)
-    except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as e:
+    except (
+        httpx.HTTPError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ) as e:
         log.warning(
             "inbox_test_verdict_llm_failed",
             error=f"{type(e).__name__}: {e}",

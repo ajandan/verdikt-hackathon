@@ -619,11 +619,16 @@ def _build_reply_body(
             download_url = trial_download_urls.get(t.ordinal)
             if download_url:
                 lines.append(f"     Download: {download_url}")
-    lines += [
-        "",
-        "A test-rendered document is attached so you can spot-check the field mapping.",
-        "Reply APPROVE to publish, or REJECT to discard.",
-    ]
+    lines += [""]
+    if trials:
+        lines.append(
+            "Download any trial from the table above to spot-check the field mapping."
+        )
+    else:
+        lines.append(
+            "A test-rendered document is attached so you can spot-check the field mapping."
+        )
+    lines.append("Reply APPROVE to publish, or REJECT to discard.")
     text = "\n".join(lines)
 
     html_lines = [f"<p>{_html_escape(headline)}</p>", "<ul>"]
@@ -660,10 +665,16 @@ def _build_reply_body(
     if trials:
         html_lines.append(_build_trials_table_html(trials, trial_download_urls))
 
-    html_lines.append(
-        "<p>The first test render is attached. Reply <b>APPROVE</b> to publish "
-        "or <b>REJECT</b> to discard.</p>"
-    )
+    if trials:
+        html_lines.append(
+            "<p>Download any trial from the table above to spot-check the field "
+            "mapping. Reply <b>APPROVE</b> to publish or <b>REJECT</b> to discard.</p>"
+        )
+    else:
+        html_lines.append(
+            "<p>A test-rendered document is attached. Reply <b>APPROVE</b> to publish "
+            "or <b>REJECT</b> to discard.</p>"
+        )
     return text, "".join(html_lines)
 
 
@@ -941,7 +952,9 @@ def process_message(
     )
 
     attachments: list[Attachment] = []
-    if rendered is not None:
+    if rendered is not None and not executed_trials:
+        # Only attach when the trial matrix produced nothing — otherwise the
+        # per-trial download links in the summary table are the artifact.
         content_type = "application/pdf" if ext == "pdf" else (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )

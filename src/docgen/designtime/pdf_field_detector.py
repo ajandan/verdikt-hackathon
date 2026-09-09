@@ -38,6 +38,62 @@ import httpx
 
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
+# Nebius Token Factory returns 429/503 during transient overload. One failed
+# labeling batch cancels the whole `label_fields_in_pdf` gather, which drops
+# every AI label for the template and leaves it stuck at raw AcroForm names
+# like "Text Field 158". Retry with jitter so a 900ms blip doesn't kill the
+# ingest.
+_RETRY_MAX_ATTEMPTS = 4
+_RETRY_BACKOFF_BASE_S = 1.5
+
+
+async def _post_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict[str, str],
+    json_body: dict[str, Any],
+    op: str,
+) -> httpx.Response:
+    """POST with retry on 429/5xx and connection errors.
+
+    Backoff = base * 2**attempt + small jitter, honoring Retry-After when the
+    server sends one. Raises the last exception if all attempts fail so the
+    caller's existing error-handling still applies.
+    """
+    import random
+
+    last_exc: Exception | None = None
+    for attempt in range(_RETRY_MAX_ATTEMPTS):
+        try:
+            resp = await client.post(url, headers=headers, json=json_body)
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError, httpx.TimeoutException) as e:
+            last_exc = e
+            if attempt == _RETRY_MAX_ATTEMPTS - 1:
+                raise
+            await asyncio.sleep(
+                _RETRY_BACKOFF_BASE_S * (2 ** attempt) + random.uniform(0, 0.5)
+            )
+            continue
+        if resp.status_code < 500 and resp.status_code != 429:
+            return resp
+        # Transient upstream error — retry.
+        if attempt == _RETRY_MAX_ATTEMPTS - 1:
+            return resp  # let caller's raise_for_status() surface the final error
+        retry_after = resp.headers.get("retry-after")
+        try:
+            wait_s = float(retry_after) if retry_after else 0.0
+        except ValueError:
+            wait_s = 0.0
+        wait_s = max(
+            wait_s,
+            _RETRY_BACKOFF_BASE_S * (2 ** attempt) + random.uniform(0, 0.5),
+        )
+        await asyncio.sleep(wait_s)
+    # Unreachable — the loop always returns or raises.
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f"{op}: exhausted retries without response")
 # Default backend base URL. Callers override to point at Nebius Token Factory
 # or another OpenAI-compatible host.
 _DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1"
@@ -186,6 +242,16 @@ def _annotate_and_render_page(
         page_w = float(page.rect.width)
         page_h = float(page.rect.height)
         tag_w, tag_h = 22.0, 11.0
+
+        # Two-pass layout: compute every marker + tag rect first, resolve
+        # tag-vs-tag collisions, then draw. The single-pass version put a
+        # flush-left field's tag to the RIGHT of its marker at the same y
+        # as the neighbour's LEFT-side tag; in row layouts (First / Middle /
+        # Last, City / State / ZIP) the two tags overlapped and the model
+        # couldn't attribute them — the flush-left field kept its raw
+        # AcroForm name and captions shifted across the row.
+        markers: list[Any] = []
+        tags: list[dict[str, Any]] = []
         for f in fields:
             try:
                 idx = int(f["index"])
@@ -205,16 +271,14 @@ def _annotate_and_render_page(
                 # in place. Tag goes just LEFT of the box at its vertical
                 # centre so it doesn't obscure the caption sitting to the
                 # right.
-                rect = pymupdf.Rect(x0, y0, x1, y1)
-                page.draw_rect(rect, color=(1, 0, 0), width=1.5, overlay=True)
+                marker = pymupdf.Rect(x0, y0, x1, y1)
                 anchor_y = (y0 + y1) / 2.0
             elif pdf_flavor == "acroform":
                 # AcroForm text widget: rect IS the input box. Outline the
                 # whole box so the model can see the widget's true extent and
                 # match nearby captions unambiguously. Tag on the LEFT at
                 # vertical centre.
-                rect = pymupdf.Rect(x0, y0, x1, y1)
-                page.draw_rect(rect, color=(1, 0, 0), width=1.5, overlay=True)
+                marker = pymupdf.Rect(x0, y0, x1, y1)
                 anchor_y = (y0 + y1) / 2.0
             else:
                 # Flat text field: bottom of the placement box ≈ underline
@@ -225,8 +289,8 @@ def _annotate_and_render_page(
                 marker = pymupdf.Rect(
                     x0, max(0.0, underline_y - 2.5), x1, min(page_h, underline_y + 0.5)
                 )
-                page.draw_rect(marker, color=(1, 0, 0), width=1.5, overlay=True)
                 anchor_y = underline_y
+            markers.append(marker)
 
             # Tag sits just LEFT of the field's left edge, centred vertically
             # on the marker/checkbox. Falls to the RIGHT of the field if
@@ -234,15 +298,76 @@ def _annotate_and_render_page(
             tag_y_center = min(max(tag_h / 2.0, anchor_y), page_h - tag_h / 2.0)
             tag_y0 = tag_y_center - tag_h / 2.0
             tag_y1 = tag_y_center + tag_h / 2.0
+            field_rect = pymupdf.Rect(x0, y0, x1, y1)
+            fits_inside_widget = (
+                pdf_flavor == "acroform"
+                and ftype != "checkbox"
+                and (x1 - x0) >= tag_w + 4.0
+                and (y1 - y0) >= tag_h + 2.0
+            )
             if x0 >= tag_w + 2.0:
                 tag_x0 = x0 - tag_w - 1.0
+                right_side = False
+                tag = pymupdf.Rect(tag_x0, tag_y0, tag_x0 + tag_w, tag_y1)
+            elif fits_inside_widget:
+                # Flush-left AcroForm text widget: no page margin for a
+                # LEFT-side tag AND the RIGHT-side fallback collides with
+                # the neighbour's LEFT tag on the same row (First / Middle /
+                # Last, City / State / ZIP). The widget's interior is the
+                # user-input area — empty by definition on a template — so
+                # placing the tag INSIDE at the top-left corner makes the
+                # tag/field association visually unambiguous. Flat mode
+                # can't do this (the extended rect's interior holds the
+                # caption text), so it still falls through to the right-
+                # side fallback + collision-nudge below.
+                inset_x = x0 + 2.0
+                inset_y = y0 + 2.0
+                tag = pymupdf.Rect(
+                    inset_x, inset_y, inset_x + tag_w, inset_y + tag_h
+                )
+                right_side = False
             else:
                 tag_x0 = min(page_w - tag_w, x1 + 1.0)
-            tag = pymupdf.Rect(tag_x0, tag_y0, tag_x0 + tag_w, tag_y1)
+                right_side = True
+                tag = pymupdf.Rect(tag_x0, tag_y0, tag_x0 + tag_w, tag_y1)
+            tags.append({
+                "idx": idx,
+                "tag": tag,
+                "right_side": right_side,
+                "field": field_rect,
+            })
+
+        # Collision resolution: only right-side-fallback tags (flat-mode
+        # flush-left fields, or acroform widgets too small to hold an
+        # inside tag) get nudged, and only when they'd overlap another
+        # tag. Every other tag falls through untouched, so the rendered
+        # image stays byte-identical for templates without the collision
+        # pattern.
+        for i, t in enumerate(tags):
+            if not t["right_side"]:
+                continue
+            others = [o["tag"] for j, o in enumerate(tags) if j != i]
+            if not any(t["tag"].intersects(o) for o in others):
+                continue
+            for new_y0 in (
+                min(page_h - tag_h, t["field"].y1 + 2.0),
+                max(0.0, t["field"].y0 - tag_h - 2.0),
+            ):
+                candidate = pymupdf.Rect(
+                    t["tag"].x0, new_y0, t["tag"].x1, new_y0 + tag_h
+                )
+                if not any(candidate.intersects(o) for o in others):
+                    t["tag"] = candidate
+                    break
+
+        for marker in markers:
+            page.draw_rect(marker, color=(1, 0, 0), width=1.5, overlay=True)
+        for t in tags:
+            tag = t["tag"]
             page.draw_rect(tag, color=(1, 0, 0), fill=(1, 1, 0), width=0.5, overlay=True)
             page.insert_text(
                 (tag.x0 + 2.0, tag.y1 - 2.5),
-                f"#{idx}",
+                f"#{t['idx']}",
                 fontsize=8,
                 color=(0, 0, 0),
                 overlay=True,
@@ -361,10 +486,12 @@ async def _run_ocr_via_vision_chat(
             if extra_body:
                 body.update(extra_body)
             try:
-                resp = await client.post(
+                resp = await _post_with_retry(
+                    client,
                     f"{base_url}/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}"},
-                    json=body,
+                    json_body=body,
+                    op="ocr_vision_chat",
                 )
                 resp.raise_for_status()
             except Exception:
@@ -425,10 +552,12 @@ async def _label_one_batch(
     }
     if extra_body:
         body.update(extra_body)
-    resp = await client.post(
+    resp = await _post_with_retry(
+        client,
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
-        json=body,
+        json_body=body,
+        op="vision_batch",
     )
     resp.raise_for_status()
     content = resp.json()["choices"][0]["message"]["content"]
@@ -890,10 +1019,12 @@ async def _detect_one_page_vision(
     }
     if extra_body:
         body.update(extra_body)
-    resp = await client.post(
+    resp = await _post_with_retry(
+        client,
         f"{base_url}/chat/completions",
         headers={"Authorization": f"Bearer {api_key}"},
-        json=body,
+        json_body=body,
+        op="vision_batch",
     )
     resp.raise_for_status()
     content = resp.json()["choices"][0]["message"]["content"]
@@ -1126,13 +1257,20 @@ async def label_fields_in_pdf(
             batch: list[dict[str, Any]],
         ) -> dict[int, dict[str, str]]:
             async with sem:
-                return await _label_one_batch(
-                    client, image_png, ocr_text, batch,
-                    page_num=page_num,
-                    api_key=api_key, chat_model=chat_model,
-                    base_url=base_url,
-                    extra_body=extra_body,
-                )
+                try:
+                    return await _label_one_batch(
+                        client, image_png, ocr_text, batch,
+                        page_num=page_num,
+                        api_key=api_key, chat_model=chat_model,
+                        base_url=base_url,
+                        extra_body=extra_body,
+                    )
+                except Exception:
+                    # A single-batch failure after retry shouldn't wipe out
+                    # every other page's labels. Return empty so the merged
+                    # result just lacks labels for that page — the ingest
+                    # still gets partial labeling on all the others.
+                    return {}
 
         results = await asyncio.gather(
             *(run(pn, img, txt, b) for pn, img, txt, b in batches)

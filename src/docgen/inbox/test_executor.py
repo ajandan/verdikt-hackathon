@@ -172,7 +172,10 @@ def execute_test_matrix(
             provider_config=tenant_ai_provider_config,
             ai_base_url=settings.ai_base_url,
             ai_api_key=settings.ai_api_key,
-            ai_model=settings.ai_model,
+            # Verdict prefers the dedicated verdict model — Nemotron-Super
+            # (non-reasoning) — falling back to the design-time model when
+            # the operator leaves DOCGEN_AI_VERDICT_MODEL blank.
+            ai_model=settings.ai_verdict_model or settings.ai_model,
             ai_provider=settings.ai_provider,
             timeout=settings.ai_timeout_seconds,
             schema=tv.schema or None,

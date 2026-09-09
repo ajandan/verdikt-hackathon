@@ -19,6 +19,11 @@ class FieldSpec(BaseModel):
     required: bool = True
     item_type: FieldType | None = None  # for list
     fields: list["FieldSpec"] | None = None  # for object / list-of-object
+    # Populated at freeze time from a one-shot inference over the blank
+    # template's widget captions. Keys: caption, pattern, max_length,
+    # example, group, group_role. Runtime test-data generation reads this
+    # so it doesn't have to re-parse the PDF on every inbox event.
+    format: dict[str, Any] | None = None
 
 
 FieldSpec.model_rebuild()

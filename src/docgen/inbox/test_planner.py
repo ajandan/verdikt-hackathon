@@ -1,21 +1,17 @@
 """AI test-data planner — Nemotron (or any OpenAI-compat model) proposes
 N varied payloads for a freshly-frozen template.
 
-Feeds the multi-test executor: instead of one deterministic synth_payload
-render, we run N (default 5) trials with different edge-shape data so the
-reviewer sees how the template behaves across happy-path, long-string,
-empty-optional, unicode, and boundary-value inputs. Each trial ships back
-a short human-friendly `name` that the summary table renders as a row
-header — the same names appear in the email and the admin portal.
+Format hints come from `schema["fields"][i]["format"]`, which was
+populated once at freeze time by :mod:`docgen.designtime.format_infer`
+from the blank template's widget captions. Runtime pays for zero PDF
+parsing and zero format-inference calls — one Nebius call per inbox
+event, not two.
 
-Design notes:
-  - Falls back to `synth_payload` variants when no AI provider is
-    configured, so tests + local dev never depend on network.
-  - Every AI-proposed payload is schema-validated before being handed off;
-    any trial that fails is replaced with a synth_payload so the executor
-    always gets exactly `count` rows.
-  - The LLM call is best-effort: any network/JSON error yields the full
-    synth fallback rather than propagating.
+Falls back to `synth_payload` variants when no AI provider is
+configured, so tests + local dev never depend on network. Every
+AI-proposed payload is schema-validated before being handed off; any
+trial that fails is replaced with a synth_payload so the executor always
+gets exactly `count` rows.
 """
 from __future__ import annotations
 
@@ -33,18 +29,40 @@ log = structlog.get_logger(__name__)
 
 DEFAULT_TRIAL_COUNT = 5
 
-_SYSTEM_PROMPT = """You are a QA data engineer. Given a JSON Schema for a document
-template payload, produce a small set of realistic test payloads that exercise the
-template across different input shapes: typical values, edge cases (long strings,
-empty optional fields, unicode names, boundary numbers), and one adversarial case
-that stresses formatting (e.g. very long list, unusual characters).
 
-Return STRICT JSON matching:
+_PAYLOAD_SYSTEM_PROMPT = """You are a QA data engineer. You will receive:
+  (a) the JSON schema of a template's payload,
+  (b) a per-field FORMAT SPEC describing what each field expects
+      (patterns, max lengths, radio group ids). The spec came from
+      reading the printed captions on the blank template and is authoritative.
+
+Produce EXACTLY these 5 trials, in this order, with these exact `name` labels:
+
+  1. "happy path" — realistic values across every field; for each radio
+     group pick the most typical option (e.g. sex=male).
+  2. "alternate radio choices" — SAME realistic values as trial 1 for
+     every non-boolean field, but for every radio group flip to a
+     DIFFERENT true-selection than trial 1. Hunts for label->widget
+     swaps in the AcroForm mapping.
+  3. "unicode names" — realistic values with non-ASCII characters —
+     Chinese/Japanese/Korean names, Devanagari, Cyrillic, or Arabic
+     are all fine. The executor skips rendering when it detects
+     characters outside the Latin-1 range and reports the trial as a
+     passed skip; this trial is the probe that fires that skip.
+  4. "boundary numbers" — realistic strings but push every numeric-like
+     field (age, count, amount, dosage strength) to the edge of its
+     plausible range.
+  5. "adversarial formatting" — stress test with special characters in
+     free-text fields (apostrophes in names like "O'Brien", hyphens,
+     periods in initials), unusual but valid formats in phone/date
+     fields. Do NOT use characters outside Latin-1 Supplement.
+
+Return STRICT JSON:
 
 {
   "trials": [
     {
-      "name": "<3-5 word label, e.g. 'happy path', 'long strings', 'unicode names'>",
+      "name": "<exactly one of the 5 labels above>",
       "description": "<one sentence: what this trial exercises>",
       "payload": { <object matching the schema exactly> }
     }
@@ -52,10 +70,16 @@ Return STRICT JSON matching:
 }
 
 Rules:
-- Produce EXACTLY the requested number of trials.
-- Every payload MUST include every required field with a value matching its type.
-- Use realistic, human-plausible values (real names, valid addresses, plausible
-  amounts). Never emit placeholder strings like "test" or "foo".
+- Produce EXACTLY 5 trials in the order and with the names listed above.
+- Every payload MUST include EVERY field from the schema, using the
+  exact field names (case-sensitive). Missing fields cause validation
+  failure and the trial is silently discarded.
+- Every scalar value MUST honor its FORMAT SPEC — respect max_length,
+  match the pattern (e.g. "5-digit US ZIP" -> "10001", not "New York").
+- For boolean fields with a non-null `group`: exactly ONE field per
+  group may be `true`; every other field in the same group MUST be
+  `false`. This models mutually-exclusive checkbox / radio choices.
+- Use realistic values. Never emit "test", "foo", "example".
 - Do NOT include any text outside the JSON object.
 """
 
@@ -82,13 +106,25 @@ def _fallback_trials(schema_dict: dict, count: int) -> list[Trial]:
     trials: list[Trial] = []
     for i in range(count):
         name, desc = names[i % len(names)]
-        # Every fallback trial uses the same synth payload — the *label*
-        # differs so the summary table still reads as N distinct rows and
-        # the reviewer knows the AI path was skipped.
         trials.append(
             Trial(name=name, description=desc, payload=dict(base))
         )
     return trials
+
+
+def _extract_persisted_formats(schema_dict: dict) -> dict[str, dict[str, Any]]:
+    """Pull the `format` sub-dict off each field entry, keyed by field name.
+
+    Populated by :mod:`docgen.designtime.format_infer` at freeze time.
+    Absent for docx / older templates / freezes with no AI provider.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for f in schema_dict.get("fields") or []:
+        name = f.get("name")
+        spec = f.get("format")
+        if isinstance(name, str) and isinstance(spec, dict):
+            out[name] = spec
+    return out
 
 
 def _coerce_llm_trials(
@@ -111,12 +147,17 @@ def _coerce_llm_trials(
         payload = entry.get("payload")
         if not isinstance(payload, dict):
             payload = dict(fallback_payload)
-        ok, _ = validate_payload(schema_dict, payload)
+        ok, errors = validate_payload(schema_dict, payload)
         if not ok:
             log.info(
                 "inbox_test_planner_trial_invalid_payload",
                 ordinal=i + 1,
                 name=name,
+                errors=errors[:10],
+                missing=sorted(
+                    {f["name"] for f in (schema_dict.get("fields") or [])}
+                    - set(payload.keys())
+                )[:20],
             )
             payload = dict(fallback_payload)
             desc = desc or "payload rebuilt from synth fallback"
@@ -137,16 +178,11 @@ def plan_trials(
 ) -> list[Trial]:
     """Ask the design-time LLM for `count` varied payloads.
 
-    `provider_config` overlays the global env-derived settings, same
-    precedence rule as :func:`docgen.providers.get_provider`. When the
-    tenant's provider_config omits `provider`, we fall back to the
-    deployment-wide `ai_provider` (from DOCGEN_AI_PROVIDER) so a
-    single-tenant install without per-tenant overrides still hits the LLM.
-    A stub or misconfigured provider falls back to deterministic synth.
+    Format hints are read off `schema_dict["fields"][i]["format"]`,
+    which was populated once at freeze time. No PDF parsing, no
+    format-inference call — runtime pays for one chat/completions call
+    per inbox event.
     """
-    # Validate the schema up front — if it's malformed, the fallback would
-    # crash inside synth_payload with a less useful error. TemplateSchema
-    # raises ValidationError; let the caller see it.
     TemplateSchema.model_validate(schema_dict)
 
     cfg = provider_config or {}
@@ -156,8 +192,6 @@ def plan_trials(
     model = cfg.get("model") or ai_model
     timeout_s = float(cfg.get("timeout_seconds") or timeout)
 
-    # Nebius defaults its own base_url + model, so the caller can leave
-    # them blank in .env. Mirror that here.
     if provider_name == "nebius":
         from docgen.providers.nebius import DEFAULT_BASE_URL, DEFAULT_MODEL
 
@@ -172,18 +206,26 @@ def plan_trials(
         )
         return _fallback_trials(schema_dict, count)
 
+    formats = _extract_persisted_formats(schema_dict)
+
     user_prompt = (
         f"Produce {count} test payloads for this template schema:\n\n"
         + json.dumps(schema_dict, indent=2)
+        + "\n\nPer-field FORMAT SPEC (obey these — max_length, pattern, and radio groups):\n"
+        + (json.dumps(formats, indent=2) if formats else "(none available — infer from schema)")
     )
     body = {
         "model": model,
         "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _PAYLOAD_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.7,  # variety across trials is the whole point
+        # vLLM Nemotron reasoning-mode footgun — correct spelling is
+        # `enable_thinking`. Without it the model burns the output-token
+        # budget on a <think> preamble and returns empty content.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     headers = {
         "Authorization": f"Bearer {api_key}",

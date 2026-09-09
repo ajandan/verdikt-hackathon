@@ -20,6 +20,7 @@ from docgen.config import get_settings
 from docgen.core.preflight import W_NS, preflight
 from docgen.core.schema_infer import FieldSpec, TemplateSchema
 from docgen.designtime.audit import record_audit_event
+from docgen.designtime.format_infer import infer_formats, merge_formats_into_schema
 from docgen.providers.base import MappingProposal
 from docgen.store.blob import get_object, put_object
 from docgen.store.models import Template, TemplateVersion
@@ -299,6 +300,50 @@ async def freeze_pdf_version(
 
     fields = [_pdf_field_spec(p) for p in unique_named]
     schema = TemplateSchema(fields=fields).model_dump(mode="json")
+
+    # One-shot format inference over the AcroForm's widget captions. Runs
+    # once per freeze; result lives inside `schema["fields"][i]["format"]`
+    # so runtime test-data generation reads it without re-parsing the PDF.
+    # Soft-fail: a network hiccup or empty model response leaves formats
+    # unset and downstream still runs on schema-only prompting.
+    fmt_base_url = settings.ai_base_url
+    fmt_model = settings.pdf_labeler_model or settings.ai_model
+    if settings.ai_provider == "nebius":
+        from docgen.providers.nebius import DEFAULT_BASE_URL, DEFAULT_MODEL
+
+        fmt_base_url = fmt_base_url or DEFAULT_BASE_URL
+        fmt_model = fmt_model or DEFAULT_MODEL
+    if (
+        settings.ai_api_key
+        and fmt_base_url
+        and settings.ai_provider in ("nebius", "openai_compat")
+    ):
+        try:
+            formats = infer_formats(
+                schema,
+                unique_named,
+                api_key=settings.ai_api_key,
+                base_url=fmt_base_url,
+                # Non-reasoning Nemotron-Super produces reliable one-shot
+                # JSON. `ai_model` is often reasoning Nemotron-Nano, which
+                # returns empty content on this prompt shape.
+                model=fmt_model,
+                timeout_s=settings.ai_timeout_seconds,
+                provider_name=settings.ai_provider,
+            )
+            schema = merge_formats_into_schema(schema, formats)
+            log.info(
+                "pdf_freeze_format_infer_ok",
+                version_id=str(tv.id),
+                field_count=len(fields),
+                inferred_count=len(formats),
+            )
+        except Exception as e:
+            log.warning(
+                "pdf_freeze_format_infer_error",
+                version_id=str(tv.id),
+                error=f"{type(e).__name__}: {e}",
+            )
 
     # Cross-locale invariant — PDF templates default to locale='default' today,
     # but the check runs anyway so if locale variants ever land for PDFs the

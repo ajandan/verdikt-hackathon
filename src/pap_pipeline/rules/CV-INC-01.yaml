@@ -1,0 +1,13 @@
+id: CV-INC-01
+program: cardiovita-pap-2026
+kind: financial
+fields:
+  - household_size
+  - annual_household_income
+text: >
+  Annual household income must be at or below 400% of the 2026 U.S. Federal
+  Poverty Level for the applicant's household size. For a household of 1 the
+  threshold is $62,600; for a household of 2 it is $84,600; for a household of
+  4 it is $128,600. Applicants whose household income exceeds 400% FPL for
+  their household size are ineligible for the Cardiovita Patient Assistance
+  Program on financial grounds.

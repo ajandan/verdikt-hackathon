@@ -1,0 +1,30 @@
+# Canonical demo intake — the patient the video is about.
+#
+# Every field is chosen deliberately so the four Cardiovita rules all pass
+# (final Decision = approve) AND so the same intake flips to deny under the
+# planned OncoBridge cameo's stricter 250% FPL income cap. Do not tweak the
+# income number without re-checking both program thresholds.
+#
+#   Household of 2, 2026 FPL = $21,150
+#     Cardiovita (CV-INC-01):  400% FPL = $84,600  → $60,000 ≤ $84,600 → PASS
+#     OncoBridge (OB-INC-01):  250% FPL = $52,875  → $60,000 > $52,875 → FAIL
+#
+# NPI 1234567893 is a placeholder; swap for a live NPPES-listed provider
+# before recording the demo so the reason stage's NPI-validation branch runs
+# green against the real registry.
+
+patient_name: Maria Chen
+date_of_birth: 1978-06-14
+
+household_size: 2
+annual_household_income: 60000.00
+
+insurance_status: uninsured
+has_denial_letter: false
+
+country_of_residence: United States
+mailing_state: California
+
+prescribed_drug: Cardiovita
+prescriber_npi: "1234567893"
+prescription_date: 2026-08-15

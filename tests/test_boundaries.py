@@ -88,3 +88,19 @@ def test_no_stray_openai_or_anthropic_imports(module_dir: str) -> None:
     imports = _imports_of(SRC / module_dir)
     hits = _forbidden_present(imports, {"openai", "anthropic"})
     assert not hits, f"{module_dir}/ imports LLM SDKs: {sorted(hits)}"
+
+
+def test_docgen_never_imports_pap_pipeline() -> None:
+    """docgen/ is the reusable substrate; pap_pipeline/ is the hackathon-window consumer.
+
+    The dependency direction is one-way: pipeline → docgen. If docgen ever reaches
+    back into pap_pipeline, prior-work reuse can no longer be proven by
+    `git log -- src/pap_pipeline/`, and the boundary that lets docgen be
+    republished on its own timeline collapses.
+    """
+    imports = _imports_of(SRC)
+    hits = _forbidden_present(imports, {"pap_pipeline"})
+    assert not hits, (
+        f"docgen/ imports from pap_pipeline: {sorted(hits)}. "
+        "The dependency direction is one-way (pipeline → docgen)."
+    )

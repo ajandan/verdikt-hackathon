@@ -1,0 +1,15 @@
+id: CV-INS-01
+program: cardiovita-pap-2026
+kind: insurance
+fields:
+  - insurance_status
+  - has_denial_letter
+text: >
+  Applicant must lack adequate prescription drug coverage for Cardiovita.
+  Eligible insurance statuses are: uninsured; Medicare beneficiaries without
+  Part D coverage; and commercially insured patients whose plan has issued a
+  written denial of coverage for Cardiovita — in the commercial-denied case a
+  copy of the denial letter from the plan is required to establish
+  eligibility. Medicaid enrollees are ineligible under this rule (they must
+  obtain Cardiovita through Medicaid). Commercially insured patients whose
+  plan covers Cardiovita are ineligible.

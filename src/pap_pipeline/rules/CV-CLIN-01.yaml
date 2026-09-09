@@ -1,0 +1,15 @@
+id: CV-CLIN-01
+program: cardiovita-pap-2026
+kind: clinical
+fields:
+  - prescribed_drug
+  - prescriber_npi
+  - prescription_date
+text: >
+  Applicant must present a current prescription for Cardiovita written by a
+  U.S.-licensed prescriber holding an active National Provider Identifier
+  (NPI) in the NPPES registry. The prescription must be dated within the
+  twelve months preceding the application. Prescriptions for generic
+  substitutes or for drugs other than Cardiovita do not satisfy this rule.
+  Off-label indications are permitted provided the indication is explicitly
+  documented on the prescription by the prescriber.

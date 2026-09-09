@@ -39,6 +39,7 @@ Return STRICT JSON, nothing else:
   "formats": {
     "<field_name>": {
       "caption": "<printed caption text>",
+      "section": "<section heading this field sits under, verbatim from the hint>",
       "example": "<one plausible value>",
       "pattern": "<short human hint, e.g. 'single uppercase letter', 'MM/DD/YYYY', '5-digit US ZIP'>",
       "max_length": <int or null>,

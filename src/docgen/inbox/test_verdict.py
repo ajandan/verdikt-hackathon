@@ -31,8 +31,10 @@ _MAX_EXTRACTED_CHARS = 12_000
 _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 _SYSTEM_PROMPT_TEXT = """You are a QA reviewer inspecting a document that was rendered from a
-template. You are given (a) the frozen field schema, (b) the input payload the
-renderer received, and (c) the plain-text extract of the rendered document.
+template. You are given (a) the frozen field schema (each field annotated with
+its printed caption and the section it sits under, when known), (b) the input
+payload the renderer received, and (c) the plain-text extract of the rendered
+document.
 
 Judge fidelity + semantic placement. Return STRICT JSON:
 
@@ -42,6 +44,12 @@ Judge fidelity + semantic placement. Return STRICT JSON:
 }
 
 Rules:
+- Use the `caption` and `section` annotations on each field to locate its
+  slot in the rendered text. When two fields share the same printed
+  caption (e.g. "PRINT NAME" appears under both a facility section and a
+  prescriber section), the section anchor is what tells them apart. Do
+  NOT flag a mismatch just because two identical-looking values appear
+  in the text — check the surrounding section heading first.
 - `passed: true` when the render faithfully reflects the payload AND every
   value is in the right slot for its field.
 - `passed: false` when values are missing or in the wrong semantic slot.
@@ -135,6 +143,15 @@ def _fallback_verdict(reason: str) -> Verdict:
 
 
 def _format_schema_summary(schema: dict[str, Any] | None) -> str:
+    """Per-field lines the verdict LLM uses to bind rendered text to slots.
+
+    When available, the freeze-time-persisted `format` block gives the LLM
+    the printed caption AND the section heading — critical for templates
+    with similarly-labeled sections (e.g. a facility contact "PRINT NAME"
+    and a prescriber signature "PRINT NAME"). Without those anchors the
+    verdict LLM regularly attributes rendered text to the wrong field and
+    fires false-positive FAILs.
+    """
     if not schema:
         return "(no schema available)"
     fields = schema.get("fields") or []
@@ -150,6 +167,20 @@ def _format_schema_summary(schema: dict[str, Any] | None) -> str:
         line = f"- {name} ({ftype})"
         if desc:
             line += f": {desc}"
+        fmt = f.get("format") if isinstance(f.get("format"), dict) else None
+        if fmt:
+            caption = str(fmt.get("caption") or "").strip()
+            section = str(fmt.get("section") or "").strip()
+            group = str(fmt.get("group") or "").strip()
+            hints: list[str] = []
+            if caption:
+                hints.append(f'caption="{caption}"')
+            if section:
+                hints.append(f'section="{section}"')
+            if group:
+                hints.append(f"group={group}")
+            if hints:
+                line += "  [" + ", ".join(hints) + "]"
         lines.append(line)
     return "\n".join(lines) if lines else "(no schema fields)"
 

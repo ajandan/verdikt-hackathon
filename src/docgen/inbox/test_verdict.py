@@ -82,36 +82,26 @@ def _extract_docx_text(docx_bytes: bytes) -> str:
 
 
 def _extract_pdf_text(pdf_bytes: bytes) -> str:
-    """Text extract from a rendered PDF.
+    """Text extract from a rendered PDF in visual reading order.
 
-    Uses pdfplumber `page.extract_words()` and reassembles words into rows
-    with a y-cluster (round(top / 8.0)) + x sort so a filled AcroForm
-    reads in visual order instead of content-stream order.
+    Delegates word extraction + row grouping to `designtime.pdf_text` so
+    every consumer (verdict, field detection, geometric labelling, OCR
+    prompt) shares one implementation.
     """
+    from docgen.designtime.pdf_text import extract_words, group_into_visual_rows
+
     try:
         import pdfplumber  # type: ignore[import-untyped]
 
         parts: list[str] = []
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
-                words = page.extract_words() or []
+                words = extract_words(page)
                 if not words:
                     continue
-                # Bucket words into visual rows so a two-column form reads
-                # left-to-right, top-to-bottom rather than page-content-stream
-                # order. 8pt buckets are wider than the largest font size we
-                # expect to render at (12pt body), so a single visual row
-                # never gets split across two buckets.
-                rows: dict[int, list[tuple[float, str]]] = {}
-                for w in words:
-                    bucket = round(float(w["top"]) / 8.0)
-                    rows.setdefault(bucket, []).append(
-                        (float(w["x0"]), str(w["text"]))
-                    )
                 page_lines: list[str] = []
-                for bucket in sorted(rows):
-                    row = sorted(rows[bucket], key=lambda t: t[0])
-                    line = " ".join(text for _x, text in row).strip()
+                for row in group_into_visual_rows(words):
+                    line = " ".join(w.text for w in row).strip()
                     if line:
                         page_lines.append(line)
                 if page_lines:

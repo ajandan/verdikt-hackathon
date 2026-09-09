@@ -1,9 +1,10 @@
 """Text-only PDF field detector + labeler (geometry + Nemotron reasoning).
 
-Detection is 100% geometric — vector drawing primitives are parsed directly
-from the PDF via pymupdf (`_drawings_to_fields` for underline/box widgets,
-`_detect_cells` for cell-grid forms). No image is ever rendered and no
-vision model is called.
+Detection is 100% geometric — vector drawing primitives (line strokes and
+rectangles) are parsed directly from the PDF via pdfplumber. No image is
+ever rendered and no vision model is called. `_drawings_to_fields` handles
+underline/box widgets, `_detect_cells` handles vector-glyph cell-grid
+forms.
 
 Labeling is text-only:
   1. For AcroForm PDFs, `_geometric_labels_for_widgets` first matches each
@@ -12,7 +13,7 @@ Labeling is text-only:
      within reach.
   2. Any widget geometry can't resolve is sent to NVIDIA Nemotron (via
      Nebius Token Factory, OpenAI-compatible /chat/completions dialect).
-     The prompt contains per-line OCR text extracted with pymupdf plus
+     The prompt contains per-line OCR text extracted with pdfplumber plus
      the field's coordinates — no image. Nemotron picks the caption that
      sits next to the coordinates. Geometric hits win on conflict.
 
@@ -24,6 +25,7 @@ repeat under different headings.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import re
 from typing import Any
@@ -31,6 +33,11 @@ from typing import Any
 import httpx
 
 from docgen.designtime.geometry import Rect
+from docgen.designtime.pdf_text import (
+    extract_spans,
+    extract_words,
+    group_into_visual_rows,
+)
 
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
@@ -156,30 +163,79 @@ _MAX_CHECKBOX_PT = 20.0   # anything larger is a text-box, not a checkbox
 _TEXT_OVERLAP_TOL_PT = 2.0  # text sitting on/near a line = underline decoration
 
 
+def _iter_horizontal_segments(
+    page: Any, min_dx: float = 15.0
+) -> list[tuple[float, float, float, float]]:
+    """Return `(x0, x1, y_center, linewidth)` for every horizontal segment.
+
+    pdfplumber wraps multi-segment stroked paths (rectangle borders, table
+    grids, cell outlines drawn as `m l l l l ...`) as a single `curve`
+    object — `page.lines` alone misses those. This helper walks each
+    curve's `path` list and emits every line-to segment whose endpoints
+    share a y-value. Standalone `page.lines` are included too so callers
+    get one uniform stream.
+
+    `min_dx` filters out short stubs (bullet dashes, decorative ticks).
+    """
+    segs: list[tuple[float, float, float, float]] = []
+    for ln in (page.lines or []):
+        y0 = float(ln["top"])
+        y1 = float(ln["bottom"])
+        if abs(y1 - y0) > 1.5:
+            continue
+        x0 = float(ln["x0"])
+        x1 = float(ln["x1"])
+        if abs(x1 - x0) < min_dx:
+            continue
+        segs.append((
+            min(x0, x1), max(x0, x1), (y0 + y1) / 2.0,
+            float(ln.get("linewidth") or 0.0),
+        ))
+    for c in (page.curves or []):
+        lw = float(c.get("linewidth") or 0.0)
+        cursor: tuple[float, float] | None = None
+        for op in (c.get("path") or []):
+            if not op:
+                continue
+            kind = op[0]
+            if kind == "m" and len(op) >= 2:
+                cursor = tuple(op[1])
+            elif kind == "l" and len(op) >= 2 and cursor is not None:
+                nxt = tuple(op[1])
+                if abs(cursor[1] - nxt[1]) <= 1.0 and abs(nxt[0] - cursor[0]) >= min_dx:
+                    segs.append((
+                        min(cursor[0], nxt[0]),
+                        max(cursor[0], nxt[0]),
+                        (cursor[1] + nxt[1]) / 2.0,
+                        lw,
+                    ))
+                cursor = nxt
+            elif kind == "c" and len(op) >= 4:
+                cursor = tuple(op[3])
+            elif kind in ("v", "y") and len(op) >= 3:
+                cursor = tuple(op[2])
+            elif kind == "h":
+                # close-path back to the last move-to; approximated as no-op
+                # (we're only after H strokes and any close-path H edge is
+                # already emitted as an "l" segment on well-formed rects).
+                pass
+    return segs
+
+
 def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
     """Extract candidate field boxes from a page's vector drawings.
 
     Pixel-perfect and hallucination-free: we only report what is actually
     drawn. Returns [] for pages with no vector primitives (scanned/raster).
-    """
-    import pymupdf  # type: ignore[import-untyped]
 
-    page_w = float(page.rect.width)
-    page_h = float(page.rect.height)
+    Source primitives come from pdfplumber's `page.lines` and `page.rects`.
+    """
+    page_w = float(page.width)
+    page_h = float(page.height)
 
     # Grab all text spans once so we can reject lines that sit under body
     # text (underline decorations, strikethroughs).
-    text_spans: list[Rect] = []
-    try:
-        td = page.get_text("dict")
-        for block in td.get("blocks", []):
-            for line in block.get("lines", []):
-                for span in line.get("spans", []):
-                    bbox = span.get("bbox")
-                    if bbox and len(bbox) == 4:
-                        text_spans.append(Rect(*bbox))
-    except Exception:
-        pass
+    text_spans: list[Rect] = [s.rect for s in extract_spans(page)]
 
     def _text_covers(rect: Rect, threshold: float = 0.4) -> bool:
         """True if body-text spans cover >threshold of `rect`'s width —
@@ -203,33 +259,18 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
     lines: list[tuple[float, float, float, float]] = []  # (x0,y0,x1,y1)
     rects: list[tuple[float, float, float, float, bool]] = []  # +is_filled
 
-    try:
-        drawings = page.get_drawings()
-    except Exception:
-        drawings = []
+    for x0, x1, y_c, stroke_w in _iter_horizontal_segments(page, min_dx=_MIN_LINE_LEN_PT):
+        if stroke_w <= _MAX_LINE_THICK_PT:
+            lines.append((x0, y_c, x1, y_c))
 
-    for d in drawings:
-        stroke_w = float(d.get("width") or 0.0)
-        d_type = str(d.get("type") or "")
-        is_filled = "f" in d_type and d.get("fill") is not None
-        for item in d.get("items", []):
-            if not item:
-                continue
-            kind = item[0]
-            if kind == "l" and len(item) >= 3:
-                p1, p2 = item[1], item[2]
-                x0, y0 = float(p1.x), float(p1.y)
-                x1, y1 = float(p2.x), float(p2.y)
-                # Only horizontal-ish lines are candidate blanks.
-                if abs(y1 - y0) <= 1.5 and abs(x1 - x0) >= _MIN_LINE_LEN_PT:
-                    if stroke_w <= _MAX_LINE_THICK_PT:
-                        lo, hi = (x0, x1) if x0 <= x1 else (x1, x0)
-                        lines.append((lo, y0, hi, y0))
-            elif kind == "re" and len(item) >= 2:
-                r = item[1]
-                rects.append((
-                    float(r.x0), float(r.y0), float(r.x1), float(r.y1), is_filled,
-                ))
+    for r in (page.rects or []):
+        rects.append((
+            float(r["x0"]),
+            float(r["top"]),
+            float(r["x1"]),
+            float(r["bottom"]),
+            bool(r.get("fill")),
+        ))
 
     # Reject lines that form table grids (a near-parallel matching line
     # sits directly above OR below within 40pt AND shares most of the x-range).
@@ -305,8 +346,12 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
 
         if w < _MIN_BOX_SIDE_PT or h < _MIN_BOX_SIDE_PT:
             continue
-        if is_filled:
-            continue  # solid fills at box size are backgrounds, not entry areas
+        # Section-band backgrounds: shaded strips that run across most of the
+        # page width and are shallow. Real input widgets never span >70% of
+        # the page. Only skip fills — an outlined rect that shape is more
+        # likely a wide text-entry frame.
+        if is_filled and w > page_w * 0.7 and h < 30.0:
+            continue
         aspect = w / h if h > 0 else 999
         # Small near-square → checkbox; larger → text entry box.
         if w <= _MAX_CHECKBOX_PT and h <= _MAX_CHECKBOX_PT and 0.6 <= aspect <= 1.6:
@@ -358,56 +403,33 @@ def _detect_cells(page: Any) -> list[dict[str, Any]]:
     That pair defines a cell rectangle. Row height is capped to reject
     matches that jump across intervening rows.
 
+    Cells whose interior overlaps printed characters (`page.chars`) are
+    labels, not blanks, and are rejected — vector-glyph forms typically
+    have printed captions sitting inside the label cells and blank
+    interiors on the input cells.
+
     Returns [] when there aren't enough segments to make a grid — the caller
     then contributes zero fields for that page.
     """
-    page_w = float(page.rect.width)
-    page_h = float(page.rect.height)
+    page_w = float(page.width)
+    page_h = float(page.height)
 
     h_segs: list[tuple[float, float, float]] = []  # (x0, x1, y)
-    # Non-border drawing items — used to detect cells that already contain
-    # printed captions (i.e. the cell is a LABEL, not a blank input). In
-    # vector-glyph PDFs each printed character is a cluster of ~10-30 fill
-    # bezier items sitting inside the cell rect.
+    for x0, x1, y_c, _lw in _iter_horizontal_segments(page, min_dx=15.0):
+        h_segs.append((x0, x1, y_c))
+
+    # Character bboxes (one per rendered glyph) are used to reject cells
+    # that already contain printed captions. pdfplumber's `page.chars` gives
+    # us a per-glyph rect directly, replacing the old drawings-based glyph
+    # heuristic that counted fill sub-primitives.
     glyph_bboxes: list[tuple[float, float, float, float]] = []
-
-    try:
-        drawings = page.get_drawings()
-    except Exception:
-        return []
-
-    for d in drawings:
-        for item in d.get("items", []):
-            if not item:
-                continue
-            kind = item[0]
-            if kind == "l" and len(item) >= 3:
-                p1, p2 = item[1], item[2]
-                x0, y0 = float(p1.x), float(p1.y)
-                x1, y1 = float(p2.x), float(p2.y)
-                dx = abs(x1 - x0)
-                dy = abs(y1 - y0)
-                if dy < 1.5 and dx >= 15.0:
-                    lo, hi = (x0, x1) if x0 <= x1 else (x1, x0)
-                    h_segs.append((lo, hi, (y0 + y1) / 2.0))
-                    continue
-                if dx < 1.5 and dy >= 8.0:
-                    # long V — skip both as border segment (we're not
-                    # tracking verticals) AND as a glyph item.
-                    continue
-            # Every other primitive is candidate glyph fill / decoration.
-            pts: list[tuple[float, float]] = []
-            for sub in item[1:]:
-                if hasattr(sub, "x") and hasattr(sub, "y"):
-                    pts.append((float(sub.x), float(sub.y)))
-                elif hasattr(sub, "x0") and hasattr(sub, "y0"):
-                    pts.append((float(sub.x0), float(sub.y0)))
-                    pts.append((float(sub.x1), float(sub.y1)))
-            if not pts:
-                continue
-            xs = [p[0] for p in pts]
-            ys = [p[1] for p in pts]
-            glyph_bboxes.append((min(xs), min(ys), max(xs), max(ys)))
+    for ch in (page.chars or []):
+        glyph_bboxes.append((
+            float(ch["x0"]),
+            float(ch["top"]),
+            float(ch["x1"]),
+            float(ch["bottom"]),
+        ))
 
     if len(h_segs) < 4:
         return []
@@ -472,12 +494,12 @@ def _detect_cells(page: Any) -> list[dict[str, Any]]:
 
     # Reject cells whose interior already contains printed content — those
     # are label captions ("Patient Name", "Date of Birth"), not blank
-    # inputs the user is meant to fill. Vector-glyph PDFs render each
-    # character as ~10-30 fill primitives, so a threshold of 10 comfortably
-    # separates blank cells (0 items) from labelled ones (100+ items) while
-    # tolerating stray decorations.
+    # inputs the user is meant to fill. pdfplumber's `page.chars` gives one
+    # entry per rendered glyph, so a 3-char threshold cleanly separates
+    # blank cells (0 chars) from labelled ones (10+ chars) while tolerating
+    # stray decoration marks.
     inset = 2.0
-    label_threshold = 10
+    label_threshold = 3
 
     def _content_items(cx0: float, cy0: float, cx1: float, cy1: float) -> int:
         n = 0
@@ -535,23 +557,15 @@ async def detect_fields_in_pdf(pdf_bytes: bytes) -> list[dict[str, Any]]:
     this, and a future concurrent-per-page pass would slot in without a
     signature change.
     """
-    import pymupdf  # type: ignore[import-untyped]
+    import pdfplumber  # type: ignore[import-untyped]
 
     merged: list[dict[str, Any]] = []
 
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-        page_count = doc.page_count
-        for page_num in range(1, page_count + 1):
-            page = doc.load_page(page_num - 1)
-            text_chars = 0
-            try:
-                td = page.get_text("dict")
-                for block in td.get("blocks", []):
-                    for line in block.get("lines", []):
-                        for span in line.get("spans", []):
-                            text_chars += len((span.get("text") or "").strip())
-            except Exception:
-                pass
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page_num, page in enumerate(pdf.pages, start=1):
+            text_chars = sum(
+                len((ch.get("text") or "").strip()) for ch in (page.chars or [])
+            )
 
             if text_chars == 0:
                 # Vector-glyph forms with drawn cell borders (vector-glyph PAP) are
@@ -595,7 +609,7 @@ def _geometric_labels_for_widgets(
     match. Ambiguous / no-match widgets are omitted so the caller can fall
     back to the Nemotron labeler for those.
     """
-    import pymupdf  # type: ignore[import-untyped]
+    import pdfplumber  # type: ignore[import-untyped]
 
     if not fields:
         return {}
@@ -605,32 +619,22 @@ def _geometric_labels_for_widgets(
         by_page.setdefault(int(f.get("page") or 1), []).append(f)
 
     results: dict[int, dict[str, str]] = {}
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page_num, page_fields in by_page.items():
-            if page_num < 1 or page_num > doc.page_count:
+            if page_num < 1 or page_num > len(pdf.pages):
                 continue
-            page = doc.load_page(page_num - 1)
-            pw = float(page.rect.width)
-            ph = float(page.rect.height)
+            page = pdf.pages[page_num - 1]
+            pw = float(page.width)
+            ph = float(page.height)
 
             spans: list[dict[str, Any]] = []
-            try:
-                td = page.get_text("dict")
-                for block in td.get("blocks", []):
-                    for line in block.get("lines", []):
-                        for span in line.get("spans", []):
-                            bbox = span.get("bbox")
-                            text = (span.get("text") or "").strip()
-                            if not text or not bbox or len(bbox) != 4:
-                                continue
-                            spans.append({
-                                "rect": Rect(*bbox),
-                                "text": text,
-                                "size": float(span.get("size") or 0),
-                                "flags": int(span.get("flags") or 0),
-                            })
-            except Exception:
-                continue
+            for sp in extract_spans(page):
+                spans.append({
+                    "rect": sp.rect,
+                    "text": sp.text,
+                    "size": sp.font_size,
+                    "flags": 0,
+                })
             if not spans:
                 continue
 
@@ -750,32 +754,21 @@ Every listed index must appear exactly once."""
 def _ocr_lines_for_page(page: Any) -> str:
     """Dump one text-line-per-row of the page as `y=<y0> x=<x0..x1>: <text>`,
     top-to-bottom. Matches the format used by `scripts/qc_nemotron_labeling.py`.
+
+    Rows come from the shared `extract_words` + `group_into_visual_rows`
+    primitive so every consumer sees the same reading order.
     """
-    rows: list[tuple[float, float, float, str]] = []  # (y0, x0, x1, text)
-    try:
-        td = page.get_text("dict")
-    except Exception:
+    words = extract_words(page)
+    if not words:
         return ""
-    for block in td.get("blocks", []):
-        for line in block.get("lines", []):
-            parts: list[str] = []
-            xs0: list[float] = []
-            xs1: list[float] = []
-            ys0: list[float] = []
-            for span in line.get("spans", []):
-                text = (span.get("text") or "").strip()
-                if not text:
-                    continue
-                bbox = span.get("bbox")
-                if not bbox or len(bbox) != 4:
-                    continue
-                parts.append(text)
-                xs0.append(float(bbox[0]))
-                xs1.append(float(bbox[2]))
-                ys0.append(float(bbox[1]))
-            if not parts:
-                continue
-            rows.append((min(ys0), min(xs0), max(xs1), " ".join(parts)))
+    rows: list[tuple[float, float, float, str]] = []
+    for row in group_into_visual_rows(words):
+        if not row:
+            continue
+        x0 = min(w.rect.x0 for w in row)
+        x1 = max(w.rect.x1 for w in row)
+        y0 = min(w.rect.y0 for w in row)
+        rows.append((y0, x0, x1, " ".join(w.text for w in row)))
     rows.sort(key=lambda r: (round(r[0], 1), r[1]))
     return "\n".join(
         f"y={y0:.1f} x={x0:.1f}..{x1:.1f}: {txt}"
@@ -878,7 +871,7 @@ async def label_fields_in_pdf(
         accuracy off the real /Rect entries. Widgets it can't resolve fall
         through to Nemotron.
       * For each page with remaining unresolved fields: extract per-line
-        OCR text with pymupdf's `page.get_text("dict")`, format the fields
+        OCR text with `_ocr_lines_for_page` (pdfplumber-backed), format the fields
         as `#<idx> at (x=..y=..) [type]` lines, and send ONE Nemotron chat
         call per page (or per 20-field batch if a page has more). Runs up
         to `_BATCH_CONCURRENCY` batches in parallel.
@@ -913,7 +906,7 @@ async def label_fields_in_pdf(
     if not remaining:
         return geometric
 
-    import pymupdf  # type: ignore[import-untyped]
+    import pdfplumber  # type: ignore[import-untyped]
 
     by_page: dict[int, list[dict[str, Any]]] = {}
     for f in remaining:
@@ -923,15 +916,15 @@ async def label_fields_in_pdf(
     # for every batch.
     page_ocr: dict[int, str] = {}
     page_size: dict[int, tuple[float, float]] = {}
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page_num in by_page:
-            if page_num < 1 or page_num > doc.page_count:
+            if page_num < 1 or page_num > len(pdf.pages):
                 page_ocr[page_num] = ""
                 page_size[page_num] = (612.0, 792.0)
                 continue
-            page = doc.load_page(page_num - 1)
+            page = pdf.pages[page_num - 1]
             page_ocr[page_num] = _ocr_lines_for_page(page)
-            page_size[page_num] = (float(page.rect.width), float(page.rect.height))
+            page_size[page_num] = (float(page.width), float(page.height))
 
     # One batch = one Nemotron call. A page with >20 fields is split into
     # chunks; each chunk is still labeled with the same per-page OCR dump.

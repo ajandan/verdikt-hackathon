@@ -275,25 +275,28 @@ async def _label_pdf_placements(
     tv_id: uuid.UUID,
     pdf_bytes: bytes,
 ) -> None:
-    """Run the vision labeler over the freshly-uploaded PDF's placements.
+    """Label the freshly-uploaded PDF's placements.
 
-    Best-effort: any error (vision provider unconfigured, HTTP timeout,
-    JSON parse failure) is logged and swallowed — freeze proceeds with
-    raw AcroForm field names as labels. Mutates tv.pdf_field_placements
-    in-place with `label` (and optional `section`) so `_pdf_field_spec`
-    at freeze time carries them into `FieldSpec.description`.
+    AcroForm templates label deterministically from widget rects + page
+    text-span geometry — no vision model needed, no vision backend
+    required. Flat PDFs still go through the vision labeler because the
+    boxes come from `_draw_pdf_placements` and don't have printed
+    captions attached to them geometrically.
+
+    Best-effort: any error (missing backend, HTTP timeout, JSON parse
+    failure) is logged and swallowed — freeze proceeds with raw AcroForm
+    field names as labels. Mutates tv.pdf_field_placements in-place with
+    `label` (and optional `section`) so `_pdf_field_spec` at freeze time
+    carries them into `FieldSpec.description`.
     """
     from sqlalchemy.orm.attributes import flag_modified
 
-    from docgen.designtime.pdf_field_detector import label_fields_in_pdf
+    from docgen.designtime.pdf_field_detector import (
+        _geometric_labels_for_widgets,
+        label_fields_in_pdf,
+    )
     from docgen.designtime.pdf_payload_key import shorten_payload_key, slugify_key
     from docgen.designtime.pdf_vision_backend import pick_pdf_vision_backend
-
-    settings = get_settings()
-    backend = pick_pdf_vision_backend(settings)
-    if backend is None:
-        log.info("inbox_pdf_ai_label_skipped", reason="no_vision_backend")
-        return
 
     tv = await session.get(TemplateVersion, tv_id)
     if tv is None or not tv.pdf_field_placements:
@@ -321,28 +324,50 @@ async def _label_pdf_placements(
     if not fields:
         return
 
-    try:
-        labels_by_index = await label_fields_in_pdf(
-            pdf_bytes,
-            fields,
-            api_key=backend["api_key"],
-            ocr_model=backend["ocr_model"],
-            chat_model=backend["chat_model"],
-            timeout=backend["timeout"],
-            pdf_flavor=tv.pdf_flavor,
-            base_url=backend["base_url"],
-            ocr_via_vision_chat=backend["ocr_via_vision_chat"],
-            ocr_concurrency=backend["ocr_concurrency"],
-            extra_body=backend["extra_body"],
-        )
-    except Exception as e:
-        log.warning(
-            "inbox_pdf_ai_label_failed",
-            version_id=str(tv_id),
-            provider=backend["provider"],
-            error=f"{type(e).__name__}: {e}",
-        )
-        return
+    labels_by_index: dict[int, dict[str, str]]
+    provider_tag: str
+    if tv.pdf_flavor == "acroform":
+        # Deterministic geometry — same code path the design-time editor
+        # runs for AcroForm. No API call, no backend needed.
+        try:
+            labels_by_index = _geometric_labels_for_widgets(pdf_bytes, fields)
+        except Exception as e:
+            log.warning(
+                "inbox_pdf_geometric_label_failed",
+                version_id=str(tv_id),
+                error=f"{type(e).__name__}: {e}",
+            )
+            return
+        provider_tag = "geometric"
+    else:
+        settings = get_settings()
+        backend = pick_pdf_vision_backend(settings)
+        if backend is None:
+            log.info("inbox_pdf_ai_label_skipped", reason="no_vision_backend")
+            return
+        try:
+            labels_by_index = await label_fields_in_pdf(
+                pdf_bytes,
+                fields,
+                api_key=backend["api_key"],
+                ocr_model=backend["ocr_model"],
+                chat_model=backend["chat_model"],
+                timeout=backend["timeout"],
+                pdf_flavor=tv.pdf_flavor,
+                base_url=backend["base_url"],
+                ocr_via_vision_chat=backend["ocr_via_vision_chat"],
+                ocr_concurrency=backend["ocr_concurrency"],
+                extra_body=backend["extra_body"],
+            )
+        except Exception as e:
+            log.warning(
+                "inbox_pdf_ai_label_failed",
+                version_id=str(tv_id),
+                provider=backend["provider"],
+                error=f"{type(e).__name__}: {e}",
+            )
+            return
+        provider_tag = backend["provider"]
 
     changed = 0
     for idx, info in labels_by_index.items():
@@ -359,7 +384,7 @@ async def _label_pdf_placements(
         log.info(
             "inbox_pdf_ai_label_empty",
             version_id=str(tv_id),
-            provider=backend["provider"],
+            provider=provider_tag,
             total=len(fields),
         )
         return
@@ -398,7 +423,7 @@ async def _label_pdf_placements(
     log.info(
         "inbox_pdf_ai_labeled",
         version_id=str(tv_id),
-        provider=backend["provider"],
+        provider=provider_tag,
         labeled=changed,
         renamed=renamed,
         total=len(fields),

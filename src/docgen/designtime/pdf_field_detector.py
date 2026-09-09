@@ -106,11 +106,13 @@ _RENDER_SCALE = 2.0
 _PROMPT_TEMPLATE = """You are labeling fillable fields on PAGE {page_num} of a PDF form.
 
 I am giving you two things about this single page:
-  1. An IMAGE of the page with every field marked by a short horizontal RED
-     BAR (a text field's blank underline) or a RED SQUARE (a checkbox).
+  1. An IMAGE of the page with every field marked in RED. Text fields
+     appear either as a thin horizontal BAR (a blank underline) or as a
+     rectangular BOX (an outlined input area, sometimes with the tag drawn
+     INSIDE its top-left corner). Checkboxes appear as small RED SQUARES.
      Each marker has a numeric tag like "#3" in a YELLOW box positioned
-     immediately to its LEFT (or to its right if flush against the left
-     margin). The tag's vertical centre is aligned with the marker.
+     immediately to the LEFT of the marker (or to the right / inside if
+     the marker is flush against the left margin).
   2. The full TEXT of the page as extracted by OCR (markdown format —
      headings preserved). This transcript is authoritative for wording;
      use it verbatim when picking captions.
@@ -121,13 +123,19 @@ For each numbered marker listed below, return:
     OCR text). Empty string if the field is at the top of the page with no
     heading above it.
   - `label` — the short caption printed next to THIS specific marker:
-    * Text-field red BAR: caption is the printed text sitting DIRECTLY
-      ABOVE the bar (same column) or IMMEDIATELY TO THE LEFT of the bar
-      on the same line (e.g. "First Name", "ZIP Code", "Date of Birth").
+    * Text-field red BAR: caption is the printed text IMMEDIATELY ABOVE
+      the bar (same column) or IMMEDIATELY TO THE LEFT of the bar on the
+      same line (e.g. "First Name", "ZIP Code", "Date of Birth").
+    * Text-field red BOX: caption is the printed text IMMEDIATELY ABOVE
+      the box's top edge (same column) or IMMEDIATELY TO THE LEFT of the
+      box on the same line. Do NOT pick text sitting BELOW the box (that
+      belongs to the next field down) or INSIDE the box (that's the input
+      area).
     * Checkbox red SQUARE: caption is the option text IMMEDIATELY TO THE
       RIGHT of the square (e.g. "Medicare Part D", "Male").
-    Never take the caption from the row above the marker's row — that
-    caption belongs to a different field.
+    Same-row layouts: when multiple markers share a horizontal line
+    (e.g. First / Middle / Last across one row), each marker's caption is
+    the text in its OWN column, not the leftmost column's caption.
 
 Indices to label on this page: {index_list}
 
@@ -1178,6 +1186,153 @@ async def detect_fields_in_pdf(
     return merged
 
 
+def _geometric_labels_for_widgets(
+    pdf_bytes: bytes,
+    fields: list[dict[str, Any]],
+) -> dict[int, dict[str, str]]:
+    """Match each widget rect to its printed caption using page text-span
+    geometry. Works for AcroForm PDFs where widget rects come from the real
+    /Rect entries — no vision model needed.
+
+    Text field: caption is the closest text span sitting ABOVE the widget
+    with x-column overlap (columns don't cross — a "First Name" caption
+    won't be picked for a "Middle Initial" widget in the next column).
+    Falls back to the closest span sitting to the LEFT on the same row.
+
+    Checkbox / radio: caption is the closest span TO THE RIGHT on the same
+    row (standard checkbox-option layout).
+
+    Section: the last H1/H2-style heading printed above the widget. Heuristic
+    is font-size ≥ 12pt or bold, whichever the extractor exposes.
+
+    Returns `{index: {"label", "section"}}` only for widgets with a confident
+    match. Ambiguous / no-match widgets are omitted so the caller can fall
+    back to the vision labeler for those.
+    """
+    import pymupdf  # type: ignore[import-untyped]
+
+    if not fields:
+        return {}
+
+    by_page: dict[int, list[dict[str, Any]]] = {}
+    for f in fields:
+        by_page.setdefault(int(f.get("page") or 1), []).append(f)
+
+    results: dict[int, dict[str, str]] = {}
+    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
+        for page_num, page_fields in by_page.items():
+            if page_num < 1 or page_num > doc.page_count:
+                continue
+            page = doc.load_page(page_num - 1)
+            pw = float(page.rect.width)
+            ph = float(page.rect.height)
+
+            spans: list[dict[str, Any]] = []
+            try:
+                td = page.get_text("dict")
+                for block in td.get("blocks", []):
+                    for line in block.get("lines", []):
+                        for span in line.get("spans", []):
+                            bbox = span.get("bbox")
+                            text = (span.get("text") or "").strip()
+                            if not text or not bbox or len(bbox) != 4:
+                                continue
+                            spans.append({
+                                "rect": pymupdf.Rect(*bbox),
+                                "text": text,
+                                "size": float(span.get("size") or 0),
+                                "flags": int(span.get("flags") or 0),
+                            })
+            except Exception:
+                continue
+            if not spans:
+                continue
+
+            widget_rects: list[tuple[int, Any, str]] = []
+            for f in page_fields:
+                try:
+                    idx = int(f["index"])
+                    wr = pymupdf.Rect(
+                        float(f.get("x_pct") or 0) * pw,
+                        float(f.get("y_pct") or 0) * ph,
+                        (float(f.get("x_pct") or 0) + float(f.get("w_pct") or 0)) * pw,
+                        (float(f.get("y_pct") or 0) + float(f.get("h_pct") or 0)) * ph,
+                    )
+                    ftype = str(f.get("field_type") or "text").lower()
+                except (KeyError, TypeError, ValueError):
+                    continue
+                widget_rects.append((idx, wr, ftype))
+
+            # Real section headings on typical form pages are ≥ 14pt (usually
+            # bold too). 12pt caught bold body captions like "First Name" and
+            # 4-6pt bullet numbers (both flagged bold), so the section field
+            # ended up as the caption itself or a stray digit. 14pt lands
+            # cleanly between headings (22pt / 14pt observed) and captions
+            # (9-10pt) on the templates we've tested.
+            heading_spans = sorted(
+                [s for s in spans if s["size"] >= 14.0],
+                key=lambda s: s["rect"].y0,
+            )
+
+            for idx, wr, ftype in widget_rects:
+                section = ""
+                for hs in heading_spans:
+                    if hs["rect"].y1 < wr.y0:
+                        section = hs["text"]
+                    else:
+                        break
+
+                label = ""
+                if ftype == "checkbox":
+                    cands: list[tuple[float, str]] = []
+                    for s in spans:
+                        sr = s["rect"]
+                        if sr.y1 < wr.y0 - 2 or sr.y0 > wr.y1 + 2:
+                            continue
+                        if sr.x0 < wr.x1 - 2:
+                            continue
+                        gap = sr.x0 - wr.x1
+                        if gap > 100:
+                            continue
+                        cands.append((gap, s["text"]))
+                    cands.sort()
+                    if cands:
+                        label = cands[0][1]
+                else:
+                    above: list[tuple[float, str]] = []
+                    for s in spans:
+                        sr = s["rect"]
+                        if sr.y1 > wr.y0 + 3:
+                            continue
+                        gap = wr.y0 - sr.y1
+                        if gap > 40:
+                            continue
+                        ox = min(sr.x1, wr.x1) - max(sr.x0, wr.x0)
+                        if ox <= 0:
+                            continue
+                        # Reject if another widget owns this span more strongly
+                        # (closer vertically AND with larger x-overlap).
+                        stolen = False
+                        for oi, ow, _oft in widget_rects:
+                            if oi == idx:
+                                continue
+                            if ow.y0 > sr.y1 and (ow.y0 - sr.y1) < gap:
+                                oox = min(sr.x1, ow.x1) - max(sr.x0, ow.x0)
+                                if oox > ox:
+                                    stolen = True
+                                    break
+                        if stolen:
+                            continue
+                        above.append((gap, s["text"]))
+                    above.sort()
+                    if above:
+                        label = above[0][1]
+
+                if label:
+                    results[idx] = {"label": label, "section": section}
+    return results
+
+
 async def label_fields_in_pdf(
     pdf_bytes: bytes,
     fields: list[dict[str, Any]],
@@ -1215,8 +1370,27 @@ async def label_fields_in_pdf(
     if not fields:
         return {}
 
+    # AcroForm PDFs give us widget rects with pixel accuracy and the page has
+    # native text spans with bboxes — caption matching is a solved geometric
+    # problem, no vision model needed. Vision was landing wrong labels here
+    # (e.g. picking "Address" for the First-Name widget because the caption
+    # printed below the widget was mistaken for its own). Only pass fields
+    # that geometry can't resolve to the vision fallback.
+    geometric: dict[int, dict[str, str]] = {}
+    remaining: list[dict[str, Any]] = fields
+    if pdf_flavor == "acroform":
+        try:
+            geometric = _geometric_labels_for_widgets(pdf_bytes, fields)
+        except Exception:
+            geometric = {}
+        if geometric:
+            remaining = [f for f in fields if int(f.get("index", -1)) not in geometric]
+
+    if not remaining:
+        return geometric
+
     by_page: dict[int, list[dict[str, Any]]] = {}
-    for f in fields:
+    for f in remaining:
         by_page.setdefault(int(f.get("page") or 1), []).append(f)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -1279,4 +1453,8 @@ async def label_fields_in_pdf(
     merged: dict[int, dict[str, str]] = {}
     for r in results:
         merged.update(r)
+    # Geometric hits are authoritative — they already matched a real caption
+    # bbox to a real widget rect. Overlay them last so any vision guess for
+    # the same index is superseded.
+    merged.update(geometric)
     return merged

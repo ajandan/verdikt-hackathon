@@ -79,6 +79,10 @@ services:
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
       DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      # Plugin modules imported at startup. `pap_pipeline.inbox_hook` registers
+      # the PAP handler against docgen.inbox.agent so `[pap]` subject-tagged
+      # mail routes to the pipeline instead of the template flow.
+      DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}
       DOCGEN_ENV: ${DOCGEN_ENV:-development}
       DOCGEN_ADMIN_PASSWORD_HASH: ${DOCGEN_ADMIN_PASSWORD_HASH:-}
       # No fallback: dev users must set DOCGEN_SESSION_SECRET (see .env.example
@@ -145,6 +149,9 @@ services:
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
       DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      # See web service — same plugin registration story on the worker side,
+      # which is where process_message actually runs and needs the handler.
+      DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}
       DOCGEN_INBOX_ENABLED: ${DOCGEN_INBOX_ENABLED:-false}
       DOCGEN_INBOX_IMAP_HOST: ${DOCGEN_INBOX_IMAP_HOST:-}
       DOCGEN_INBOX_IMAP_PORT: ${DOCGEN_INBOX_IMAP_PORT:-993}

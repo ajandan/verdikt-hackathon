@@ -165,6 +165,9 @@ async def _startup_checks() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await _startup_checks()
+    from docgen.plugins import load_plugins
+
+    load_plugins()
     # FastMCP's streamable-http transport needs its session-manager task group
     # started before the first request; sub-app lifespans don't fire under
     # Starlette mount, so we drive it from the parent app.

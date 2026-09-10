@@ -26,7 +26,9 @@ class InboxPollerBootstrapMiddleware(Middleware):
             # process boot (web + worker + tests); the actor + agent
             # only need to exist inside the worker process.
             from docgen.inbox.job import bootstrap_inbox_poller
+            from docgen.plugins import load_plugins
 
+            load_plugins()
             bootstrap_inbox_poller()
         except Exception:
             log.exception("inbox_bootstrap_failed")

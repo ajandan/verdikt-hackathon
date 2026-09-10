@@ -74,6 +74,45 @@ class ProcessResult:
     detail: str
 
 
+# `[pap]` or `[pap:cardiovita-pap-2026]` anywhere in the subject line routes
+# the mail to a registered pipeline handler. Explicit, case-insensitive,
+# unambiguous — a sender who forgets the tag hits the existing template
+# ingest path, which is the safer default.
+_PAP_SUBJECT_TAG = re.compile(r"\[pap(?::([^\]]+))?\]", re.IGNORECASE)
+
+
+def _pap_program_from_subject(subject: str | None) -> tuple[bool, str | None]:
+    """(matched, explicit_program). explicit_program is None for a bare `[pap]` tag."""
+    if not subject:
+        return False, None
+    m = _PAP_SUBJECT_TAG.search(subject)
+    if not m:
+        return False, None
+    program = (m.group(1) or "").strip() or None
+    return True, program
+
+
+# Handler slot for the PAP intake plugin. Kept as a module-level callable so
+# docgen has zero static import of pap_pipeline (see tests/test_boundaries).
+# The plugin registers itself at import time via `set_pap_handler`; the
+# import is triggered by DOCGEN_PLUGINS env var at web/worker startup.
+PapHandler = "Callable[..., ProcessResult]"  # documented but not typed to avoid the import
+_pap_handler = None
+
+
+def set_pap_handler(handler) -> None:
+    """Register the PAP pipeline handler. Called by pap_pipeline.inbox_hook."""
+    global _pap_handler
+    _pap_handler = handler
+    log.info("inbox_pap_handler_registered")
+
+
+def clear_pap_handler() -> None:
+    """Test hook — reset the slot between cases."""
+    global _pap_handler
+    _pap_handler = None
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -247,7 +286,7 @@ async def _draw_pdf_placements(
             "w_pct": float(b["w_pct"]),
             "h_pct": float(b["h_pct"]),
             "field_type": ftype,
-            "payload_type": "boolean" if ftype == "checkbox" else "string",
+            "payload_type": "boolean" if ftype in ("checkbox", "radio") else "string",
         })
 
     if not placements:
@@ -355,6 +394,7 @@ async def _label_pdf_placements(
                 timeout=backend["timeout"],
                 pdf_flavor=tv.pdf_flavor,
                 extra_body=backend["extra_body"],
+                vision_model=backend.get("vision_model", ""),
             )
         except Exception as e:
             log.warning(
@@ -836,6 +876,27 @@ def process_message(
     tenant = match.tenant
     event.tenant_id = tenant.id
     session.commit()
+
+    # PAP intake branch — a `[pap]` subject tag routes to the pipeline plugin
+    # (extract → retrieve → reason). Template-ingest is the default when no
+    # tag is present, so unrelated senders keep working unchanged.
+    is_pap, pap_program = _pap_program_from_subject(msg.subject)
+    if is_pap:
+        if _pap_handler is None:
+            event.status = "skipped"
+            event.error = "pap handler not registered (DOCGEN_PLUGINS)"
+            session.commit()
+            log.warning("inbox_pap_no_handler", subject=msg.subject)
+            _try_send_reject_reply(msg, settings=settings, reason=event.error)
+            return ProcessResult(event.id, "skipped", event.error)
+        return _pap_handler(
+            session,
+            event=event,
+            msg=msg,
+            tenant=tenant,
+            program=pap_program,
+            settings=settings,
+        )
 
     attachment = _pick_attachment(msg)
     if attachment is None:

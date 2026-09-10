@@ -222,13 +222,61 @@ def _iter_horizontal_segments(
     return segs
 
 
+def _curve_widgets(page: Any) -> list[tuple[float, float, float, float, str]]:
+    """Return `(x0, y0, x1, y1, ftype)` for closed square-ish stroked curves.
+
+    Radio buttons are almost always drawn as a circle stroked with 4 bezier
+    segments (`m c c c c h`). Checkboxes drawn as rounded rects show up as
+    the same shape at slightly different aspect. pdfplumber emits both as
+    entries in `page.curves`.
+
+    Filter rules — keep the false-positive rate low on vector-glyph forms
+    that draw every printed character as a fill curve:
+      * stroked but NOT filled — filled = glyph body, stroked-only = widget
+      * bounding box in the checkbox size range (`_MIN_BOX_SIDE_PT` to
+        `_MAX_CHECKBOX_PT`), roughly square (0.6-1.6 aspect)
+      * at least 2 bezier `c` ops — glyphs like the top-loop of an `f` are
+        one `c` op; a closed circle needs at least 2 to trace the arc
+
+    Classification: `n_bez >= 3` → radio (circle drawn as ≥3 beziers);
+    otherwise checkbox (rounded rect / stubby curve).
+    """
+    widgets: list[tuple[float, float, float, float, str]] = []
+    for c in (page.curves or []):
+        if c.get("fill") or not c.get("stroke"):
+            continue
+        x0 = float(c["x0"])
+        y0 = float(c["top"])
+        x1 = float(c["x1"])
+        y1 = float(c["bottom"])
+        w = x1 - x0
+        h = y1 - y0
+        if w < _MIN_BOX_SIDE_PT or h < _MIN_BOX_SIDE_PT:
+            continue
+        if w > _MAX_CHECKBOX_PT or h > _MAX_CHECKBOX_PT:
+            continue
+        aspect = w / h if h > 0 else 999
+        if not (0.6 <= aspect <= 1.6):
+            continue
+        ops = c.get("path") or []
+        n_bez = sum(1 for op in ops if op and op[0] == "c")
+        if n_bez < 2:
+            continue
+        ftype = "radio" if n_bez >= 3 else "checkbox"
+        widgets.append((x0, y0, x1, y1, ftype))
+    return widgets
+
+
 def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
     """Extract candidate field boxes from a page's vector drawings.
 
     Pixel-perfect and hallucination-free: we only report what is actually
     drawn. Returns [] for pages with no vector primitives (scanned/raster).
 
-    Source primitives come from pdfplumber's `page.lines` and `page.rects`.
+    Source primitives come from pdfplumber's `page.lines`, `page.rects`, and
+    `page.curves` — the last covers radio-circle glyphs (`m c c c c h`) and
+    other rounded widget outlines. Small stroked rects still show up as
+    checkboxes via `page.rects`.
     """
     page_w = float(page.width)
     page_h = float(page.height)
@@ -366,6 +414,15 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
             "y_pct": ry0 / page_h,
             "w_pct": w / page_w,
             "h_pct": h / page_h,
+            "field_type": ftype,
+        })
+
+    for cx0, cy0, cx1, cy1, ftype in _curve_widgets(page):
+        fields.append({
+            "x_pct": cx0 / page_w,
+            "y_pct": cy0 / page_h,
+            "w_pct": (cx1 - cx0) / page_w,
+            "h_pct": (cy1 - cy0) / page_h,
             "field_type": ftype,
         })
 
@@ -541,17 +598,14 @@ def _detect_cells(page: Any) -> list[dict[str, Any]]:
 async def detect_fields_in_pdf(pdf_bytes: bytes) -> list[dict[str, Any]]:
     """Detect fillable field bounding boxes on a flat PDF, page by page.
 
-    Pure geometry — no LLM, no image rendering. For each page:
-      * If the page has ANY extractable text: run `_drawings_to_fields`
-        (horizontal-line and rectangle detection over the page's vector
-        primitives). This is pixel-perfect and covers underline-style and
-        boxed-input widgets.
-      * If the page has NO extractable text (vector-glyph forms whose
-        every printed character is a fill curve, e.g. a vector-glyph PAP form
-        form), try `_detect_cells` to reconstruct closed cells from
-        horizontal-line pairs.
-      * If neither returns anything, the page contributes zero fields.
-        There is no vision fallback.
+    Pure geometry — no LLM, no image rendering. For each page we always
+    run `_drawings_to_fields` (underlines, boxed inputs, checkboxes drawn
+    as small rects, radios drawn as closed bezier circles). On pages with
+    no extractable text (vector-glyph forms whose every printed character
+    is a fill curve, a vector-glyph PAP form being the canonical example) we
+    additionally run `_detect_cells` to reconstruct writable text cells
+    from horizontal-line pairs, then merge with dedupe so a widget picked
+    up by both passes doesn't count twice. No vision fallback.
 
     Kept `async` for caller compatibility — every caller already awaits
     this, and a future concurrent-per-page pass would slot in without a
@@ -561,25 +615,35 @@ async def detect_fields_in_pdf(pdf_bytes: bytes) -> list[dict[str, Any]]:
 
     merged: list[dict[str, Any]] = []
 
+    def _overlaps_existing(cand: dict[str, Any], existing: list[dict[str, Any]]) -> bool:
+        for g in existing:
+            if (
+                abs(cand["x_pct"] - g["x_pct"]) < 0.01
+                and abs(cand["y_pct"] - g["y_pct"]) < 0.01
+                and abs(cand["w_pct"] - g["w_pct"]) < 0.02
+                and abs(cand["h_pct"] - g["h_pct"]) < 0.02
+            ):
+                return True
+        return False
+
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             text_chars = sum(
                 len((ch.get("text") or "").strip()) for ch in (page.chars or [])
             )
 
+            page_fields = _drawings_to_fields(page)
             if text_chars == 0:
-                # Vector-glyph forms with drawn cell borders (vector-glyph PAP) are
-                # invisible to the text-layer check but have a perfectly
-                # regular H/V line grid. Reconstruct closed cells; if
-                # there aren't enough edges to make a grid, this page
-                # contributes zero fields (no vision fallback).
-                cells = _detect_cells(page)
-                for f in cells:
-                    merged.append({"page": page_num, **f})
-                continue
+                # Vector-glyph forms hide their captions inside filled curves,
+                # so `_drawings_to_fields` alone misses the writable cells.
+                # Supplement with cell reconstruction, but dedupe against
+                # widgets we already found (e.g. a small stroked rect is both
+                # a `_drawings_to_fields` checkbox and a `_detect_cells` cell).
+                for cell in _detect_cells(page):
+                    if not _overlaps_existing(cell, page_fields):
+                        page_fields.append(cell)
 
-            geo = _drawings_to_fields(page)
-            for f in geo:
+            for f in page_fields:
                 merged.append({"page": page_num, **f})
 
     return merged

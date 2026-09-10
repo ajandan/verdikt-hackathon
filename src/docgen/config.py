@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     # PDF field labeler — reasoning model used by the placement editor's
     # "AI Label fields" / "AI Realign" buttons and the inbox PDF ingest.
     # Reuses DOCGEN_AI_API_KEY + DOCGEN_AI_BASE_URL. Detection itself is
-    # deterministic geometry (pymupdf) with no model call; the labeler only
+    # deterministic geometry (pdfplumber) with no model call; the labeler only
     # matches already-detected rects to their printed captions using the
     # page's OCR text. Nemotron-Super is the default because it produces
     # reliable one-shot JSON without a reasoning-mode preamble.

@@ -1,6 +1,8 @@
 # ADR-0001: Adopt AGPL-3.0 for the whole project (to keep pymupdf)
 
-- **Status**: Accepted
+- **Status**: Superseded on 2026-09-09 — executed Option 2 (retire pymupdf,
+  swap to `pypdfium2` + `pdfplumber`, flip project license to MIT). See
+  the "Superseded outcome" section at the bottom of this ADR.
 - **Date**: 2026-09-04
 - **Deciders**: repo owner
 - **Related**: [#2](https://github.com/ajandan/docGen/issues/2)
@@ -88,3 +90,46 @@ Concretely:
 - If we ever hit a real need to close-source or dual-license, revisit as an
   Option 2 execution ticket. The pymupdf replacement plan is sketched
   above and should still be viable.
+
+## Superseded outcome (2026-09-09)
+
+Option 2 was executed to unblock the Nebius × NVIDIA hackathon submission,
+which requires an OSI-approved permissive license (MIT / Apache-2.0 / MPL-2.0).
+The stack now looks like this:
+
+- **Rasterization + page-image previews**: `pypdfium2` (Apache-2.0, wraps
+  Google PDFium under BSD-3). Used by the placement editor preview and the
+  preflight thumbnail path in `src/docgen/ui/routes.py`.
+- **Vector geometry + text extraction with bboxes**: `pdfplumber` (MIT,
+  wraps pdfminer.six under MIT). Used by `pdf_field_detector.py` for
+  underline / box / cell detection and by `inbox/test_verdict.py` for the
+  visual-order text extract sent to the verdict LLM.
+- **Shared word/span primitive**: `src/docgen/designtime/pdf_text.py`
+  (`Word`, `Span`, `extract_words`, `group_into_visual_rows`,
+  `group_into_spans`, `extract_spans`). Every consumer builds on this so
+  the four previous duplicates of "extract words → sort into visual rows"
+  have one implementation.
+- **Coordinate primitive**: `src/docgen/designtime/geometry.py::Rect`
+  replaces `pymupdf.Rect` at every construction site (7 of them).
+- **AcroForm widget enumeration + fill**: unchanged, still `pypdf`.
+- **Overlay drawing**: unchanged, still `reportlab` → merge via `pypdf`.
+
+Behaviour deltas we accepted during the migration:
+
+- `_drawings_to_fields` no longer blanket-skips filled rects. pdfplumber
+  flags AcroForm widget rectangles as `fill=True` because the shading
+  around them is a real fill primitive; only fills shaped like section-band
+  backgrounds (>70 % page width, <30 pt tall) are treated as decoration.
+- `_iter_horizontal_segments` walks `page.curves`' `path` list for line-to
+  operators, because pdfplumber wraps multi-segment stroked paths (vector-glyph-PAP
+  style vector-glyph forms) into a single `curve` object; `page.lines`
+  alone would emit zero fields on those.
+- `_detect_cells` label threshold moved from 10 primitives → 3 characters.
+  pdfplumber's `page.chars` gives one entry per rendered glyph vs.
+  pymupdf's ~10-30 fill primitives per glyph.
+
+`pyproject.toml` now declares `license = "MIT"`, `LICENSE` was already
+MIT, and `scripts/license_check.py` no longer carries the AGPL exception
+that used to justify pymupdf. Checkbox / radio glyph detection on flat
+PDFs is tracked as a separate follow-up (uses pdfplumber curves + rects
+below the current detector's size thresholds).

@@ -2,34 +2,37 @@
 geometric field detection. No VLM in the loop.
 
 Steps:
-  1. Run the existing `_drawings_to_fields` geometric detector on the flat and
-     acroform demo PDFs. Report what geometry alone finds.
-  2. For each detected/widget field rect, extract nearby OCR text spans and
-     send the whole set to nvidia/nemotron-3-super-120b-a12b with a strict-JSON
-     prompt. Print labels + section for every field so we can judge quality.
+  1. Run the production geometric detector (`detect_fields_in_pdf`) on the
+     flat demo PDF. Report what geometry alone finds.
+  2. Harvest AcroForm widgets from the acroform demo PDF via pypdf so we
+     have field names + widget rects.
+  3. For each detected/widget field, extract nearby OCR text spans and
+     send the whole set to nvidia/nemotron-3-super-120b-a12b with a strict
+     JSON prompt. Print labels + section for every field so we can judge
+     quality.
 
 Run: python scripts/qc_nemotron_labeling.py
 """
 from __future__ import annotations
 
 import asyncio
+import io
 import json
-import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import httpx
-import pymupdf  # type: ignore[import-untyped]
+import pdfplumber  # type: ignore[import-untyped]
+import pypdf
 
 from docgen.config import get_settings
-from docgen.designtime.pdf_field_detector import (
-    _drawings_to_fields,
-    _detect_cells,
-    _geometric_labels_for_widgets,
-)
+from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
+from docgen.designtime.pdf_text import extract_words, group_into_visual_rows
+from docgen.designtime.preflight_pdf import _harvest_widget_placements
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,71 +55,63 @@ EXPECTED_ACROFORM_LABELS = {
 }
 
 
-def extract_text_lines(pdf_path: Path) -> list[list[dict]]:
+def extract_text_lines(pdf_path: Path) -> list[list[dict[str, Any]]]:
     """Return per-page list of text lines with rects, sorted top-to-bottom.
-    Each line: {'text': str, 'x0','y0','x1','y1'}."""
-    out: list[list[dict]] = []
-    with pymupdf.open(str(pdf_path)) as doc:
-        for page in doc:
-            td = page.get_text("dict")
-            lines_out: list[dict] = []
-            for block in td.get("blocks", []):
-                for line in block.get("lines", []):
-                    bbox = line.get("bbox")
-                    if not bbox:
-                        continue
-                    txt = "".join((s.get("text") or "") for s in line.get("spans", []))
-                    txt = txt.strip()
-                    if not txt:
-                        continue
-                    lines_out.append({
-                        "text": txt,
-                        "x0": bbox[0], "y0": bbox[1], "x1": bbox[2], "y1": bbox[3],
-                    })
-            lines_out.sort(key=lambda l: (l["y0"], l["x0"]))
+
+    Uses the shared `extract_words` + `group_into_visual_rows` primitive
+    from `docgen.designtime.pdf_text`, then flattens each visual row into
+    one dict `{text, x0, y0, x1, y1}` matching the historical shape.
+    """
+    out: list[list[dict[str, Any]]] = []
+    with pdfplumber.open(str(pdf_path)) as pdf:
+        for page in pdf.pages:
+            lines_out: list[dict[str, Any]] = []
+            words = extract_words(page)
+            for row in group_into_visual_rows(words):
+                if not row:
+                    continue
+                text = " ".join(w.text for w in row).strip()
+                if not text:
+                    continue
+                x0 = min(w.rect.x0 for w in row)
+                x1 = max(w.rect.x1 for w in row)
+                y0 = min(w.rect.y0 for w in row)
+                y1 = max(w.rect.y1 for w in row)
+                lines_out.append({
+                    "text": text, "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                })
+            lines_out.sort(key=lambda ln: (ln["y0"], ln["x0"]))
             out.append(lines_out)
     return out
 
 
-def geometric_detect_flat(pdf_path: Path) -> list[dict]:
-    """Run the same geometric pass as production for a flat PDF, per page."""
-    fields: list[dict] = []
-    with pymupdf.open(str(pdf_path)) as doc:
-        for page_num, page in enumerate(doc, 1):
-            text_chars = sum(
-                len((s.get("text") or "").strip())
-                for b in page.get_text("dict").get("blocks", [])
-                for line in b.get("lines", [])
-                for s in line.get("spans", [])
-            )
-            if text_chars == 0:
-                cells = _detect_cells(page)
-                for f in cells:
-                    fields.append({"page": page_num, **f})
-                continue
-            geo = _drawings_to_fields(page)
-            for f in geo:
-                fields.append({"page": page_num, **f})
-    return fields
+def _page_sizes(pdf_path: Path) -> list[tuple[float, float]]:
+    with pdfplumber.open(str(pdf_path)) as pdf:
+        return [(float(p.width), float(p.height)) for p in pdf.pages]
 
 
-def acroform_widgets(pdf_path: Path) -> list[dict]:
-    fields: list[dict] = []
-    with pymupdf.open(str(pdf_path)) as doc:
-        for page_num, page in enumerate(doc, 1):
-            pw, ph = page.rect.width, page.rect.height
-            for i, w in enumerate(page.widgets() or []):
-                r = w.rect
-                fields.append({
-                    "index": i,
-                    "name": w.field_name or f"widget_{i}",
-                    "page": page_num,
-                    "x_pct": r.x0 / pw,
-                    "y_pct": r.y0 / ph,
-                    "w_pct": (r.x1 - r.x0) / pw,
-                    "h_pct": (r.y1 - r.y0) / ph,
-                    "field_type": "checkbox" if w.field_type_string == "CheckBox" else "text",
-                })
+async def geometric_detect_flat(pdf_path: Path) -> list[dict[str, Any]]:
+    """Run production geometric detection against a flat PDF."""
+    data = pdf_path.read_bytes()
+    return await detect_fields_in_pdf(data)
+
+
+def acroform_widgets(pdf_path: Path) -> list[dict[str, Any]]:
+    """Enumerate AcroForm widgets via pypdf's harvest helper.
+
+    Emits the same shape production uses — placements are dicts with
+    `page`, `x_pct`, `y_pct`, `w_pct`, `h_pct`, `field_type`, `name`.
+    We only need a subset here (rendering `#i at (x=..)` markers), so the
+    extra keys are just carried through.
+    """
+    with pdf_path.open("rb") as f:
+        reader = pypdf.PdfReader(f)
+        placements = _harvest_widget_placements(reader)
+    fields: list[dict[str, Any]] = []
+    for i, p in enumerate(placements):
+        p = dict(p)
+        p["index"] = i
+        fields.append(p)
     return fields
 
 
@@ -148,14 +143,16 @@ Every listed index must appear exactly once.
 """
 
 
-def build_ocr_dump(lines: list[dict]) -> str:
+def build_ocr_dump(lines: list[dict[str, Any]]) -> str:
     return "\n".join(
         f"y={l['y0']:.0f} x={l['x0']:.0f}..{l['x1']:.0f}: {l['text']}"
         for l in lines
     )
 
 
-def build_fields_dump(fields: list[dict], page_w: float, page_h: float) -> str:
+def build_fields_dump(
+    fields: list[dict[str, Any]], page_w: float, page_h: float
+) -> str:
     out = []
     for i, f in enumerate(fields):
         x0 = f["x_pct"] * page_w
@@ -169,24 +166,21 @@ def build_fields_dump(fields: list[dict], page_w: float, page_h: float) -> str:
 
 async def label_with_nemotron(
     api_key: str, page_num: int, page_w: float, page_h: float,
-    lines: list[dict], fields: list[dict],
+    lines: list[dict[str, Any]], fields: list[dict[str, Any]],
 ) -> dict[int, dict[str, str]]:
     prompt = PROMPT.format(
         page_num=page_num,
         ocr_dump=build_ocr_dump(lines),
         fields_dump=build_fields_dump(fields, page_w, page_h),
     )
-    body = {
+    body: dict[str, Any] = {
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 2000,
         "temperature": 0.0,
         "response_format": {"type": "json_object"},
-        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+        "chat_template_kwargs": {"enable_thinking": False},
     }
-    # Nebius wraps `extra_body` at top level; keep it there:
-    extra = body.pop("extra_body")
-    body.update(extra)
     async with httpx.AsyncClient(timeout=180.0) as client:
         t0 = time.time()
         resp = await client.post(
@@ -219,38 +213,39 @@ async def label_with_nemotron(
     return labels
 
 
-async def run_one(name: str, pdf_path: Path, fields_all: list[dict], api_key: str):
+async def run_one(
+    name: str, pdf_path: Path, fields_all: list[dict[str, Any]], api_key: str
+) -> None:
     print(f"\n{'='*70}\n{name}: {pdf_path.name} — {len(fields_all)} fields via geometry\n{'='*70}")
     if not fields_all:
         print("  (no fields)")
         return
-    # Group by page.
     lines_by_page = extract_text_lines(pdf_path)
-    with pymupdf.open(str(pdf_path)) as doc:
-        by_page: dict[int, list[dict]] = {}
-        for f in fields_all:
-            by_page.setdefault(int(f["page"]), []).append(f)
-        for page_num, page_fields in by_page.items():
-            page = doc.load_page(page_num - 1)
-            labels = await label_with_nemotron(
-                api_key,
-                page_num=page_num,
-                page_w=float(page.rect.width),
-                page_h=float(page.rect.height),
-                lines=lines_by_page[page_num - 1],
-                fields=page_fields,
+    sizes = _page_sizes(pdf_path)
+    by_page: dict[int, list[dict[str, Any]]] = {}
+    for f in fields_all:
+        by_page.setdefault(int(f["page"]), []).append(f)
+    for page_num, page_fields in by_page.items():
+        pw, ph = sizes[page_num - 1]
+        labels = await label_with_nemotron(
+            api_key,
+            page_num=page_num,
+            page_w=pw,
+            page_h=ph,
+            lines=lines_by_page[page_num - 1],
+            fields=page_fields,
+        )
+        for i, f in enumerate(page_fields):
+            lab = labels.get(i, {})
+            x0 = f["x_pct"] * pw
+            y0 = f["y_pct"] * ph
+            marker = ""
+            if "name" in f:
+                marker = f"  [truth: name={f['name']!r}]"
+            print(
+                f"  #{i:>2} p{page_num} pos=({x0:.0f},{y0:.0f}) "
+                f"section={lab.get('section','')!r:<30} label={lab.get('label','')!r}{marker}"
             )
-            for i, f in enumerate(page_fields):
-                lab = labels.get(i, {})
-                x0 = f["x_pct"] * page.rect.width
-                y0 = f["y_pct"] * page.rect.height
-                marker = ""
-                if "name" in f:
-                    marker = f"  [truth: name={f['name']!r}]"
-                print(
-                    f"  #{i:>2} p{page_num} pos=({x0:.0f},{y0:.0f}) "
-                    f"section={lab.get('section','')!r:<30} label={lab.get('label','')!r}{marker}"
-                )
 
 
 async def main() -> None:
@@ -260,7 +255,7 @@ async def main() -> None:
     print(f"model={MODEL}  base={BASE_URL}")
 
     # Flat PDF: geometry-only detection, then Nemotron labeling.
-    flat_fields = geometric_detect_flat(FLAT_PDF)
+    flat_fields = await geometric_detect_flat(FLAT_PDF)
     print(f"\nflat PDF: geometry detected {len(flat_fields)} fields")
     for i, f in enumerate(flat_fields):
         print(f"  #{i} p{f['page']} x={f['x_pct']:.3f} y={f['y_pct']:.3f} w={f['w_pct']:.3f}")

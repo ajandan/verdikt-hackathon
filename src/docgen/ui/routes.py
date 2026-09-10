@@ -1854,7 +1854,7 @@ async def placements_ai_detect(
     """Label existing placements via text-only Nemotron.
 
     Positions come from the PDF widgets or a prior AI-draw pass (accurate);
-    the labeler extracts per-line OCR text with pymupdf and asks Nemotron
+    the labeler extracts per-line OCR text with pdfplumber and asks Nemotron
     to match each field rect to its caption based on coordinates + text.
     No image is sent to the model. The response is a proposal — the client
     applies suggested labels to matching placement indices and the user
@@ -4428,13 +4428,13 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
                 "stage": "PDF field labeler",
                 "model": settings.pdf_labeler_model,
                 "provider": provider,
-                "purpose": "Captions each detected placement using pymupdf-extracted OCR text and rect coordinates — no page image sent to the model.",
+                "purpose": "Captions each detected placement using pdfplumber-extracted OCR text and rect coordinates — no page image sent to the model.",
             })
             rows.insert(0, {
                 "stage": "PDF field detector (AI Draw)",
                 "model": "(deterministic geometry — no model call)",
                 "provider": "local",
-                "purpose": "Locates form-field regions on flat PDFs by scanning pymupdf drawing primitives (underlines, cells).",
+                "purpose": "Locates form-field regions on flat PDFs by scanning pdfplumber drawing primitives (lines, rects, curves).",
             })
 
     return rows

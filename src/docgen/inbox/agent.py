@@ -208,8 +208,8 @@ async def _draw_pdf_placements(
     Mirrors the manual `/versions/{id}/placements/ai-draw` UI endpoint —
     for PDFs with no AcroForm widgets, upload_pdf_template leaves the
     placement list empty, which would otherwise trip freeze's
-    "no field placements" reject. Geometric detection (pymupdf drawing
-    primitives) locates field regions on each page and writes them so the
+    "no field placements" reject. Geometric detection (pdfplumber line +
+    rect + curve primitives) locates field regions on each page and writes them so the
     downstream labeler + freeze see the same shape as an AcroForm PDF.
 
     Best-effort: any failure leaves placements empty and the caller falls

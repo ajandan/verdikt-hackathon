@@ -247,17 +247,18 @@ def _flat_pdf_with_checkbox_placement(*, value: object, use_legacy_shape: bool =
 def _stroke_ops_present(pdf_bytes: bytes) -> bool:
     """True when at least one stroked rectangle appears anywhere in the doc.
 
-    Uses pymupdf's drawings API rather than a raw content-stream regex so we
-    don't get fooled by "re" occurring inside a compressed text stream.
+    Uses pdfplumber's parsed rect primitives rather than a raw content-stream
+    regex so we don't get fooled by "re" occurring inside a compressed text
+    stream.
     """
-    import pymupdf  # type: ignore[import-untyped]
+    import io
 
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            for d in page.get_drawings():
-                if d.get("type") in ("s", "sf") and any(
-                    item[0] == "re" for item in d.get("items", [])
-                ):
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            for r in page.rects:
+                if r.get("stroke"):
                     return True
     return False
 
@@ -290,24 +291,29 @@ def test_render_pdf_legacy_placement_without_type_still_renders_as_checkbox() ->
 
 
 def _curve_drawing_present(pdf_bytes: bytes, *, filled: bool) -> bool:
-    """True when any drawing contains a bezier curve item with the given fill.
+    """True when any drawing contains a bezier curve with the given fill.
 
-    reportlab's `canv.circle()` decomposes into 4 bezier segments — a
-    stroked circle shows up as a drawing with type='s' whose items include
-    ('c', ...), and a filled circle as type='f'|'sf'. The rectangle-check
-    used for checkboxes would false-negative for radios, hence a separate
-    helper.
+    reportlab's `canv.circle()` decomposes into 4 bezier segments. pdfplumber
+    surfaces those as `page.curves` entries with `stroke` and `fill` flags,
+    and the raw `path` list contains at least one `('c', ...)` operator.
+    The rectangle-check used for checkboxes would false-negative for radios,
+    hence a separate helper.
     """
-    import pymupdf  # type: ignore[import-untyped]
+    import io
 
-    want = "f" if filled else "s"
-    with pymupdf.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            for d in page.get_drawings():
-                dtype = d.get("type") or ""
-                if want not in dtype:
-                    continue
-                if any(item[0] == "c" for item in d.get("items", [])):
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            for c in page.curves:
+                if filled:
+                    if not c.get("fill"):
+                        continue
+                else:
+                    if not c.get("stroke"):
+                        continue
+                path = c.get("path") or ()
+                if any(op[0] == "c" for op in path):
                     return True
     return False
 

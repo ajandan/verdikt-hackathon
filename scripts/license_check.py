@@ -1,10 +1,10 @@
 """Fail CI if any installed dependency is under a license outside the allowlist (§12).
 
-Per ADR-0001, this project is licensed under AGPL-3.0 — copyleft upstream deps
-(LGPL, GPL, AGPL) are therefore compatible, but we still track each one
-explicitly so a *new* strong-copyleft dep never sneaks in unnoticed. The
-allowlist itself stays permissive-only; anything (A)GPL-family must land in
-`EXPLICIT_EXCEPTIONS` with a URL and a one-line justification.
+This project is MIT-licensed. Strong-copyleft upstream deps (GPL, AGPL) are
+NOT compatible and must not be introduced. Weak-copyleft (LGPL) deps we
+already ship are accepted under dynamic-linking rules and tracked
+explicitly in `EXPLICIT_EXCEPTIONS`. Anything else has to land in the
+permissive allowlist below.
 
 Run: python scripts/license_check.py
 Exit codes: 0 = clean, 1 = violation.
@@ -61,18 +61,14 @@ ALLOWED_LICENSES: set[str] = {
 # Packages we bundle deliberately even if their metadata is un-allowlistable.
 # Every entry must state the license and the reason it's acceptable for our
 # distribution model. LGPL is accepted under dynamic-linking rules (users may
-# swap the shared library) and because the doc's own §4 stack picks (docxtpl,
-# dramatiq, psycopg) are all LGPL. AGPL is accepted because the project itself
-# is AGPL-3.0 (see docs/adr/0001-adopt-agpl-for-pymupdf.md).
+# swap the shared library) and because the §4 stack picks (docxtpl, dramatiq,
+# psycopg) are all LGPL. No AGPL/GPL entries — pymupdf was retired under
+# ADR-0001 Option 2 in favour of pypdfium2 + pdfplumber.
 EXPLICIT_EXCEPTIONS: dict[str, str] = {
     "docxtpl": "LGPL-2.1 — chosen in §4 as the render engine; dynamic import, no static linking.",
     "dramatiq": "LGPLv3+ — chosen in §4 as the job broker; dynamic import.",
     "psycopg": "LGPL-3.0 — standard PostgreSQL driver; dynamic import.",
     "psycopg-binary": "LGPL-3.0 — wheel bundle of psycopg; dynamic import.",
-    # pip-licenses reports the pymupdf project as "PyMuPDF" on older
-    # versions and "pymupdf" on 1.26+ — accept both spellings.
-    "PyMuPDF": "AGPL-3.0 — powers the design-time PDF detector; project is AGPL-3.0 per ADR-0001.",
-    "pymupdf": "AGPL-3.0 — powers the design-time PDF detector; project is AGPL-3.0 per ADR-0001.",
 }
 
 # Own package.

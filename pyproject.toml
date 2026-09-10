@@ -3,7 +3,7 @@ name = "docgen"
 version = "0.1.0"
 description = "Template-based document generation service (design-time AI, deterministic render)."
 requires-python = ">=3.12"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
     # Lower bounds picked to exclude known CVE ranges:
@@ -27,17 +27,14 @@ dependencies = [
     "botocore>=1.35",
     "docxtpl>=0.19",
     "python-docx>=1.1",
-    # PDF templating stack (kind='pdf'):
-    #   pypdf      — AcroForm widget read + fill, page merge for flat overlay
-    #   pypdfium2  — page-image previews for the flat placement editor + preflight (Apache-2.0)
+    # PDF templating stack (kind='pdf'). All permissive (see ADR-0001):
+    #   pypdf      — AcroForm widget read + fill, page merge for flat overlay (BSD-3)
+    #   pypdfium2  — page-image previews + rasterization for previews/preflight (Apache-2.0)
     #   pdfplumber — vector geometry + text-with-bboxes for field detection (MIT)
-    #   reportlab  — draw the value overlay layer before merging with pypdf
+    #   reportlab  — draw the value overlay layer before merging with pypdf (BSD-3)
     "pypdf>=5.0",
     "pypdfium2>=4.30",
     "pdfplumber>=0.11",
-    # pymupdf is being phased out (ADR-0001 Option 2) — kept during incremental
-    # migration so tests pass at each step; removed in the final cleanup commit.
-    "pymupdf>=1.24",
     "reportlab>=4.0",
     "jinja2>=3.1.5",
     "lxml>=5.3",

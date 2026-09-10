@@ -634,11 +634,22 @@ async def detect_fields_in_pdf(pdf_bytes: bytes) -> list[dict[str, Any]]:
 
             page_fields = _drawings_to_fields(page)
             if text_chars == 0:
-                # Vector-glyph forms hide their captions inside filled curves,
-                # so `_drawings_to_fields` alone misses the writable cells.
-                # Supplement with cell reconstruction, but dedupe against
-                # widgets we already found (e.g. a small stroked rect is both
-                # a `_drawings_to_fields` checkbox and a `_detect_cells` cell).
+                # Vector-glyph forms hide their captions inside filled curves.
+                # Two consequences:
+                #   1. `_drawings_to_fields`' "horizontal line → text field"
+                #      rule can't reject URL/link underlines and footer strokes
+                #      because `_text_covers` has no text spans to consult.
+                #      Every stray line becomes a fake text field. Same story
+                #      for wide filled rects (header banners). Keep only the
+                #      widgets — checkboxes and radios — where the geometric
+                #      signal is strong on its own.
+                #   2. Real writable text cells come from `_detect_cells`,
+                #      which reconstructs closed cells from H-line pairs and
+                #      doesn't fire on standalone underlines.
+                page_fields = [
+                    f for f in page_fields
+                    if f.get("field_type") in ("checkbox", "radio")
+                ]
                 for cell in _detect_cells(page):
                     if not _overlaps_existing(cell, page_fields):
                         page_fields.append(cell)
@@ -992,8 +1003,14 @@ async def label_fields_in_pdf(
 
     # One batch = one Nemotron call. A page with >20 fields is split into
     # chunks; each chunk is still labeled with the same per-page OCR dump.
+    # Skip pages whose OCR came out empty (vector-glyph forms — every glyph
+    # is a fill curve, not a text object) — Nemotron has no caption text to
+    # match, and the call just wastes tokens returning "unknown" for every
+    # field.
     batches: list[tuple[int, list[dict[str, Any]]]] = []
     for page_num in sorted(by_page):
+        if not page_ocr.get(page_num, "").strip():
+            continue
         page_fields = by_page[page_num]
         for i in range(0, len(page_fields), _BATCH_SIZE):
             batches.append((page_num, page_fields[i : i + _BATCH_SIZE]))

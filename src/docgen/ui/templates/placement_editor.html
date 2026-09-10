@@ -1013,10 +1013,11 @@
         return p.type === "checkbox"
             || (p.type == null && (p.payload_type === "boolean" || p.field_type === "checkbox"));
     }
-    // Radio is only ever set via the explicit type field — there's no legacy
-    // signal for it (pre-radio placements coerced radios to checkbox/text).
+    // Radio: explicit type, or detector-supplied field_type when type is unset
+    // (parallel to the checkbox rule so newly-detected radios render circular).
     function isRadioPlacement(p) {
-        return p.type === "radio";
+        return p.type === "radio"
+            || (p.type == null && p.field_type === "radio");
     }
     // Both checkbox and radio share the square-in-pixel-space geometry
     // constraint. Anything that snaps or resizes with an aspect-ratio lock
@@ -1333,7 +1334,7 @@
         // Default payload_type from field_type so existing placements
         // (which never had payload_type set) render with a sensible pick.
         if (p.payload_type !== "string" && p.payload_type !== "boolean") {
-            p.payload_type = (p.field_type === "checkbox") ? "boolean" : "string";
+            p.payload_type = (p.field_type === "checkbox" || p.field_type === "radio") ? "boolean" : "string";
         }
         // Realign controls appear at the top of the sidebar when this
         // placement was flagged by the realigner. Accept confirms the
@@ -1998,11 +1999,19 @@
             const skippedSentence = skippedCount > 0
                 ? `\nSkipped ${skippedCount} already-labeled field(s).`
                 : "";
+            // Vector-glyph PDFs (every letter drawn as a fill curve — common
+            // for print-optimized flat forms) have no extractable text, so
+            // caption-based labeling can't run. Tell the user why instead of
+            // showing a bare "0 of N" that looks like a bug.
+            const noTextSentence = data.no_extractable_text
+                ? "\n\nThis PDF has no extractable text (every glyph is drawn as vector curves), so captions can't be read. Label these fields manually."
+                : "";
             const body =
                 `${labelChanged} label(s) and ${nameChanged} payload key(s) updated.\n` +
                 `${providerName} labeled ${labelChanged} of ${targetCount} unlabeled field(s)` +
                 (missed > 0 ? ` (${missed} missed — label those manually).` : ".") +
                 skippedSentence +
+                noTextSentence +
                 "\n\nReview and Save.";
             await showAlert(`${providerName} labeling done`, body);
             // Same reason as in the AI Draw handler — refresh the guide

@@ -20,7 +20,7 @@ from docgen.auth import sign_session
 from docgen.core.render_pipeline_pdf import PdfRenderError, render_pdf_template
 from docgen.designtime.freeze import freeze_pdf_version
 from docgen.designtime.preflight_pdf import preflight_pdf
-from docgen.designtime.upload import upload_pdf_template
+from docgen.designtime.upload import PdfPreflightRejected, upload_pdf_template
 from docgen.main import app
 from docgen.store.db import async_session
 from docgen.store.models import Template, TemplateVersion
@@ -106,6 +106,44 @@ def test_preflight_pdf_flat_returns_empty_placements() -> None:
     assert r.outcome == "accept"
     assert r.flavor == "flat"
     assert r.initial_placements == []
+
+
+def _make_text_less_pdf(producer: str | None) -> bytes:
+    """Blank page + optional /Producer stamp — mimics Print-to-PDF output.
+
+    Real Microsoft Print-to-PDF rasterizes glyphs into vector curves so
+    `page.chars` is empty. A blank page shares the same signature (no
+    widgets, no extractable text) without the multi-KB curve payload.
+    """
+    writer = pypdf.PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    if producer is not None:
+        writer.add_metadata({"/Producer": producer})
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
+def test_preflight_pdf_rejects_print_to_pdf() -> None:
+    """Print-to-PDF templates must be rejected — no text layer means the AI
+    labeler has no captions to match and realign has no anchors."""
+    r = preflight_pdf(_make_text_less_pdf(producer="Microsoft: Print To PDF"))
+    assert r.outcome == "reject"
+    finding = next(f for f in r.findings if f.code == "pdf.no_text_layer")
+    # Producer-specific message names the driver so the operator knows why.
+    assert "Print To PDF" in finding.message
+    # Hint points at the correct export path.
+    assert "Save As PDF" in finding.hint
+
+
+def test_preflight_pdf_rejects_text_less_pdf_generic() -> None:
+    """Text-less PDFs from unknown producers still reject, with a generic
+    hint (scanned or driver-vectorized either way — both need OCR/re-export)."""
+    r = preflight_pdf(_make_text_less_pdf(producer=None))
+    assert r.outcome == "reject"
+    finding = next(f for f in r.findings if f.code == "pdf.no_text_layer")
+    assert "no widgets and no extractable text" in finding.message
+    assert "OCR" in finding.hint
 
 
 def _make_tree_acroform_pdf() -> bytes:
@@ -394,6 +432,44 @@ def test_render_pdf_without_placements_errors() -> None:
         # Direct call bypasses blob fetch — placements empty triggers early error.
         from docgen.core.render_pipeline_pdf import execute_pdf_render
         execute_pdf_render(_TV(), {"any": "thing"}, "pdf", settings=None)
+
+
+@pytest.mark.asyncio
+async def test_upload_pdf_template_rejects_at_boundary_no_persist(
+    default_tenant: uuid.UUID,
+) -> None:
+    """Preflight-reject raises before any Template or TemplateVersion row is
+    written — no DB residue for rejected uploads. Regression guard on the
+    Option-A router-boundary refactor."""
+    from sqlalchemy import func, select
+    pdf = _make_text_less_pdf(producer="Microsoft: Print To PDF")
+    async with async_session() as session:
+        before = (
+            await session.execute(
+                select(func.count()).select_from(Template).where(Template.tenant_id == default_tenant)
+            )
+        ).scalar_one()
+
+        with pytest.raises(PdfPreflightRejected) as exc_info:
+            await upload_pdf_template(
+                session,
+                name=f"reject-{uuid.uuid4().hex[:6]}",
+                pdf_bytes=pdf,
+                tenant_id=default_tenant,
+            )
+        # Exception carries the full preflight report so callers can surface
+        # the finding without re-running preflight.
+        finding = exc_info.value.report.findings[0]
+        assert finding.code == "pdf.no_text_layer"
+        assert "Print To PDF" in finding.message
+
+        after = (
+            await session.execute(
+                select(func.count()).select_from(Template).where(Template.tenant_id == default_tenant)
+            )
+        ).scalar_one()
+        # Nothing was persisted — same Template count before and after.
+        assert before == after
 
 
 @pytest.mark.asyncio

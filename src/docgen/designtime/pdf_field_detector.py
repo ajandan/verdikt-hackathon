@@ -27,10 +27,13 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
 import re
 from typing import Any
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 from docgen.designtime.geometry import Rect
 from docgen.designtime.pdf_text import (
@@ -826,6 +829,25 @@ Return STRICT JSON:
 Every listed index must appear exactly once."""
 
 
+def pdf_has_extractable_text(pdf_bytes: bytes) -> bool:
+    """True if any page yields extractable text words via pdfplumber.
+
+    Vector-glyph forms (every letter drawn as a fill curve) return False —
+    they have zero text objects, so caption-based labeling can't run. The
+    UI uses this to explain a 0-labeled result instead of silently failing.
+    """
+    import pdfplumber  # type: ignore[import-untyped]
+
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                if extract_words(page):
+                    return True
+    except Exception:
+        return True
+    return False
+
+
 def _ocr_lines_for_page(page: Any) -> str:
     """Dump one text-line-per-row of the page as `y=<y0> x=<x0..x1>: <text>`,
     top-to-bottom. Matches the format used by `scripts/qc_nemotron_labeling.py`.
@@ -849,6 +871,223 @@ def _ocr_lines_for_page(page: Any) -> str:
         f"y={y0:.1f} x={x0:.1f}..{x1:.1f}: {txt}"
         for y0, x0, x1, txt in rows
     )
+
+
+_VISION_LABEL_PROMPT = """This page from a form has {n_boxes} numbered red boxes drawn on it.
+Each widget is the red-outlined rectangle. Its NUMBER is inside a red
+circle sitting on the widget's TOP-LEFT corner (half on, half off the
+widget). The caption is printed TEXT ON THE PAGE — usually ABOVE or
+just LEFT of the widget on the same row.
+
+Return STRICT JSON in this shape (no prose, no code fences):
+
+{{"labels": [
+  {{"box": 1, "section": "Patient Information", "label": "First Name"}},
+  {{"box": 2, "section": "Patient Information", "label": "Date of Birth"}},
+  ...
+]}}
+
+Rules:
+- Every box from 1 to {n_boxes} must appear exactly once.
+- `label`: the specific field caption printed near that box ("First Name",
+  "Date of Birth", "Diagnosis Code", "Signature", "Yes", "No", etc.).
+- `section`: the SECTION HEADING that box sits under ("Patient Information",
+  "Insurance Details", "Physician Certification", ...). If you can't
+  identify a section, use "".
+- If a box is a checkbox or radio, `label` should describe the OPTION
+  (e.g. "Male", "Female", "Yes — has other coverage", "Medicare Part D").
+- ALWAYS make your best guess from visible text near the box. Use
+  `label` = "unknown" ONLY when the page area around the box is truly
+  blank (no printed text within ~2cm)."""
+
+
+def _annotate_page_with_boxes(
+    pdf_bytes: bytes,
+    page_num: int,
+    fields: list[dict[str, Any]],
+    page_w: float,
+    page_h: float,
+    scale: float = 3.125,
+) -> tuple[bytes, list[int]]:
+    """Rasterize a page and draw a numbered red box for each field.
+
+    Returns (annotated_png_bytes, box_number_to_field_index_list).
+    Box numbers are 1-indexed and correspond to the position in the returned
+    field-index list.
+
+    Tag placement: numbered marker is drawn as a filled circle CENTERED ON
+    the widget's top-left corner — half on the widget, half outside. The
+    earlier below-right placement made the VLM read captions from the row
+    BELOW instead of the row above (labels shifted by one row on dense
+    forms). Sitting the marker ON the widget's corner makes ownership
+    unambiguous without covering the caption that sits above.
+
+    Raster: 3.125x scale ≈ 225 DPI. Higher than the previous 2.083x (150
+    DPI) so 6-8pt printed captions stay legible after JPEG compression on
+    the VLM side.
+    """
+    from PIL import ImageDraw, ImageFont
+
+    png = _rasterize_page_png(pdf_bytes, page_num, scale=scale)
+    if not png:
+        return b"", []
+
+    from PIL import Image
+    img = Image.open(io.BytesIO(png)).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+
+    box_to_field_idx: list[int] = []
+    px_w, px_h = img.size
+    x_scale = px_w / page_w
+    y_scale = px_h / page_h
+
+    for box_num, f in enumerate(fields, start=1):
+        try:
+            fx0 = float(f.get("x_pct") or 0) * page_w * x_scale
+            fy0 = float(f.get("y_pct") or 0) * page_h * y_scale
+            fx1 = fx0 + float(f.get("w_pct") or 0) * page_w * x_scale
+            fy1 = fy0 + float(f.get("h_pct") or 0) * page_h * y_scale
+            idx = int(f["index"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        # Red rectangle around the widget so the VLM can see the field's
+        # exact extent, not just the anchor point.
+        draw.rectangle([(fx0, fy0), (fx1, fy1)], outline=(220, 30, 30), width=3)
+        # Numbered circular marker centered on the widget's TOP-LEFT corner.
+        # Half-on / half-off makes ownership unambiguous — the marker is
+        # visually attached to this widget, not the one above or below.
+        # Radius sized to fit the number plus a couple pixels of padding.
+        label = str(box_num)
+        try:
+            bbox = draw.textbbox((0, 0), label, font=font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+        except AttributeError:
+            tw, th = (11 * len(label), 14)
+        radius = max(tw, th) / 2 + 5
+        cx = fx0
+        cy = fy0
+        draw.ellipse(
+            [(cx - radius, cy - radius), (cx + radius, cy + radius)],
+            fill=(220, 30, 30),
+            outline=(255, 255, 255),
+            width=2,
+        )
+        # Center the number in the circle (glyph baseline sits below the
+        # bbox top, so nudge up by a couple pixels).
+        text_x = cx - tw / 2
+        text_y = cy - th / 2 - 2
+        draw.text((text_x, text_y), label, fill=(255, 255, 255), font=font)
+        box_to_field_idx.append(idx)
+
+    out = io.BytesIO()
+    img.save(out, format="PNG", optimize=True)
+    return out.getvalue(), box_to_field_idx
+
+
+async def _vision_label_page(
+    client: httpx.AsyncClient,
+    annotated_png: bytes,
+    box_to_field_idx: list[int],
+    *,
+    api_key: str,
+    vision_model: str,
+    base_url: str,
+    extra_body: dict[str, Any] | None = None,
+) -> dict[int, dict[str, str]]:
+    """Send an annotated page (numbered red boxes) to the VLM and parse the
+    returned per-box labels.
+
+    Skips the OCR-then-match indirection: the VLM sees each field's exact
+    location AND the caption printed next to it, and returns a label per
+    box. Returns `{field_index: {"label": ..., "section": ...}}`.
+    """
+    import base64
+
+    if not box_to_field_idx or not annotated_png:
+        return {}
+
+    b64 = base64.b64encode(annotated_png).decode("ascii")
+    prompt = _VISION_LABEL_PROMPT.format(n_boxes=len(box_to_field_idx))
+    body: dict[str, Any] = {
+        "model": vision_model,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{b64}"},
+                },
+            ],
+        }],
+        # Reasoning-mode VLMs like MiniCPM-V can burn the whole output budget
+        # on a <think>...</think> preamble and truncate before emitting JSON.
+        # 8k gives room for the preamble; enable_thinking=false silences it
+        # entirely when the served model honors the flag.
+        "max_tokens": 8192,
+        "temperature": 0.0,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    if extra_body:
+        body.update(extra_body)
+    resp = await _post_with_retry(
+        client,
+        f"{base_url}/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json_body=body,
+        op="vision_label",
+    )
+    resp.raise_for_status()
+    content = resp.json()["choices"][0]["message"]["content"] or ""
+    data = _extract_json(content)
+    items = data.get("labels", [])
+    out: dict[int, dict[str, str]] = {}
+    dropped_unknown = 0
+    dropped_bad = 0
+    for item in items:
+        try:
+            box_num = int(item["box"])
+            label = str(item.get("label", "")).strip()
+            section = str(item.get("section", "")).strip()
+        except (KeyError, TypeError, ValueError):
+            dropped_bad += 1
+            continue
+        if box_num < 1 or box_num > len(box_to_field_idx):
+            dropped_bad += 1
+            continue
+        if not label or label.lower() == "unknown":
+            dropped_unknown += 1
+            continue
+        field_idx = box_to_field_idx[box_num - 1]
+        out[field_idx] = {"label": label, "section": section}
+    log.info(
+        "vision_label_parsed model=%s boxes=%s items=%s kept=%s unknown=%s bad=%s",
+        vision_model, len(box_to_field_idx), len(items),
+        len(out), dropped_unknown, dropped_bad,
+    )
+    return out
+
+
+def _rasterize_page_png(pdf_bytes: bytes, page_num: int, scale: float = 2.083) -> bytes:
+    """One PDF page → PNG bytes via pypdfium2 (Apache-2.0)."""
+    import pypdfium2  # type: ignore[import-untyped]
+
+    doc = pypdfium2.PdfDocument(pdf_bytes)
+    try:
+        if page_num < 1 or page_num > len(doc):
+            return b""
+        page = doc[page_num - 1]
+        pil = page.render(scale=scale).to_pil()
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG")
+        return buf.getvalue()
+    finally:
+        doc.close()
 
 
 def _format_fields_dump(
@@ -934,6 +1173,7 @@ async def label_fields_in_pdf(
     timeout: float = 180.0,
     pdf_flavor: str | None = None,
     extra_body: dict[str, Any] | None = None,
+    vision_model: str = "",
 ) -> dict[int, dict[str, str]]:
     """Label fields using geometry first, Nemotron for anything left over.
 
@@ -1001,22 +1241,67 @@ async def label_fields_in_pdf(
             page_ocr[page_num] = _ocr_lines_for_page(page)
             page_size[page_num] = (float(page.width), float(page.height))
 
-    # One batch = one Nemotron call. A page with >20 fields is split into
-    # chunks; each chunk is still labeled with the same per-page OCR dump.
-    # Skip pages whose OCR came out empty (vector-glyph forms — every glyph
-    # is a fill curve, not a text object) — Nemotron has no caption text to
-    # match, and the call just wastes tokens returning "unknown" for every
-    # field.
-    batches: list[tuple[int, list[dict[str, Any]]]] = []
-    for page_num in sorted(by_page):
-        if not page_ocr.get(page_num, "").strip():
-            continue
-        page_fields = by_page[page_num]
-        for i in range(0, len(page_fields), _BATCH_SIZE):
-            batches.append((page_num, page_fields[i : i + _BATCH_SIZE]))
+    # Vision-labeling fallback: pages with no extractable text (vector-glyph
+    # forms — every letter drawn as a fill curve) get rasterized with each
+    # detected widget outlined in a numbered red box, and the annotated image
+    # is sent to the VLM. It sees each field's position AND the caption
+    # printed next to it, so we skip the OCR-then-spatial-match indirection
+    # entirely — the VLM returns `{box: label}` directly.
+    vision_pages: list[int] = [
+        pn for pn in by_page if not page_ocr.get(pn, "").strip()
+    ]
+    visual_labels: dict[int, dict[str, str]] = {}
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         sem = asyncio.Semaphore(_BATCH_CONCURRENCY)
+
+        if vision_model and vision_pages:
+            async def _visual_label_one(pn: int) -> dict[int, dict[str, str]]:
+                async with sem:
+                    pw, ph = page_size.get(pn, (612.0, 792.0))
+                    page_fields = by_page[pn]
+                    annotated, box_map = _annotate_page_with_boxes(
+                        pdf_bytes, pn, page_fields, pw, ph,
+                    )
+                    if not annotated or not box_map:
+                        return {}
+                    try:
+                        return await _vision_label_page(
+                            client, annotated, box_map,
+                            api_key=api_key,
+                            vision_model=vision_model,
+                            base_url=base_url,
+                        )
+                    except httpx.HTTPStatusError as e:
+                        log.warning(
+                            "vision_label_http_error page=%s model=%s status=%s body=%r",
+                            pn, vision_model, e.response.status_code,
+                            e.response.text[:400],
+                        )
+                        return {}
+                    except Exception as e:
+                        log.warning(
+                            "vision_label_failed page=%s model=%s err=%s: %s",
+                            pn, vision_model, type(e).__name__, e,
+                        )
+                        return {}
+
+            per_page_results = await asyncio.gather(
+                *(_visual_label_one(pn) for pn in vision_pages)
+            )
+            for r in per_page_results:
+                visual_labels.update(r)
+
+        # Text-model batches only cover pages that HAVE extractable text.
+        # Vision-labeled pages are already resolved via `visual_labels` and
+        # merged in at the end.
+        batches: list[tuple[int, list[dict[str, Any]]]] = []
+        for page_num in sorted(by_page):
+            if not page_ocr.get(page_num, "").strip():
+                continue
+            page_fields = by_page[page_num]
+            for i in range(0, len(page_fields), _BATCH_SIZE):
+                batches.append((page_num, page_fields[i : i + _BATCH_SIZE]))
 
         async def run(
             page_num: int, batch: list[dict[str, Any]]
@@ -1046,6 +1331,10 @@ async def label_fields_in_pdf(
     merged: dict[int, dict[str, str]] = {}
     for r in results:
         merged.update(r)
+    # Visual-labeling hits (from vector-glyph pages) go in next. They were
+    # produced by the VLM off the rasterized page, so they're the only signal
+    # available for those fields — trump nothing on text pages.
+    merged.update(visual_labels)
     # Geometric hits are authoritative — they already matched a real caption
     # bbox to a real widget rect. Overlay them last so any Nemotron guess for
     # the same index is superseded.

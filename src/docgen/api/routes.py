@@ -51,7 +51,7 @@ from docgen.core.schema_infer import TemplateSchema, validate_payload
 from docgen.designtime.freeze import freeze_pdf_version, freeze_version
 from docgen.designtime.mapper import propose_mapping_for_version
 from docgen.designtime.publish import list_publish_events, publish_version
-from docgen.designtime.upload import upload_pdf_template, upload_template
+from docgen.designtime.upload import PdfPreflightRejected, upload_pdf_template, upload_template
 from docgen.net_safety import UrlNotAllowed, validate_public_url
 from docgen.providers.base import MappingProposal
 from docgen.store.blob import get_object
@@ -97,6 +97,11 @@ async def create_template(
             )
     except InvalidDocxError as e:
         raise HTTPException(400, str(e)) from e
+    except PdfPreflightRejected as e:
+        # Reject at the boundary — no rows or blobs were written. Return the
+        # full preflight report so the client sees the finding message + hint
+        # and can present them to the operator (Print-to-PDF, encrypted, etc.).
+        raise HTTPException(400, {"preflight": e.report.to_dict()}) from e
     return UploadResponse(
         template_id=template.id,
         version_id=version.id,

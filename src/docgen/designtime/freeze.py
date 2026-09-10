@@ -407,7 +407,7 @@ async def freeze_pdf_version(
 def _pdf_field_spec(p: dict) -> FieldSpec:
     pt = p.get("payload_type")
     if pt not in ("string", "boolean"):
-        pt = "boolean" if p.get("field_type") == "checkbox" else "string"
+        pt = "boolean" if p.get("field_type") in ("checkbox", "radio") else "string"
     return FieldSpec(
         name=p["name"],
         type=pt,  # type: ignore[arg-type]

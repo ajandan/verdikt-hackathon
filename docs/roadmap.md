@@ -120,6 +120,70 @@ stripped from the output).
     orchestrator around detect + label + match, all of which are
     covered independently.
 
+- ~~**PR4 — Reject vector-glyph PDFs at upload (Print-to-PDF gate).**~~
+  **Done 2026-09-09.** `preflight_pdf.py` used to downgrade a
+  text-less flat PDF to a `pdf.no_text_layer` WARNING and accept it —
+  but with no `page.chars` the geometric labeler has no spans to
+  match, Nemotron's batch is a no-op (`pdf_field_detector.py:639`
+  skips text-less pages), sections can't be derived from headings,
+  and `realign_pdf.py` has no text anchors on re-upload. Both this
+  repo and the original Quire failed to solve labeling on
+  vector-glyph pages (original tried Mistral pixtral vision +
+  mis-matched on dense forms — see parked `project_vlm_label_parked`
+  memory). Gate now: when `flavor == "flat"` and no page yields
+  `extract_text()`, return `outcome="reject"` with a producer-aware
+  hint. `_reject_no_text_layer(reader)` inspects
+  `reader.metadata["/Producer"]` — if it matches "Print To PDF" /
+  "Print to PDF" the error names the driver by name and points at
+  "File → Save As PDF (Word) or File → Export as PDF" as the fix;
+  otherwise it falls back to the generic "text-flat PDF or OCR the
+  source" hint. AcroForm flavor untouched — widget rects anchor
+  placements without needing text. Module docstring updated to
+  reflect the new rule; `upload_pdf_template` already stamps
+  `TemplateVersion.status="rejected"` on `report.outcome=="reject"`
+  (`upload.py:322`) and the UI upload handler surfaces the reject
+  finding as an `error` flash (`ui/routes.py:986-991`), so no
+  downstream changes needed. Verified against the real fixtures we
+  triaged: `bench104-application...pdf` (Word Save-As-PDF, 4120
+  chars) → `outcome=accept, flavor=flat`; `bench104_page1.pdf` (Producer
+  "Microsoft: Print To PDF", 0 chars) → `outcome=reject,
+  code="pdf.no_text_layer"` with the driver-specific hint.
+  Coverage in `tests/test_pdf_template.py`:
+  `test_preflight_pdf_rejects_print_to_pdf` (producer stamped →
+  driver-specific message + "Save As PDF" hint) and
+  `test_preflight_pdf_rejects_text_less_pdf_generic` (no producer →
+  generic OCR-hint fallback). Existing
+  `test_preflight_pdf_flat_returns_empty_placements` (reportlab-drawn
+  text-flat) still passes — regression guard for the "text-flat
+  keeps working" path. Full preflight suite (21 tests across
+  `test_preflight*.py`) green.
+
+  **Followup — reject at router boundary (no persist).** First pass
+  still stamped `TemplateVersion.status="rejected"` and wrote a
+  blob row before flashing the error, so every Print-to-PDF attempt
+  polluted the templates list and blob store with an audit-trail
+  row an operator then had to clean up. Refactored to fail at the
+  router boundary, mirroring the existing `InvalidDocxError`
+  pattern: new `PdfPreflightRejected(report)` exception in
+  `designtime/upload.py` carrying the full `PdfPreflightReport`;
+  `upload_pdf_template` raises it immediately after preflight and
+  before any DB / blob writes. Dead reject branches downstream
+  (`status="rejected" if …` and the `report.outcome != "reject"`
+  guard around initial placements) removed. Handlers: `api/routes.py::
+  create_template` translates it to `HTTPException(400,
+  {"preflight": report.to_dict()})`; `ui/routes.py` catches it in
+  all three PDF-capable upload paths (`upload_get`,
+  `upload_sample_template`, `upload_new_version`) via a shared
+  `_pdf_reject_flash(exc)` helper that surfaces the finding
+  message + hint as an error flash and redirects back to the
+  originating page; the inbox agent's existing catch-all already
+  logs and skips. New regression test
+  `test_upload_pdf_template_rejects_at_boundary_no_persist` asserts
+  `Template` count is unchanged after a rejected upload. Verified
+  end-to-end against `bench104_page1.pdf` inside the compose stack:
+  HTTP 400 with the driver-specific preflight body (was HTTP 201
+  before the refactor), templates count 49 → 49 (was 49 → 50).
+
 ### Deferred (called out but not scheduled)
 
 - Non-text widget types.

@@ -61,12 +61,12 @@
         <form action="/ui/upload" method="post" enctype="multipart/form-data">
             {{ csrf_input(request) }}
             <label>Template name
-                <input type="text" name="name" required placeholder="e.g. Denial Letter (Commercial PPO)">
+                <input type="text" name="name" required placeholder="e.g. Denial Letter (Commercial PPO)" value="{{ form_name or '' }}">
                 <div class="field-hint">Shown in the templates list. Include the audience or plan variant for clarity.</div>
             </label>
 
             <label>Owner <span class="subtle">(optional)</span>
-                <input type="text" name="owner" placeholder="team or email">
+                <input type="text" name="owner" placeholder="team or email" value="{{ form_owner or '' }}">
                 <div class="field-hint">Who to contact when the template needs a change. Freeform.</div>
             </label>
 
@@ -74,7 +74,7 @@
             <label>Tenant
                 <select name="tenant_id" required>
                     {% for t in all_tenants %}
-                        <option value="{{ t.id }}" {% if sidebar_selected_tenant_id == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+                        <option value="{{ t.id }}" {% if (form_tenant_id and form_tenant_id == t.id|string) or (not form_tenant_id and sidebar_selected_tenant_id == t.id|string) %}selected{% endif %}>{{ t.name }}</option>
                     {% endfor %}
                 </select>
                 <div class="field-hint">

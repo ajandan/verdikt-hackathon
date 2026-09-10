@@ -71,6 +71,8 @@ def _placement_type(p: dict[str, Any]) -> str:
     explicit = p.get("type")
     if explicit in ("text", "checkbox", "radio"):
         return explicit
+    if p.get("field_type") == "radio":
+        return "radio"
     if p.get("field_type") == "checkbox" or p.get("payload_type") == "boolean":
         return "checkbox"
     return "text"

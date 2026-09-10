@@ -64,7 +64,12 @@ from docgen.designtime.freeze import (
 )
 from docgen.designtime.mapper import propose_mapping_for_version
 from docgen.designtime.publish import list_publish_events, publish_version
-from docgen.designtime.upload import upload_locale_variant, upload_pdf_template, upload_template
+from docgen.designtime.upload import (
+    PdfPreflightRejected,
+    upload_locale_variant,
+    upload_pdf_template,
+    upload_template,
+)
 from docgen.pagination import (
     Cursor,
     Page,
@@ -949,14 +954,17 @@ async def upload_submit(
     fname = (file.filename or "").lower()
     is_docx = fname.endswith(".docx")
     is_pdf = fname.endswith(".pdf")
-    if not (is_docx or is_pdf):
+
+    async def _rerender(flash: str, *, status_code: int = 400) -> HTMLResponse:
+        # Re-render the upload form in-place so the operator sees the error
+        # inline and keeps their name/owner. File inputs can't be preserved
+        # (browser security) — they'll have to re-pick the file.
         from docgen.store.models import Tenant
         stmt = select(Tenant).order_by(Tenant.name.asc())
         ident = _identity(request)
         if ident is not None and ident.role == "tenant_admin" and ident.tenant_id is not None:
             stmt = stmt.where(Tenant.id == ident.tenant_id)
         res = await session.execute(stmt)
-        all_tenants = res.scalars().all()
         return templates.TemplateResponse(
             request,
             "upload.html",
@@ -964,12 +972,18 @@ async def upload_submit(
                 request,
                 session,
                 active="upload",
-                flash="Upload must be a .docx or .pdf file.",
+                flash=flash,
                 flash_kind="error",
-                all_tenants=all_tenants,
+                all_tenants=res.scalars().all(),
+                form_name=name,
+                form_owner=owner,
+                form_tenant_id=str(tenant_id) if tenant_id else None,
             ),
-            status_code=400,
+            status_code=status_code,
         )
+
+    if not (is_docx or is_pdf):
+        return await _rerender("Upload must be a .docx or .pdf file.")
     file_bytes = await file.read()
     tid = await _get_or_default_tenant_id(session, tenant_id, request=request)
     try:
@@ -982,7 +996,9 @@ async def upload_submit(
                 session, name=name, docx_bytes=file_bytes, owner=(owner or None), tenant_id=tid
             )
     except InvalidDocxError as e:
-        return _redirect("/ui/upload", flash=str(e), flash_kind="error")
+        return await _rerender(str(e))
+    except PdfPreflightRejected as e:
+        return await _rerender(_pdf_reject_flash(e))
     kind = {"accept": "success", "accept-with-warnings": "info", "reject": "error"}.get(
         report.outcome, "info"
     )
@@ -990,6 +1006,23 @@ async def upload_submit(
     if report.findings:
         msg += f" {len(report.findings)} finding(s) — see version detail."
     return _redirect(f"/ui/templates/{template.id}", flash=msg, flash_kind=kind)
+
+
+def _pdf_reject_flash(exc: PdfPreflightRejected) -> str:
+    """Format the preflight finding into an inline flash for the operator.
+
+    Includes the finding message and (if present) the hint — both are what
+    the operator needs to fix the problem. Nothing was persisted, so there
+    is no version detail page to redirect them to.
+    """
+    findings = exc.report.findings
+    if not findings:
+        return "Upload rejected by preflight."
+    f = findings[0]
+    parts = [f"Upload rejected: {f.message}"]
+    if f.hint:
+        parts.append(f.hint)
+    return " ".join(parts)
 
 
 _SAMPLE_KINDS = {
@@ -1047,6 +1080,11 @@ async def upload_sample_template(
             )
     except InvalidDocxError as e:
         return _redirect("/ui/", flash=str(e), flash_kind="error")
+    except PdfPreflightRejected as e:
+        # Bundled sample PDFs must always pass preflight — reject here is a
+        # build-time bug, not user error. Surface the same flash for
+        # visibility until the sample is fixed.
+        return _redirect("/ui/", flash=_pdf_reject_flash(e), flash_kind="error")
     return _redirect(
         f"/ui/templates/{template.id}",
         flash=f"Bundled sample installed. Preflight: {report.outcome}. "
@@ -1103,6 +1141,15 @@ async def upload_new_version(
     except InvalidDocxError as e:
         return _redirect(
             f"/ui/templates/{template_id}", flash=str(e), flash_kind="error",
+        )
+    except PdfPreflightRejected as e:
+        # New version rejected — the existing template row and its current
+        # frozen version(s) stay intact. Redirect back to the template detail
+        # so the operator can retry with a fixed PDF.
+        return _redirect(
+            f"/ui/templates/{template_id}",
+            flash=_pdf_reject_flash(e),
+            flash_kind="error",
         )
     kind = {"accept": "success", "accept-with-warnings": "info", "reject": "error"}.get(
         report.outcome, "info"
@@ -1624,7 +1671,10 @@ async def placements_save(
         h_pct_raw = p.get("h_pct")
         h_pct = float(h_pct_raw) if isinstance(h_pct_raw, (int, float)) else None
         ft_raw = p.get("field_type")
-        field_type = ft_raw if ft_raw in ("text", "checkbox", "choice") else None
+        # "radio" was omitted from this whitelist before radio detection existed;
+        # detector-emitted radios were being nulled out on save so the placement
+        # editor lost the circular render and re-classified them as text.
+        field_type = ft_raw if ft_raw in ("text", "checkbox", "choice", "radio") else None
         # `type` is the render-pipeline discriminator ("text" | "checkbox" |
         # "radio"). Distinct from `field_type` (source-widget signal, present
         # only on acroform-harvested placements) and `payload_type` (schema
@@ -1641,7 +1691,7 @@ async def placements_save(
         pt_raw = p.get("payload_type")
         if pt_raw in ("string", "boolean"):
             payload_type = pt_raw
-        elif placement_type in ("checkbox", "radio") or field_type == "checkbox":
+        elif placement_type in ("checkbox", "radio") or field_type in ("checkbox", "radio"):
             payload_type = "boolean"
         else:
             payload_type = "string"
@@ -1833,7 +1883,7 @@ async def placements_ai_draw(
             "w_pct": float(b["w_pct"]),
             "h_pct": float(b["h_pct"]),
             "field_type": ftype,
-            "payload_type": "boolean" if ftype == "checkbox" else "string",
+            "payload_type": "boolean" if ftype in ("checkbox", "radio") else "string",
         })
 
     log.info(
@@ -1898,7 +1948,10 @@ async def placements_ai_detect(
             "field_type": p.get("field_type"),
         })
 
-    from docgen.designtime.pdf_field_detector import label_fields_in_pdf
+    from docgen.designtime.pdf_field_detector import (
+        label_fields_in_pdf,
+        pdf_has_extractable_text,
+    )
 
     pdf_bytes = get_object(settings.s3_bucket_templates, tv.blob_key)
 
@@ -1912,6 +1965,7 @@ async def placements_ai_detect(
             timeout=backend["timeout"],
             pdf_flavor=tv.pdf_flavor,
             extra_body=backend["extra_body"],
+            vision_model=backend.get("vision_model", ""),
         )
     except Exception as e:
         log.warning(
@@ -1933,17 +1987,29 @@ async def placements_ai_detect(
 
     labeled_count = len(labels_by_index)
     total_count = len(fields)
+    # If nothing was labeled AND the PDF has no extractable text (vector-glyph
+    # form), we fell back to visual labeling via a VLM but even that returned
+    # nothing usable. Surface this so the UI can explain it instead of
+    # showing a bare "0 of N" result. On PDFs WITH extractable text a 0 result
+    # is a genuine model failure (retry-worthy) — don't show the message.
+    no_extractable_text = (
+        labeled_count == 0
+        and total_count > 0
+        and not pdf_has_extractable_text(pdf_bytes)
+    )
     log.info(
         "pdf_placements_ai_labeled",
         version_id=str(tv.id),
         template_id=str(tv.template_id),
         labeled_count=labeled_count,
         total_count=total_count,
+        no_extractable_text=no_extractable_text,
     )
     return {
         "suggestions": suggestions,
         "labeled_names": labeled_count,
         "total_names": total_count,
+        "no_extractable_text": no_extractable_text,
     }
 
 
@@ -2026,6 +2092,7 @@ async def placements_ai_realign(
             base_url=backend["base_url"],
             timeout=backend["timeout"],
             extra_body=backend["extra_body"],
+            vision_model=backend.get("vision_model", ""),
         )
     except Exception as e:
         log.warning(

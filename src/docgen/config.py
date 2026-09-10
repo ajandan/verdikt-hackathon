@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     # reliable one-shot JSON without a reasoning-mode preamble.
     pdf_labeler_model: str = "nvidia/nemotron-3-super-120b-a12b"
 
+    # Vision-OCR fallback for vector-glyph PDFs (every glyph drawn as fill
+    # curves — no text objects to extract). When a page has no extractable
+    # text, we rasterize it via pypdfium2 and send the PNG to this multimodal
+    # model on Nebius Token Factory. Empty = no fallback (labeler returns 0
+    # labels on text-less pages; UI explains why).
+    #
+    # Default is openbmb/MiniCPM-V-4_5 (Apache-2.0, strong OCR benchmarks).
+    # NVIDIA has no vision model listed on Nebius Token Factory yet; the
+    # hackathon's NVIDIA-model requirement is already satisfied by Nemotron
+    # doing the caption-matching / reasoning step.
+    pdf_vision_ocr_model: str = "openbmb/MiniCPM-V-4_5"
+
     sync_render_max_bytes: int = Field(default=512 * 1024)
     pdf_conversion_timeout_seconds: float = 60.0
 

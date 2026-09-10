@@ -22,6 +22,22 @@ from docgen.store.models import Template, TemplateVersion
 log = structlog.get_logger(__name__)
 
 
+class PdfPreflightRejected(Exception):
+    """Raised by `upload_pdf_template` when preflight refuses the source PDF.
+
+    Carrying the full report lets callers surface the specific finding
+    (message + hint) to the user without re-running preflight. Raised
+    before any Template / blob / TemplateVersion row is written, so a
+    rejected upload leaves zero side effects.
+    """
+
+    def __init__(self, report: "PdfPreflightReport") -> None:
+        self.report = report
+        first = report.findings[0] if report.findings else None
+        detail = first.message if first is not None else "PDF rejected by preflight."
+        super().__init__(detail)
+
+
 def _content_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -234,8 +250,15 @@ async def upload_pdf_template(
 
     Adding a new version to an existing template must not change kind — a
     docx template stays docx, a pdf template stays pdf. Enforced here.
+
+    Raises `PdfPreflightRejected` when the source PDF fails preflight —
+    no Template, TemplateVersion, or blob is written in that case.
+    Callers translate the exception into an HTTP 400 (REST) or flash
+    error (UI).
     """
     report = preflight_pdf(pdf_bytes)
+    if report.outcome == "reject":
+        raise PdfPreflightRejected(report)
 
     if template_id is not None:
         template = await session.get(Template, template_id)
@@ -278,13 +301,13 @@ async def upload_pdf_template(
     )
 
     # Realign prior placements against the fresh preflight. Skip on the
-    # first upload (nothing to align) and on a preflight-reject (the new
-    # PDF isn't renderable so there's nothing sensible to align onto).
+    # first upload (nothing to align). Reject outcomes never reach here —
+    # `PdfPreflightRejected` was raised above before any state changed.
     # Realigned placements REPLACE the raw preflight output — the new-widget
     # branch inside realign_placements picks up any newly-added acroform
     # widgets so nothing is silently dropped.
     realign_report: RealignReport | None = None
-    if prior_placements and report.outcome != "reject":
+    if prior_placements:
         placements, realign_report = realign_placements(
             prior_placements=prior_placements,
             new_placements=report.initial_placements,
@@ -316,10 +339,10 @@ async def upload_pdf_template(
         preflight=report.to_dict(),
         blob_key=blob_key,
         version_hash="draft-" + _content_hash(pdf_bytes)[:16],
-        # Flat PDFs land in draft with no placements — they can't render yet,
-        # but they're not rejected either. The editor (PR2) turns them
-        # renderable. Only preflight-reject outcomes flip to 'rejected'.
-        status="rejected" if report.outcome == "reject" else "draft",
+        # Flat PDFs land in draft with no placements — they can't render yet
+        # (the editor turns them renderable). Reject outcomes never reach
+        # this line — `PdfPreflightRejected` was raised above.
+        status="draft",
         is_frozen=False,
         pdf_flavor=report.flavor,
         pdf_field_placements=pdf_field_placements,

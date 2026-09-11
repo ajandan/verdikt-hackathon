@@ -47,6 +47,35 @@ Three NVIDIA-family models on one Nebius key, chosen by task shape at each stage
 
 Every model call is instrumented (`src/pap_pipeline/routing.py`) with model name, tokens in/out, wall-clock latency, and per-call cost. The routing-table admin page at `/ui/admin/routing` renders the resulting matrix — real numbers per call site, per stage, defensible as evidence rather than assertion.
 
+## Reviewer-facing pipeline evidence
+
+Every decision the pipeline produces is auditable end-to-end from the admin UI.
+Template-flow events keep the existing `/ui/inbox/{id}` page unchanged; PAP
+events additionally get a dedicated `/ui/inbox/{id}/pipeline` view that
+exposes the artifacts a template-flow page has no slot for:
+
+| Section on the pipeline detail page | What it renders | Source |
+| --- | --- | --- |
+| **Outcome + rationale** | `approve` / `deny` / `missing_info` badge, one-sentence reason | `Decision.outcome`, `Decision.rationale` |
+| **Extract — structured intake** | All 11 Intake fields (blanks shown as `—`) | `Intake` (persisted as `inbox_events.pap_intake` JSONB) |
+| **Retrieve → Reason — citations** | Table of every rule the reason stage evaluated: rule ID, matched yes/no, reranker score, and the rule statement + kind chip | `Decision.citations` joined against `pap_pipeline/rules/*.yaml` at render time |
+| **Missing information** | Field-name list; empty on approve/deny | `Decision.missing_fields` |
+| **Reply** | Outbound Message-ID and a link to the exact PDF the applicant received | `inbox_events.reply_message_id`, `inbox_events.reply_attachment_blob_key` |
+
+Persistence primitives added for this view:
+
+- `inbox_events.pap_intake` / `pap_decision` (JSONB, nullable) — Alembic
+  migration `0018_inbox_events_pap_artifacts.py`. Written by
+  `pap_pipeline.inbox_hook._handler` after `_run_pipeline` succeeds.
+- `inbox_events.reply_attachment_blob_key` (String, nullable) — Alembic
+  migration `0019_inbox_events_reply_attachment.py`. The handler uploads the
+  rendered PDF bytes to the `s3_bucket_documents` MinIO/S3 bucket before
+  handing the same bytes to the mailer, so the reviewer downloads the
+  byte-identical artifact that left the building.
+
+Why a dedicated view rather than expanding the shared page: see
+[`docs/adr/0002-pipeline-inbox-view.md`](adr/0002-pipeline-inbox-view.md).
+
 ## What Quire contributes (and why it matters here)
 
 The deterministic-render boundary is the reason Verdikt lands on Quire rather than on a fresh substrate. `docgen/core/` (render path) does not import `docgen/providers/` (AI). The boundary is enforced in tests, not in comments. Verdikt produces a structured `Decision`; Quire renders that Decision into the reply letter through a byte-identical merge over a frozen `TemplateVersion`. No model runs at render time. No model can. That is what makes *"same input, same output, forever"* a defensible engineering claim rather than marketing.

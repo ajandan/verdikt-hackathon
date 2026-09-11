@@ -8,8 +8,24 @@ fields:
 text: >
   Applicant must present a current prescription for Cardiovita written by a
   U.S.-licensed prescriber holding an active National Provider Identifier
-  (NPI) in the NPPES registry. The prescription must be dated within the
-  twelve months preceding the application. Prescriptions for generic
-  substitutes or for drugs other than Cardiovita do not satisfy this rule.
+  (NPI) in the NPPES registry, and countersigned by that prescriber on
+  ASP-100 Section 8 (PRESCRIBER ATTESTATION & SIGNATURE).
+
+  Drug identity comes from ASP-100 Section 5 (PRESCRIPTION ORDER):
+  `rx_medication` must read "Cardiovita" (case-insensitive, brand name or
+  the manufacturer's approved generic INN — generic substitutes from other
+  manufacturers do not satisfy this rule). `rx_strength`, `rx_dosage_form`,
+  `rx_sig`, `rx_quantity`, `rx_days_supply`, and `rx_refills` must all be
+  populated so the shipment can be assembled without a callback to the
+  prescriber. `rx_date_written` must fall within the twelve months preceding
+  the application — older prescriptions are stale and require re-issue.
+
+  The prescriber's NPI is captured in `prescriber_npi` on ASP-100 Section 3
+  (PRESCRIBER INFORMATION) and must be validated live against NPPES. The
+  same NPI must appear again in `prescriber_signature_npi` on Section 8 to
+  confirm the signature is from the prescriber who wrote the order.
+  Signature stamps are explicitly not accepted per the ASP-100 §8 heading.
+
   Off-label indications are permitted provided the indication is explicitly
-  documented on the prescription by the prescriber.
+  documented in `dx_primary_description` / `dx_primary_icd10` on Section 4
+  (CLINICAL INFORMATION) by the prescriber.

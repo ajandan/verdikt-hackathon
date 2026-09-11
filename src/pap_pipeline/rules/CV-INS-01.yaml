@@ -6,10 +6,21 @@ fields:
   - has_denial_letter
 text: >
   Applicant must lack adequate prescription drug coverage for Cardiovita.
-  Eligible insurance statuses are: uninsured; Medicare beneficiaries without
-  Part D coverage; and commercially insured patients whose plan has issued a
-  written denial of coverage for Cardiovita — in the commercial-denied case a
-  copy of the denial letter from the plan is required to establish
-  eligibility. Medicaid enrollees are ineligible under this rule (they must
-  obtain Cardiovita through Medicaid). Commercially insured patients whose
-  plan covers Cardiovita are ineligible.
+  Insurance status is derived from ASP-100 Section 2 (INSURANCE & BENEFITS):
+  the applicant checks `ins_uninsured` for uninsured status, `ins_medicare_partd`
+  for Medicare Part D enrollment, or populates `ins_primary_payer` with the
+  name of their commercial plan. In every case they must also check `req_pap`
+  (Requesting Patient Assistance Program) in that same section to opt into
+  the PAP review track.
+
+  Eligible statuses are: (1) uninsured — `ins_uninsured` checked and
+  `ins_primary_payer` blank; (2) Medicare beneficiaries who do not carry
+  Part D — `ins_medicare_partd` unchecked and no PBM listed in `rx_pbm_name`;
+  and (3) commercially insured patients whose plan has issued a written
+  denial of coverage for Cardiovita — in this case `ins_primary_payer` is
+  populated AND a copy of the denial letter must be attached to the same
+  submission (the ASP-100 header instructs applicants to fax denial evidence
+  alongside the form). Medicaid enrollees identified by a Medicaid ID in
+  `ins_government_id` are ineligible under this rule — they must obtain
+  Cardiovita through Medicaid. Commercially insured patients whose plan
+  covers Cardiovita (no denial letter attached) are also ineligible.

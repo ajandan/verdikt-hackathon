@@ -445,6 +445,15 @@ class InboxEvent(Base):
     # the review page so operators can see what was received without
     # re-fetching from IMAP.
     body_text: Mapped[str | None] = mapped_column(Text)
+    # PAP pipeline artifacts. Populated only when the pap_pipeline handler
+    # processes this event; NULL for template-flow events. The pipeline detail
+    # page reads these to render extract/retrieve/reason evidence.
+    pap_intake: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    pap_decision: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Blob key of the PDF letter the reply email carried. Written by the PAP
+    # handler after the render+attach step; reviewers download it via the
+    # pipeline detail page to inspect exactly what the applicant received.
+    reply_attachment_blob_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

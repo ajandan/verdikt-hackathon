@@ -7,7 +7,23 @@ fields:
 text: >
   Annual household income must be at or below 400% of the 2026 U.S. Federal
   Poverty Level for the applicant's household size. For a household of 1 the
-  threshold is $62,600; for a household of 2 it is $84,600; for a household of
-  4 it is $128,600. Applicants whose household income exceeds 400% FPL for
-  their household size are ineligible for the Cardiovita Patient Assistance
-  Program on financial grounds.
+  threshold is $62,600; for a household of 2 it is $84,600; for a household
+  of 4 it is $128,600. Applicants whose household income exceeds 400% FPL
+  for their household size are ineligible for the Cardiovita Patient
+  Assistance Program on financial grounds.
+
+  ASP-100 does not collect income or household size on the enrollment form
+  itself — instead, checking `req_pap` (Requesting Patient Assistance
+  Program) in ASP-100 Section 2 obligates the applicant to submit the
+  companion Alderwood Financial Hardship Attestation Worksheet (Form
+  ASP-110), which captures `household_size` and `annual_household_income`
+  along with the applicant's signature attesting to the figures. Supporting
+  evidence such as a recent tax return, W-2, or benefits award letter may be
+  attached to ASP-110 but is not strictly required for the initial review.
+
+  If `req_pap` is checked on ASP-100 but ASP-110 is not attached, or if
+  ASP-110 is attached with `household_size` or `annual_household_income`
+  blank, the outcome is missing_info: the coordinator requests the missing
+  worksheet or line items before adjudicating. An outright deny is issued
+  only when both figures are present and the income clearly exceeds the
+  400% FPL threshold for the stated household size.

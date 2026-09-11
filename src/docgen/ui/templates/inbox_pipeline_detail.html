@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Pipeline detail — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .kv { display: grid; grid-template-columns: 200px 1fr; gap: 6px 20px; font-size: 13.5px; }
+    .kv dt { color: var(--text-muted); font-weight: 500; }
+    .kv dd { margin: 0; word-break: break-word; }
+    .kv dd.missing { color: var(--text-muted); font-style: italic; }
+    .outcome-hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .outcome-hero .outcome { font-size: 26px; font-weight: 700; text-transform: capitalize; }
+    .outcome-hero .rationale { color: var(--text); font-size: 14px; }
+    .card + .card { margin-top: 16px; }
+    .cite-table {
+        width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .cite-table th, .cite-table td {
+        text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+    .cite-table th {
+        color: var(--text-muted); font-weight: 500; font-size: 11.5px;
+        text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .cite-table td.score { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cite-table td.rule-text { color: var(--text-muted); max-width: 640px; }
+    .cite-table td.rule-text .kind {
+        display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 3px;
+        background: var(--surface-2); color: var(--text-muted); font-size: 11px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .missing-list { margin: 0; padding-left: 20px; font-size: 13.5px; }
+    .missing-list li { margin-bottom: 4px; }
+    .stage-hdr {
+        display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px;
+    }
+    .stage-hdr .num {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%; background: var(--surface-2);
+        color: var(--text-muted); font-size: 12px; font-weight: 600;
+    }
+    .stage-hdr h2 { font-size: 15px; font-weight: 600; margin: 0; }
+    .stage-hint { color: var(--text-muted); font-size: 12.5px; margin: 0 0 12px 32px; }
+</style>
+
+<section class="mb-4">
+    <a href="/ui/inbox/{{ event.id }}" class="text-[13px] text-ink-muted">← Back to ingest event</a>
+    <h1 class="text-[24px] font-semibold tracking-tight leading-tight mt-2 mb-1">
+        PAP pipeline verdict
+    </h1>
+    <p class="text-ink-muted text-[13.5px] m-0">
+        Event {{ event.id }} · Received {{ event.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        {% if tenant %}· Tenant <strong>{{ tenant.name }}</strong>{% endif %}
+    </p>
+</section>
+
+<div class="card">
+    <div class="outcome-hero">
+        <span class="outcome">
+            {% if decision.outcome == 'approve' %}
+                <span class="badge accept" style="font-size:14px;">approve</span>
+            {% elif decision.outcome == 'deny' %}
+                <span class="badge reject" style="font-size:14px;">deny</span>
+            {% else %}
+                <span class="badge draft" style="font-size:14px;">missing info</span>
+            {% endif %}
+        </span>
+        <span class="rationale">{{ decision.rationale or '(no rationale provided)' }}</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="stage-hdr">
+        <span class="num">1</span>
+        <h2>Extract — structured intake</h2>
+    </div>
+    <p class="stage-hint">
+        Fields the extract stage lifted from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
+    </p>
+    <dl class="kv">
+        <dt>Patient name</dt>
+        {% if intake.patient_name %}<dd>{{ intake.patient_name }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Date of birth</dt>
+        {% if intake.date_of_birth %}<dd>{{ intake.date_of_birth }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Household size</dt>
+        {% if intake.household_size is not none %}<dd>{{ intake.household_size }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Annual household income</dt>
+        {% if intake.annual_household_income is not none %}<dd>${{ '{:,.0f}'.format(intake.annual_household_income) }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Insurance status</dt>
+        {% if intake.insurance_status %}<dd>{{ intake.insurance_status }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Has denial letter</dt>
+        {% if intake.has_denial_letter is not none %}<dd>{{ 'yes' if intake.has_denial_letter else 'no' }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Country of residence</dt>
+        {% if intake.country_of_residence %}<dd>{{ intake.country_of_residence }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Mailing state</dt>
+        {% if intake.mailing_state %}<dd>{{ intake.mailing_state }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Prescribed drug</dt>
+        {% if intake.prescribed_drug %}<dd>{{ intake.prescribed_drug }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Prescriber NPI</dt>
+        {% if intake.prescriber_npi %}<dd>{{ intake.prescriber_npi }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        <dt>Prescription date</dt>
+        {% if intake.prescription_date %}<dd>{{ intake.prescription_date }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+    </dl>
+</div>
+
+<div class="card">
+    <div class="stage-hdr">
+        <span class="num">2</span>
+        <h2>Retrieve → Reason — rule citations</h2>
+    </div>
+    <p class="stage-hint">
+        Every rule the reason stage evaluated against the intake. Score is the retrieval reranker's relevance; matched is the reason stage's boolean verdict.
+    </p>
+    {% if decision.citations %}
+    <table class="cite-table">
+        <thead>
+            <tr>
+                <th style="width:110px;">Rule</th>
+                <th style="width:70px;">Matched</th>
+                <th style="width:70px;">Score</th>
+                <th>Statement</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in decision.citations %}
+            {% set rule = rules_by_id.get(c.rule_id) %}
+            <tr>
+                <td><code>{{ c.rule_id }}</code></td>
+                <td>
+                    {% if c.matched %}
+                        <span class="badge accept">yes</span>
+                    {% else %}
+                        <span class="badge reject">no</span>
+                    {% endif %}
+                </td>
+                <td class="score">
+                    {% if c.score is not none %}{{ '%.3f'|format(c.score) }}{% else %}—{% endif %}
+                </td>
+                <td class="rule-text">
+                    {% if rule %}
+                        {{ rule.text }}
+                        <span class="kind">{{ rule.kind }}</span>
+                    {% else %}
+                        <span class="missing">(rule text not found)</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="text-ink-muted text-[13.5px] m-0">No rules cited.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="stage-hdr">
+        <span class="num">3</span>
+        <h2>Missing information</h2>
+    </div>
+    <p class="stage-hint">
+        Fields the reason stage flagged as needed to complete adjudication. Empty on approve/deny outcomes.
+    </p>
+    {% if decision.missing_fields %}
+        <ul class="missing-list">
+        {% for m in decision.missing_fields %}
+            <li><code>{{ m }}</code></li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-ink-muted text-[13.5px] m-0">Nothing outstanding.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Reply</h2>
+    <dl class="kv">
+        <dt>Outbound Message-ID</dt>
+        <dd>{% if event.reply_message_id %}<code>{{ event.reply_message_id }}</code>{% else %}<span class="missing">(not sent)</span>{% endif %}</dd>
+        <dt>Letter template</dt>
+        <dd>Rendered from tenant's frozen <code>{{ decision.outcome }}</code> letter template.</dd>
+        <dt>Attached PDF</dt>
+        <dd>
+            {% if event.reply_attachment_blob_key %}
+                <a href="/ui/inbox/{{ event.id }}/reply-attachment" target="_blank" rel="noopener">
+                    Open the exact PDF sent to the applicant ↗
+                </a>
+            {% else %}
+                <span class="missing">(no PDF recorded — render skipped or upload failed)</span>
+            {% endif %}
+        </dd>
+    </dl>
+</div>
+
+{% endblock %}

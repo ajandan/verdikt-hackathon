@@ -4507,6 +4507,100 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
     return rows
 
 
+@router.get("/inbox/{event_id}/pipeline", response_class=HTMLResponse)
+async def inbox_pipeline_detail(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Pipeline-flow detail page. Renders extract/retrieve/reason evidence.
+
+    The template-flow detail page (`/inbox/{event_id}`) shows message metadata
+    + template + review-lifecycle. This page shows the pipeline's own
+    artifacts — extracted Intake, matched rules, missing fields, rationale —
+    which the template-flow page has no slot for.
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    if ev.pap_decision is None:
+        raise HTTPException(404, "No pipeline artifacts for this event")
+
+    tenant = None
+    if ev.tenant_id is not None:
+        from docgen.store.models import Tenant
+        tenant = await session.get(Tenant, ev.tenant_id)
+
+    # Hydrate rule text so citations can be shown as rule statements, not
+    # opaque IDs. The loader reads YAML on every call — cheap at demo scale
+    # and keeps the page in sync with any rule edits without a restart.
+    from pap_pipeline.rules import load_rules
+
+    rules_by_id = {r.id: r for r in load_rules()}
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_pipeline_detail.html",
+        await _base_ctx(
+            request,
+            session,
+            active="inbox",
+            event=ev,
+            tenant=tenant,
+            intake=ev.pap_intake or {},
+            decision=ev.pap_decision or {},
+            rules_by_id=rules_by_id,
+        ),
+    )
+
+
+@router.get("/inbox/{event_id}/reply-attachment", response_class=None)
+async def inbox_reply_attachment(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Stream the exact PDF the pipeline attached to the outbound reply.
+
+    Behind the admin session (like the rest of `/ui/*`); no signed token
+    needed because reviewers are already authenticated. Returns 404 if the
+    event has no attachment key (template flow, pre-migration event, or a
+    render/upload failure logged upstream).
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    if not ev.reply_attachment_blob_key:
+        raise HTTPException(404, "No reply attachment recorded for this event")
+
+    settings = get_settings()
+    from docgen.store.blob import get_object
+
+    try:
+        body = get_object(settings.s3_bucket_documents, ev.reply_attachment_blob_key)
+    except Exception as e:
+        raise HTTPException(500, f"attachment fetch failed: {type(e).__name__}") from e
+
+    outcome = (ev.pap_decision or {}).get("outcome", "reply")
+    filename = f"alderwood_{outcome}_{str(ev.id).replace('-', '')[:8].upper()}.pdf"
+    from fastapi.responses import Response
+
+    return Response(
+        content=body,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
 @router.post("/inbox/{event_id}/approve", response_model=None)
 async def inbox_approve(
     event_id: uuid.UUID,

@@ -105,8 +105,29 @@ async def run(
     onto the Decision's citations. The inbox agent calls this once per
     inbound message when `use_pipeline_backend` is enabled for the tenant.
     """
+    _, decision = await run_with_intake(
+        attachments, config=config, program=program, k=k
+    )
+    return decision
+
+
+async def run_with_intake(
+    attachments: list[bytes],
+    *,
+    config: PipelineConfig,
+    program: str | None = None,
+    k: int = 4,
+) -> tuple[Intake, Decision]:
+    """Same as :func:`run` but also returns the extracted Intake.
+
+    The reply-letter renderer needs both — Decision picks the template and
+    fills the outcome-specific fields; Intake fills the addressee, DOB,
+    medication, and other patient-scoped fields that aren't part of the
+    Decision but must appear on every letter.
+    """
     intake = await extract(attachments, config=config.extract)
-    return await run_from_intake(intake, config=config, program=program, k=k)
+    decision = await run_from_intake(intake, config=config, program=program, k=k)
+    return intake, decision
 
 
-__all__ = ["PipelineConfig", "Citation", "run", "run_from_intake"]
+__all__ = ["PipelineConfig", "Citation", "run", "run_from_intake", "run_with_intake"]

@@ -8,7 +8,19 @@ text: >
   Applicant must be a resident of the United States or a U.S. territory
   (Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern Mariana
   Islands) and must supply a valid U.S. mailing address at which medication
-  shipments can be received. Non-U.S. residents are ineligible even if they
-  are temporarily receiving care from a U.S. prescriber. A P.O. Box alone is
-  not sufficient — a physical street address in the applicant's state of
-  residence is required.
+  shipments can be received.
+
+  Residency evidence is drawn from ASP-100 Section 1 (PATIENT INFORMATION):
+  `patient_address_line1`, `patient_city`, `patient_state`, `patient_zip`,
+  and `patient_county`. The state entered in `patient_state` must be a
+  two-letter U.S. state code or a recognized U.S. territory abbreviation
+  (PR, GU, VI, AS, MP). A P.O. Box in `patient_address_line1` alone is not
+  sufficient — a physical street address in the applicant's state of
+  residence is required because Alderwood dispenses cold-chain injectables
+  that require a signature on delivery.
+
+  Non-U.S. residents are ineligible even if they are temporarily receiving
+  care from a U.S. prescriber whose NPI passes CV-CLIN-01. If
+  `patient_address_line1`, `patient_city`, or `patient_state` are blank on
+  ASP-100, the outcome is missing_info rather than deny — the coordinator
+  requests the missing address before adjudicating.

@@ -6,7 +6,8 @@ Two match rules, in priority order:
      substring of the message subject wins. This is the explicit path —
      stakeholders who copy a marker like "[tenant:acme]" into the subject
      line get deterministic routing even if their sender domain is shared
-     with another tenant.
+     with another tenant. Match is case-insensitive so a tag configured as
+     `alderwood` still routes when a stakeholder types `Alderwood - foo`.
 
   2. Sender domain. Otherwise, the RFC 5321 domain of the From address
      (lower-cased) must appear in the tenant's `inbound_config.sender_domains`
@@ -56,12 +57,15 @@ def resolve_tenant(
     subject: str | None,
 ) -> TenantMatch | None:
     subject_norm = (subject or "").strip()
+    subject_lower = subject_norm.lower()
 
     # Rule 1: subject tag beats domain — explicit intent from the sender.
-    if subject_norm:
+    # Case-insensitive so a tag configured as "alderwood" still matches when
+    # a stakeholder naturally types "Alderwood - templates 9".
+    if subject_lower:
         for t in tenants:
-            tag = str(_config_of(t).get("subject_tag") or "").strip()
-            if tag and tag in subject_norm:
+            tag = str(_config_of(t).get("subject_tag") or "").strip().lower()
+            if tag and tag in subject_lower:
                 return TenantMatch(tenant=t, reason="subject_tag")
 
     # Rule 2: allow-listed sender domain.

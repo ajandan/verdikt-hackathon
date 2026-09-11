@@ -2,7 +2,7 @@
 #
 # Every field is chosen deliberately so the four Cardiovita rules all pass
 # (final Decision = approve) AND so the same intake flips to deny under the
-# planned OncoBridge cameo's stricter 250% FPL income cap. Do not tweak the
+# OncoBridge cameo's stricter 250% FPL income cap. Do not tweak the
 # income number without re-checking both program thresholds.
 #
 #   Household of 2, 2026 FPL = $21,150

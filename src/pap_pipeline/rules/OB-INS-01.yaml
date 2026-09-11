@@ -1,0 +1,22 @@
+id: OB-INS-01
+program: oncobridge-pap-2026
+kind: insurance
+fields:
+  - insurance_status
+  - has_denial_letter
+text: >
+  Applicant must be in an active prescription-drug coverage gap during the
+  bridge window. Eligible statuses are: (1) uninsured; (2) between plans
+  during an open-enrollment or COBRA-election window; or (3) commercially
+  insured but holding a written denial of coverage for the prescribed drug
+  — in which case a copy of the denial letter must be attached to the same
+  submission.
+
+  Medicaid enrollees are ineligible under this rule and must obtain the
+  prescribed drug through Medicaid. Medicare Part D beneficiaries are also
+  ineligible unless they hold a written denial letter for the specific
+  therapy — OncoBridge is a bridge, not a permanent supplement to Part D.
+
+  Insurance status is captured on form OB-200 Section 3 (INSURANCE &
+  COVERAGE GAP). If Section 3 is left blank the outcome is missing_info —
+  the coordinator requests the coverage details before adjudicating.

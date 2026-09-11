@@ -1,0 +1,27 @@
+id: OB-INC-01
+program: oncobridge-pap-2026
+kind: financial
+fields:
+  - household_size
+  - annual_household_income
+text: >
+  Annual household income must be at or below 250% of the 2026 U.S. Federal
+  Poverty Level for the applicant's household size. For a household of 1 the
+  threshold is $39,125; for a household of 2 it is $52,875; for a household
+  of 4 it is $80,375. Applicants whose household income exceeds 250% FPL for
+  their household size are ineligible for the OncoBridge Patient Assistance
+  Program on financial grounds.
+
+  OncoBridge is designed as a short-horizon bridge for patients in an active
+  coverage gap, so the financial bar is set deliberately tighter than the
+  broader manufacturer PAPs — the program cannot subsidize applicants who
+  have discretionary income to absorb their prescription cost during the
+  bridge window.
+
+  `household_size` and `annual_household_income` are captured on form OB-200
+  Section 2 (HOUSEHOLD & FINANCIAL DECLARATION) with an applicant signature
+  attesting to the figures. If either field is blank the outcome is
+  missing_info — the coordinator requests the missing line item before
+  adjudicating. An outright deny is issued only when both figures are
+  present and the income clearly exceeds the 250% FPL threshold for the
+  stated household size.

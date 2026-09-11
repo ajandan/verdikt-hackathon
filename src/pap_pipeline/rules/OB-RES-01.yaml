@@ -1,0 +1,24 @@
+id: OB-RES-01
+program: oncobridge-pap-2026
+kind: residency
+fields:
+  - country_of_residence
+  - mailing_state
+text: >
+  Applicant must be a resident of the United States or a U.S. territory
+  (Puerto Rico, Guam, U.S. Virgin Islands, American Samoa, Northern
+  Mariana Islands) and must supply a valid U.S. mailing address at which
+  medication shipments can be received.
+
+  Residency is captured on form OB-200 Section 1 (PATIENT INFORMATION).
+  `mailing_state` must be a two-letter U.S. state code or a recognized
+  U.S. territory abbreviation (PR, GU, VI, AS, MP). Unlike Cardiovita's
+  cold-chain residency rule, OncoBridge ships ambient-temperature
+  fulfillments and accepts a P.O. Box as the mailing address when a
+  physical street address is unavailable — the bridge program prioritizes
+  reachability over signature-on-delivery.
+
+  Non-U.S. residents are ineligible even if they are temporarily receiving
+  care from a U.S. prescriber. If `country_of_residence` or `mailing_state`
+  are blank on OB-200, the outcome is missing_info rather than deny — the
+  coordinator requests the missing address before adjudicating.

@@ -57,7 +57,7 @@ exposes the artifacts a template-flow page has no slot for:
 | Section on the pipeline detail page | What it renders | Source |
 | --- | --- | --- |
 | **Outcome + rationale** | `approve` / `deny` / `missing_info` badge, one-sentence reason | `Decision.outcome`, `Decision.rationale` |
-| **Extract — structured intake** | All 11 Intake fields (blanks shown as `—`) | `Intake` (persisted as `inbox_events.pap_intake` JSONB) |
+| **Extract — structured intake** | Every slot the program's `extraction_schema` defined, rendered dynamically (blanks shown as `—`). Custom program slots appear alongside canonical Intake fields. | `inbox_events.pap_extraction` (raw slot dict), falling back to `pap_intake` for pre-migration events |
 | **Retrieve → Reason — citations** | Table of every rule the reason stage evaluated: rule ID, matched yes/no, reranker score, and the rule statement + kind chip | `Decision.citations` joined against `pap_pipeline/rules/*.yaml` at render time |
 | **Missing information** | Field-name list; empty on approve/deny | `Decision.missing_fields` |
 | **Reply** | Outbound Message-ID and a link to the exact PDF the applicant received | `inbox_events.reply_message_id`, `inbox_events.reply_attachment_blob_key` |
@@ -72,9 +72,35 @@ Persistence primitives added for this view:
   rendered PDF bytes to the `s3_bucket_documents` MinIO/S3 bucket before
   handing the same bytes to the mailer, so the reviewer downloads the
   byte-identical artifact that left the building.
+- `programs` table — Alembic migration `0023_programs.py`. One row per
+  tenant × PAP program (e.g. `cardiovita-pap-2026`), carrying a JSONB
+  `extraction_schema` (list of slot dicts) and an optional binding to a
+  frozen enrollment template. The extract stage builds the VLM prompt from
+  this schema, so a new program is a data change, not a build. Managed
+  through the admin UI at `/ui/programs` (list + editable slot table +
+  seed-from-template).
+- `inbox_events.pap_extraction` (JSONB, nullable) — Alembic migration
+  `0024_inbox_events_pap_extraction.py`. Stores the raw slot dict as
+  returned by the extract stage — the union of every slot the operator
+  defined, before it's coerced onto the fixed canonical Intake shape. This
+  is what the detail page renders dynamically and what the reply mapper
+  merges into `_build_render_data` so program-specific slots (e.g.
+  `member_id`, `rx_medication`) flow into matching template fields
+  without needing an Intake schema change.
 
 Why a dedicated view rather than expanding the shared page: see
 [`docs/adr/0002-pipeline-inbox-view.md`](adr/0002-pipeline-inbox-view.md).
+
+### How dynamic slots reach the reasoning stage
+
+The orchestrator splits the raw extraction dict at a single boundary:
+canonical fields flow through `Intake` (so the retrieve stage's fixed-shape
+query builder still works); everything else flows through a parallel
+`extras` dict that the reason stage merges onto the intake payload sent to
+Nemotron. Intake wins on collision — extras are additive context, never an
+override channel. A rule that references a program-specific slot therefore
+has a value to evaluate against, without polluting the canonical schema
+that retrieval and the rule engine key on.
 
 ## What Quire contributes (and why it matters here)
 
@@ -88,7 +114,7 @@ The rest of the Quire kernel — multi-tenancy, provider abstraction, freeze/pub
 
 **Design (complete product).** Verdikt is observable end-to-end. Every stage's output is a structured artifact a human reviewer can read: the intake object, the retrieved rules with rerank scores, the decision with citations, the rendered letter. The admin routing-table page surfaces the model-selection decisions as live data. A first-run path takes a stranger from empty inbox to rendered approval letter without maintainer intervention.
 
-**Potential impact.** Patient Assistance Programs are one instance of a class — regulated document workflows where the letter that leaves the building is the audit artifact. Prior authorization, benefit verification, informed consent, MedWatch reporting all share the same shape. The pipeline structure generalizes; PAP is the demo. Onboarding a second program is a data change, not a build — proven by the OncoBridge cameo: same email, same code, different rules pack, opposite verdict.
+**Potential impact.** Patient Assistance Programs are one instance of a class — regulated document workflows where the letter that leaves the building is the audit artifact. Prior authorization, benefit verification, informed consent, MedWatch reporting all share the same shape. The pipeline structure generalizes; PAP is the demo. Onboarding a second program is a data change, not a build — proven by the OncoBridge cameo (different rules pack, opposite verdict, same code) and by the `programs` table itself: each tenant × program row carries its own extraction schema, so a new program's slot list, rules, and reply template are all data, not code.
 
 **Quality of idea.** Most 2026 doc-gen submissions put a language model on the artifact-generation code path and hope the compliance officer signs off. Verdikt refuses that path: **AI-in, deterministic-out.** The EU AI Act categorizes healthcare eligibility decisions as high-risk and demands the exact reproducibility guarantees Verdikt provides mechanically. Building audit-defensible in 2026 is *ahead* of the regulatory curve, not behind the capability curve.
 

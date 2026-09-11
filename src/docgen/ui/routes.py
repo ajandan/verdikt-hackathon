@@ -4701,8 +4701,14 @@ async def inbox_pipeline_detail(
     # opaque IDs. The loader reads YAML on every call — cheap at demo scale
     # and keeps the page in sync with any rule edits without a restart.
     from pap_pipeline.rules import load_rules
+    from pap_pipeline.schema_groups import bucket_slots
 
     rules_by_id = {r.id: r for r in load_rules()}
+
+    extraction = ev.pap_extraction or ev.pap_intake or {}
+    # Group slot names into reviewer-facing sections at render time.
+    # Slice 2 will consult persisted groups on the Program row when present.
+    extraction_groups = bucket_slots(extraction.keys())
 
     return templates.TemplateResponse(
         request,
@@ -4717,7 +4723,8 @@ async def inbox_pipeline_detail(
             # Prefer the raw extraction dict when the pipeline persisted it —
             # includes program-specific slots that aren't on Intake. Falls
             # back to pap_intake for pre-migration events.
-            extraction=(ev.pap_extraction or ev.pap_intake or {}),
+            extraction=extraction,
+            extraction_groups=extraction_groups,
             decision=ev.pap_decision or {},
             rules_by_id=rules_by_id,
         ),

@@ -6,6 +6,20 @@
     .kv dt { color: var(--text-muted); font-weight: 500; }
     .kv dd { margin: 0; word-break: break-word; }
     .kv dd.missing { color: var(--text-muted); font-style: italic; }
+    .slot-group + .slot-group { margin-top: 18px; }
+    .slot-group-hdr {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 12px; margin-bottom: 8px;
+        padding-bottom: 4px; border-bottom: 1px solid var(--border);
+    }
+    .slot-group-hdr h3 {
+        margin: 0; font-size: 11.5px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted);
+    }
+    .slot-group-hdr .slot-count {
+        font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+    }
     .outcome-hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
     .outcome-hero .outcome { font-size: 26px; font-weight: 700; text-transform: capitalize; }
     .outcome-hero .rationale { color: var(--text); font-size: 14px; }
@@ -180,20 +194,29 @@
         Every slot the program schema defined, populated by the extract stage from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
     </p>
     {% if extraction %}
-    <dl class="kv">
-        {% for key, value in extraction.items() %}
-        <dt>{{ key.replace('_', ' ')|capitalize }}</dt>
-        {% if value is none or value == '' or value == [] %}
-            <dd class="missing">—</dd>
-        {% elif value is mapping or value is sequence and value is not string %}
-            <dd><code>{{ value|tojson }}</code></dd>
-        {% elif value is boolean %}
-            <dd>{{ 'yes' if value else 'no' }}</dd>
-        {% else %}
-            <dd>{{ value }}</dd>
-        {% endif %}
+        {% for group_name, group_slots in extraction_groups %}
+        <div class="slot-group">
+            <div class="slot-group-hdr">
+                <h3>{{ group_name }}</h3>
+                <span class="slot-count">{{ group_slots|length }} slot{% if group_slots|length != 1 %}s{% endif %}</span>
+            </div>
+            <dl class="kv">
+                {% for key in group_slots %}
+                {% set value = extraction[key] %}
+                <dt>{{ key.replace('_', ' ')|capitalize }}</dt>
+                {% if value is none or value == '' or value == [] %}
+                    <dd class="missing">—</dd>
+                {% elif value is mapping or (value is sequence and value is not string) %}
+                    <dd><code>{{ value|tojson }}</code></dd>
+                {% elif value is boolean %}
+                    <dd>{{ 'yes' if value else 'no' }}</dd>
+                {% else %}
+                    <dd>{{ value }}</dd>
+                {% endif %}
+                {% endfor %}
+            </dl>
+        </div>
         {% endfor %}
-    </dl>
     {% else %}
     <p class="text-ink-muted text-[13px] m-0">No fields extracted.</p>
     {% endif %}

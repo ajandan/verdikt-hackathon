@@ -74,8 +74,15 @@ async def reason(
     rules: list[Rule],
     *,
     config: ReasonClientConfig,
+    extras: dict[str, Any] | None = None,
 ) -> Decision:
-    """Reason over the intake against the retrieved rules; emit a Decision."""
+    """Reason over the intake against the retrieved rules; emit a Decision.
+
+    `extras` carries program-specific extraction fields that don't map onto
+    the canonical :class:`Intake` schema. They're merged into the intake JSON
+    payload sent to the model so a rule that references (e.g.) a program's
+    `member_id` slot can still be evaluated.
+    """
     headers = {
         "Authorization": f"Bearer {config.api_key}",
         "Content-Type": "application/json",
@@ -84,7 +91,7 @@ async def reason(
         "model": config.model,
         "messages": [
             {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": _build_user_message(intake, rules)},
+            {"role": "user", "content": _build_user_message(intake, rules, extras)},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.0,
@@ -119,17 +126,26 @@ async def reason(
         raise RuntimeError(f"Nemotron JSON did not match Decision schema: {e}") from e
 
 
-def _build_user_message(intake: Intake, rules: list[Rule]) -> str:
+def _build_user_message(
+    intake: Intake,
+    rules: list[Rule],
+    extras: dict[str, Any] | None = None,
+) -> str:
     """Serialize intake + rules as a single JSON blob for the model.
 
     Uses `mode="json"` so dates/enums serialize as strings the model can
     reason about textually. Rules include only the fields the model needs to
     cite and evaluate — `program` is elided because retrieval already filtered
-    by program.
+    by program. `extras` fields are merged onto the intake payload; Intake
+    keys win on collision so canonical values remain authoritative.
     """
+    intake_payload: dict[str, Any] = {}
+    if extras:
+        intake_payload.update(extras)
+    intake_payload.update(intake.model_dump(mode="json"))
     return json.dumps(
         {
-            "intake": intake.model_dump(mode="json"),
+            "intake": intake_payload,
             "rules": [
                 {
                     "id": r.id,

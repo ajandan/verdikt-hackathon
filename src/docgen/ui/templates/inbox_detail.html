@@ -37,6 +37,8 @@
     </p>
 </section>
 
+{% with active='message' %}{% include "_inbox_tabs.html" %}{% endwith %}
+
 <div class="card">
     <div class="type-row">
         <span class="label">Ingest status</span>
@@ -60,17 +62,6 @@
             <span class="badge reject">rejected</span>
         {% else %}
             <span class="muted">—</span>
-        {% endif %}
-    </div>
-    <div class="type-links">
-        {% if event.template_id or event.template_version_id %}
-            <a href="/ui/inbox/{{ event.id }}/template">Open template detail →</a>
-        {% endif %}
-        {% if event.pap_decision %}
-            <a href="/ui/inbox/{{ event.id }}/pipeline">Open pipeline detail →</a>
-        {% endif %}
-        {% if not (event.template_id or event.template_version_id or event.pap_decision) %}
-            <span class="text-ink-muted text-[13px]">No downstream artifacts — nothing to drill into.</span>
         {% endif %}
     </div>
 </div>

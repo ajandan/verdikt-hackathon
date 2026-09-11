@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -45,6 +46,49 @@ class Tenant(Base):
         JSONB, nullable=False, default=dict, server_default="{}"
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Program(Base):
+    """A tenant-scoped PAP program with its own extraction schema.
+
+    `extraction_schema` is a JSONB list of slot dicts:
+      {"name": "patient_name", "type": "string", "description": "...",
+       "source_field": "<enrollment-template field>" | null,
+       "required": bool, "enum_values": [str] | null}
+
+    Slots drive the vision-model extraction prompt at intake time, so this row
+    is the source of truth for "what fields does this program capture." The
+    enrollment template link lets the UI pre-populate slots from the form's
+    field manifest; once finalized, the extraction schema is decoupled from
+    the template so re-labeling the form doesn't invalidate live intakes.
+    """
+
+    __tablename__ = "programs"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_programs_tenant_slug"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    enrollment_template_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("template_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    extraction_schema: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    # Optional inbound-routing hint — e.g. a subject-tag alias `[pap:cv-2026]`.
+    # None means the program is only reachable when the subject explicitly
+    # names its slug.
+    inbound_alias: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Template(Base):
@@ -449,6 +493,11 @@ class InboxEvent(Base):
     # processes this event; NULL for template-flow events. The pipeline detail
     # page reads these to render extract/retrieve/reason evidence.
     pap_intake: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Raw dict returned by the extract stage — union of every slot the program
+    # schema defined, before it's coerced onto the fixed Intake shape. Used by
+    # the pipeline detail UI to show custom slots and by the reply mapper to
+    # populate program-specific template fields. NULL for pre-migration events.
+    pap_extraction: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     pap_decision: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Blob key of the PDF letter the reply email carried. Written by the PAP
     # handler after the render+attach step; reviewers download it via the
@@ -460,6 +509,15 @@ class InboxEvent(Base):
     # NULL for template-flow events (which store their single attachment
     # inside the template version) and pre-migration events.
     inbound_attachments: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
+    # Append-only audit trail of human review actions. Each entry:
+    # {"at": iso8601, "action": "approved|rejected|reply_sent|...", "actor": str, "note": str}.
+    # Rendered on the reviewer detail pages so "who did what, when" is visible.
+    review_history: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
+    # Short human-readable sequence for reviewer references. Populated by a
+    # Postgres sequence at insert time — see migration 0022.
+    case_number: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, server_default=text("nextval('inbox_case_seq')")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -469,6 +527,16 @@ class InboxEvent(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    @property
+    def case_id(self) -> str:
+        """Short, human-readable case identifier — `QC-0042` style.
+
+        Zero-padded to 4 digits for typical loads; grows to more digits
+        naturally past 9999. Backed by the `inbox_case_seq` sequence so
+        every event has a monotonic, spoken-friendly reference.
+        """
+        return f"QC-{self.case_number:04d}"
 
 
 class InboxTestResult(Base):

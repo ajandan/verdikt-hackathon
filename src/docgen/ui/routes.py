@@ -91,12 +91,14 @@ from docgen.store.models import (
     CallerProfile,
     InboxEvent,
     InboxTestResult,
+    Program,
     Provenance,
     PublishEvent,
     RenderJob,
     Template,
     TemplateAuditEvent,
     TemplateVersion,
+    Tenant,
 )
 
 router = APIRouter(
@@ -122,6 +124,19 @@ def _csp_nonce(request: Request) -> str:
 
 templates.env.globals["csrf_input"] = _csrf_input
 templates.env.globals["csp_nonce"] = _csp_nonce
+
+
+def _case_id_filter(case_number: int | None) -> str:
+    """Jinja filter: format a case number as `QC-0042`.
+    Mirrors InboxEvent.case_id so list rows (which are tuples, not ORM
+    instances) can render the same shorthand.
+    """
+    if case_number is None:
+        return "QC-????"
+    return f"QC-{int(case_number):04d}"
+
+
+templates.env.filters["case_id"] = _case_id_filter
 
 
 import re as _re_base  # noqa: E402 — kept adjacent to the regex it compiles
@@ -217,7 +232,8 @@ async def _base_ctx(
         if identity is not None:
             from sqlalchemy import func as _sqlfunc
             count_q = select(_sqlfunc.count(InboxEvent.id)).where(
-                InboxEvent.review_state == "pending_review"
+                InboxEvent.review_state == "pending_review",
+                InboxEvent.reply_message_id.is_(None),
             )
             if identity.role == "tenant_admin" and identity.tenant_id is not None:
                 count_q = count_q.where(InboxEvent.tenant_id == identity.tenant_id)
@@ -4335,6 +4351,7 @@ async def inbox_list(
     q = (
         select(
             InboxEvent.id,
+            InboxEvent.case_number,
             InboxEvent.from_addr,
             InboxEvent.subject,
             InboxEvent.received_at,
@@ -4407,6 +4424,7 @@ async def inbox_humanloop(
     q = (
         select(
             InboxEvent.id,
+            InboxEvent.case_number,
             InboxEvent.from_addr,
             InboxEvent.subject,
             InboxEvent.received_at,
@@ -4423,7 +4441,10 @@ async def inbox_humanloop(
         )
         .join(Tenant, Tenant.id == InboxEvent.tenant_id, isouter=True)
         .join(Template, Template.id == InboxEvent.template_id, isouter=True)
-        .where(InboxEvent.review_state == "pending_review")
+        .where(
+            InboxEvent.review_state == "pending_review",
+            InboxEvent.reply_message_id.is_(None),
+        )
         .order_by(InboxEvent.received_at.asc(), InboxEvent.id.asc())
         .limit(200)
     )
@@ -4453,6 +4474,24 @@ async def _load_inbox_event(
     if ev is None:
         raise HTTPException(404, "Not found")
     return ev
+
+
+def _append_review_history(
+    event: InboxEvent, *, action: str, actor: str, note: str
+) -> None:
+    """Append an audit entry to the event's review_history JSONB list.
+
+    JSONB list mutation needs a fresh list assignment to trip the ORM's dirty
+    check — .append() on the loaded list is invisible to SQLAlchemy without
+    a MutableList wrapper.
+    """
+    entry = {
+        "at": datetime.now(UTC).isoformat(),
+        "action": action,
+        "actor": actor,
+        "note": note,
+    }
+    event.review_history = [*(event.review_history or []), entry]
 
 
 @router.get("/inbox/{event_id}", response_class=HTMLResponse)
@@ -4675,8 +4714,49 @@ async def inbox_pipeline_detail(
             event=ev,
             tenant=tenant,
             intake=ev.pap_intake or {},
+            # Prefer the raw extraction dict when the pipeline persisted it —
+            # includes program-specific slots that aren't on Intake. Falls
+            # back to pap_intake for pre-migration events.
+            extraction=(ev.pap_extraction or ev.pap_intake or {}),
             decision=ev.pap_decision or {},
             rules_by_id=rules_by_id,
+        ),
+    )
+
+
+@router.get("/inbox/{event_id}/audit", response_class=HTMLResponse)
+async def inbox_audit(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Full audit trail for a case: every action taken by AI and humans.
+
+    Reads the `review_history` JSONB list on InboxEvent — entries are appended
+    at pipeline stages (AI actors) and at review decisions (human actors), so
+    this is the one place a reviewer can see the case's timeline end-to-end.
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    tenant = None
+    if ev.tenant_id is not None:
+        from docgen.store.models import Tenant
+        tenant = await session.get(Tenant, ev.tenant_id)
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_audit.html",
+        await _base_ctx(
+            request,
+            session,
+            active="inbox",
+            event=ev,
+            tenant=tenant,
+            history=list(ev.review_history or []),
         ),
     )
 
@@ -4843,6 +4923,12 @@ async def inbox_approve(
             flash_kind="error",
         )
     ev.review_state = "approved"
+    _append_review_history(
+        ev,
+        action="approved",
+        actor=str(actor),
+        note=f"Published template v{tv.version}.{tv.subversion}.",
+    )
     await session.commit()
     return _redirect(
         detail_url,
@@ -4872,6 +4958,13 @@ async def inbox_reject(
             flash_kind="error",
         )
     ev.review_state = "rejected"
+    actor = getattr(request.state, "admin_user", None) or "inbox-review"
+    _append_review_history(
+        ev,
+        action="rejected",
+        actor=str(actor),
+        note="Template version left as draft.",
+    )
     await session.commit()
     return _redirect(
         detail_url,
@@ -4944,12 +5037,23 @@ async def inbox_pipeline_approve(
     from fastapi.concurrency import run_in_threadpool
 
     settings = get_settings()
+    actor = str(getattr(request.state, "admin_user", None) or "inbox-review")
 
     def _do_send() -> str | None:
         with sync_session() as s:
             fresh = s.get(InboxEvent, event_id)
             if fresh is None:
                 raise MailerError("event vanished between load and send")
+            # Record the human decision BEFORE calling the sender so the audit
+            # timeline reads chronologically: reviewer approves → system sends.
+            # The sender appends its own `reply_sent` entry on success.
+            _append_review_history(
+                fresh,
+                action="approved",
+                actor=actor,
+                note="Reviewer approved the pipeline verdict — releasing reply to applicant.",
+            )
+            s.commit()
             reply_id = sender(s, fresh, settings)
             if reply_id:
                 fresh.reply_message_id = reply_id
@@ -5009,9 +5113,335 @@ async def inbox_pipeline_reject(
             flash_kind="error",
         )
     ev.review_state = "rejected"
+    actor = getattr(request.state, "admin_user", None) or "inbox-review"
+    _append_review_history(
+        ev,
+        action="rejected",
+        actor=str(actor),
+        note="Pipeline verdict discarded — no reply sent.",
+    )
     await session.commit()
     return _redirect(
         detail_url,
         flash="Rejected. No reply was sent.",
         flash_kind="success",
     )
+
+
+# ─── Programs (PAP pipeline schema per tenant) ────────────────────────────────
+# A Program row is (tenant, slug) + an `extraction_schema` JSONB list of slot
+# dicts. The Program's schema replaces the hardcoded PAP Intake shape at
+# extract time; admins bind an enrollment template as the schema seed so the
+# vision model's slot list matches the form the applicant is filling in.
+
+_SLOT_TYPES = ("string", "date", "integer", "number", "boolean", "enum")
+
+
+def _tv_fields_to_slots(schema_json: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Convert a TemplateVersion.schema field manifest into program slots.
+
+    The template's field list is the closest thing we have to a first-class
+    schema for what the enrollment form captures — copying it as the initial
+    slot set gets the admin from empty state to editing text descriptions,
+    rather than typing every field name from scratch. Nested (list/object)
+    fields are flattened away for MVP; the extract stage can't populate them
+    without a dedicated prompt shape.
+    """
+    fields = (schema_json or {}).get("fields") or []
+    slots: list[dict[str, Any]] = []
+    for f in fields:
+        name = (f.get("name") or "").strip()
+        if not name:
+            continue
+        t = f.get("type") or "string"
+        # Collapse container types — the VLM extraction prompt only knows how
+        # to fill scalar slots. Admin can add nested slots by hand later.
+        if t in ("list", "object"):
+            continue
+        slots.append({
+            "name": name,
+            "type": t if t in _SLOT_TYPES else "string",
+            "description": (f.get("description") or "").strip(),
+            "source_field": name,
+            "required": bool(f.get("required")),
+            "enum_values": None,
+        })
+    return slots
+
+
+def _parse_program_schema_form(form: Any) -> list[dict[str, Any]]:
+    """Deserialize the slot table posted by the program-detail form.
+
+    The form ships one row per slot with parallel `slot_name[]` /
+    `slot_type[]` / etc. arrays — the classic tabular-form pattern. Missing
+    or empty names are dropped so the "delete a slot" UX is just "clear the
+    name field and save."
+    """
+    names = form.getlist("slot_name")
+    types = form.getlist("slot_type")
+    descriptions = form.getlist("slot_description")
+    source_fields = form.getlist("slot_source_field")
+    required_flags = set(form.getlist("slot_required"))
+    enum_values_raw = form.getlist("slot_enum_values")
+
+    slots: list[dict[str, Any]] = []
+    for i, raw_name in enumerate(names):
+        name = (raw_name or "").strip()
+        if not name:
+            continue
+        t = (types[i] if i < len(types) else "string").strip()
+        if t not in _SLOT_TYPES:
+            t = "string"
+        desc = (descriptions[i] if i < len(descriptions) else "").strip()
+        source = (source_fields[i] if i < len(source_fields) else "").strip() or None
+        # Row index (as string) is present in the required set when that
+        # row's checkbox was ticked — the checkbox `value` is the row index.
+        required = str(i) in required_flags
+        enum_values: list[str] | None = None
+        if t == "enum":
+            raw_ev = enum_values_raw[i] if i < len(enum_values_raw) else ""
+            enum_values = [v.strip() for v in (raw_ev or "").split(",") if v.strip()] or None
+        slots.append({
+            "name": name,
+            "type": t,
+            "description": desc,
+            "source_field": source,
+            "required": required,
+            "enum_values": enum_values,
+        })
+    return slots
+
+
+async def _load_program(session: AsyncSession, program_id: uuid.UUID) -> Program:
+    row = await session.get(Program, program_id)
+    if row is None:
+        raise HTTPException(404, "Program not found")
+    return row
+
+
+@router.get("/programs", response_class=HTMLResponse)
+async def programs_list(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    flash: str | None = None,
+    flash_kind: str | None = None,
+) -> HTMLResponse:
+    """Programs list — scoped by the sidebar workspace picker.
+
+    Super-admin with no workspace selected sees every tenant's programs;
+    tenant-admin and picker-scoped super-admin see only the current
+    tenant's programs. Same rule as the Templates/Renders lists.
+    """
+    scope = _forced_tenant_scope(request)
+    stmt = (
+        select(Program, Tenant.name)
+        .join(Tenant, Tenant.id == Program.tenant_id)
+        .order_by(Tenant.name.asc(), Program.slug.asc())
+    )
+    if scope is not None:
+        stmt = stmt.where(Program.tenant_id == scope)
+    rows = (await session.execute(stmt)).all()
+    programs = [
+        {
+            "id": p.id,
+            "tenant_id": p.tenant_id,
+            "tenant_name": tenant_name,
+            "slug": p.slug,
+            "name": p.name,
+            "is_active": p.is_active,
+            "slot_count": len(p.extraction_schema or []),
+            "enrollment_template_version_id": p.enrollment_template_version_id,
+            "updated_at": p.updated_at,
+        }
+        for (p, tenant_name) in rows
+    ]
+    tenants_res = await session.execute(select(Tenant).order_by(Tenant.name.asc()))
+    tenants_all = tenants_res.scalars().all()
+    return templates.TemplateResponse(
+        request,
+        "admin_programs.html",
+        await _base_ctx(
+            request, session, active="programs",
+            programs=programs, tenants_all=tenants_all,
+            flash=flash, flash_kind=flash_kind,
+        ),
+    )
+
+
+@router.post("/programs")
+async def programs_create(
+    request: Request,
+    tenant_id: uuid.UUID = Form(...),
+    slug: str = Form(...),
+    name: str = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Create a Program row — starts with an empty extraction schema. The
+    admin binds a template and copies slots on the detail page."""
+    _enforce_scope(request, tenant_id)
+    slug_clean = slug.strip().lower()
+    name_clean = name.strip()
+    if not slug_clean or not name_clean:
+        return _redirect("/ui/programs", flash="Slug and name are required.", flash_kind="error")
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+    prog = Program(
+        tenant_id=tenant_id, slug=slug_clean, name=name_clean,
+        extraction_schema=[], is_active=True,
+    )
+    session.add(prog)
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        return _redirect("/ui/programs", flash=f"Create failed: {e}", flash_kind="error")
+    log.info("program_created", tenant_id=str(tenant_id), slug=slug_clean)
+    return _redirect(f"/ui/programs/{prog.id}", flash=f"Created program '{name_clean}'.", flash_kind="success")
+
+
+@router.get("/programs/{program_id}", response_class=HTMLResponse)
+async def program_detail(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    flash: str | None = None,
+    flash_kind: str | None = None,
+) -> HTMLResponse:
+    """Program detail — edit slots, pick an enrollment template."""
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    tenant = await session.get(Tenant, prog.tenant_id)
+
+    # Candidate enrollment templates: tenant's frozen versions. Kept small
+    # deliberately — a Program's schema is bound to one blank form, so the
+    # picker doesn't need every draft in the tenant.
+    tv_stmt = (
+        select(TemplateVersion, Template.name)
+        .join(Template, Template.id == TemplateVersion.template_id)
+        .where(Template.tenant_id == prog.tenant_id, TemplateVersion.is_frozen.is_(True))
+        .order_by(Template.name.asc(), TemplateVersion.version.desc(), TemplateVersion.subversion.desc())
+    )
+    template_versions = [
+        {
+            "id": tv.id,
+            "template_id": tv.template_id,
+            "template_name": name,
+            "version": tv.version,
+            "subversion": tv.subversion,
+            "locale": tv.locale,
+            "field_count": len((tv.schema or {}).get("fields") or []),
+        }
+        for (tv, name) in (await session.execute(tv_stmt)).all()
+    ]
+
+    # Pull the currently-bound template's field manifest so the UI can show
+    # the "source form fields" list next to the editable slot table.
+    bound_fields: list[dict[str, Any]] = []
+    if prog.enrollment_template_version_id:
+        bound_tv = await session.get(TemplateVersion, prog.enrollment_template_version_id)
+        if bound_tv is not None:
+            bound_fields = list((bound_tv.schema or {}).get("fields") or [])
+
+    return templates.TemplateResponse(
+        request,
+        "admin_program_detail.html",
+        await _base_ctx(
+            request, session, active="programs",
+            program=prog, tenant=tenant,
+            slots=list(prog.extraction_schema or []),
+            slot_types=_SLOT_TYPES,
+            template_versions=template_versions,
+            bound_fields=bound_fields,
+            flash=flash, flash_kind=flash_kind,
+        ),
+    )
+
+
+@router.post("/programs/{program_id}")
+async def program_save(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Save program-level fields + the edited slot table."""
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    form = await request.form()
+
+    prog.name = (form.get("name") or prog.name).strip() or prog.name
+    prog.is_active = form.get("is_active") == "on"
+    raw_tv = (form.get("enrollment_template_version_id") or "").strip()
+    if raw_tv:
+        try:
+            prog.enrollment_template_version_id = uuid.UUID(raw_tv)
+        except ValueError:
+            return _redirect(
+                f"/ui/programs/{program_id}",
+                flash="Invalid template-version id.", flash_kind="error",
+            )
+    else:
+        prog.enrollment_template_version_id = None
+
+    # JSONB list mutation needs a fresh assignment for ORM dirty tracking.
+    prog.extraction_schema = _parse_program_schema_form(form)
+    await session.commit()
+    log.info(
+        "program_saved", program_id=str(prog.id),
+        slots=len(prog.extraction_schema or []),
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}",
+        flash="Program saved.", flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/copy-from-template")
+async def program_copy_from_template(
+    program_id: uuid.UUID,
+    request: Request,
+    template_version_id: uuid.UUID = Form(...),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Seed the program's slot list from an enrollment template's fields.
+
+    Existing slots are replaced — this is the "start from the form" flow;
+    admins that want to append should edit the table by hand. Sets the
+    program's `enrollment_template_version_id` so the source is recorded.
+    """
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    tv = await session.get(TemplateVersion, template_version_id)
+    if tv is None:
+        raise HTTPException(404, "Template version not found")
+    tpl = await session.get(Template, tv.template_id)
+    if tpl is None or tpl.tenant_id != prog.tenant_id:
+        raise HTTPException(404, "Template version not found")
+    new_slots = _tv_fields_to_slots(tv.schema)
+    prog.extraction_schema = new_slots
+    prog.enrollment_template_version_id = tv.id
+    await session.commit()
+    log.info(
+        "program_slots_copied_from_template",
+        program_id=str(prog.id), template_version_id=str(tv.id),
+        slots=len(new_slots),
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}",
+        flash=f"Copied {len(new_slots)} slot(s) from the enrollment template.",
+        flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/delete")
+async def program_delete(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    await session.delete(prog)
+    await session.commit()
+    log.info("program_deleted", program_id=str(program_id))
+    return _redirect("/ui/programs", flash=f"Deleted program '{prog.name}'.", flash_kind="success")

@@ -51,8 +51,9 @@
     .card.flush.attached th, .card.flush.attached td {
         vertical-align: middle;
     }
+    .col-case      { width: 110px; }
     .col-received  { width: 128px; }
-    .col-from      { width: 210px; }
+    .col-from      { width: 190px; }
     .col-subject   { width: auto;  }
     .col-tenant    { width: 90px;  }
     .col-template  { width: 170px; }
@@ -60,6 +61,11 @@
     .col-ingest    { width: 108px; }
     .col-review    { width: 108px; }
     .col-action    { width: 84px;  }
+    .case-id {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px; font-weight: 600; color: var(--brand);
+        letter-spacing: 0.02em;
+    }
     .card.flush.attached td.muted,
     .card.flush.attached td.score-cell,
     .card.flush.attached td:first-child,
@@ -149,6 +155,7 @@
     {% if events %}
     <table>
         <colgroup>
+            <col class="col-case">
             <col class="col-received">
             <col class="col-from">
             <col class="col-subject">
@@ -161,6 +168,7 @@
         </colgroup>
         <thead>
             <tr>
+                <th>Case</th>
                 <th>Received</th>
                 <th>From</th>
                 <th>Subject</th>
@@ -175,6 +183,7 @@
         <tbody>
         {% for e in events %}
             <tr>
+                <td><a href="/ui/inbox/{{ e.id }}" class="case-id">{{ e.case_number|case_id }}</a></td>
                 <td class="muted">{{ e.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td class="from-cell" title="{{ e.from_addr }}">{{ e.from_addr }}</td>
                 <td class="subject-cell" title="{{ e.subject or '' }}">

@@ -1,10 +1,10 @@
 """Stage 1 (extract) — MiniCPM-V multimodal wire + merge behavior.
 
 The extract stage is the widest surface in the pipeline: many attachments
-in, one Intake out. If the merge logic silently overwrites good fields with
-later nulls, or if a single malformed page invalidates the whole intake,
-the downstream missing_info path fires spuriously and the demo derails.
-These tests lock the guarantees.
+in, one raw dict out (keyed by the caller's slot names). Per-field
+validation is the orchestrator's job — see `_intake_from_extraction`. The
+tests here lock the merge semantics and the wire contract; enum/date
+validation moved to `test_pap_orchestrator.py`.
 """
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from typing import Any
 import httpx
 import pytest
 
-from pap_pipeline.schemas.intake import Intake
 from pap_pipeline.stages import extract as extract_mod
 from pap_pipeline.stages.extract import ExtractClientConfig, extract
 
@@ -71,18 +70,19 @@ def _one_page_pdf() -> bytes:
 
 
 @pytest.mark.asyncio
-async def test_extract_empty_attachments_yields_empty_intake() -> None:
-    """Zero attachments → no vision calls, all-None Intake."""
-    intake = await extract([], config=_config())
-    assert isinstance(intake, Intake)
-    assert intake.patient_name is None
-    assert intake.annual_household_income is None
+async def test_extract_empty_attachments_yields_empty_dict() -> None:
+    """Zero attachments → no vision calls, empty dict (downstream treats
+    absent keys as null)."""
+    result = await extract([], config=_config())
+    assert result == {}
 
 
 @pytest.mark.asyncio
-async def test_extract_calls_vision_model_and_parses_intake(monkeypatch) -> None:
+async def test_extract_calls_vision_model_and_parses_fields(monkeypatch) -> None:
     """Wire contract: /chat/completions, MiniCPM-V model, image_url content
-    part, temperature 0, JSON mode, non-reasoning flag."""
+    part, temperature 0, JSON mode, non-reasoning flag. Also asserts the
+    dynamically-built prompt names every default slot so the VLM knows the
+    schema shape."""
     def _handler(_req):
         content = json.dumps({
             "patient_name": "Maria Chen",
@@ -101,13 +101,13 @@ async def test_extract_calls_vision_model_and_parses_intake(monkeypatch) -> None
 
     calls = _patch_async_client(monkeypatch, _handler)
 
-    intake = await extract([_png_bytes()], config=_config())
+    result = await extract([_png_bytes()], config=_config())
 
-    assert intake.patient_name == "Maria Chen"
-    assert intake.household_size == 2
-    assert intake.annual_household_income == 60000.00
-    assert intake.insurance_status == "uninsured"
-    assert intake.prescribed_drug == "Cardiovita"
+    assert result["patient_name"] == "Maria Chen"
+    assert result["household_size"] == 2
+    assert result["annual_household_income"] == 60000.00
+    assert result["insurance_status"] == "uninsured"
+    assert result["prescribed_drug"] == "Cardiovita"
 
     assert len(calls) == 1
     body = calls[0]["body"]
@@ -119,12 +119,44 @@ async def test_extract_calls_vision_model_and_parses_intake(monkeypatch) -> None
     # Multimodal message shape.
     parts = body["messages"][0]["content"]
     assert any(p.get("type") == "image_url" for p in parts)
-    assert any(p.get("type") == "text" for p in parts)
+    text_parts = [p for p in parts if p.get("type") == "text"]
+    assert text_parts, "extract prompt missing"
+    prompt_text = text_parts[0]["text"]
+    # Prompt is built from _DEFAULT_SLOTS when the caller passes no slots.
+    for name in ("patient_name", "insurance_status", "prescribed_drug"):
+        assert f'"{name}"' in prompt_text
+
+
+@pytest.mark.asyncio
+async def test_extract_uses_caller_supplied_slots(monkeypatch) -> None:
+    """When the caller passes a program's slot list, the prompt names those
+    slots and the returned dict is filtered to just those keys — fields the
+    VLM emits outside the program's schema are dropped silently."""
+    slots = [
+        {"name": "patient_name", "type": "string", "description": "Full name."},
+        {"name": "member_id", "type": "string", "description": "Program member ID."},
+    ]
+
+    def _handler(_req):
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
+            "patient_name": "Maria Chen",
+            "member_id": "MC-42",
+            "prescribed_drug": "Cardiovita",  # not in the caller's slots → dropped
+        })}}]})
+
+    calls = _patch_async_client(monkeypatch, _handler)
+
+    result = await extract([_png_bytes()], config=_config(), slots=slots)
+
+    assert result == {"patient_name": "Maria Chen", "member_id": "MC-42"}
+    prompt_text = calls[0]["body"]["messages"][0]["content"][0]["text"]
+    assert '"member_id"' in prompt_text
+    assert '"prescribed_drug"' not in prompt_text
 
 
 @pytest.mark.asyncio
 async def test_extract_merges_partials_first_non_null_wins(monkeypatch) -> None:
-    """Two attachments contribute different fields; merged Intake carries
+    """Two attachments contribute different fields; merged dict carries
     both, and later nulls do NOT overwrite an earlier filled field."""
     responses = [
         {  # pay stub: financial only
@@ -149,29 +181,10 @@ async def test_extract_merges_partials_first_non_null_wins(monkeypatch) -> None:
 
     _patch_async_client(monkeypatch, _handler)
 
-    intake = await extract([_png_bytes(), _png_bytes()], config=_config())
-    assert intake.patient_name == "Maria Chen"  # not overwritten by later null
-    assert intake.annual_household_income == 60000.00
-    assert intake.prescribed_drug == "Cardiovita"
-
-
-@pytest.mark.asyncio
-async def test_extract_drops_single_invalid_field(monkeypatch) -> None:
-    """A bogus enum value shouldn't invalidate the whole intake — the good
-    fields still land, only the bad one is dropped."""
-    def _handler(_req):
-        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({
-            "patient_name": "Maria Chen",
-            "insurance_status": "priv",  # invalid enum
-            "household_size": 2,
-        })}}]})
-
-    _patch_async_client(monkeypatch, _handler)
-
-    intake = await extract([_png_bytes()], config=_config())
-    assert intake.patient_name == "Maria Chen"
-    assert intake.household_size == 2
-    assert intake.insurance_status is None  # dropped
+    result = await extract([_png_bytes(), _png_bytes()], config=_config())
+    assert result["patient_name"] == "Maria Chen"  # not overwritten by later null
+    assert result["annual_household_income"] == 60000.00
+    assert result["prescribed_drug"] == "Cardiovita"
 
 
 @pytest.mark.asyncio
@@ -191,8 +204,8 @@ async def test_extract_ignores_non_json_page(monkeypatch) -> None:
 
     _patch_async_client(monkeypatch, _handler)
 
-    intake = await extract([_png_bytes(), _png_bytes()], config=_config())
-    assert intake.patient_name == "Maria Chen"
+    result = await extract([_png_bytes(), _png_bytes()], config=_config())
+    assert result["patient_name"] == "Maria Chen"
 
 
 @pytest.mark.asyncio
@@ -208,6 +221,6 @@ async def test_extract_rasterizes_pdf_to_pages(monkeypatch) -> None:
 
     calls = _patch_async_client(monkeypatch, _handler)
 
-    intake = await extract([pdf], config=_config())
-    assert intake.patient_name == "Maria Chen"
+    result = await extract([pdf], config=_config())
+    assert result["patient_name"] == "Maria Chen"
     assert len(calls) == 1  # one page → one vision call

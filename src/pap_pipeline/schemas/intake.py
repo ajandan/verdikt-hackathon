@@ -36,8 +36,22 @@ class Intake(BaseModel):
     """
 
     # Patient identity — used to address the reply letter, not to gate eligibility.
+    # `family_name` + `honorific` let the salutation compose "Dear Ms. Chen,"
+    # instead of dropping the full legal name into the greeting line.
     patient_name: str | None = None
+    family_name: str | None = None
+    honorific: str | None = None
     date_of_birth: date | None = None
+
+    # Mailing address — populates the recipient block on the reply letter.
+    # `country` is a duplicate of country_of_residence for cases where the
+    # form separates residency from mailing address (rare, but the ASP forms
+    # do have both). CV-RES-01 keeps using country_of_residence.
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
 
     # Financial — CV-INC-01 checks these against the FPL table.
     household_size: int | None = Field(default=None, ge=1)
@@ -55,3 +69,8 @@ class Intake(BaseModel):
     prescribed_drug: str | None = None
     prescriber_npi: str | None = None
     prescription_date: date | None = None
+
+    # Form-supplied case identifier (e.g. ALD-26-207802). Preferred over the
+    # pipeline-generated fallback so audit trails reconcile back to the paper
+    # form. Left None when the form doesn't carry one.
+    referral_id: str | None = None

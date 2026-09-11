@@ -6,25 +6,30 @@ the inbox agent uses to select which reply template to render.
 
 Design shape:
 
-  attachments ── extract ──▶ Intake
+  attachments ── extract ──▶ raw dict (per-program slots)
                               │
-                              ├── retrieve ──▶ [RetrievedRule] (rule + score)
+                              ├── _intake_from_extraction ──▶ Intake (canonical)
                               │
-                              └── reason(intake, rules) ──▶ Decision
+                              ├── retrieve(intake) ──▶ [RetrievedRule]
+                              │
+                              └── reason(intake, extras, rules) ──▶ Decision
 
 The retriever's reranker score is stitched back into the Decision citations
 after reasoning — the reason stage doesn't see the scores (they're not
 inputs to its verdict) but the reply letter uses them to order citations by
 confidence.
 
-Stage 1 (extract) is not yet wired; :func:`run_from_intake` is the current
-entry point, taking an already-extracted :class:`Intake`. When Stage 1
-lands, :func:`run` will add the extract call on top and become the primary
-entry point.
+Extras are the extraction fields that don't overlap the canonical Intake
+schema (e.g., program-defined `member_id`). Retrieval keys on canonical
+fields only, but reasoning sees them merged into the intake JSON so a rule
+that cites a program-specific slot still has a value to evaluate against.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
+
+from pydantic import ValidationError
 
 from pap_pipeline.schemas.decision import Citation, Decision
 from pap_pipeline.schemas.intake import Intake
@@ -51,6 +56,7 @@ async def run_from_intake(
     *,
     config: PipelineConfig,
     program: str | None = None,
+    extras: dict[str, Any] | None = None,
     k: int = 4,
 ) -> Decision:
     """Run retrieve → reason against an already-extracted Intake.
@@ -63,7 +69,7 @@ async def run_from_intake(
         intake, config=config.retrieve, program=program, k=k
     )
     rules = [rr.rule for rr in retrieved]
-    decision = await reason(intake, rules, config=config.reason)
+    decision = await reason(intake, rules, config=config.reason, extras=extras)
     return _attach_retrieval_scores(decision, retrieved)
 
 
@@ -97,6 +103,7 @@ async def run(
     *,
     config: PipelineConfig,
     program: str | None = None,
+    slots: list[dict[str, Any]] | None = None,
     k: int = 4,
 ) -> Decision:
     """Full pipeline — attachments in, Decision out.
@@ -105,8 +112,8 @@ async def run(
     onto the Decision's citations. The inbox agent calls this once per
     inbound message when `use_pipeline_backend` is enabled for the tenant.
     """
-    _, decision = await run_with_intake(
-        attachments, config=config, program=program, k=k
+    _, _, decision = await run_with_intake(
+        attachments, config=config, program=program, slots=slots, k=k
     )
     return decision
 
@@ -116,18 +123,66 @@ async def run_with_intake(
     *,
     config: PipelineConfig,
     program: str | None = None,
+    slots: list[dict[str, Any]] | None = None,
     k: int = 4,
-) -> tuple[Intake, Decision]:
-    """Same as :func:`run` but also returns the extracted Intake.
+) -> tuple[dict[str, Any], Intake, Decision]:
+    """Same as :func:`run` but also returns the raw extraction dict + Intake.
 
-    The reply-letter renderer needs both — Decision picks the template and
-    fills the outcome-specific fields; Intake fills the addressee, DOB,
-    medication, and other patient-scoped fields that aren't part of the
-    Decision but must appear on every letter.
+    `slots` is the caller's per-program extraction schema (from
+    `programs.extraction_schema`). The extract stage builds its VLM prompt
+    from those slot definitions; the returned dict is then split at this
+    boundary into (a) an :class:`Intake` for the retrieve stage's fixed-field
+    query builder and (b) a leftover *extras* dict that flows through to
+    reasoning so program-specific slots still participate in the verdict.
+    The raw dict is returned as-is for persistence + UI display.
     """
-    intake = await extract(attachments, config=config.extract)
-    decision = await run_from_intake(intake, config=config, program=program, k=k)
-    return intake, decision
+    raw = await extract(attachments, config=config.extract, slots=slots)
+    intake = _intake_from_extraction(raw)
+    extras = _extras_from_extraction(raw)
+    decision = await run_from_intake(
+        intake, config=config, program=program, extras=extras, k=k
+    )
+    return raw, intake, decision
 
 
-__all__ = ["PipelineConfig", "Citation", "run", "run_from_intake", "run_with_intake"]
+def _intake_from_extraction(raw: dict[str, Any]) -> Intake:
+    """Coerce the dynamic extraction dict into an :class:`Intake`.
+
+    Filters to Intake's known field names, then validates. On a
+    ValidationError (e.g., the VLM returned a value that fails a field
+    validator), retries field-by-field and drops the offending keys — one
+    bad value from the model shouldn't wipe the rest of the intake.
+    """
+    known = set(Intake.model_fields.keys())
+    clean: dict[str, Any] = {k: v for k, v in (raw or {}).items() if k in known}
+    try:
+        return Intake.model_validate(clean)
+    except ValidationError:
+        good: dict[str, Any] = {}
+        for k, v in clean.items():
+            try:
+                Intake.model_validate({k: v})
+            except ValidationError:
+                continue
+            good[k] = v
+        return Intake.model_validate(good)
+
+
+def _extras_from_extraction(raw: dict[str, Any]) -> dict[str, Any]:
+    """Non-Intake fields from the raw extraction dict.
+
+    These are the program-specific slots (e.g., `member_id`, `pcp_name`)
+    that don't map onto :class:`Intake`. Fed to the reason stage so the LLM
+    sees the full extracted context, not just the canonical subset.
+    """
+    known = set(Intake.model_fields.keys())
+    return {k: v for k, v in (raw or {}).items() if k not in known}
+
+
+__all__ = [
+    "PipelineConfig",
+    "Citation",
+    "run",
+    "run_from_intake",
+    "run_with_intake",
+]

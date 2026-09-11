@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}{{ program.name }} — Program{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .prog-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1100px) { .prog-grid { grid-template-columns: 1fr; } }
+    .slot-table {
+        width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .slot-table th, .slot-table td {
+        padding: 8px 10px; border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+    .slot-table th {
+        text-align: left; font-weight: 600; color: var(--text-muted);
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .slot-table input[type="text"], .slot-table select, .slot-table textarea {
+        width: 100%; box-sizing: border-box; padding: 6px 8px;
+        font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface);
+    }
+    .slot-table textarea { min-height: 46px; resize: vertical; font-family: inherit; }
+    .slot-table .col-required { text-align: center; }
+    .slot-table .col-drag { width: 24px; color: var(--text-muted); }
+    .slot-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .field-chip {
+        display: inline-block; padding: 3px 8px; margin: 2px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 999px; font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text-muted);
+    }
+    .field-chip.used { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .add-row-btn {
+        margin-top: 12px; font-size: 13px; padding: 6px 12px;
+        background: var(--surface-2); border: 1px dashed var(--border);
+        border-radius: 6px; cursor: pointer;
+    }
+    .add-row-btn:hover { background: var(--surface); }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/programs">Programs</a>
+    <span>/</span>
+    {{ program.name }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>{{ program.name }}</h1>
+        <p class="page-subtitle">
+            Tenant <strong>{{ tenant.name if tenant else '—' }}</strong> ·
+            Slug <code>{{ program.slug }}</code> ·
+            {{ (program.extraction_schema or [])|length }} slot(s)
+        </p>
+    </div>
+    <div class="page-actions">
+        {% if program.is_active %}
+            <span class="badge success">Active</span>
+        {% else %}
+            <span class="badge">Inactive</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="prog-grid">
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Extraction schema</h2>
+                <span class="subtle">One slot per row — the VLM prompt is built from these</span>
+            </div>
+            <form action="/ui/programs/{{ program.id }}" method="post" id="program-form">
+                {{ csrf_input(request) }}
+                <table class="slot-table" id="slot-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width: 160px">Slot name</th>
+                            <th style="width: 110px">Type</th>
+                            <th>Description</th>
+                            <th style="width: 140px">Source field</th>
+                            <th style="width: 150px">Enum values</th>
+                            <th class="col-required">Req?</th>
+                        </tr>
+                    </thead>
+                    <tbody id="slot-tbody">
+                    {% for s in slots %}
+                        <tr>
+                            <td><input type="text" name="slot_name" value="{{ s.name or '' }}" class="slot-name" required></td>
+                            <td>
+                                <select name="slot_type">
+                                    {% for t in slot_types %}
+                                    <option value="{{ t }}" {% if (s.type or 'string') == t %}selected{% endif %}>{{ t }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><textarea name="slot_description">{{ s.description or '' }}</textarea></td>
+                            <td><input type="text" name="slot_source_field" value="{{ s.source_field or '' }}"></td>
+                            <td><input type="text" name="slot_enum_values" value="{{ (s.enum_values or [])|join(', ') }}" placeholder="comma,separated"></td>
+                            <td class="col-required">
+                                <input type="checkbox" name="slot_required" value="{{ loop.index0 }}" {% if s.required %}checked{% endif %}>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <button type="button" class="add-row-btn" id="add-slot-btn">+ Add slot</button>
+
+                <hr style="margin: 24px 0; border: none; border-top: 1px solid var(--border)">
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+                    <label>Display name
+                        <input type="text" name="name" value="{{ program.name }}" required>
+                    </label>
+                    <label>Enrollment template (frozen)
+                        <select name="enrollment_template_version_id">
+                            <option value="">— none —</option>
+                            {% for tv in template_versions %}
+                            <option value="{{ tv.id }}" {% if program.enrollment_template_version_id == tv.id %}selected{% endif %}>
+                                {{ tv.template_name }} — v{{ tv.version }}.{{ tv.subversion }} ({{ tv.locale }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+                <label style="margin-top: 12px; display: flex; align-items: center; gap: 8px">
+                    <input type="checkbox" name="is_active" {% if program.is_active %}checked{% endif %}>
+                    <span>Active — accepts inbound intake</span>
+                </label>
+
+                <div class="btn-row" style="margin-top: 20px">
+                    <button class="primary" type="submit">Save changes</button>
+                    <a href="/ui/programs" class="btn ghost">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <h3 style="margin-top: 0">Seed slots from a template</h3>
+            <p class="muted" style="font-size: 13px">
+                Replace the current slot list with one derived from a frozen
+                enrollment template's field manifest. Descriptions come across
+                too; you can then refine the wording before saving.
+            </p>
+            <form action="/ui/programs/{{ program.id }}/copy-from-template" method="post">
+                {{ csrf_input(request) }}
+                <label>Template version
+                    <select name="template_version_id" required>
+                        <option value="">— pick one —</option>
+                        {% for tv in template_versions %}
+                        <option value="{{ tv.id }}">
+                            {{ tv.template_name }} — v{{ tv.version }}.{{ tv.subversion }} ({{ tv.field_count }} fields)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button class="primary" type="submit" style="width: 100%; margin-top: 12px">
+                    Copy schema
+                </button>
+            </form>
+        </div>
+
+        {% if bound_fields %}
+        <div class="card" style="margin-top: 16px">
+            <h3 style="margin-top: 0">Bound template fields</h3>
+            <p class="muted" style="font-size: 13px">
+                Fields on the currently-linked template. Highlighted chips are
+                referenced by at least one slot's <em>source field</em>.
+            </p>
+            {% set used = slots|map(attribute='source_field')|select|list %}
+            <div>
+                {% for f in bound_fields %}
+                <span class="field-chip {% if f.name in used %}used{% endif %}" title="{{ f.type }} — {{ f.description or '' }}">{{ f.name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card" style="margin-top: 16px">
+            <h3 style="margin-top: 0">Danger zone</h3>
+            <p class="muted" style="font-size: 13px">
+                Deletes the program row. In-flight intakes that already have a
+                verdict are unaffected — only future inbound mail for this slug
+                will fail to route.
+            </p>
+            <form action="/ui/programs/{{ program.id }}/delete" method="post"
+                data-confirm="Delete program {{ program.name }}? This cannot be undone.">
+                {{ csrf_input(request) }}
+                <button class="danger" type="submit" style="width: 100%">Delete program</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<template id="slot-row-template">
+    <tr>
+        <td><input type="text" name="slot_name" class="slot-name" required></td>
+        <td>
+            <select name="slot_type">
+                {% for t in slot_types %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><textarea name="slot_description"></textarea></td>
+        <td><input type="text" name="slot_source_field"></td>
+        <td><input type="text" name="slot_enum_values" placeholder="comma,separated"></td>
+        <td class="col-required">
+            <input type="checkbox" name="slot_required" value="__IDX__">
+        </td>
+    </tr>
+</template>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function() {
+    var btn = document.getElementById('add-slot-btn');
+    var tbody = document.getElementById('slot-tbody');
+    var tmpl = document.getElementById('slot-row-template');
+    if (!btn || !tbody || !tmpl) return;
+    btn.addEventListener('click', function() {
+        var frag = tmpl.content.cloneNode(true);
+        var cb = frag.querySelector('input[name="slot_required"]');
+        if (cb) cb.value = String(tbody.children.length);
+        tbody.appendChild(frag);
+    });
+
+    // Confirm on danger-zone delete
+    document.querySelectorAll('form[data-confirm]').forEach(function(f) {
+        f.addEventListener('submit', function(e) {
+            if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+        });
+    });
+})();
+</script>
+{% endblock %}

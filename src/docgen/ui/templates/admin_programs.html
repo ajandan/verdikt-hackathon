@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Programs — Quire{% endblock %}
+{% block content %}
+<div class="page-decor" aria-hidden="true">
+    <svg viewBox="0 0 560 280" width="560" height="280" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="120" y="60" width="320" height="160" rx="12"/>
+        <path d="M120 100 L 440 100"/>
+        <path d="M160 130 L 320 130"/>
+        <path d="M160 155 L 300 155"/>
+        <path d="M160 180 L 280 180"/>
+        <circle cx="405" cy="180" r="16"/>
+        <path d="M398 180 l 5 5 l 10 -12"/>
+    </svg>
+</div>
+<style nonce="{{ csp_nonce(request) }}">
+    .programs-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .programs-grid { grid-template-columns: 1fr; } }
+    .program-cell strong { display: block; }
+    .program-cell .slug {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+    }
+    .badge.inactive { background: var(--surface-2); color: var(--text-muted); }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Programs</h1>
+        <p class="page-subtitle">
+            A program owns the extraction schema the PAP pipeline uses at intake.
+            Bind an enrollment template to seed the slots, then review and edit
+            before finalising.
+        </p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ programs|length }} program{{ 's' if programs|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="programs-grid">
+    {% if programs %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All programs</h2>
+            <span class="subtle">Grouped by tenant</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>Tenant</th>
+                    <th>Program</th>
+                    <th>Slots</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in programs %}
+                <tr>
+                    <td>{{ p.tenant_name }}</td>
+                    <td>
+                        <div class="program-cell">
+                            <strong>{{ p.name }}</strong>
+                            <span class="slug">{{ p.slug }}</span>
+                        </div>
+                    </td>
+                    <td data-sort="{{ p.slot_count }}">{{ p.slot_count }}</td>
+                    <td>
+                        {% if p.is_active %}
+                            <span class="badge success">Active</span>
+                        {% else %}
+                            <span class="badge inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted" data-sort="{{ p.updated_at.isoformat() }}">
+                        {{ p.updated_at.strftime('%Y-%m-%d %H:%M UTC') }}
+                    </td>
+                    <td style="text-align: right">
+                        <a href="/ui/programs/{{ p.id }}">Edit →</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v6"/></svg>
+            </div>
+            <h3>No programs yet</h3>
+            <p>Create one on the right — it starts with an empty schema, then you bind an enrollment template to seed the slots.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Create program</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">
+            A program is scoped to one tenant. The slug is used in the inbox
+            subject tag (<code>[pap:&lt;slug&gt;]</code>) to route inbound mail.
+        </p>
+        <form action="/ui/programs" method="post">
+            {{ csrf_input(request) }}
+            <label>Tenant
+                <select name="tenant_id" required>
+                    {% for t in tenants_all %}
+                    <option value="{{ t.id }}"
+                        {% if sidebar_selected_tenant_id and sidebar_selected_tenant_id == t.id|string %}selected{% endif %}>
+                        {{ t.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label style="margin-top: 12px">Slug
+                <input type="text" name="slug" required placeholder="cardiovita-pap-2026" autofocus>
+                <div class="muted" style="font-size: 12px; margin-top: 6px">Lowercase, kebab-case.</div>
+            </label>
+            <label style="margin-top: 12px">Display name
+                <input type="text" name="name" required placeholder="CardioVita PAP 2026">
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create program
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

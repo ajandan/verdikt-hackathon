@@ -175,6 +175,64 @@ async def test_reason_raises_on_schema_mismatch(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_reason_merges_extras_into_intake_payload(monkeypatch) -> None:
+    """Program-specific fields flow to the model through the `extras` seam.
+
+    The reason stage sees Intake as fixed-shape but merges extras (fields
+    the program's extraction schema defined that aren't on canonical Intake)
+    onto the intake JSON payload — a rule that references `member_id` still
+    has something to evaluate against.
+    """
+    def _ok(_req):
+        content = json.dumps({
+            "outcome": "approve",
+            "citations": [],
+            "missing_fields": [],
+            "rationale": "ok",
+        })
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    captured = _patch_async_client(monkeypatch, _ok)
+    await reason(
+        load_canonical_intake(),
+        _load_rules()[:1],
+        config=_config(),
+        extras={"member_id": "MC-42", "referring_provider": "Dr. Kim"},
+    )
+    payload = json.loads(captured["body"]["messages"][1]["content"])
+    # Extras appear on the intake blob alongside canonical fields.
+    assert payload["intake"]["member_id"] == "MC-42"
+    assert payload["intake"]["referring_provider"] == "Dr. Kim"
+    # Canonical fields still present — extras don't shadow Intake's dump.
+    assert payload["intake"]["patient_name"] == load_canonical_intake().patient_name
+
+
+@pytest.mark.asyncio
+async def test_reason_intake_wins_over_extras_on_name_collision(monkeypatch) -> None:
+    """When an extra key collides with an Intake field, the canonical Intake
+    value wins — extras are only additive context, not an override channel."""
+    def _ok(_req):
+        content = json.dumps({
+            "outcome": "approve",
+            "citations": [],
+            "missing_fields": [],
+            "rationale": "ok",
+        })
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    captured = _patch_async_client(monkeypatch, _ok)
+    intake = load_canonical_intake()
+    await reason(
+        intake,
+        _load_rules()[:1],
+        config=_config(),
+        extras={"patient_name": "Impostor Name"},
+    )
+    payload = json.loads(captured["body"]["messages"][1]["content"])
+    assert payload["intake"]["patient_name"] == intake.patient_name
+
+
+@pytest.mark.asyncio
 async def test_reason_raises_on_http_error(monkeypatch) -> None:
     def _fail(_req):
         return httpx.Response(500, json={"error": "internal"})

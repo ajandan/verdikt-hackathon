@@ -1,0 +1,49 @@
+{# Shared tab strip for inbox event detail pages.
+   Call with: {% with active='message' %}{% include "_inbox_tabs.html" %}{% endwith %}
+   Valid `active` values: 'message', 'template', 'pipeline', 'audit'. #}
+<style nonce="{{ csp_nonce(request) }}">
+    .inbox-tabs {
+        display: flex; gap: 0; align-items: baseline; flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        margin: 0 0 20px;
+    }
+    .inbox-tabs .case-tag {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12.5px; font-weight: 700; color: var(--brand);
+        letter-spacing: 0.03em;
+        padding: 8px 14px 10px; margin-right: 6px;
+        border-right: 1px solid var(--border);
+    }
+    .inbox-tabs .tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 16px 11px;
+        font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+        text-decoration: none; border-bottom: 2px solid transparent;
+        margin-bottom: -1px; transition: color 120ms, border-color 120ms;
+    }
+    .inbox-tabs .tab:hover { color: var(--text); text-decoration: none; }
+    .inbox-tabs .tab.active {
+        color: var(--brand); font-weight: 600;
+        border-bottom-color: var(--brand);
+    }
+    .inbox-tabs .tab .tab-count {
+        display: inline-flex; align-items: center;
+        padding: 1px 6px; border-radius: 8px;
+        background: var(--surface-2); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); line-height: 1.4;
+    }
+</style>
+<nav class="inbox-tabs" aria-label="Event sections">
+    <span class="case-tag" title="Case identifier">{{ event.case_number|case_id }}</span>
+    <a href="/ui/inbox/{{ event.id }}" class="tab {% if active == 'message' %}active{% endif %}">Message</a>
+    {% if event.template_id or event.template_version_id %}
+        <a href="/ui/inbox/{{ event.id }}/template" class="tab {% if active == 'template' %}active{% endif %}">Template</a>
+    {% endif %}
+    {% if event.pap_decision %}
+        <a href="/ui/inbox/{{ event.id }}/pipeline" class="tab {% if active == 'pipeline' %}active{% endif %}">Pipeline</a>
+    {% endif %}
+    <a href="/ui/inbox/{{ event.id }}/audit" class="tab {% if active == 'audit' %}active{% endif %}">
+        Audit
+        {% if event.review_history %}<span class="tab-count">{{ event.review_history|length }}</span>{% endif %}
+    </a>
+</nav>

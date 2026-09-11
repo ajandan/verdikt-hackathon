@@ -64,10 +64,12 @@
         PAP pipeline verdict
     </h1>
     <p class="text-ink-muted text-[13.5px] m-0">
-        Event {{ event.id }} · Received {{ event.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        Received {{ event.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
         {% if tenant %}· Tenant <strong>{{ tenant.name }}</strong>{% endif %}
     </p>
 </section>
+
+{% with active='pipeline' %}{% include "_inbox_tabs.html" %}{% endwith %}
 
 <div class="card">
     <div class="outcome-hero">
@@ -175,38 +177,32 @@
         <h2>Extract — structured intake</h2>
     </div>
     <p class="stage-hint">
-        Fields the extract stage lifted from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
+        Every slot the program schema defined, populated by the extract stage from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
     </p>
+    {% if extraction %}
     <dl class="kv">
-        <dt>Patient name</dt>
-        {% if intake.patient_name %}<dd>{{ intake.patient_name }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Date of birth</dt>
-        {% if intake.date_of_birth %}<dd>{{ intake.date_of_birth }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Household size</dt>
-        {% if intake.household_size is not none %}<dd>{{ intake.household_size }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Annual household income</dt>
-        {% if intake.annual_household_income is not none %}<dd>${{ '{:,.0f}'.format(intake.annual_household_income|float) }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Insurance status</dt>
-        {% if intake.insurance_status %}<dd>{{ intake.insurance_status }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Has denial letter</dt>
-        {% if intake.has_denial_letter is not none %}<dd>{{ 'yes' if intake.has_denial_letter else 'no' }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Country of residence</dt>
-        {% if intake.country_of_residence %}<dd>{{ intake.country_of_residence }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Mailing state</dt>
-        {% if intake.mailing_state %}<dd>{{ intake.mailing_state }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Prescribed drug</dt>
-        {% if intake.prescribed_drug %}<dd>{{ intake.prescribed_drug }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Prescriber NPI</dt>
-        {% if intake.prescriber_npi %}<dd>{{ intake.prescriber_npi }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
-        <dt>Prescription date</dt>
-        {% if intake.prescription_date %}<dd>{{ intake.prescription_date }}</dd>{% else %}<dd class="missing">—</dd>{% endif %}
+        {% for key, value in extraction.items() %}
+        <dt>{{ key.replace('_', ' ')|capitalize }}</dt>
+        {% if value is none or value == '' or value == [] %}
+            <dd class="missing">—</dd>
+        {% elif value is mapping or value is sequence and value is not string %}
+            <dd><code>{{ value|tojson }}</code></dd>
+        {% elif value is boolean %}
+            <dd>{{ 'yes' if value else 'no' }}</dd>
+        {% else %}
+            <dd>{{ value }}</dd>
+        {% endif %}
+        {% endfor %}
     </dl>
+    {% else %}
+    <p class="text-ink-muted text-[13px] m-0">No fields extracted.</p>
+    {% endif %}
 
     <details style="margin-top:14px">
         <summary style="cursor:pointer;color:var(--text-muted);font-size:12.5px">
-            Show full extracted JSON (all fields, including those not used by the decision)
+            Show full extracted JSON
         </summary>
-        <pre class="json-pre">{{ intake|tojson(indent=2) }}</pre>
+        <pre class="json-pre">{{ extraction|tojson(indent=2) }}</pre>
     </details>
 </div>
 
@@ -224,7 +220,7 @@
             <tr>
                 <th style="width:110px;">Rule</th>
                 <th style="width:70px;">Matched</th>
-                <th style="width:70px;">Score</th>
+                <th style="width:110px;" title="Retrieval reranker's relevance score for this rule against the intake — a topicality signal, not an eligibility gate. The decision is deterministic in the reason stage.">Retrieval score</th>
                 <th>Statement</th>
             </tr>
         </thead>

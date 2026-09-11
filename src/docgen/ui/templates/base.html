@@ -702,20 +702,16 @@
         </a>
 
         <div class="px-3 pt-3 flex-1 overflow-y-auto">
-            <div class="nav-section">Workspace</div>
+            <div class="nav-section">Overview</div>
             <nav class="flex flex-col gap-0.5">
                 <a href="/ui/dashboard{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l6-5 6 5"/><path d="M4 7v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"/></svg>
                     Dashboard
                 </a>
-                <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}">
-                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-                    Templates
-                </a>
-                <a href="/ui/renders{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'renders' %}active{% endif %}">
-                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
-                    Renders
-                </a>
+            </nav>
+
+            <div class="nav-section">Intake queue</div>
+            <nav class="flex flex-col gap-0.5">
                 <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M2 9h3l1 2h4l1-2h3"/></svg>
                     Inbox review
@@ -727,9 +723,29 @@
                     <span class="ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--brand)] text-white leading-none">{{ humanloop_count }}</span>
                     {% endif %}
                 </a>
+            </nav>
+
+            <div class="nav-section">Configuration</div>
+            <nav class="flex flex-col gap-0.5">
+                <a href="/ui/programs" class="nav-link {% if active == 'programs' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 3.5h11v2h-11z"/><path d="M2.5 7h11v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z"/><path d="M6 10h4"/></svg>
+                    Programs
+                </a>
+                <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+                    Templates
+                </a>
                 <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>
                     Upload template
+                </a>
+            </nav>
+
+            <div class="nav-section">Output</div>
+            <nav class="flex flex-col gap-0.5">
+                <a href="/ui/renders{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'renders' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
+                    Renders
                 </a>
             </nav>
 

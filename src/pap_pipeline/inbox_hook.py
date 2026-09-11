@@ -12,7 +12,7 @@ Contract:
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import structlog
@@ -23,7 +23,7 @@ from docgen.inbox.agent import ProcessResult, set_pap_handler, set_pap_reply_sen
 from docgen.inbox.imap_poller import InboundMessage
 from docgen.inbox.mailer import Attachment, MailerError, send_reply
 from docgen.store.blob import get_object, put_object
-from docgen.store.models import InboxEvent, Template, TemplateVersion, Tenant
+from docgen.store.models import InboxEvent, Program, Template, TemplateVersion, Tenant
 
 from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
 from pap_pipeline.schemas.decision import Decision
@@ -43,6 +43,26 @@ _OUTCOME_TO_REVIEW_STATE = {
     "deny": "pending_review",
     "missing_info": "pending_review",
 }
+
+
+_AI_ACTOR = "AI: pap-pipeline"
+_SYSTEM_ACTOR = "System: mailer"
+
+
+def _append_audit(event: InboxEvent, *, action: str, actor: str, note: str) -> None:
+    """Append an audit entry to the event's review_history JSONB list.
+
+    JSONB list mutation needs a fresh list assignment to trip the ORM's dirty
+    check — .append() on the loaded list is invisible to SQLAlchemy without
+    a MutableList wrapper. Kept in-sync with the UI-side helper in routes.py.
+    """
+    entry = {
+        "at": datetime.now(UTC).isoformat(),
+        "action": action,
+        "actor": actor,
+        "note": note,
+    }
+    event.review_history = [*(event.review_history or []), entry]
 
 
 def _pipeline_config(settings: Settings) -> PipelineConfig:
@@ -238,11 +258,82 @@ def _short_id(event_id: Any) -> str:
     return str(event_id).replace("-", "")[:8].upper()
 
 
+# Long program codes ("CARDIOVITA-PAP-2026") overflow the header band cell
+# on the ASP-20x letters — the cell fits ~83pt, the long form needs ~110pt at
+# 9.8pt Helvetica-Bold, so it clips silently at the band edge. Compressing
+# common program slugs to their short form keeps the header legible without
+# widening the template.
+_PROGRAM_CODE_SHORT = {
+    "cardiovita-pap-2026": "CV-PAP-2026",
+}
+
+
+def _short_program_code(program: str | None) -> str:
+    slug = (program or "cardiovita-pap-2026").lower()
+    return _PROGRAM_CODE_SHORT.get(slug, slug.upper())
+
+
+def _compose_salutation(intake: Intake) -> str:
+    """Compose a natural greeting from honorific + family name.
+
+    Prefers "Dear Ms. Chen," when the form supplied a title, falling back
+    through last-name-only ("Dear Chen,") and finally the full legal name
+    ("Dear Maria L Chen,") only when nothing else is available. The reply
+    letter reserves the whole salutation line so a merged full-name string
+    reads as an obvious template dump rather than a natural greeting.
+    """
+    honorific = (intake.honorific or "").strip().rstrip(".")
+    family = (intake.family_name or "").strip()
+    if honorific and family:
+        return f"Dear {honorific}. {family},"
+    if family:
+        return f"Dear {family},"
+    if intake.patient_name:
+        return f"Dear {intake.patient_name},"
+    return "Dear Applicant,"
+
+
+def _compose_city_state_zip(intake: Intake) -> str:
+    """Assemble a `City, State ZIP` (or non-US equivalent) line from parts.
+
+    Non-US applicants often have no `mailing_state`; the `city` + `country`
+    is still worth showing so the recipient block on the denial letter
+    matches what the applicant actually wrote, rather than the state-only
+    fragment the old mapper produced.
+    """
+    city = (intake.city or "").strip()
+    state = (intake.mailing_state or "").strip()
+    postal = (intake.postal_code or "").strip()
+    country = (intake.country or intake.country_of_residence or "").strip()
+
+    left = ", ".join(p for p in (city, state) if p)
+    parts = [p for p in (left, postal) if p]
+    line = " ".join(parts).strip()
+    # Only append country when it's non-US — US recipients don't expect
+    # "United States" on their own address block.
+    if country and country.lower() not in {"us", "usa", "u.s.", "u.s.a.", "united states", "united states of america"}:
+        line = f"{line}, {country}" if line else country
+    return line
+
+
+def _extras_only(raw_extraction: dict[str, Any]) -> dict[str, Any]:
+    """Fields in the raw extraction that aren't part of Intake.
+
+    Used by the reply mapper so that when a program defines a custom slot
+    like `member_id` and the tenant's letter template has a matching field
+    name, the value flows through end-to-end without needing an Intake
+    schema change.
+    """
+    known = set(Intake.model_fields.keys())
+    return {k: v for k, v in (raw_extraction or {}).items() if k not in known}
+
+
 def _build_render_data(
     intake: Intake,
     decision: Decision,
     program: str | None,
     event: InboxEvent,
+    extras: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Map Intake + Decision onto the ASP-20x template field schema.
 
@@ -253,27 +344,37 @@ def _build_render_data(
     """
     today = date.today()
     patient = intake.patient_name or "Applicant"
-    salutation = f"Dear {patient},"
+    salutation = _compose_salutation(intake)
     dob = intake.date_of_birth.strftime("%m/%d/%Y") if intake.date_of_birth else ""
-    city_state_zip = intake.mailing_state or ""
-    program_code = (program or "cardiovita-pap-2026").upper()
-    referral = f"ALD-{_short_id(event.id)}"
+    street = (intake.address_line1 or "").strip()
+    apt = (intake.address_line2 or "").strip()
+    city_state_zip = _compose_city_state_zip(intake)
+    program_code = _short_program_code(program)
+    # Prefer the referral ID printed on the paper form so the reply
+    # reconciles back to the applicant's file. Fall back to a pipeline-
+    # invented `ALD-{short-uuid}` only when the form didn't carry one.
+    referral = (intake.referral_id or "").strip() or f"ALD-{_short_id(event.id)}"
     coordinator = "Alderwood PAP Care Coordinator"
     direct_line = "1-877-555-0100"
     coord_title = "Patient Assistance Care Coordinator"
     med = intake.prescribed_drug or ""
 
-    common: dict[str, Any] = {
+    # Program-specific slots seed the render dict first — a template field
+    # named `member_id` picks up the extracted value here even though it's
+    # not part of Intake. Alderwood mappings below overwrite these where
+    # slot names collide with the canonical `alderwood_*` schema.
+    common: dict[str, Any] = {k: v for k, v in (extras or {}).items() if v is not None}
+    common.update({
         "alderwood_addressee": patient,
         "alderwood_patient": patient,
         "alderwood_dob": dob,
         "alderwood_letter_date": today.strftime("%m/%d/%Y"),
-        "alderwood_street_address": "",
-        "alderwood_apt_unit": "",
+        "alderwood_street_address": street,
+        "alderwood_apt_unit": apt,
         "alderwood_city_state_zip": city_state_zip,
         "alderwood_program_code": program_code,
         "alderwood_referral_id": referral,
-    }
+    })
 
     if decision.outcome == "approve":
         approval_end = today.replace(year=today.year + 1)
@@ -336,6 +437,8 @@ def _render_reply_attachment(
     program: str | None,
     event: InboxEvent,
     settings: Settings,
+    *,
+    extras: dict[str, Any] | None = None,
 ) -> tuple[Attachment | None, str | None]:
     """Render the outcome-matched Alderwood letter to PDF bytes.
 
@@ -355,7 +458,7 @@ def _render_reply_attachment(
     if tv is None:
         log.warning("pap_reply_template_missing", outcome=decision.outcome, tenant=str(tenant.id))
         return None, None
-    data = _build_render_data(intake, decision, program, event)
+    data = _build_render_data(intake, decision, program, event, extras=extras)
     try:
         pdf_bytes = execute_merge(tv, data, output_format="pdf", settings=settings)
     except Exception as e:
@@ -392,17 +495,50 @@ def _render_reply_attachment(
     return attachment, blob_key
 
 
+def _resolve_program_slots(
+    session: Any, tenant: Tenant, program: str | None
+) -> list[dict[str, Any]] | None:
+    """Look up the Program row's extraction_schema for this tenant + slug.
+
+    Returns None when the program isn't registered (in which case the
+    extract stage falls back to its `_DEFAULT_SLOTS`, keeping legacy
+    tenants working during the Program cutover) or when the row exists
+    but hasn't had its schema populated yet.
+    """
+    slug = (program or "").strip().lower()
+    if not slug:
+        return None
+    row = (
+        session.query(Program)
+        .filter(
+            Program.tenant_id == tenant.id,
+            Program.slug == slug,
+            Program.is_active.is_(True),
+        )
+        .first()
+    )
+    if row is None or not row.extraction_schema:
+        return None
+    return list(row.extraction_schema)
+
+
 def _run_pipeline(
-    attachments: list[bytes], program: str | None, settings: Settings
-) -> tuple[Intake, Decision]:
+    attachments: list[bytes],
+    program: str | None,
+    slots: list[dict[str, Any]] | None,
+    settings: Settings,
+) -> tuple[dict[str, Any], Intake, Decision]:
     """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
     here; each call gets its own loop and NullPool means no cross-loop DB
-    reuse). Returns both Intake and Decision so the reply renderer can fill
-    patient-scoped fields the Decision doesn't carry."""
+    reuse). Returns the raw extraction dict, the Intake coerced from it, and
+    the Decision — the raw dict is what the UI and reply mapper read to see
+    program-specific slots that Intake doesn't carry."""
     import asyncio
 
     config = _pipeline_config(settings)
-    return asyncio.run(run_with_intake(attachments, config=config, program=program))
+    return asyncio.run(
+        run_with_intake(attachments, config=config, program=program, slots=slots)
+    )
 
 
 def _handler(
@@ -419,6 +555,12 @@ def _handler(
     if not attachments:
         event.status = "skipped"
         event.error = "pap: no attachments to process"
+        _append_audit(
+            event,
+            action="pipeline_skipped",
+            actor=_AI_ACTOR,
+            note="No attachments on the inbound message — nothing to process.",
+        )
         session.commit()
         log.info("pap_no_attachments", event_id=str(event.id))
         return ProcessResult(event.id, "skipped", event.error)
@@ -428,13 +570,34 @@ def _handler(
     # Persist raw inbound files up-front so the reviewer can preview them
     # even if the pipeline itself blows up mid-run.
     event.inbound_attachments = _persist_inbound_attachments(event, msg, settings)
+    slots = _resolve_program_slots(session, tenant, program)
+    schema_source = (
+        f"program schema ({len(slots)} slots)" if slots else "built-in default schema"
+    )
+    _append_audit(
+        event,
+        action="pipeline_started",
+        actor=_AI_ACTOR,
+        note=(
+            f"Received {len(attachments)} attachment(s) from {event.from_addr}. "
+            f"Program: {program or 'default'}. Extraction: {schema_source}."
+        ),
+    )
     session.commit()
 
     try:
-        intake, decision = _run_pipeline(attachments, program=program, settings=settings)
+        raw_extraction, intake, decision = _run_pipeline(
+            attachments, program=program, slots=slots, settings=settings
+        )
     except Exception as e:
         event.status = "failed"
         event.error = f"pap_pipeline_failed: {type(e).__name__}: {e}"
+        _append_audit(
+            event,
+            action="pipeline_failed",
+            actor=_AI_ACTOR,
+            note=f"{type(e).__name__}: {e}",
+        )
         session.commit()
         log.exception("pap_pipeline_failed", event_id=str(event.id))
         return ProcessResult(event.id, "failed", event.error)
@@ -443,17 +606,46 @@ def _handler(
     event.review_state = _OUTCOME_TO_REVIEW_STATE.get(decision.outcome, "pending_review")
     event.status = "succeeded"
     event.pap_intake = intake.model_dump(mode="json")
+    # Persist the full extraction dict so the pipeline detail page and reply
+    # mapper can see program-specific slots that don't live on Intake.
+    event.pap_extraction = raw_extraction
     event.pap_decision = decision.model_dump(mode="json")
+    _append_audit(
+        event,
+        action="verdict_rendered",
+        actor=_AI_ACTOR,
+        note=(
+            f"Outcome: {decision.outcome}. "
+            f"Citations: {len(decision.citations)}, "
+            f"missing fields: {len(decision.missing_fields)}. "
+            f"Queued for human review."
+        ),
+    )
     session.commit()
 
     # Render + persist the reply PDF now so the reviewer can preview the
     # exact letter that will be sent. The send itself is deferred to the
     # human-approval endpoint — see _send_pap_reply_for_event.
     _, blob_key = _render_reply_attachment(
-        session, tenant, intake, decision, program, event, settings
+        session, tenant, intake, decision, program, event, settings,
+        extras=_extras_only(raw_extraction),
     )
     if blob_key:
         event.reply_attachment_blob_key = blob_key
+        _append_audit(
+            event,
+            action="reply_drafted",
+            actor=_AI_ACTOR,
+            note=f"Drafted {decision.outcome} reply letter and stored for reviewer preview.",
+        )
+        session.commit()
+    else:
+        _append_audit(
+            event,
+            action="reply_draft_skipped",
+            actor=_AI_ACTOR,
+            note="No outcome-matched template found — reply will be text-only when sent.",
+        )
         session.commit()
 
     log.info(
@@ -506,7 +698,7 @@ def _send_pap_reply_for_event(
     if not settings.smtp_host:
         raise MailerError("SMTP not configured (DOCGEN_SMTP_HOST is empty)")
     outcome, text, html = _build_reply(decision)
-    return send_reply(
+    reply_msg_id = send_reply(
         settings=settings,
         to_addrs=[event.from_addr],
         cc_addrs=list(event.cc_addrs or []),
@@ -517,6 +709,19 @@ def _send_pap_reply_for_event(
         references=[event.message_id],
         attachments=[attachment] if attachment else None,
     )
+    _append_audit(
+        event,
+        action="reply_sent",
+        actor=_SYSTEM_ACTOR,
+        note=(
+            f"Sent {outcome} reply to {event.from_addr}"
+            + (f" with attachment {attachment.filename}" if attachment else " (text-only)")
+            + "."
+        ),
+    )
+    # Caller commits — this helper is invoked inside the approve endpoint's
+    # sync worker which owns the transaction boundary.
+    return reply_msg_id
 
 
 # Register at import time — docgen.plugins.load_plugins() imports this module

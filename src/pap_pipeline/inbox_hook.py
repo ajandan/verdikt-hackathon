@@ -19,10 +19,10 @@ import structlog
 
 from docgen.config import Settings
 from docgen.core.render_pipeline import execute_merge
-from docgen.inbox.agent import ProcessResult, set_pap_handler
+from docgen.inbox.agent import ProcessResult, set_pap_handler, set_pap_reply_sender
 from docgen.inbox.imap_poller import InboundMessage
 from docgen.inbox.mailer import Attachment, MailerError, send_reply
-from docgen.store.blob import put_object
+from docgen.store.blob import get_object, put_object
 from docgen.store.models import InboxEvent, Template, TemplateVersion, Tenant
 
 from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
@@ -34,12 +34,13 @@ from pap_pipeline.stages.retrieve import RetrieveClientConfig
 
 log = structlog.get_logger(__name__)
 
-# Reply-outcome mapping. Approvals auto-approve; denials mark rejected;
-# missing_info parks in pending_review so a human can decide whether to ask
-# the applicant or override.
+# Every pipeline outcome parks in pending_review — nothing goes back to the
+# applicant until a human hits Approve on the pipeline detail page. A wrong
+# auto-send (denial to an approvable case, approval to a fraudulent one)
+# cannot be un-sent, so we prefer a queue over an outbox.
 _OUTCOME_TO_REVIEW_STATE = {
-    "approve": "auto_approved",
-    "deny": "rejected",
+    "approve": "pending_review",
+    "deny": "pending_review",
     "missing_info": "pending_review",
 }
 
@@ -80,6 +81,57 @@ def _pap_attachments(msg: InboundMessage) -> list[bytes]:
     """Every attachment goes to the pipeline — a claim often spans a pay stub,
     an insurance card, and a prescription across separate files."""
     return [a.content for a in msg.attachments if a.content]
+
+
+# InboundAttachment.kind is docx|pdf; the poller filters everything else,
+# so this map covers the only two we ever land on. Falls back to the
+# generic bytestream MIME so a future third kind still gets served.
+_KIND_TO_CONTENT_TYPE = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+def _persist_inbound_attachments(
+    event: InboxEvent, msg: InboundMessage, settings: Settings
+) -> list[dict[str, Any]]:
+    """Upload each inbound attachment to the documents bucket and return a
+    manifest the UI can render as preview links.
+
+    Blob-store failures don't abort the pipeline — a missing preview is less
+    bad than dropping the claim. Each failed upload just gets its blob_key
+    left null in the manifest so the UI renders it as "(upload failed)".
+    """
+    manifest: list[dict[str, Any]] = []
+    for idx, a in enumerate(msg.attachments):
+        if not a.content:
+            continue
+        content_type = _KIND_TO_CONTENT_TYPE.get(a.kind, "application/octet-stream")
+        safe_name = (a.filename or f"attachment-{idx}").replace("/", "_").replace("\\", "_")
+        blob_key = f"inbox-inbound/{event.id}/{idx:02d}-{safe_name}"
+        entry: dict[str, Any] = {
+            "filename": a.filename or safe_name,
+            "content_type": content_type,
+            "size": len(a.content),
+            "blob_key": None,
+        }
+        try:
+            put_object(
+                settings.s3_bucket_documents,
+                blob_key,
+                a.content,
+                content_type=content_type,
+            )
+            entry["blob_key"] = blob_key
+        except Exception as e:
+            log.warning(
+                "pap_inbound_attachment_persist_failed",
+                event_id=str(event.id),
+                filename=a.filename,
+                error=f"{type(e).__name__}: {e}",
+            )
+        manifest.append(entry)
+    return manifest
 
 
 def _score_from_decision(decision: Decision) -> float | None:
@@ -284,17 +336,25 @@ def _render_reply_attachment(
     program: str | None,
     event: InboxEvent,
     settings: Settings,
-) -> Attachment | None:
+) -> tuple[Attachment | None, str | None]:
     """Render the outcome-matched Alderwood letter to PDF bytes.
 
-    Returns None if the template is missing, unplaced, or fails to render —
-    the caller keeps the flow alive by sending a text-only reply. All three
-    failure modes log so an operator can see why the attachment dropped.
+    Returns `(attachment, blob_key)`. Either half can be None independently:
+
+    - `(None, None)` — template missing / render failed. Caller falls back to
+      a text-only reply so a single missing template doesn't drop the flow.
+    - `(Attachment, None)` — render succeeded, blob upload failed. Caller
+      still sends the PDF over SMTP; the reviewer just can't re-download it
+      from the pipeline detail page. All failure modes log for the operator.
+
+    The caller assigns `blob_key` onto `event.reply_attachment_blob_key`
+    explicitly — the sequencing is visible at the call site rather than
+    hidden behind a side effect on this function.
     """
     tv = _find_reply_template(session, tenant, decision.outcome)
     if tv is None:
         log.warning("pap_reply_template_missing", outcome=decision.outcome, tenant=str(tenant.id))
-        return None
+        return None, None
     data = _build_render_data(intake, decision, program, event)
     try:
         pdf_bytes = execute_merge(tv, data, output_format="pdf", settings=settings)
@@ -305,11 +365,15 @@ def _render_reply_attachment(
             outcome=decision.outcome,
             error=f"{type(e).__name__}: {e}",
         )
-        return None
+        return None, None
     filename = f"alderwood_{decision.outcome}_{_short_id(event.id)}.pdf"
+    attachment = Attachment(
+        filename=filename, content=pdf_bytes, content_type="application/pdf"
+    )
     # Persist the exact bytes we're about to send so the reviewer can pull
     # the same PDF from the pipeline detail page. Blob-store failures
-    # shouldn't drop the email attachment — log and move on with a null key.
+    # shouldn't drop the email attachment — log and return a None key so the
+    # caller skips the DB write.
     blob_key = f"inbox-replies/{event.id}/{filename}"
     try:
         put_object(
@@ -318,41 +382,14 @@ def _render_reply_attachment(
             pdf_bytes,
             content_type="application/pdf",
         )
-        event.reply_attachment_blob_key = blob_key
     except Exception as e:
         log.warning(
             "pap_reply_blob_persist_failed",
             event_id=str(event.id),
             error=f"{type(e).__name__}: {e}",
         )
-    return Attachment(filename=filename, content=pdf_bytes, content_type="application/pdf")
-
-
-def _send_pap_reply(
-    settings: Settings,
-    msg: InboundMessage,
-    decision: Decision,
-    *,
-    attachment: Attachment | None = None,
-) -> str | None:
-    if not settings.smtp_host:
-        return None
-    outcome, text, html = _build_reply(decision)
-    try:
-        return send_reply(
-            settings=settings,
-            to_addrs=[msg.from_addr],
-            cc_addrs=list(msg.cc_addrs),
-            subject=_reply_subject(msg.subject, outcome),
-            body_text=text,
-            body_html=html,
-            in_reply_to=msg.message_id,
-            references=msg.references + [msg.message_id],
-            attachments=[attachment] if attachment else None,
-        )
-    except MailerError as e:
-        log.warning("pap_reply_failed", error=str(e))
-        return None
+        return attachment, None
+    return attachment, blob_key
 
 
 def _run_pipeline(
@@ -388,6 +425,9 @@ def _handler(
 
     event.status = "processing"
     event.attachment_name = msg.attachments[0].filename if msg.attachments else None
+    # Persist raw inbound files up-front so the reviewer can preview them
+    # even if the pipeline itself blows up mid-run.
+    event.inbound_attachments = _persist_inbound_attachments(event, msg, settings)
     session.commit()
 
     try:
@@ -406,16 +446,14 @@ def _handler(
     event.pap_decision = decision.model_dump(mode="json")
     session.commit()
 
-    attachment = _render_reply_attachment(
+    # Render + persist the reply PDF now so the reviewer can preview the
+    # exact letter that will be sent. The send itself is deferred to the
+    # human-approval endpoint — see _send_pap_reply_for_event.
+    _, blob_key = _render_reply_attachment(
         session, tenant, intake, decision, program, event, settings
     )
-    # Commit the blob key eagerly so it's visible on the pipeline detail
-    # page even if SMTP is offline and we skip the send.
-    if event.reply_attachment_blob_key:
-        session.commit()
-    reply_id = _send_pap_reply(settings, msg, decision, attachment=attachment)
-    if reply_id:
-        event.reply_message_id = reply_id
+    if blob_key:
+        event.reply_attachment_blob_key = blob_key
         session.commit()
 
     log.info(
@@ -428,9 +466,63 @@ def _handler(
     return ProcessResult(event.id, "succeeded", decision.outcome)
 
 
+def _send_pap_reply_for_event(
+    session: Any, event: InboxEvent, settings: Settings
+) -> str | None:
+    """Send the queued reply after a human approves the pipeline verdict.
+
+    Reconstructs the reply from fields persisted on the event (decision,
+    from/cc/subject, previously rendered PDF blob). Called by the UI's
+    /pipeline/approve endpoint via the docgen reply-sender slot.
+
+    Raises MailerError on SMTP failure; the caller renders that back to
+    the reviewer so they know the send didn't happen.
+    """
+    if event.pap_decision is None:
+        raise MailerError("event has no pipeline decision to reply about")
+    decision = Decision.model_validate(event.pap_decision)
+
+    attachment: Attachment | None = None
+    if event.reply_attachment_blob_key:
+        try:
+            body = get_object(
+                settings.s3_bucket_documents, event.reply_attachment_blob_key
+            )
+        except Exception as e:
+            # Log and continue with a text-only reply. Losing the PDF is
+            # bad but not as bad as blocking the approved send entirely.
+            log.warning(
+                "pap_reply_attachment_fetch_failed",
+                event_id=str(event.id),
+                blob_key=event.reply_attachment_blob_key,
+                error=f"{type(e).__name__}: {e}",
+            )
+        else:
+            filename = event.reply_attachment_blob_key.rsplit("/", 1)[-1]
+            attachment = Attachment(
+                filename=filename, content=body, content_type="application/pdf"
+            )
+
+    if not settings.smtp_host:
+        raise MailerError("SMTP not configured (DOCGEN_SMTP_HOST is empty)")
+    outcome, text, html = _build_reply(decision)
+    return send_reply(
+        settings=settings,
+        to_addrs=[event.from_addr],
+        cc_addrs=list(event.cc_addrs or []),
+        subject=_reply_subject(event.subject, outcome),
+        body_text=text,
+        body_html=html,
+        in_reply_to=event.message_id,
+        references=[event.message_id],
+        attachments=[attachment] if attachment else None,
+    )
+
+
 # Register at import time — docgen.plugins.load_plugins() imports this module
-# when DOCGEN_PLUGINS names it, and the side effect wires the slot.
+# when DOCGEN_PLUGINS names it, and the side effect wires both slots.
 set_pap_handler(_handler)
+set_pap_reply_sender(_send_pap_reply_for_event)
 
 
-__all__ = ["_handler"]
+__all__ = ["_handler", "_send_pap_reply_for_event"]

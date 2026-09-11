@@ -213,6 +213,20 @@ async def _base_ctx(
                 if cookie_tid:
                     selected = cookie_tid
         ctx["sidebar_selected_tenant_id"] = selected
+
+        if identity is not None:
+            from sqlalchemy import func as _sqlfunc
+            count_q = select(_sqlfunc.count(InboxEvent.id)).where(
+                InboxEvent.review_state == "pending_review"
+            )
+            if identity.role == "tenant_admin" and identity.tenant_id is not None:
+                count_q = count_q.where(InboxEvent.tenant_id == identity.tenant_id)
+            elif selected:
+                try:
+                    count_q = count_q.where(InboxEvent.tenant_id == uuid.UUID(selected))
+                except ValueError:
+                    pass
+            ctx["humanloop_count"] = int((await session.execute(count_q)).scalar() or 0)
     ctx.update(extra)
     return ctx
 
@@ -4366,6 +4380,72 @@ async def inbox_list(
     )
 
 
+@router.get("/inbox/humanloop", response_class=HTMLResponse)
+async def inbox_humanloop(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant: str | None = None,
+) -> HTMLResponse:
+    """HumanLoop — the focused worklist of inbox events waiting for a human decision.
+
+    Every pipeline outcome routes here (auto-approval was removed so no reply
+    ever leaves the system without a reviewer clicking Approve). Legacy
+    template-flow items with `review_state == 'pending_review'` also appear.
+    Ordered oldest-first so aging cases surface at the top.
+    """
+    from docgen.store.models import Tenant
+
+    tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
+    ident = _identity(request)
+    if ident is not None and ident.role == "tenant_admin" and ident.tenant_id is not None:
+        tenants_stmt = tenants_stmt.where(Tenant.id == ident.tenant_id)
+    tenants_res = await session.execute(tenants_stmt)
+    all_tenants = tenants_res.scalars().all()
+
+    tenant_uuid = _resolve_list_tenant_filter(request, tenant)
+
+    q = (
+        select(
+            InboxEvent.id,
+            InboxEvent.from_addr,
+            InboxEvent.subject,
+            InboxEvent.received_at,
+            InboxEvent.status,
+            InboxEvent.review_state,
+            InboxEvent.score,
+            InboxEvent.template_id,
+            InboxEvent.attachment_name,
+            InboxEvent.pap_decision,
+            InboxEvent.reply_message_id,
+            InboxEvent.tenant_id,
+            Template.name.label("template_name"),
+            Tenant.name.label("tenant_name"),
+        )
+        .join(Tenant, Tenant.id == InboxEvent.tenant_id, isouter=True)
+        .join(Template, Template.id == InboxEvent.template_id, isouter=True)
+        .where(InboxEvent.review_state == "pending_review")
+        .order_by(InboxEvent.received_at.asc(), InboxEvent.id.asc())
+        .limit(200)
+    )
+    if tenant_uuid is not None:
+        q = q.where(InboxEvent.tenant_id == tenant_uuid)
+
+    rows = [dict(r._mapping) for r in (await session.execute(q)).all()]
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_humanloop.html",
+        await _base_ctx(
+            request,
+            session,
+            active="humanloop",
+            all_tenants=all_tenants,
+            selected_tenant=tenant_uuid,
+            events=rows,
+        ),
+    )
+
+
 async def _load_inbox_event(
     session: AsyncSession, event_id: uuid.UUID
 ) -> InboxEvent:
@@ -4381,6 +4461,13 @@ async def inbox_detail(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
+    """Common ingest-event view.
+
+    Renders message metadata (from/to/cc/subject/body) and links out to the
+    typed detail page — template or pipeline — depending on which flow
+    processed this event. Keeps the ingest object generic so reviewers see
+    the same shell regardless of which processor handled the mail.
+    """
     ev = await _load_inbox_event(session, event_id)
     # Ingest events with no tenant (unresolved sender) are visible to
     # super_admin only — enforce_scope on a None tenant_id is a no-op,
@@ -4389,6 +4476,47 @@ async def inbox_detail(
         _require_super_admin(request)
     else:
         _enforce_scope(request, ev.tenant_id)
+
+    tenant = None
+    if ev.tenant_id is not None:
+        from docgen.store.models import Tenant
+        tenant = await session.get(Tenant, ev.tenant_id)
+
+    return templates.TemplateResponse(
+        request,
+        "inbox_detail.html",
+        await _base_ctx(
+            request,
+            session,
+            active="inbox",
+            event=ev,
+            tenant=tenant,
+            cc_addrs=list(ev.cc_addrs or []),
+        ),
+    )
+
+
+@router.get("/inbox/{event_id}/template", response_class=HTMLResponse)
+async def inbox_template_detail(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Template-flow detail page — trials, models, publish actions.
+
+    Split out of the common ingest page so the two ingest types (template
+    freeze + PAP pipeline) share the same drill-down shape: common event →
+    typed detail link. Approve/reject buttons only appear here because
+    publishing a template version is template-flow-specific.
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    if ev.template_id is None and ev.template_version_id is None:
+        raise HTTPException(404, "No template artifacts for this event")
 
     template = None
     tv = None
@@ -4402,8 +4530,6 @@ async def inbox_detail(
         from docgen.store.models import Tenant
         tenant = await session.get(Tenant, ev.tenant_id)
 
-    # Per-event AI test-render trials, ordered so the summary table always
-    # reads Test 1 → Test N regardless of insert order.
     from docgen.auth import sign_inbox_test_token
 
     trials_result = await session.execute(
@@ -4412,7 +4538,6 @@ async def inbox_detail(
         .order_by(InboxTestResult.ordinal.asc())
     )
     trials = list(trials_result.scalars().all())
-    # Sign download tokens once per row so the template stays a dumb renderer.
     trial_download_tokens = {
         str(t.id): sign_inbox_test_token(str(t.id)) for t in trials
     }
@@ -4421,7 +4546,7 @@ async def inbox_detail(
 
     return templates.TemplateResponse(
         request,
-        "inbox_detail.html",
+        "inbox_template_detail.html",
         await _base_ctx(
             request,
             session,
@@ -4430,7 +4555,6 @@ async def inbox_detail(
             template=template,
             template_version=tv,
             tenant=tenant,
-            cc_addrs=list(ev.cc_addrs or []),
             trials=trials,
             trial_download_tokens=trial_download_tokens,
             models_used=models_used,
@@ -4587,7 +4711,12 @@ async def inbox_reply_attachment(
     except Exception as e:
         raise HTTPException(500, f"attachment fetch failed: {type(e).__name__}") from e
 
-    outcome = (ev.pap_decision or {}).get("outcome", "reply")
+    # `outcome` is a Literal at pipeline time, but JSONB is a raw round-trip —
+    # any manual DB edit or future schema drift could put an arbitrary string
+    # here. Whitelist before interpolating into Content-Disposition so a
+    # newline / quote in the value can't split the header.
+    raw_outcome = (ev.pap_decision or {}).get("outcome")
+    outcome = raw_outcome if raw_outcome in {"approve", "deny", "missing_info"} else "reply"
     filename = f"alderwood_{outcome}_{str(ev.id).replace('-', '')[:8].upper()}.pdf"
     from fastapi.responses import Response
 
@@ -4596,6 +4725,75 @@ async def inbox_reply_attachment(
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+# Content types the poller can produce (see InboundAttachment.kind). Anything
+# outside the allowlist is served as octet-stream so a manifest row with a
+# manually-edited content_type can't inject a hostile MIME the browser will
+# render (SVG script, XHTML, etc.).
+_INBOUND_ALLOWED_CT = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
+@router.get("/inbox/{event_id}/inbound-attachment/{index}", response_class=None)
+async def inbox_inbound_attachment(
+    event_id: uuid.UUID,
+    index: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Stream one raw inbound attachment for reviewer preview.
+
+    Index is the position in the manifest (0-based). Admin-session gated;
+    no signed URL because the reviewer is already authenticated. PDFs get
+    Content-Disposition: inline so the browser previews them in a tab;
+    docx falls back to attachment (browsers can't preview it) so the file
+    downloads instead of triggering an unhelpful download-with-random-name.
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    manifest = ev.inbound_attachments or []
+    if index < 0 or index >= len(manifest):
+        raise HTTPException(404, "No inbound attachment at that index")
+
+    entry = manifest[index]
+    blob_key = entry.get("blob_key")
+    if not blob_key:
+        raise HTTPException(404, "Attachment upload did not succeed for this file")
+
+    settings = get_settings()
+    try:
+        body = get_object(settings.s3_bucket_documents, blob_key)
+    except Exception as e:
+        raise HTTPException(500, f"attachment fetch failed: {type(e).__name__}") from e
+
+    raw_ct = entry.get("content_type") or "application/octet-stream"
+    content_type = raw_ct if raw_ct in _INBOUND_ALLOWED_CT else "application/octet-stream"
+
+    # Guard the filename against header-splitting the same way the reply
+    # attachment route does — any newline/quote in the stored value would
+    # split Content-Disposition. Strip to a safe ASCII slug.
+    raw_name = entry.get("filename") or f"attachment-{index}"
+    safe_name = "".join(c for c in raw_name if c.isalnum() or c in "._- ").strip() or f"attachment-{index}"
+
+    disposition = "inline" if content_type == "application/pdf" else "attachment"
+
+    from fastapi.responses import Response
+
+    return Response(
+        content=body,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": f'{disposition}; filename="{safe_name}"',
             "Cache-Control": "private, no-store",
         },
     )
@@ -4612,22 +4810,19 @@ async def inbox_approve(
         _require_super_admin(request)
     else:
         _enforce_scope(request, ev.tenant_id)
+    detail_url = f"/ui/inbox/{event_id}/template"
     if ev.review_state in ("approved", "auto_approved"):
-        return _redirect(
-            f"/ui/inbox/{event_id}",
-            flash="Already approved.",
-            flash_kind="info",
-        )
+        return _redirect(detail_url, flash="Already approved.", flash_kind="info")
     if ev.template_id is None or ev.template_version_id is None:
         return _redirect(
-            f"/ui/inbox/{event_id}",
+            detail_url,
             flash="Cannot approve — ingest never produced a template version.",
             flash_kind="error",
         )
     tv = await session.get(TemplateVersion, ev.template_version_id)
     if tv is None:
         return _redirect(
-            f"/ui/inbox/{event_id}",
+            detail_url,
             flash="Template version missing — cannot publish.",
             flash_kind="error",
         )
@@ -4643,14 +4838,14 @@ async def inbox_approve(
         )
     except ValueError as e:
         return _redirect(
-            f"/ui/inbox/{event_id}",
+            detail_url,
             flash=f"Publish failed: {e}",
             flash_kind="error",
         )
     ev.review_state = "approved"
     await session.commit()
     return _redirect(
-        f"/ui/inbox/{event_id}",
+        detail_url,
         flash=f"Approved and published v{tv.version}.{tv.subversion}.",
         flash_kind="success",
     )
@@ -4667,22 +4862,156 @@ async def inbox_reject(
         _require_super_admin(request)
     else:
         _enforce_scope(request, ev.tenant_id)
+    detail_url = f"/ui/inbox/{event_id}/template"
     if ev.review_state == "rejected":
-        return _redirect(
-            f"/ui/inbox/{event_id}",
-            flash="Already rejected.",
-            flash_kind="info",
-        )
+        return _redirect(detail_url, flash="Already rejected.", flash_kind="info")
     if ev.review_state in ("approved", "auto_approved"):
         return _redirect(
-            f"/ui/inbox/{event_id}",
+            detail_url,
             flash="Cannot reject — already published. Deactivate the template instead.",
             flash_kind="error",
         )
     ev.review_state = "rejected"
     await session.commit()
     return _redirect(
-        f"/ui/inbox/{event_id}",
+        detail_url,
         flash="Marked as rejected. The template version remains as a draft.",
+        flash_kind="success",
+    )
+
+
+@router.post("/inbox/{event_id}/pipeline/approve", response_model=None)
+async def inbox_pipeline_approve(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Human-in-the-loop send. Pipeline outcomes never leave the building
+    until a reviewer OKs them here — the PAP handler stops at pending_review
+    with the reply PDF pre-rendered, and this endpoint performs the actual
+    SMTP send + records the reply Message-ID.
+    """
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+    detail_url = f"/ui/inbox/{event_id}/pipeline"
+    if ev.pap_decision is None:
+        return _redirect(
+            detail_url,
+            flash="No pipeline decision to approve on this event.",
+            flash_kind="error",
+        )
+    if ev.review_state in ("approved", "auto_approved"):
+        return _redirect(
+            detail_url, flash="Already approved and sent.", flash_kind="info"
+        )
+    if ev.review_state == "rejected":
+        return _redirect(
+            detail_url,
+            flash="Already rejected — reopen by manual DB action if needed.",
+            flash_kind="error",
+        )
+    # Legacy pipeline events (pre human-review gate) may still carry
+    # review_state='pending_review' because that was the missing-info verdict
+    # slot, but the auto-send code already fired their reply. reply_message_id
+    # is the ground truth for "did an email go out"; refuse the send so the
+    # applicant doesn't get a duplicate.
+    if ev.reply_message_id:
+        return _redirect(
+            detail_url,
+            flash="Reply already sent (legacy auto-send) — refusing to duplicate.",
+            flash_kind="error",
+        )
+
+    from docgen.inbox.agent import get_pap_reply_sender
+    from docgen.inbox.mailer import MailerError
+
+    sender = get_pap_reply_sender()
+    if sender is None:
+        return _redirect(
+            detail_url,
+            flash="PAP plugin not loaded — cannot send reply. Check DOCGEN_PLUGINS.",
+            flash_kind="error",
+        )
+
+    # The sender is sync (smtplib + boto3 blob fetch). Sync-session bridge
+    # mirrors the pattern used elsewhere in this file — we grab a sync
+    # Session bound to the same event row so the sender can commit reply
+    # state without contending with the async request session.
+    from docgen.store.db import sync_session
+    from fastapi.concurrency import run_in_threadpool
+
+    settings = get_settings()
+
+    def _do_send() -> str | None:
+        with sync_session() as s:
+            fresh = s.get(InboxEvent, event_id)
+            if fresh is None:
+                raise MailerError("event vanished between load and send")
+            reply_id = sender(s, fresh, settings)
+            if reply_id:
+                fresh.reply_message_id = reply_id
+                fresh.review_state = "approved"
+                s.commit()
+            return reply_id
+
+    try:
+        reply_id = await run_in_threadpool(_do_send)
+    except MailerError as e:
+        return _redirect(detail_url, flash=f"Send failed: {e}", flash_kind="error")
+    except Exception as e:
+        return _redirect(
+            detail_url,
+            flash=f"Send failed: {type(e).__name__}: {e}",
+            flash_kind="error",
+        )
+
+    if not reply_id:
+        return _redirect(
+            detail_url,
+            flash="Sender returned no Message-ID — check SMTP logs.",
+            flash_kind="error",
+        )
+    return _redirect(
+        detail_url,
+        flash="Approved and reply sent to applicant.",
+        flash_kind="success",
+    )
+
+
+@router.post("/inbox/{event_id}/pipeline/reject", response_model=None)
+async def inbox_pipeline_reject(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Reviewer discards the pipeline verdict — no reply is sent."""
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+    detail_url = f"/ui/inbox/{event_id}/pipeline"
+    if ev.pap_decision is None:
+        return _redirect(
+            detail_url,
+            flash="No pipeline decision to reject on this event.",
+            flash_kind="error",
+        )
+    if ev.review_state == "rejected":
+        return _redirect(detail_url, flash="Already rejected.", flash_kind="info")
+    if ev.review_state in ("approved", "auto_approved"):
+        return _redirect(
+            detail_url,
+            flash="Cannot reject — reply already sent to the applicant.",
+            flash_kind="error",
+        )
+    ev.review_state = "rejected"
+    await session.commit()
+    return _redirect(
+        detail_url,
+        flash="Rejected. No reply was sent.",
         flash_kind="success",
     )

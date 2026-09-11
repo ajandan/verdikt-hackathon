@@ -454,6 +454,12 @@ class InboxEvent(Base):
     # handler after the render+attach step; reviewers download it via the
     # pipeline detail page to inspect exactly what the applicant received.
     reply_attachment_blob_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Per-file manifest of inbound attachments the poller received —
+    # [{filename, content_type, blob_key, size}, ...]. Populated by the PAP
+    # handler so reviewers can preview the raw files the applicant sent.
+    # NULL for template-flow events (which store their single attachment
+    # inside the template version) and pre-migration events.
+    inbound_attachments: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

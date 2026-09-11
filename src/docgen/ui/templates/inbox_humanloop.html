@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}HumanLoop — Quire{% endblock %}
+{% block content %}
+<div class="page-decor" aria-hidden="true">
+    <svg viewBox="0 0 560 280" width="560" height="280" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        {# Infinity ribbon — the perpetual review loop #}
+        <path d="M60 140 C 60 60, 220 60, 280 140 C 340 220, 500 220, 500 140 C 500 60, 340 60, 280 140 C 220 220, 60 220, 60 140 Z" stroke-width="1.3"/>
+        {# Second, offset ribbon for a woven feel #}
+        <path d="M90 145 C 100 85, 230 85, 280 145 C 330 205, 470 205, 470 145" stroke-width="0.9" opacity="0.55"/>
+        {# Human node at the crossing — head + shoulders glyph #}
+        <circle cx="280" cy="126" r="7" stroke-width="1.4"/>
+        <path d="M266 148 c 4 -9, 24 -9, 28 0" stroke-width="1.4"/>
+        {# Small orbiting dots — signals entering the loop #}
+        <circle cx="60" cy="140" r="2.5" fill="currentColor" stroke="none" opacity="0.7"/>
+        <circle cx="500" cy="140" r="2.5" fill="currentColor" stroke="none" opacity="0.7"/>
+        <circle cx="180" cy="90" r="1.6" fill="currentColor" stroke="none" opacity="0.55"/>
+        <circle cx="380" cy="190" r="1.6" fill="currentColor" stroke="none" opacity="0.55"/>
+    </svg>
+</div>
+<style nonce="{{ csp_nonce(request) }}">
+    .queue-header {
+        display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+    }
+    .queue-count {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 10px; border-radius: 999px;
+        background: var(--brand-tint, rgba(99, 102, 241, 0.12));
+        color: var(--brand); font-size: 12.5px; font-weight: 600;
+    }
+    .queue-list { display: flex; flex-direction: column; gap: 10px; }
+    .queue-row {
+        display: grid;
+        grid-template-columns: 130px 1fr 220px 140px;
+        gap: 16px; align-items: center;
+        padding: 14px 18px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; box-shadow: var(--shadow-xs);
+        transition: box-shadow 120ms, transform 120ms;
+    }
+    .queue-row:hover {
+        box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08));
+        transform: translateY(-1px);
+    }
+    .queue-row .age {
+        font-size: 12.5px; color: var(--text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+    .queue-row .age .ts { display: block; color: var(--text-muted); font-size: 11.5px; margin-top: 2px; }
+    .queue-row .subject {
+        font-size: 14.5px; font-weight: 600; color: var(--text);
+        margin: 0 0 4px 0;
+        overflow: hidden; text-overflow: ellipsis;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .queue-row .meta {
+        font-size: 12.5px; color: var(--text-muted);
+        display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    }
+    .queue-row .meta strong { color: var(--text); font-weight: 500; }
+    .queue-row .kind {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12.5px; color: var(--text-muted);
+        justify-content: flex-end;
+    }
+    .kind-badge {
+        display: inline-flex; align-items: center;
+        padding: 3px 9px; border-radius: 6px;
+        font-size: 11.5px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .kind-badge.pipeline {
+        background: rgba(59, 130, 246, 0.14); color: #1d4ed8;
+    }
+    .kind-badge.template {
+        background: rgba(168, 85, 247, 0.14); color: #7c3aed;
+    }
+    .queue-row .cta {
+        display: flex; justify-content: flex-end;
+    }
+    .cta .btn { white-space: nowrap; }
+    .empty-hero {
+        text-align: center; padding: 60px 20px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px;
+    }
+    .empty-hero .check {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 56px; height: 56px; border-radius: 50%;
+        background: rgba(16, 185, 129, 0.14); color: #059669;
+        margin-bottom: 14px;
+    }
+    .empty-hero h3 { margin: 0 0 6px 0; font-size: 18px; font-weight: 600; }
+    .empty-hero p { margin: 0; color: var(--text-muted); font-size: 14px; }
+    @media (max-width: 900px) {
+        .queue-row { grid-template-columns: 1fr; gap: 8px; }
+        .queue-row .kind, .queue-row .cta { justify-content: flex-start; }
+    }
+</style>
+
+<section class="mb-6">
+    <div class="queue-header">
+        <h1 class="text-[26px] font-semibold tracking-tight leading-tight m-0">HumanLoop</h1>
+        {% if events %}
+        <span class="queue-count">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1"/></svg>
+            {{ events|length }} waiting
+        </span>
+        {% endif %}
+    </div>
+    <p class="mt-1.5 text-ink-muted text-[14.5px] max-w-2xl m-0">
+        Every inbox event waiting for a human decision — oldest first. Approving a
+        pipeline case sends the reply email to the applicant, so nothing here goes
+        out until you click.
+    </p>
+</section>
+
+{% if events %}
+<div class="queue-list">
+    {% for e in events %}
+    {% set is_pipeline = e.pap_decision is not none %}
+    {% set detail_url = '/ui/inbox/' ~ e.id ~ ('/pipeline' if is_pipeline else '/template') %}
+    <div class="queue-row">
+        <div class="age">
+            {{ e.received_at.strftime('%Y-%m-%d') }}
+            <span class="ts">{{ e.received_at.strftime('%H:%M') }}</span>
+        </div>
+        <div class="min-w-0">
+            <p class="subject" title="{{ e.subject or '(no subject)' }}">{{ e.subject or '(no subject)' }}</p>
+            <div class="meta">
+                <span><strong>{{ e.from_addr }}</strong></span>
+                {% if e.tenant_name %}<span>· {{ e.tenant_name }}</span>{% endif %}
+                {% if e.attachment_name %}<span>· 📎 {{ e.attachment_name }}</span>{% endif %}
+                {% if e.score is not none %}<span>· score {{ '%.1f'|format(e.score) }}</span>{% endif %}
+                {% if e.reply_message_id %}<span>· reply already sent</span>{% endif %}
+            </div>
+        </div>
+        <div class="kind">
+            {% if is_pipeline %}
+                <span class="kind-badge pipeline">Pipeline</span>
+            {% else %}
+                <span class="kind-badge template">Template</span>
+            {% endif %}
+        </div>
+        <div class="cta">
+            <a href="{{ detail_url }}" class="btn primary sm">Review →</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-hero">
+    <div class="check">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4 4L19 6"/></svg>
+    </div>
+    <h3>You're all caught up</h3>
+    <p>Nothing is waiting for review right now. New pending items will appear here as emails come in.</p>
+</div>
+{% endif %}
+{% endblock %}

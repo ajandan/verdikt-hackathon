@@ -1,6 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Renders — Quire{% endblock %}
 {% block content %}
+<div class="page-decor" aria-hidden="true">
+    <svg viewBox="0 0 560 280" width="560" height="280" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="340" y="60"  width="140" height="180" rx="6" opacity="0.35"/>
+        <rect x="320" y="72"  width="140" height="180" rx="6" opacity="0.55"/>
+        <rect x="300" y="84"  width="140" height="180" rx="6"/>
+        <path d="M320 116 h100 M320 134 h80 M320 152 h100 M320 170 h60 M320 188 h100 M320 206 h70"/>
+        <path d="M270 172 L 220 172" stroke-width="1.4"/>
+        <path d="M232 162 L 220 172 L 232 182" stroke-width="1.4"/>
+        <circle cx="196" cy="172" r="2.5" fill="currentColor" stroke="none" opacity="0.7"/>
+    </svg>
+</div>
 <style nonce="{{ csp_nonce(request) }}">
     .toolbar {
         display: flex; gap: 12px; align-items: center; flex-wrap: wrap;

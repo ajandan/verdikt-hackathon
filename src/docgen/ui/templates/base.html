@@ -391,7 +391,17 @@
         .app-main-content {
             padding-top: 56px;
             padding-bottom: 56px;
+            position: relative;
         }
+        .page-decor {
+            position: absolute; top: 8px; right: -60px; pointer-events: none;
+            z-index: 0; color: var(--brand);
+        }
+        .page-decor svg { display: block; }
+        [data-theme="dark"] .page-decor { opacity: 0.22; }
+        [data-theme="light"] .page-decor,
+        :root:not([data-theme]) .page-decor { opacity: 0.24; }
+        .page-decor ~ * { position: relative; z-index: 1; }
         @media (max-width: 768px) {
             .app-main-content { padding-top: 40px; padding-bottom: 40px; }
         }
@@ -709,6 +719,13 @@
                 <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M2 9h3l1 2h4l1-2h3"/></svg>
                     Inbox review
+                </a>
+                <a href="/ui/inbox/humanloop{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'humanloop' %}active{% endif %}">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="2.2"/><path d="M4.2 13c0-2.1 1.7-3.6 3.8-3.6s3.8 1.5 3.8 3.6"/><path d="M2 8.4a5.8 5.8 0 0 1 1.4-3.2"/><path d="M14 8.4a5.8 5.8 0 0 0-1.4-3.2"/></svg>
+                    HumanLoop
+                    {% if humanloop_count and humanloop_count > 0 %}
+                    <span class="ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--brand)] text-white leading-none">{{ humanloop_count }}</span>
+                    {% endif %}
                 </a>
                 <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>

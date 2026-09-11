@@ -113,6 +113,34 @@ def clear_pap_handler() -> None:
     _pap_handler = None
 
 
+# Deferred-send slot. The PAP handler no longer sends replies inline — it
+# stops at the pending_review state so a human can review before anything
+# leaves the building. When the reviewer approves, the UI calls back into
+# this slot to actually send the persisted reply. Same boundary rule as
+# the handler slot: docgen owns the slot, pap_pipeline registers the impl.
+_pap_reply_sender = None
+
+
+def set_pap_reply_sender(fn) -> None:
+    """Register the PAP reply sender. Called by pap_pipeline.inbox_hook."""
+    global _pap_reply_sender
+    _pap_reply_sender = fn
+    log.info("inbox_pap_reply_sender_registered")
+
+
+def clear_pap_reply_sender() -> None:
+    """Test hook — reset the slot between cases."""
+    global _pap_reply_sender
+    _pap_reply_sender = None
+
+
+def get_pap_reply_sender():
+    """Accessor for the UI approve endpoint. Returns None if the plugin
+    isn't loaded (DOCGEN_PLUGINS unset), in which case the caller should
+    surface a helpful error rather than silently drop the send."""
+    return _pap_reply_sender
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 

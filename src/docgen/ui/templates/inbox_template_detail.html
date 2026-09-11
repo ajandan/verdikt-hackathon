@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Template ingest detail — Quire{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .kv {
+        display: grid; grid-template-columns: 160px 1fr; gap: 6px 20px;
+        font-size: 13.5px;
+    }
+    .kv dt { color: var(--text-muted); font-weight: 500; }
+    .kv dd { margin: 0; word-break: break-word; }
+    .score-big {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        font-variant-numeric: tabular-nums;
+    }
+    .score-big .n { font-size: 32px; font-weight: 700; }
+    .score-big .u { color: var(--text-muted); font-size: 14px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .actions form { margin: 0; }
+    .card + .card { margin-top: 16px; }
+</style>
+
+<section class="mb-4">
+    <a href="/ui/inbox/{{ event.id }}" class="text-[13px] text-ink-muted">← Back to ingest event</a>
+    <h1 class="text-[24px] font-semibold tracking-tight leading-tight mt-2 mb-1">
+        Template ingest detail
+    </h1>
+    <p class="text-ink-muted text-[13.5px] m-0">
+        Event {{ event.id }} · Received {{ event.received_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        {% if tenant %}· Tenant <strong>{{ tenant.name }}</strong>{% endif %}
+    </p>
+</section>
+
+<div class="card">
+    <div class="flex items-start justify-between gap-6 flex-wrap">
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Confidence score</div>
+            <div class="score-big">
+                <span class="n">{% if event.score is not none %}{{ '%.1f'|format(event.score) }}{% else %}—{% endif %}</span>
+                <span class="u">/ 100</span>
+            </div>
+        </div>
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Review state</div>
+            {% if event.review_state == 'pending_review' %}
+                <span class="badge draft">pending review</span>
+            {% elif event.review_state == 'auto_approved' %}
+                <span class="badge accept">auto-approved</span>
+            {% elif event.review_state == 'approved' %}
+                <span class="badge accept">approved</span>
+            {% elif event.review_state == 'rejected' %}
+                <span class="badge reject">rejected</span>
+            {% else %}
+                <span class="badge">{{ event.status }}</span>
+            {% endif %}
+        </div>
+        <div>
+            <div class="text-ink-muted text-[12px] uppercase tracking-wider mb-1">Ingest status</div>
+            {% if event.status == 'succeeded' %}
+                <span class="badge accept">succeeded</span>
+            {% elif event.status == 'failed' %}
+                <span class="badge reject">failed</span>
+            {% elif event.status == 'skipped' %}
+                <span class="badge">skipped</span>
+            {% else %}
+                <span class="badge draft">{{ event.status }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="actions">
+        {% if event.review_state == 'pending_review' and event.template_version_id %}
+            <form method="post" action="/ui/inbox/{{ event.id }}/approve">
+                {{ csrf_input(request) }}
+                <button type="submit" class="btn primary">Approve &amp; publish</button>
+            </form>
+            <form method="post" action="/ui/inbox/{{ event.id }}/reject">
+                {{ csrf_input(request) }}
+                <button type="submit" class="btn">Reject</button>
+            </form>
+        {% elif event.review_state in ('approved', 'auto_approved') %}
+            <span class="text-ink-muted text-[13px]">Already published. Manage the template from its detail page.</span>
+        {% elif event.review_state == 'rejected' %}
+            <span class="text-ink-muted text-[13px]">Rejected. The draft version is retained but not published.</span>
+        {% elif not event.template_version_id %}
+            <span class="text-ink-muted text-[13px]">No template version was created — nothing to approve.</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">Template</h2>
+    <dl class="kv">
+        <dt>Tenant</dt>
+        <dd>{% if tenant %}{{ tenant.name }}{% else %}<span class="muted">(unresolved sender)</span>{% endif %}</dd>
+        <dt>Template</dt>
+        <dd>
+            {% if template %}
+                <a href="/ui/templates/{{ template.id }}">{{ template.name }}</a>
+            {% else %}—{% endif %}
+        </dd>
+        <dt>Version</dt>
+        <dd>
+            {% if template_version %}
+                v{{ template_version.version }}.{{ template_version.subversion }}
+                ({{ template_version.locale }}{% if template_version.is_frozen %}, frozen{% endif %})
+            {% else %}—{% endif %}
+        </dd>
+        {% if template_version %}
+        <dt>Mapping review</dt>
+        <dd><a href="/ui/versions/{{ template_version.id }}/map">Open mapping wizard</a></dd>
+        {% endif %}
+    </dl>
+</div>
+
+{% if trials %}
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-3">
+        AI-planned test trials
+        <span class="text-ink-muted text-[12.5px] font-normal">
+            ·
+            {%- set _passed = trials|selectattr('passed')|list|length -%}
+            {{ _passed }}/{{ trials|length }} passed
+        </span>
+    </h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+            <tr style="text-align:left;color:var(--text-muted);font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px">
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:36px">#</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Trial</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:80px">Result</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border)">AI verdict</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:130px">Payload / File</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for t in trials %}
+            <tr>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top;font-variant-numeric:tabular-nums">{{ t.ordinal }}</td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    <strong>{{ t.name }}</strong>
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    {% if t.passed %}
+                        <span class="badge accept">PASS</span>
+                    {% else %}
+                        <span class="badge reject">FAIL</span>
+                    {% endif %}
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    {{ t.verdict or '—' }}
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    <details>
+                        <summary style="cursor:pointer;color:var(--text-muted);font-size:12px">Show payload</summary>
+                        <pre style="margin:6px 0 0;padding:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-word">{{ t.data_json|tojson(indent=2) }}</pre>
+                    </details>
+                    {% if t.blob_key %}
+                        <div style="margin-top:6px">
+                            <a href="/downloads/inbox-test/{{ t.id }}?token={{ trial_download_tokens[t.id|string] }}"
+                               class="text-[12.5px]">Download {{ t.ext or 'file' }}</a>
+                        </div>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if models_used %}
+<div class="card">
+    <h2 class="text-[15px] font-semibold m-0 mb-1">AI models used</h2>
+    <p class="text-ink-muted text-[12.5px] m-0 mb-3">
+        Pipeline stages that made an inference call for this event. All models are
+        NVIDIA Nemotron open-source, hosted on Nebius Token Factory.
+    </p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+            <tr style="text-align:left;color:var(--text-muted);font-size:11.5px;text-transform:uppercase;letter-spacing:0.4px">
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Stage</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Model</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border);width:80px">Provider</th>
+                <th style="padding:6px 8px;border-bottom:1px solid var(--border)">Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for m in models_used %}
+            <tr>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    <strong>{{ m.stage }}</strong>
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top;font-family:ui-monospace,monospace;font-size:12px">
+                    {{ m.model }}
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top">
+                    {{ m.provider }}
+                </td>
+                <td style="padding:8px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-muted)">
+                    {{ m.purpose }}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

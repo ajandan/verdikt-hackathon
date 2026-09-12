@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% set bare = True %}
-{% block title %}Sign in — Quire{% endblock %}
+{% block title %}Sign in — Verdikt{% endblock %}
 {% block bare_content %}
 <style nonce="{{ csp_nonce(request) }}">
     .auth-shell {
@@ -22,12 +22,8 @@
         margin-bottom: 28px;
     }
     .auth-brand .brand-mark {
-        width: 52px; height: 52px; border-radius: 14px;
-        display: grid; place-items: center; overflow: hidden; flex-shrink: 0;
-        box-shadow:
-            inset 0 0 0 1px rgba(255,255,255,0.18),
-            0 10px 24px -8px rgba(37,99,235,0.55),
-            0 4px 10px -2px rgba(15,23,42,0.18);
+        width: 52px; height: 52px;
+        display: grid; place-items: center; flex-shrink: 0;
     }
     .auth-brand .brand-mark svg { display: block; width: 52px; height: 52px; }
     .auth-brand .wordmark { font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1; }
@@ -46,23 +42,18 @@
     <div class="auth-card">
         <div class="auth-brand">
             <span class="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <linearGradient id="quire-mark-auth" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-                            <stop offset="0" stop-color="#8ec7b5"/>
-                            <stop offset="0.55" stop-color="#2f8f76"/>
-                            <stop offset="1" stop-color="#1e5f4f"/>
-                        </linearGradient>
-                    </defs>
-                    <rect width="32" height="32" rx="8" fill="url(#quire-mark-auth)"/>
-                    <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
-                    <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g fill="none" stroke-width="5.5" stroke-linecap="square">
+                        <path d="M40 32C30 32 30 15 20 15H9" stroke="#8ec7b5"/>
+                        <path d="M40 32C30 32 30 49 20 49H9" stroke="#8ec7b5"/>
+                        <path d="M9 32H56" stroke="#1e5f4f"/>
+                    </g>
                 </svg>
             </span>
-            <span class="wordmark">Quire</span>
+            <span class="wordmark">Verdikt</span>
         </div>
         <h1 class="auth-title">Sign in</h1>
-        <p class="auth-subtitle">Access the Quire admin console.</p>
+        <p class="auth-subtitle">Access the Verdikt admin console.</p>
 
         {% if error %}
             <div class="flash error">{{ error }}</div>
@@ -90,7 +81,7 @@
         {% endif %}
 
         <div class="auth-footer">
-            Protected admin area · Quire v0.1
+            Protected admin area · Verdikt v0.1
         </div>
     </div>
 </div>

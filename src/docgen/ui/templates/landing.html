@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Quire — Design-time AI. Deterministic render.</title>
+<title>Verdikt — Design-time AI. Deterministic render.</title>
 <meta name="description" content="Governance-first document generation for regulated industries. AI at design time, deterministic bytes at render time. Version-pinned, per-tenant, fully audited." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,12 +51,7 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
   .brand-mark {
-    display: inline-grid; place-items: center; overflow: hidden;
-    border-radius: 8px;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-      0 6px 16px -6px rgba(47, 143, 118, 0.55),
-      0 2px 6px -2px rgba(15, 23, 42, 0.15);
+    display: inline-grid; place-items: center;
   }
   .brand-mark svg { display: block; }
   .brand-tag { display: none; font-size: 12px; color: var(--ink-500); margin-left: 8px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
@@ -397,8 +392,8 @@
     .ledger-r > div:nth-child(5) { order: 5; text-align: right; font-size: 10.5px; }
 
     /* Comparison section: bump the heading breathing room and rebuild each
-       row as a small card — capability title on top, then Others vs Quire
-       side-by-side with proper labels and a mint tint on the Quire side. */
+       row as a small card — capability title on top, then Others vs Verdikt
+       side-by-side with proper labels and a mint tint on the Verdikt side. */
     #compare > .container > h2 { margin-bottom: 24px !important; }
     #compare > .container > .row-h { margin-bottom: 4px; }
     .cmp { border-radius: 10px; }
@@ -485,9 +480,7 @@
       flex: 1 1 auto; min-width: 0;
       line-height: 1.4;
     }
-    .footer .brand-mark {
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-    }
+    /* Footer mark uses the same monoline base — no inset shadow. */
     .footer .links {
       flex-direction: column; align-items: flex-start;
       gap: 12px; width: 100%;
@@ -506,20 +499,15 @@
   <div class="container nav">
     <a href="#" class="brand">
       <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="quire-mark-nav" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#8ec7b5"/>
-              <stop offset="0.55" stop-color="#2f8f76"/>
-              <stop offset="1" stop-color="#1e5f4f"/>
-            </linearGradient>
-          </defs>
-          <rect width="32" height="32" rx="8" fill="url(#quire-mark-nav)"/>
-          <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
-          <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+        <svg viewBox="0 0 64 64" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M40 32C30 32 30 15 20 15H9" stroke="#8ec7b5"/>
+            <path d="M40 32C30 32 30 49 20 49H9" stroke="#8ec7b5"/>
+            <path d="M9 32H56" stroke="#1e5f4f"/>
+          </g>
         </svg>
       </span>
-      <span>Quire</span>
+      <span>Verdikt</span>
       <span class="brand-tag">/ document governance</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
@@ -551,14 +539,14 @@
 
     <p class="lede" style="margin-top:32px;">
       A compliance officer can't approve an LLM in the render path.
-      Quire draws the line exactly where they need it drawn: AI helps you
+      Verdikt draws the line exactly where they need it drawn: AI helps you
       <em>build</em> the template. Nothing but pure, reproducible bytes
       come out at render time — same inputs, byte-identical output, every time.
     </p>
 
     <div class="hero-cta">
       <a href="/ui/login" class="btn btn-primary">
-        Sign in to Quire
+        Sign in to Verdikt
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
       <a href="#lifecycle" class="btn btn-ghost">See how it works</a>
@@ -611,7 +599,7 @@
   "version": 1,
   "version_hash": "sha256:9b4c…",
   "job_id": "01J8Y…",
-  "output": "s3://quire/renders/…docx",
+  "output": "s3://verdikt/renders/…docx",
   "replayed": false,
   "caller": "claude-desktop",
   "tenant_id": "acme-health"
@@ -651,7 +639,7 @@
           and it's the only shape a bank or a payer will sign off on.
         </p>
         <p class="sm" style="margin-top:24px;">
-          Quire is the deterministic output layer for agents. Every render is bound to a
+          Verdikt is the deterministic output layer for agents. Every render is bound to a
           <span class="mono" style="color:var(--seal-300);">version_hash</span> a human approved,
           on a tenant a human provisioned, called by an app or agent recorded in the ledger.
           Supervision path, not hot path.
@@ -669,7 +657,7 @@
             <div class="d">The frozen template, approved once.</div>
           </div>
           <div class="wedge-cell hot">
-            <div class="k">Quire supplies</div>
+            <div class="k">Verdikt supplies</div>
             <div class="v">Provenance</div>
             <div class="d">Version, hash, caller, tenant, timestamp.</div>
           </div>
@@ -707,7 +695,7 @@
 
     <p style="margin-top:24px; font-size:14px; color:var(--ink-500); max-width:768px;">
       Most doc-gen tools fill a template. Some do it for $49/month.
-      They stop at step 03. Quire ships the other five, scoped per tenant, so the buyer can defend
+      They stop at step 03. Verdikt ships the other five, scoped per tenant, so the buyer can defend
       the whole path in an audit — not just the render call.
     </p>
   </div>
@@ -754,7 +742,7 @@
 <!-- Comparison -->
 <section id="compare" class="section">
   <div class="container">
-    <div class="row-h">Where the market ends and Quire begins</div>
+    <div class="row-h">Where the market ends and Verdikt begins</div>
     <h2 class="headline h3" style="margin-top:8px; margin-bottom:40px; max-width:768px;">
       A doc-gen product on the outside.<br/>
       <em>A governance product on the inside.</em>
@@ -764,17 +752,17 @@
       <div class="cmp-row">
         <div class="cmp-cell head">Capability</div>
         <div class="cmp-cell head">Typical doc-gen tools</div>
-        <div class="cmp-cell head q">Quire</div>
+        <div class="cmp-cell head q">Verdikt</div>
       </div>
-      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Quire">✓</div></div>
-      <div class="cmp-row"><div class="cmp-cell">AI-assisted field mapping at design time</div><div class="cmp-cell mute" data-label="Others">Rare / manual</div><div class="cmp-cell q" data-label="Quire">✓ Preflight + human review</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Draft → freeze → publish lifecycle</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Version-pinned, immutable</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Per-render <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Content-addressed</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Caller ledger (which agent rendered what)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Every call, per tenant</div></div>
-      <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Others">Varies</div><div class="cmp-cell q" data-label="Quire">✓ Enforced in pre-commit</div></div>
-      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ First-class support</div></div>
-      <div class="cmp-row"><div class="cmp-cell">No LLM in the render path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Quire">✓ Guaranteed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Verdikt">✓</div></div>
+      <div class="cmp-row"><div class="cmp-cell">AI-assisted field mapping at design time</div><div class="cmp-cell mute" data-label="Others">Rare / manual</div><div class="cmp-cell q" data-label="Verdikt">✓ Preflight + human review</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Draft → freeze → publish lifecycle</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Version-pinned, immutable</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Per-render <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Caller ledger (which agent rendered what)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Every call, per tenant</div></div>
+      <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Others">Varies</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
+      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
+      <div class="cmp-row"><div class="cmp-cell">No LLM in the render path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Guaranteed</div></div>
     </div>
   </div>
 </section>
@@ -786,13 +774,13 @@
       <div class="row-h">Who this is for</div>
       <h2 class="headline h3" style="margin-top:8px;">Healthcare. Banking. Anyone whose lawyers read the render path.</h2>
       <p style="margin-top:24px; color:var(--ink-700); line-height:1.7;">
-        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the render path can't include an LLM. Quire is built for the buyer who already knew that and couldn't find a vendor who agreed.
+        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the render path can't include an LLM. Verdikt is built for the buyer who already knew that and couldn't find a vendor who agreed.
       </p>
     </div>
     <div class="callout-cards">
       <div class="callout-card"><div class="k">Healthcare</div><div class="v">Prior-auth, enrollment, denial letters</div><div class="d">Templates a human approved. Fields an agent filled. A ledger that maps both to a job.</div></div>
       <div class="callout-card"><div class="k">Banking</div><div class="v">Disclosures, KYC packets, custodial notices</div><div class="d">Version-pinned wording. Reproducible bytes. Auditable per tenant.</div></div>
-      <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent generates the JSON. Quire generates the document.</div></div>
+      <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent generates the JSON. Verdikt generates the document.</div></div>
       <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin portal — same domain layer, same guarantees.</div></div>
     </div>
   </div>
@@ -835,7 +823,7 @@
   </h2>
   <div class="cta-buttons">
     <a href="/ui/login" class="btn btn-invert">
-      Sign in to Quire
+      Sign in to Verdikt
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     <a href="#lifecycle" class="btn btn-ghost-dark">Read the lifecycle again</a>
@@ -848,20 +836,15 @@
   <div class="container row">
     <div style="display:flex; align-items:center; gap:10px;">
       <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="quire-mark-footer" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#8ec7b5"/>
-              <stop offset="0.55" stop-color="#2f8f76"/>
-              <stop offset="1" stop-color="#1e5f4f"/>
-            </linearGradient>
-          </defs>
-          <rect width="32" height="32" rx="8" fill="url(#quire-mark-footer)"/>
-          <circle cx="14" cy="14.5" r="6.5" stroke="white" stroke-width="2.6" fill="none"/>
-          <path d="M17.5 18 L23 23.5" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g fill="none" stroke-width="6" stroke-linecap="square">
+            <path d="M40 32C30 32 30 15 20 15H9" stroke="#8ec7b5"/>
+            <path d="M40 32C30 32 30 49 20 49H9" stroke="#8ec7b5"/>
+            <path d="M9 32H56" stroke="#1e5f4f"/>
+          </g>
         </svg>
       </span>
-      <span>Quire · document governance for regulated teams</span>
+      <span>Verdikt · document governance for regulated teams</span>
     </div>
     <div class="links">
       <a href="/docs">REST reference</a>

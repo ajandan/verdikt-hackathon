@@ -47,7 +47,7 @@ stripped from the output).
   `freeze_pdf_version` in `designtime/freeze.py` builds the schema from
   placements, hashes source + canonical placements, and rejects an empty
   list up-front. `GET /ui/versions/{id}/pdf-page/{n}.png` in `ui/routes.py`
-  rasterizes via pymupdf @ 150 DPI and caches PNGs to blob storage under
+  rasterizes via pypdfium2 @ 150 DPI and caches PNGs to blob storage under
   `previews/{template_id}/v{version}/page_{n}.png` (1-hour Cache-Control).
   `ui/templates/placement_editor.html` renders a per-page canvas with
   click-to-place, drag / resize, keyboard nudge (arrow keys · 0.5 px,
@@ -63,7 +63,7 @@ stripped from the output).
   `GET /ui/versions/{id}/pdf-preview-merged` renders a sample payload
   through the real pipeline for preview-at-freeze. Bonus beyond the
   original scope: `/placements/ai-draw` and `/placements/ai-detect`
-  endpoints propose boxes for flat PDFs (deterministic pymupdf geometry
+  endpoints propose boxes for flat PDFs (deterministic pdfplumber geometry
   + text-only NVIDIA Nemotron labeler on Nebius Token Factory).
   Coverage in `tests/test_pdf_template.py`
   (`test_pdf_page_preview_endpoint_returns_png`, `test_placements_save_persists`,
@@ -406,7 +406,7 @@ stripped from the output).
   happens on every request — indexed and cheaper than the schema
   derivation, plus skipping it would open a cross-tenant leak surface.
 - Cache PDF page-preview PNGs to blob storage keyed by version hash —
-  pymupdf rasterization is the placement-editor's hot path.
+  pypdfium2 rasterization is the placement-editor's hot path.
 
 ## Observability
 

@@ -64,20 +64,11 @@ Provable by `git log -- src/pap_pipeline/` returning only commits after 2026-08-
 
 **Go/no-go gate:** both spikes work AND the subpackage skeleton compiles AND the boundary test runs green. If `nv-ingest` is flaky against realistic inputs, fall back to MiniCPM-V-only and rewrite the "Multimodal PDF Extraction pattern" framing in the README honestly.
 
-### Phase 1 blocker — replace pymupdf to unblock MIT licensing
+### Phase 1 blocker — replace pymupdf to unblock MIT licensing (~~pending~~ Done 2026-09-09)
 
-Hackathon rules (verified 2026-09-09) require an open-source license with permissive examples (Apache 2.0 / MIT / MPL 2.0). The repo's `LICENSE` file is MIT but `pyproject.toml` declares AGPL-3.0-or-later because `pymupdf` (AGPL) is a runtime dependency — see `docs/adr/0001-adopt-agpl-for-pymupdf.md`. As long as pymupdf is a dep, MIT-licensing this codebase is a legal contradiction. AGPL is technically arguable under "such as" language but not worth the disqualification risk.
+**Status:** Executed. `pyproject.toml` now declares `license = "MIT"`, pymupdf is removed from dependencies, and `scripts/license_check.py` forbids AGPL again. See the "Superseded outcome" section of `docs/adr/0001-adopt-agpl-for-pymupdf.md` for the exact stack that replaced pymupdf and the behaviour deltas the migration accepted.
 
-Execute ADR-0001 Option 2:
-
-- **Rasterization + text-with-bboxes** → `pypdfium2` (Apache-2.0, wraps PDFium/BSD-3). Replaces `page.get_pixmap` and `page.get_text("rawdict")`.
-- **Vector drawings** → `pdfplumber` (MIT, wraps pdfminer.six/MIT). Replaces `page.get_drawings()` — use `page.lines`, `page.rects`, `page.curves`.
-- **Overlay drawing on existing pages** → `reportlab` + `pypdf` (already deps). Mirror the render pipeline's merge pattern rather than mutating the source PDF in place.
-- **Regression risk sits in `src/docgen/designtime/pdf_field_detector.py`** (~600 lines of geometry heuristics tuned to pymupdf's coordinate conventions and drawing categorisation). Full regression pass against the existing golden PDFs is required.
-
-When done: update `pyproject.toml` to `license = "MIT"`, update `scripts/license_check.py` to forbid AGPL again, update `docs/adr/0001-adopt-agpl-for-pymupdf.md` status to `Superseded` with a link to the replacement ADR, and remove `pymupdf` from dependencies.
-
-This blocks submission the same way the boundary tests do — treat as a hard Phase 1 gate.
+Original rationale (kept for context): hackathon rules (verified 2026-09-09) require an open-source license with permissive examples (Apache 2.0 / MIT / MPL 2.0). While pymupdf (AGPL) was a runtime dep, MIT-licensing this codebase would have been a legal contradiction. Executed ADR-0001 Option 2 — swap to `pypdfium2` (Apache-2.0) for rasterization + text-with-bboxes and `pdfplumber` (MIT) for vector drawings, with `reportlab` + `pypdf` already covering overlay draw.
 
 ## Phase 2 — Build the three pipeline stages (Weeks 2–3, ~14 days)
 

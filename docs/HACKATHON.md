@@ -135,7 +135,6 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 ## Open items before 2026-10-30
 
 - **Repo visibility.** Currently PRIVATE (set 2026-09-07). Flip public before submission.
-- **Complete the pymupdf replacement.** `pyproject.toml` declares `AGPL-3.0-or-later` because `pymupdf` (AGPL) is a runtime dep — see [`docs/adr/0001-adopt-agpl-for-pymupdf.md`](adr/0001-adopt-agpl-for-pymupdf.md). The hackathon rules ([verified 2026-09-09](https://nebiusglobalaihackathon.devpost.com/rules)) require an open-source license with permissive examples (Apache 2.0 / MIT / MPL 2.0); AGPL is technically arguable under "such as" but not worth the disqualification risk. Execute ADR-0001 Option 2 — swap pymupdf for `pypdfium2` (Apache-2.0) + `pdfplumber` (MIT) — then flip `pyproject.toml` to MIT and retire the ADR. Scheduled into Phase 1 wrap-up (see submission roadmap).
 - **Public demo URL.** A minimal Verdikt hackathon-demo deploy on Nebius, decoupled from the production Quire deploy scheduled for mid-November. See roadmap Phase 3.
 - **YouTube video.** 3-minute cut, script in [`docs/demo-scripts/video-narration-60s.md`](demo-scripts/video-narration-60s.md), including the 15-second second-program cameo beat.
 - **Devpost submission.** URL, repo link, video, and this document as the technical write-up.

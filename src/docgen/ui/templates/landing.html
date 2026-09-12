@@ -406,6 +406,198 @@
   .rail-channels em { font-style: normal; color: var(--ink-500); font-size: 10.5px; margin-left: 4px; }
   .rail-channels .sep { color: var(--ink-300); }
   .rail-channels .tail { margin-left: auto; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-500); }
+
+  /* Intake fan-in diagram: four channels converging into one bus, then out
+     to the pipeline. Replaces the flat ribbon of `Fax → Mail → Web → Email`
+     with a picture that shows the normalization step. */
+  .intake-diagram {
+    margin: 0 0 0;
+    padding: 24px;
+    border: 1px solid var(--hair-soft);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(47,143,118,0.06), rgba(47,143,118,0.01));
+  }
+  .intake-diagram svg {
+    display: block;
+    width: 100%; height: auto; max-width: 720px;
+    margin: 0 auto;
+    color: var(--ink-500);
+  }
+  .intake-diagram .channel rect { fill: #fff; stroke: rgba(20,20,16,0.18); stroke-width: 1; }
+  .intake-diagram .channel text {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; fill: var(--ink-700);
+  }
+  .intake-diagram .link { fill: none; stroke: var(--seal-500); stroke-width: 1.5; opacity: 0.55; }
+  .intake-diagram .link.out { opacity: 0.9; stroke-width: 2; }
+  .intake-diagram .hub rect { fill: var(--ink-900); }
+  .intake-diagram .hub-title {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px; fill: var(--ink-50); font-weight: 600;
+  }
+  .intake-diagram .hub-sub {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5px; fill: var(--seal-300);
+    letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .intake-diagram .out-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; fill: var(--ink-500);
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .intake-diagram figcaption {
+    max-width: 720px; margin: 20px auto 0;
+    font-size: 15px; line-height: 1.6; color: var(--ink-700); text-align: center;
+  }
+  .intake-diagram figcaption .mono-inline {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px; color: var(--seal-700);
+  }
+  @media (max-width: 640px) {
+    .intake-diagram { padding: 16px; }
+    .intake-diagram figcaption { font-size: 14px; }
+  }
+
+  /* Connector: visually bridges the intake diagram (above) into the
+     lifecycle rail (below), so the reader tracks one continuous path
+     — channels → intake bus → 8 pipeline stages — without jumping. */
+  .intake-connector {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 0;
+    margin: 4px 0 12px;
+    color: var(--seal-500);
+  }
+  .intake-connector .cx-line {
+    width: 2px; height: 22px;
+    background: currentColor;
+    opacity: 0.55;
+  }
+  .intake-connector .cx-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--ink-900);
+    color: var(--seal-300);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    font-weight: 600;
+    box-shadow: 0 4px 12px -6px rgba(20,20,16,0.35);
+  }
+  .intake-connector .cx-pill .cx-dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--seal-300);
+    box-shadow: 0 0 0 3px rgba(142,199,181,0.20);
+  }
+  .intake-connector .cx-arrow {
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 10px solid var(--seal-500);
+    margin-top: -2px;
+  }
+
+  /* Outcome: what leaves the pipeline. Two artifact cards side-by-side —
+     a byte-identical reply letter (visualized as a paper preview) and
+     the structured verdict JSON (dark code block for downstream systems). */
+  .outcome-grid {
+    display: grid; grid-template-columns: 1fr; gap: 24px;
+    margin-top: 4px;
+  }
+  @media (min-width: 768px) {
+    .outcome-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .outcome-card {
+    margin: 0;
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    background: #fff;
+    padding: 28px;
+    box-shadow:
+      0 24px 48px -32px rgba(20,20,16,0.18),
+      0 4px 12px -6px rgba(20,20,16,0.05);
+    display: flex; flex-direction: column;
+  }
+  .outcome-card .out-eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .outcome-card .out-title {
+    margin-top: 10px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 26px; line-height: 1.2; color: var(--ink-900);
+    letter-spacing: -0.015em;
+  }
+  .outcome-card .out-preview { margin-top: 22px; flex: 1; display: flex; align-items: center; justify-content: center; }
+  .outcome-card figcaption {
+    margin-top: 18px;
+    font-size: 13.5px; line-height: 1.55; color: var(--ink-500);
+  }
+  .outcome-card figcaption .mono-inline {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12.5px; color: var(--seal-700);
+  }
+
+  /* Paper reply-letter preview: a stylized document mockup. */
+  .doc {
+    position: relative;
+    width: 100%; max-width: 240px;
+    aspect-ratio: 8.5 / 11;
+    background: linear-gradient(180deg, #ffffff, #faf8f2);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    padding: 20px 18px 24px;
+    box-shadow: 0 12px 24px -14px rgba(20,20,16,0.20);
+    overflow: hidden;
+  }
+  .doc-h {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 12px;
+    color: var(--ink-900);
+    border-bottom: 1px solid var(--hair);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .doc-sub {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-500);
+    margin-bottom: 12px;
+  }
+  .doc-l {
+    height: 5px;
+    background: rgba(20,20,16,0.08);
+    border-radius: 3px;
+    margin: 6px 0;
+  }
+  .doc-l.short { width: 62%; }
+  .doc-l.mid { width: 82%; }
+  .doc-stamp {
+    position: absolute; right: 14px; bottom: 14px;
+    padding: 4px 8px;
+    border: 1.5px solid var(--seal-700);
+    color: var(--seal-700);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
+    transform: rotate(-4deg);
+    border-radius: 3px;
+    background: rgba(47,143,118,0.06);
+  }
+
+  /* Verdict JSON code block: dark, downstream-flavored. */
+  .verdict-json {
+    margin: 0;
+    padding: 20px 22px;
+    background: var(--ink-900);
+    color: var(--ink-50);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px; line-height: 1.7;
+    overflow-x: auto; white-space: pre;
+    width: 100%;
+  }
+  .verdict-json .k { color: var(--seal-300); }
+  .verdict-json .s { color: #e6c88a; }
   .rail-split { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--hair-soft); background: rgba(20,20,16,0.02); }
   @media (min-width: 768px) { .rail-split { grid-template-columns: 1fr 1fr; } }
   .rail-split div { padding: 10px 16px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
@@ -436,14 +628,124 @@
   .stat .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 28px; }
 
   /* Comparison table */
-  .cmp { border: 1px solid var(--hair); border-radius: 12px; background: #fff; overflow: hidden; }
-  .cmp-row { display: grid; grid-template-columns: 2fr 1fr 1fr; align-items: stretch; border-bottom: 1px solid var(--hair-soft); }
+  .cmp {
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+    box-shadow:
+      0 24px 48px -32px rgba(20,20,16,0.18),
+      0 4px 12px -6px rgba(20,20,16,0.05);
+  }
+  .cmp-row {
+    display: grid;
+    grid-template-columns: 2fr 1.1fr 1.3fr;
+    align-items: stretch;
+    border-bottom: 1px solid var(--hair-soft);
+    transition: background 120ms ease;
+  }
   .cmp-row:last-child { border-bottom: 0; }
-  .cmp-cell { padding: 14px 18px; font-size: 13.5px; color: var(--ink-700); }
-  .cmp-cell.head { background: rgba(20,20,16,0.03); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); padding: 12px 18px; }
-  .cmp-cell.head.q { background: rgba(47,143,118,0.10); color: var(--seal-700); }
-  .cmp-cell.q { background: rgba(47,143,118,0.06); color: var(--ink-900); font-weight: 500; }
-  .cmp-cell.mute { color: var(--ink-500); }
+  /* Zebra rows for scanability, skip the header. */
+  .cmp-row:nth-child(even):not(:first-child) { background: rgba(20,20,16,0.015); }
+  /* Row hover — the whole capability row lifts on hover so the eye tracks
+     the left-column label to the right-column answer. */
+  .cmp-row:not(:first-child):hover { background: rgba(47,143,118,0.04); }
+
+  .cmp-cell {
+    padding: 18px 22px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-700);
+    display: flex; align-items: center;
+  }
+  /* Capability column: bold, darker, small leading marker so the eye lands
+     on the label instead of drifting into the comparison side-by-side. */
+  .cmp-cell:first-child {
+    color: var(--ink-900);
+    font-weight: 500;
+    position: relative;
+    padding-left: 34px;
+  }
+  .cmp-cell:first-child::before {
+    content: "";
+    position: absolute;
+    left: 22px; top: 50%;
+    width: 4px; height: 4px;
+    border-radius: 999px;
+    background: var(--ink-300);
+    transform: translateY(-50%);
+  }
+
+  .cmp-cell.head {
+    background: rgba(20,20,16,0.04);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+    padding: 16px 22px;
+    font-weight: 600;
+  }
+  .cmp-cell.head:first-child { color: var(--ink-900); padding-left: 22px; }
+  .cmp-cell.head:first-child::before { display: none; }
+  .cmp-cell.head.q {
+    background: linear-gradient(180deg, rgba(47,143,118,0.16), rgba(47,143,118,0.10));
+    color: var(--seal-700);
+    border-left: 1px solid rgba(47,143,118,0.20);
+  }
+
+  /* Verdikt column: subtle green wash + left rail so it reads as the
+     "answer" column without being visually loud. */
+  .cmp-cell.q {
+    background: rgba(47,143,118,0.05);
+    color: var(--ink-900);
+    font-weight: 500;
+    border-left: 1px solid rgba(47,143,118,0.15);
+  }
+  .cmp-row:not(:first-child):hover .cmp-cell.q { background: rgba(47,143,118,0.10); }
+
+  /* Color the leading ✓ or ◷ glyph in the Verdikt cells so the verdict
+     reads at a glance without touching the row markup. */
+  .cmp-cell.q::first-letter {
+    color: var(--seal-500);
+    font-size: 16px;
+    font-weight: 600;
+    margin-right: 2px;
+  }
+
+  .cmp-cell.mute {
+    color: var(--ink-500);
+    font-size: 13.5px;
+  }
+
+  .cmp-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 14px 18px;
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    background: rgba(20, 20, 16, 0.02);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-500);
+  }
+  .cmp-note-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: rgba(47, 143, 118, 0.10);
+    color: var(--seal-500);
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+  .cmp-note b { color: var(--ink-700); font-weight: 600; }
 
   /* Callouts */
   .callout { background: var(--ink-50); border-top: 1px solid var(--hair); padding: 96px 0; }
@@ -890,15 +1192,49 @@
       <p>Anyone can render a template. What's harder is the pipeline that reads the case, retrieves the rules, and stays byte-identical at the seam where the letter leaves the building.</p>
     </div>
 
-    <div class="rail-channels" aria-label="Intake channels">
-      <span>Fax</span>
-      <span class="sep">→</span>
-      <span>Mail<em>scanned</em></span>
-      <span class="sep">→</span>
-      <span>Web<em>JSON</em></span>
-      <span class="sep">→</span>
-      <span>Email</span>
-      <span class="tail">one intake bus</span>
+    <figure class="intake-diagram" aria-label="Four intake channels converge into a single intake bus, then flow into the verdict pipeline">
+      <svg viewBox="0 0 580 240" role="img" xmlns="http://www.w3.org/2000/svg">
+        <g class="channel">
+          <rect x="20" y="18" width="130" height="34" rx="17"/>
+          <text x="85" y="40" text-anchor="middle">Fax</text>
+        </g>
+        <g class="channel">
+          <rect x="20" y="70" width="130" height="34" rx="17"/>
+          <text x="85" y="92" text-anchor="middle">Postal mail</text>
+        </g>
+        <g class="channel">
+          <rect x="20" y="122" width="130" height="34" rx="17"/>
+          <text x="85" y="144" text-anchor="middle">Web form</text>
+        </g>
+        <g class="channel">
+          <rect x="20" y="174" width="130" height="34" rx="17"/>
+          <text x="85" y="196" text-anchor="middle">Email</text>
+        </g>
+
+        <path class="link" d="M150 35 C 260 35, 260 120, 380 120"/>
+        <path class="link" d="M150 87 C 260 87, 260 120, 380 120"/>
+        <path class="link" d="M150 139 C 260 139, 260 120, 380 120"/>
+        <path class="link" d="M150 191 C 260 191, 260 120, 380 120"/>
+
+        <g class="hub">
+          <rect x="380" y="94" width="170" height="52" rx="10"/>
+          <text x="465" y="116" text-anchor="middle" class="hub-title">Intake bus</text>
+          <text x="465" y="132" text-anchor="middle" class="hub-sub">normalize · tag · route</text>
+        </g>
+      </svg>
+      <figcaption>
+        Fax pages, scanned mail, web-form JSON, and email attachments all become the same shape:
+        an <span class="mono-inline">inbox event</span> with a resolved tenant, program, and normalized attachments.
+        Extract, retrieve, and reason don't know which channel a case came from, so one code path
+        adjudicates all four.
+      </figcaption>
+    </figure>
+
+    <div class="intake-connector" aria-hidden="true">
+      <span class="cx-line"></span>
+      <span class="cx-pill"><span class="cx-dot"></span>same event · into the pipeline</span>
+      <span class="cx-line"></span>
+      <span class="cx-arrow"></span>
     </div>
 
     <div class="rail">
@@ -916,11 +1252,62 @@
       </div>
     </div>
 
-    <p class="rail-note">
-      Most doc-gen tools stop at the render call. Verdikt ships the pipeline in front of it —
-      case intake, rule retrieval, structured verdict — plus the ledger behind it. All scoped
-      per tenant, so the buyer can defend the whole path in an audit, not just the last step.
-    </p>
+    <div class="intake-connector" aria-hidden="true">
+      <span class="cx-line"></span>
+      <span class="cx-pill"><span class="cx-dot"></span>two artifacts leave the pipeline</span>
+      <span class="cx-line"></span>
+      <span class="cx-arrow"></span>
+    </div>
+
+    <div class="outcome-grid">
+      <figure class="outcome-card">
+        <div class="out-eyebrow">Artifact 01 · for the applicant</div>
+        <div class="out-title">Decision letter</div>
+        <div class="out-preview">
+          <div class="doc" aria-hidden="true">
+            <div class="doc-h">Alderwood Specialty Pharmacy</div>
+            <div class="doc-sub">re: cardiovita-pap-2026 · case asp-201</div>
+            <div class="doc-l"></div>
+            <div class="doc-l mid"></div>
+            <div class="doc-l"></div>
+            <div class="doc-l short"></div>
+            <div class="doc-l"></div>
+            <div class="doc-l mid"></div>
+            <div class="doc-l short"></div>
+            <div class="doc-stamp">approve</div>
+          </div>
+        </div>
+        <figcaption>
+          Byte-identical merge of a frozen, human-approved template with the verdict.
+          <span class="mono-inline">.pdf</span> or <span class="mono-inline">.docx</span>, content-addressed by
+          <span class="mono-inline">version_hash</span>. No model in the render path.
+        </figcaption>
+      </figure>
+
+      <figure class="outcome-card">
+        <div class="out-eyebrow">Artifact 02 · for downstream systems</div>
+        <div class="out-title">Verdict JSON</div>
+        <div class="out-preview">
+<pre class="verdict-json">{
+  <span class="k">"case_id"</span>: <span class="s">"asp-201-…"</span>,
+  <span class="k">"outcome"</span>: <span class="s">"approve"</span>,
+  <span class="k">"citations"</span>: [<span class="s">"CV-INC-01"</span>, <span class="s">"CV-CLIN-01"</span>],
+  <span class="k">"letter"</span>: {
+    <span class="k">"hash"</span>: <span class="s">"sha256:9b4c…"</span>,
+    <span class="k">"pdf"</span>:  <span class="s">"s3://verdikt/replies/…pdf"</span>
+  },
+  <span class="k">"handoff"</span>: {
+    <span class="k">"crm"</span>:         <span class="s">"salesforce://case/00X…"</span>,
+    <span class="k">"call_center"</span>: <span class="s">"queued"</span>,
+    <span class="k">"case_mgmt"</span>:   <span class="s">"pega://work/A-4429"</span>
+  }
+}</pre>
+        </div>
+        <figcaption>
+          Same case ID as the letter. Consumed by call-center ops, CRM, and case-management systems that keep the case moving after the letter is sent.
+        </figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
@@ -991,6 +1378,17 @@
       <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Often per-tenant deployments</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
       <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
       <div class="cmp-row"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
+    </div>
+
+    <div class="cmp-note">
+      <span class="cmp-note-icon" aria-hidden="true">◷</span>
+      <span>
+        <b>Roadmap items.</b> Rows marked <span class="mono mono-inline">◷</span> aren't
+        shipped in this hackathon submission — the pipeline architecture and
+        programs-as-data model leave clean seams for them, and they'd be built next in
+        an actual product. The core loop (intake → extract → retrieve → reason →
+        merge → deliver → audit → rollback) works today.
+      </span>
     </div>
   </div>
 </section>

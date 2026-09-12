@@ -437,7 +437,9 @@
             background: var(--surface-2); border-right: 1px solid var(--border);
             display: flex; flex-direction: column;
             position: sticky; top: 0; height: 100vh;
+            z-index: 30;
         }
+        .sidebar-collapse-btn { z-index: 31; }
         .app-sidebar .nav-link {
             position: relative;
             display: flex; align-items: center; gap: 10px;
@@ -465,7 +467,7 @@
 
         /* Sidebar collapse toggle (desktop only) */
         .sidebar-collapse-btn {
-            position: absolute; top: 10px; right: -14px;
+            position: absolute; top: 13px; right: -14px;
             width: 28px; height: 28px; padding: 0;
             border-radius: 50%;
             background: var(--surface); border: 1px solid var(--border);

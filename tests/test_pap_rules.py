@@ -35,7 +35,8 @@ def test_rule_yaml_parses_into_schema(path: Path) -> None:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     rule = Rule.model_validate(data)
     assert rule.id, f"{path.name}: rule id is empty"
-    assert rule.text.strip(), f"{path.name}: rule text is empty"
+    assert rule.title.strip(), f"{path.name}: rule title is empty"
+    assert rule.criterion.strip(), f"{path.name}: rule criterion is empty"
 
 
 def test_rule_ids_are_unique() -> None:

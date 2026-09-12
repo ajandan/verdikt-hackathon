@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import String, case, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgen.api.deps import get_session
@@ -92,9 +93,12 @@ from docgen.store.models import (
     InboxEvent,
     InboxTestResult,
     Program,
+    ProgramRuleLink,
     Provenance,
     PublishEvent,
     RenderJob,
+    Rule,
+    RuleVersion,
     Template,
     TemplateAuditEvent,
     TemplateVersion,
@@ -4702,6 +4706,8 @@ async def inbox_pipeline_detail(
     # and keeps the page in sync with any rule edits without a restart.
     from pap_pipeline.rules import load_rules
     from pap_pipeline.schema_groups import bucket_slots
+    from pap_pipeline.verdict_json import build_verdict
+    from docgen.inbox.agent import _pap_program_from_subject
 
     rules_by_id = {r.id: r for r in load_rules()}
 
@@ -4709,6 +4715,14 @@ async def inbox_pipeline_detail(
     # Group slot names into reviewer-facing sections at render time.
     # Slice 2 will consult persisted groups on the Program row when present.
     extraction_groups = bucket_slots(extraction.keys())
+
+    # Re-derive program from subject at read time — the pipeline doesn't
+    # persist the resolved slug on the event row, but the subject tag is
+    # the canonical source it was resolved from.
+    _, program_slug = _pap_program_from_subject(ev.subject)
+    verdict = build_verdict(ev, tenant=tenant, program=program_slug)
+    import json as _json
+    verdict_pretty = _json.dumps(verdict, indent=2, default=str)
 
     return templates.TemplateResponse(
         request,
@@ -4727,7 +4741,52 @@ async def inbox_pipeline_detail(
             extraction_groups=extraction_groups,
             decision=ev.pap_decision or {},
             rules_by_id=rules_by_id,
+            verdict_json=verdict_pretty,
+            verdict_download_url=f"/ui/inbox/{ev.id}/verdict.json",
         ),
+    )
+
+
+@router.get("/inbox/{event_id}/verdict.json", response_class=None)
+async def inbox_verdict_json(
+    event_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the downstream JSON verdict for this event.
+
+    Same envelope the pipeline detail page renders — assembled on demand
+    from the persisted decision/intake/extraction so audit and downstream
+    consumers see the same object. Admin-session gated like the rest of
+    `/ui/*`; downstream systems that need programmatic access should hit
+    this behind their own API-key proxy or be given a signed variant.
+    """
+    from pap_pipeline.verdict_json import build_verdict
+    from docgen.inbox.agent import _pap_program_from_subject
+
+    ev = await _load_inbox_event(session, event_id)
+    if ev.tenant_id is None:
+        _require_super_admin(request)
+    else:
+        _enforce_scope(request, ev.tenant_id)
+
+    if ev.pap_decision is None:
+        raise HTTPException(404, "No pipeline verdict for this event")
+
+    tenant = None
+    if ev.tenant_id is not None:
+        from docgen.store.models import Tenant
+        tenant = await session.get(Tenant, ev.tenant_id)
+
+    _, program_slug = _pap_program_from_subject(ev.subject)
+    verdict = build_verdict(ev, tenant=tenant, program=program_slug)
+    filename = f"verdict-{ev.case_id}.json"
+    return JSONResponse(
+        content=verdict,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "private, no-store",
+        },
     )
 
 
@@ -5350,6 +5409,50 @@ async def program_detail(
         if bound_tv is not None:
             bound_fields = list((bound_tv.schema or {}).get("fields") or [])
 
+    # Attached rules: join to the tenant's rule library through the join
+    # table. The reviewer sees per-program position + is_active from the
+    # link and the library's rule text/kind/fields. Rules the retriever
+    # actually receives are the ones where both the link and the library
+    # row are active.
+    linked_stmt = (
+        select(Rule, ProgramRuleLink)
+        .join(ProgramRuleLink, ProgramRuleLink.rule_id == Rule.id)
+        .where(ProgramRuleLink.program_id == prog.id)
+        .order_by(ProgramRuleLink.position.asc(), Rule.rule_id.asc())
+    )
+    linked_rows = (await session.execute(linked_stmt)).all()
+    attached_rule_ids: set[uuid.UUID] = {r.id for (r, _l) in linked_rows}
+    attached = [
+        {
+            "link_id": link.id,
+            "rule_id": rule.id,
+            "public_id": rule.rule_id,
+            "kind": rule.kind,
+            "title": rule.title,
+            "criterion": rule.criterion,
+            "exception": rule.exception or "",
+            "fields": list(rule.fields or []),
+            "position": link.position,
+            "link_active": link.is_active,
+            "rule_active": rule.is_active,
+        }
+        for (rule, link) in linked_rows
+    ]
+
+    # Library rules the program hasn't attached yet — offered in the "Attach
+    # a rule" picker. Skip retired rules (rule.is_active=False) so the
+    # picker doesn't surface things ops has already decided to stop using.
+    available_stmt = (
+        select(Rule)
+        .where(
+            Rule.tenant_id == prog.tenant_id,
+            Rule.is_active.is_(True),
+        )
+        .order_by(Rule.rule_id.asc())
+    )
+    available_all = list((await session.execute(available_stmt)).scalars())
+    available = [r for r in available_all if r.id not in attached_rule_ids]
+
     return templates.TemplateResponse(
         request,
         "admin_program_detail.html",
@@ -5360,8 +5463,177 @@ async def program_detail(
             slot_types=_SLOT_TYPES,
             template_versions=template_versions,
             bound_fields=bound_fields,
+            attached_rules=attached,
+            available_rules=available,
             flash=flash, flash_kind=flash_kind,
         ),
+    )
+
+
+# Kept as a tuple so the template's <select> and the write-path validator
+# read from one source. Must stay in sync with the ck_rules_kind check
+# constraint and RuleKind Literal in pap_pipeline.schemas.rule.
+_RULE_KINDS = ("financial", "insurance", "residency", "clinical")
+
+
+def _parse_rule_fields(raw: str) -> list[str]:
+    """Comma or newline separated intake field names → clean list."""
+    if not raw:
+        return []
+    parts = [p.strip() for p in raw.replace("\n", ",").split(",")]
+    return [p for p in parts if p]
+
+
+async def _snapshot_rule_version(
+    session: AsyncSession,
+    rule: Rule,
+    request: Request,
+    change_note: str,
+) -> RuleVersion:
+    """Append a rule_versions row capturing rule's current field values.
+
+    Called from rules_create / rule_update after the rule row is flushed. The
+    caller commits — this helper only adds to the session so the version + the
+    parent rule mutation land in one transaction. version numbers are
+    monotonic per rule; the query below is safe here because writes to a
+    single rule are serialized by the admin UI (no concurrent editors).
+    """
+    next_version = (
+        (
+            await session.execute(
+                select(func.coalesce(func.max(RuleVersion.version), 0) + 1).where(
+                    RuleVersion.rule_id == rule.id
+                )
+            )
+        ).scalar_one()
+    )
+    ident = _identity(request)
+    version = RuleVersion(
+        rule_id=rule.id,
+        version=int(next_version),
+        public_rule_id=rule.rule_id,
+        kind=rule.kind,
+        title=rule.title,
+        criterion=rule.criterion,
+        exception=rule.exception or "",
+        fields=list(rule.fields or []),
+        is_active=rule.is_active,
+        actor_user_id=(ident.user_id if ident else None),
+        actor_username=(ident.username if ident else "system"),
+        change_note=(change_note or "")[:200],
+    )
+    session.add(version)
+    return version
+
+
+@router.post("/programs/{program_id}/rule-links")
+async def program_rule_attach(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Attach a library rule to this program.
+
+    The picker submits `rule_id` (the library row's UUID). We verify the
+    rule belongs to the same tenant, then append it at the end of the
+    program's rule ordering. Silently no-ops on duplicate attach so a
+    double-submit doesn't 500 the reviewer.
+    """
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    form = await request.form()
+    raw_rule_id = (form.get("rule_id") or "").strip()
+    try:
+        rule_uuid = uuid.UUID(raw_rule_id)
+    except ValueError:
+        return _redirect(
+            f"/ui/programs/{program_id}",
+            flash="Pick a rule from the library.", flash_kind="error",
+        )
+    rule = await session.get(Rule, rule_uuid)
+    if rule is None or rule.tenant_id != prog.tenant_id:
+        raise HTTPException(404, "Rule not found")
+
+    max_pos_stmt = (
+        select(func.coalesce(func.max(ProgramRuleLink.position), -1))
+        .where(ProgramRuleLink.program_id == prog.id)
+    )
+    next_pos = int((await session.execute(max_pos_stmt)).scalar_one()) + 1
+
+    session.add(
+        ProgramRuleLink(
+            program_id=prog.id,
+            rule_id=rule.id,
+            position=next_pos,
+            is_active=True,
+        )
+    )
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return _redirect(
+            f"/ui/programs/{program_id}",
+            flash=f"Rule {rule.rule_id} is already attached.", flash_kind="info",
+        )
+    log.info(
+        "program_rule_attached",
+        program_id=str(prog.id), rule_id=str(rule.id), public_id=rule.rule_id,
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}",
+        flash=f"Attached rule {rule.rule_id}.", flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/rule-links/{link_id}/toggle")
+async def program_rule_toggle(
+    program_id: uuid.UUID,
+    link_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Flip the link's is_active — a per-program pause without detaching."""
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    link = await session.get(ProgramRuleLink, link_id)
+    if link is None or link.program_id != prog.id:
+        raise HTTPException(404, "Link not found")
+    link.is_active = not link.is_active
+    await session.commit()
+    state = "enabled" if link.is_active else "paused"
+    log.info(
+        "program_rule_link_toggled",
+        program_id=str(prog.id), link_id=str(link.id), is_active=link.is_active,
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}",
+        flash=f"Link {state}.", flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/rule-links/{link_id}/delete")
+async def program_rule_detach(
+    program_id: uuid.UUID,
+    link_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Detach a rule from this program. The library row is untouched."""
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    link = await session.get(ProgramRuleLink, link_id)
+    if link is None or link.program_id != prog.id:
+        raise HTTPException(404, "Link not found")
+    await session.delete(link)
+    await session.commit()
+    log.info(
+        "program_rule_detached",
+        program_id=str(prog.id), link_id=str(link_id),
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}",
+        flash="Rule detached.", flash_kind="success",
     )
 
 
@@ -5452,3 +5724,331 @@ async def program_delete(
     await session.commit()
     log.info("program_deleted", program_id=str(program_id))
     return _redirect("/ui/programs", flash=f"Deleted program '{prog.name}'.", flash_kind="success")
+
+
+# ---------------------------------------------------------------------------
+# Rules library — tenant-scoped master rule set. Programs attach rules from
+# here via ProgramRuleLink; editing a rule here propagates to every program
+# that has it attached, which is the point of the library.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rules", response_class=HTMLResponse)
+async def rules_list(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    flash: str | None = None,
+    flash_kind: str | None = None,
+) -> HTMLResponse:
+    """Master rule library — one row per tenant rule, with an attached-programs
+    hint per row so ops can see reach at a glance.
+    """
+    scope = _forced_tenant_scope(request)
+    stmt = (
+        select(Rule, Tenant.name)
+        .join(Tenant, Tenant.id == Rule.tenant_id)
+        .order_by(Tenant.name.asc(), Rule.rule_id.asc())
+    )
+    if scope is not None:
+        stmt = stmt.where(Rule.tenant_id == scope)
+    rows = (await session.execute(stmt)).all()
+
+    # Count attached programs per rule so the list gives ops a sense of
+    # "how many programs will an edit to this rule ripple out to".
+    counts_stmt = (
+        select(ProgramRuleLink.rule_id, func.count(ProgramRuleLink.id))
+        .group_by(ProgramRuleLink.rule_id)
+    )
+    counts = dict((await session.execute(counts_stmt)).all())
+
+    library = [
+        {
+            "id": r.id,
+            "tenant_id": r.tenant_id,
+            "tenant_name": tenant_name,
+            "rule_id": r.rule_id,
+            "kind": r.kind,
+            "title": r.title,
+            "criterion": r.criterion,
+            "exception": r.exception or "",
+            "fields": list(r.fields or []),
+            "is_active": r.is_active,
+            "attached_programs": counts.get(r.id, 0),
+            "updated_at": r.updated_at,
+        }
+        for (r, tenant_name) in rows
+    ]
+    tenants_res = await session.execute(select(Tenant).order_by(Tenant.name.asc()))
+    tenants_all = tenants_res.scalars().all()
+    return templates.TemplateResponse(
+        request,
+        "admin_rules.html",
+        await _base_ctx(
+            request, session, active="rules",
+            rules=library,
+            tenants_all=tenants_all,
+            rule_kinds=_RULE_KINDS,
+            flash=flash, flash_kind=flash_kind,
+        ),
+    )
+
+
+@router.post("/rules")
+async def rules_create(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Create a new library rule under a tenant.
+
+    Super-admin with no workspace picker must supply `tenant_id` in the
+    form; tenant-admin (and picker-scoped super-admin) always creates under
+    their effective tenant.
+    """
+    form = await request.form()
+    scope = _forced_tenant_scope(request)
+    if scope is not None:
+        tenant_id = scope
+    else:
+        raw_tid = (form.get("tenant_id") or "").strip()
+        try:
+            tenant_id = uuid.UUID(raw_tid)
+        except ValueError:
+            return _redirect(
+                "/ui/rules",
+                flash="Pick a tenant before creating a rule.", flash_kind="error",
+            )
+    _enforce_scope(request, tenant_id)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    rule_id = (form.get("rule_id") or "").strip()
+    kind = (form.get("kind") or "").strip()
+    title_val = (form.get("title") or "").strip()
+    criterion_val = (form.get("criterion") or "").strip()
+    exception_val = (form.get("exception") or "").strip()
+    fields = _parse_rule_fields(form.get("fields") or "")
+
+    if not rule_id or not title_val or not criterion_val:
+        return _redirect(
+            "/ui/rules",
+            flash="Rule ID, title, and criterion are required.", flash_kind="error",
+        )
+    if kind not in _RULE_KINDS:
+        return _redirect(
+            "/ui/rules",
+            flash=f"Kind must be one of {', '.join(_RULE_KINDS)}.", flash_kind="error",
+        )
+
+    rule = Rule(
+        tenant_id=tenant_id,
+        rule_id=rule_id,
+        kind=kind,
+        title=title_val,
+        criterion=criterion_val,
+        exception=exception_val,
+        fields=fields,
+        is_active=True,
+    )
+    session.add(rule)
+    try:
+        await session.flush()
+        await _snapshot_rule_version(session, rule, request, "Created")
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return _redirect(
+            "/ui/rules",
+            flash=f"Rule ID '{rule_id}' already exists for this tenant.",
+            flash_kind="error",
+        )
+    log.info("rule_created", tenant_id=str(tenant_id), rule_id=rule_id)
+    return _redirect(
+        f"/ui/rules/{rule.id}",
+        flash=f"Created rule {rule_id}.", flash_kind="success",
+    )
+
+
+@router.get("/rules/{rule_row_id}", response_class=HTMLResponse)
+async def rule_detail(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    flash: str | None = None,
+    flash_kind: str | None = None,
+) -> HTMLResponse:
+    """Edit a library rule + show the programs it's attached to."""
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+    tenant = await session.get(Tenant, rule.tenant_id)
+
+    prog_stmt = (
+        select(Program, ProgramRuleLink)
+        .join(ProgramRuleLink, ProgramRuleLink.program_id == Program.id)
+        .where(ProgramRuleLink.rule_id == rule.id)
+        .order_by(Program.slug.asc())
+    )
+    attached = [
+        {
+            "program_id": p.id,
+            "program_name": p.name,
+            "program_slug": p.slug,
+            "link_active": link.is_active,
+        }
+        for (p, link) in (await session.execute(prog_stmt)).all()
+    ]
+    versions_stmt = (
+        select(RuleVersion)
+        .where(RuleVersion.rule_id == rule.id)
+        .order_by(RuleVersion.version.desc())
+    )
+    versions = [
+        {
+            "id": v.id,
+            "version": v.version,
+            "actor_username": v.actor_username,
+            "change_note": v.change_note,
+            "created_at": v.created_at,
+        }
+        for v in (await session.execute(versions_stmt)).scalars()
+    ]
+    return templates.TemplateResponse(
+        request,
+        "admin_rule_detail.html",
+        await _base_ctx(
+            request, session, active="rules",
+            rule=rule,
+            tenant=tenant,
+            attached_programs=attached,
+            versions=versions,
+            rule_kinds=_RULE_KINDS,
+            flash=flash, flash_kind=flash_kind,
+        ),
+    )
+
+
+@router.post("/rules/{rule_row_id}")
+async def rule_update(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Update rule text / kind / fields / active state.
+
+    Edits here ripple to every program that has the rule attached — that's
+    the point of the library. `rule_id` (the public citation ID) is
+    immutable so decision letters already cite a stable identifier.
+    """
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+    form = await request.form()
+
+    kind = (form.get("kind") or rule.kind).strip()
+    if kind not in _RULE_KINDS:
+        return _redirect(
+            f"/ui/rules/{rule_row_id}",
+            flash=f"Kind must be one of {', '.join(_RULE_KINDS)}.", flash_kind="error",
+        )
+    title_val = (form.get("title") or "").strip()
+    criterion_val = (form.get("criterion") or "").strip()
+    exception_val = (form.get("exception") or "").strip()
+    if not title_val or not criterion_val:
+        return _redirect(
+            f"/ui/rules/{rule_row_id}",
+            flash="Title and criterion cannot be empty.", flash_kind="error",
+        )
+    rule.kind = kind
+    rule.title = title_val
+    rule.criterion = criterion_val
+    rule.exception = exception_val
+    rule.fields = _parse_rule_fields(form.get("fields") or "")
+    rule.is_active = form.get("is_active") == "on"
+    await session.flush()
+    await _snapshot_rule_version(session, rule, request, "Edited")
+    await session.commit()
+    log.info(
+        "rule_updated",
+        rule_row_id=str(rule.id), rule_id=rule.rule_id, is_active=rule.is_active,
+    )
+    return _redirect(
+        f"/ui/rules/{rule_row_id}",
+        flash=f"Saved rule {rule.rule_id}.", flash_kind="success",
+    )
+
+
+@router.post("/rules/{rule_row_id}/delete")
+async def rule_delete(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Hard-delete a library rule. Cascades through program_rule_links, so
+    every program that had this rule attached loses the link too. Prefer
+    the is_active toggle when the rule is retired but you want the history
+    (attached-programs count, past letters citing the rule) legible.
+    """
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+    rule_id = rule.rule_id
+    await session.delete(rule)
+    await session.commit()
+    log.info("rule_deleted", rule_row_id=str(rule_row_id), rule_id=rule_id)
+    return _redirect(
+        "/ui/rules",
+        flash=f"Deleted rule {rule_id}.", flash_kind="success",
+    )
+
+
+@router.get("/rules/{rule_row_id}/versions/{version}", response_class=HTMLResponse)
+async def rule_version_view(
+    rule_row_id: uuid.UUID,
+    version: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Read-only snapshot of a rule at a specific version.
+
+    Renders the same read-only card the current-rule view uses, but with the
+    snapshot's field values instead of the live row's. No edit path.
+    """
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+    tenant = await session.get(Tenant, rule.tenant_id)
+
+    snapshot = (
+        await session.execute(
+            select(RuleVersion).where(
+                RuleVersion.rule_id == rule.id, RuleVersion.version == version
+            )
+        )
+    ).scalar_one_or_none()
+    if snapshot is None:
+        raise HTTPException(404, "Version not found")
+
+    latest_version = (
+        await session.execute(
+            select(func.max(RuleVersion.version)).where(RuleVersion.rule_id == rule.id)
+        )
+    ).scalar_one() or version
+    is_current = int(latest_version) == snapshot.version
+
+    return templates.TemplateResponse(
+        request,
+        "admin_rule_version.html",
+        await _base_ctx(
+            request, session, active="rules",
+            rule=rule,
+            tenant=tenant,
+            snapshot=snapshot,
+            is_current=is_current,
+            latest_version=int(latest_version),
+        ),
+    )

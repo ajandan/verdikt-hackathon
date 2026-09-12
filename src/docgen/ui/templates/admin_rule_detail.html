@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block title %}{{ rule.rule_id }} — Rule{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .rule-detail-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .rule-detail-grid { grid-template-columns: 1fr; } }
+
+    /* View mode: read-only presentation of the rule fields. */
+    .rule-view .rv-header {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 18px 0 4px;
+    }
+    .rule-view .rv-rid {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; font-weight: 600;
+        padding: 4px 10px; border-radius: 6px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        color: var(--text);
+    }
+    .rule-view .rv-status-dot {
+        display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--success, #22c55e); margin-right: 6px;
+        vertical-align: middle;
+    }
+    .rule-view .rv-status-dot.retired { background: var(--text-muted); }
+    .rule-view .rv-status {
+        font-size: 12px; color: var(--text-muted);
+    }
+    .rule-view .rv-status.active { color: var(--text); }
+
+    .rule-view .rv-title {
+        font-size: 20px; font-weight: 600; line-height: 1.3;
+        margin: 12px 0 20px; color: var(--text);
+        text-transform: none; letter-spacing: normal;
+    }
+
+    .rule-view .rv-block {
+        border: 1px solid var(--border); border-radius: 8px;
+        padding: 14px 16px; margin-top: 12px;
+        background: var(--surface);
+    }
+    .rule-view .rv-block.criterion {
+        background: var(--brand-soft);
+        border-color: var(--brand-soft);
+    }
+    .rule-view .rv-block.exception {
+        background: var(--surface-2);
+    }
+    .rule-view .rv-block-label {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.06em; font-weight: 600;
+        color: var(--text-muted); margin-bottom: 6px;
+    }
+    .rule-view .rv-block.criterion .rv-block-label { color: var(--brand); }
+    .rule-view .rv-block-body {
+        font-size: 14px; color: var(--text); line-height: 1.55;
+    }
+    .rule-view .rv-block-body code {
+        background: var(--surface); padding: 1px 6px; border-radius: 4px;
+        font-size: 12.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .rule-view .rv-block.exception .rv-block-body code {
+        background: var(--surface);
+    }
+
+    .rule-view .rv-meta {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 24px; margin-top: 18px;
+        padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    @media (max-width: 640px) { .rule-view .rv-meta { grid-template-columns: 1fr; } }
+    .rule-view .rv-meta-label {
+        display: block; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .rule-view .rv-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .rule-view .rv-chips code {
+        background: var(--surface-2); padding: 3px 9px; border-radius: 999px;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text); border: 1px solid var(--border);
+    }
+    .rule-view .rv-empty { color: var(--text-muted); font-size: 13px; }
+    .rule-view .card-actions {
+        margin-top: 22px; display: flex; gap: 8px;
+    }
+
+    /* Edit mode: same form as before, styled identically. */
+    .rule-form label {
+        display: block; font-size: 11.5px; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        margin-top: 14px; margin-bottom: 4px;
+    }
+    .rule-form input[type="text"],
+    .rule-form textarea,
+    .rule-form select {
+        width: 100%; box-sizing: border-box; padding: 8px 10px;
+        font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); font-family: inherit;
+    }
+    .rule-form textarea { min-height: 110px; resize: vertical; }
+    .rule-form .rid-fixed {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; padding: 8px 10px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 6px; color: var(--text);
+    }
+
+    .kind-badge {
+        display: inline-block; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px;
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+    .attached-list li {
+        padding: 8px 0; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+    }
+    .attached-list li:last-child { border-bottom: none; }
+    .attached-list .paused { color: var(--text-muted); }
+    .attached-list .slug {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11.5px; color: var(--text-muted);
+    }
+
+    /* History list — vertical timeline of version snapshots. */
+    .history-list { list-style: none; padding: 0; margin: 8px 0 0; }
+    .history-list li {
+        padding: 10px 0; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+    }
+    .history-list li:last-child { border-bottom: none; }
+    .history-list .hist-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 8px;
+    }
+    .history-list .hist-ver {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; font-weight: 600;
+        padding: 2px 7px; border-radius: 4px;
+        background: var(--surface-2); color: var(--text);
+    }
+    .history-list .hist-ver.current {
+        background: var(--brand-soft); color: var(--brand);
+    }
+    .history-list .hist-when {
+        font-size: 11.5px; color: var(--text-muted);
+    }
+    .history-list .hist-note {
+        margin-top: 4px; font-size: 12.5px; color: var(--text);
+    }
+    .history-list .hist-actor {
+        font-size: 11.5px; color: var(--text-muted); margin-top: 2px;
+    }
+    .history-list a { text-decoration: none; color: inherit; display: block; }
+    .history-list a:hover .hist-ver { background: var(--brand-soft); color: var(--brand); }
+
+    /* Tab strip inside the main card. Same tokens as _inbox_tabs.html / prog-tabs. */
+    .rule-tabs {
+        display: flex; gap: 0; align-items: baseline; flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        margin: -4px -4px 4px;
+        padding: 0 4px;
+    }
+    .rule-tabs .tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 16px 11px;
+        font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+        text-decoration: none; border-bottom: 2px solid transparent;
+        margin-bottom: -1px; transition: color 120ms, border-color 120ms;
+    }
+    .rule-tabs .tab:hover { color: var(--text); text-decoration: none; }
+    .rule-tabs .tab.active {
+        color: var(--brand); font-weight: 600;
+        border-bottom-color: var(--brand);
+    }
+    .rule-tabs .tab .tab-count {
+        display: inline-flex; align-items: center;
+        padding: 1px 6px; border-radius: 8px;
+        background: var(--surface-2); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); line-height: 1.4;
+    }
+    .tab-panel[hidden] { display: none; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/rules">Rules</a>
+    <span>/</span>
+    {{ rule.rule_id }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>{{ rule.rule_id }}</h1>
+        <p class="page-subtitle">
+            Tenant <strong>{{ tenant.name if tenant else '—' }}</strong> ·
+            <span class="kind-badge">{{ rule.kind }}</span> ·
+            attached to {{ attached_programs|length }} program{{ 's' if attached_programs|length != 1 else '' }}
+        </p>
+    </div>
+    <div class="page-actions">
+        {% if rule.is_active %}
+            <span class="badge success">Active</span>
+        {% else %}
+            <span class="badge">Retired</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="rule-detail-grid">
+    <div>
+        <div class="card">
+            <nav class="rule-tabs" role="tablist" aria-label="Rule sections">
+                <a href="#details" class="tab active" role="tab" data-tab="details" aria-selected="true" aria-controls="tab-details" id="tab-btn-details">Details</a>
+                <a href="#history" class="tab" role="tab" data-tab="history" aria-selected="false" aria-controls="tab-history" id="tab-btn-history">
+                    History
+                    {% if versions %}<span class="tab-count">{{ versions|length }}</span>{% endif %}
+                </a>
+            </nav>
+
+            <section class="tab-panel" id="tab-details" role="tabpanel" aria-labelledby="tab-btn-details">
+            <div id="rule-view" class="rule-view">
+                <div class="rv-header">
+                    <span class="rv-rid">{{ rule.rule_id }}</span>
+                    <span class="kind-badge">{{ rule.kind }}</span>
+                    <span class="rv-status {% if rule.is_active %}active{% endif %}">
+                        <span class="rv-status-dot {% if not rule.is_active %}retired{% endif %}"></span>
+                        {% if rule.is_active %}Active — the retriever considers this rule{% else %}Retired — hidden from the picker{% endif %}
+                    </span>
+                </div>
+
+                <h3 class="rv-title">{{ rule.title }}</h3>
+
+                <div class="rv-block criterion">
+                    <div class="rv-block-label">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l3 3 7-7"/></svg>
+                        Criterion
+                    </div>
+                    <div class="rv-block-body">{{ rule.criterion }}</div>
+                </div>
+
+                {% if rule.exception %}
+                <div class="rv-block exception">
+                    <div class="rv-block-label">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h0.01"/></svg>
+                        Exception
+                    </div>
+                    <div class="rv-block-body">{{ rule.exception }}</div>
+                </div>
+                {% endif %}
+
+                <div class="rv-meta">
+                    <div>
+                        <span class="rv-meta-label">Intake fields</span>
+                        {% if rule.fields %}
+                        <div class="rv-chips">
+                            {% for f in rule.fields %}<code>{{ f }}</code>{% endfor %}
+                        </div>
+                        {% else %}
+                        <span class="rv-empty">None declared</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span class="rv-meta-label">Tenant</span>
+                        <div class="rv-block-body">{{ tenant.name if tenant else '—' }}</div>
+                    </div>
+                </div>
+
+                <div class="card-actions">
+                    <button type="button" class="primary" id="rule-edit-toggle">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2l3 3-8 8H3v-3z"/><path d="M10 3l3 3"/></svg>
+                        Edit rule
+                    </button>
+                    <a href="/ui/rules" class="btn ghost">Back to library</a>
+                </div>
+            </div>
+
+            <form id="rule-edit" class="rule-form" method="post" action="/ui/rules/{{ rule.id }}" hidden>
+                {{ csrf_input(request) }}
+
+                <label>Rule ID</label>
+                <div class="rid-fixed" title="Immutable — cited on decision letters">{{ rule.rule_id }}</div>
+
+                <label for="kind">Kind</label>
+                <select id="kind" name="kind">
+                    {% for k in rule_kinds %}
+                    <option value="{{ k }}" {% if rule.kind == k %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="fields">Intake fields</label>
+                <input type="text" id="fields" name="fields"
+                       value="{{ rule.fields|join(', ') }}"
+                       placeholder="household_size, annual_household_income">
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                    Fields listed here trigger the missing-info verdict when they're
+                    blank in the extracted intake.
+                </div>
+
+                <label for="title">Title</label>
+                <input type="text" id="title" name="title" required maxlength="200"
+                       value="{{ rule.title }}"
+                       placeholder="One-line summary the LLM cites">
+
+                <label for="criterion">Criterion</label>
+                <textarea id="criterion" name="criterion" required maxlength="400"
+                          placeholder="The check the reason stage evaluates.">{{ rule.criterion }}</textarea>
+
+                <label for="exception">Exception</label>
+                <textarea id="exception" name="exception" maxlength="400"
+                          placeholder="Optional carve-out or missing-info guidance.">{{ rule.exception or '' }}</textarea>
+
+                <label style="margin-top: 14px; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0">
+                    <input type="checkbox" name="is_active" {% if rule.is_active %}checked{% endif %}>
+                    <span>Active — the retriever will consider this rule</span>
+                </label>
+
+                <div style="margin-top: 20px; display: flex; gap: 8px">
+                    <button class="primary" type="submit">Save changes</button>
+                    <button type="button" class="btn ghost" id="rule-edit-cancel">Cancel</button>
+                </div>
+            </form>
+            </section>
+
+            <section class="tab-panel" id="tab-history" role="tabpanel" aria-labelledby="tab-btn-history" hidden>
+                {% if versions %}
+                <p class="muted" style="font-size: 13px; margin: 4px 0 12px">
+                    Every save writes an immutable snapshot. Click a version to view
+                    the rule exactly as it stood at that moment.
+                </p>
+                <ul class="history-list">
+                    {% for v in versions %}
+                    <li>
+                        <a href="/ui/rules/{{ rule.id }}/versions/{{ v.version }}">
+                            <div class="hist-head">
+                                <span class="hist-ver {% if loop.first %}current{% endif %}">v{{ v.version }}{% if loop.first %} · current{% endif %}</span>
+                                <span class="hist-when">{{ v.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+                            {% if v.change_note %}
+                            <div class="hist-note">{{ v.change_note }}</div>
+                            {% endif %}
+                            <div class="hist-actor">by {{ v.actor_username }}</div>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="muted" style="font-size: 13px">No history yet.</p>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <h3 style="margin-top: 0">Attached programs</h3>
+            {% if attached_programs %}
+            <p class="muted" style="font-size: 12.5px">
+                An edit above ripples to each of these programs immediately.
+            </p>
+            <ul class="attached-list" style="list-style: none; padding: 0; margin: 8px 0 0">
+                {% for p in attached_programs %}
+                <li class="{% if not p.link_active %}paused{% endif %}">
+                    <a href="/ui/programs/{{ p.program_id }}">{{ p.program_name }}</a>
+                    {% if not p.link_active %}<span class="badge">paused</span>{% endif %}
+                    <div class="slug">{{ p.program_slug }}</div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="muted" style="font-size: 13px">
+                No programs use this rule yet. Attach it from a program's detail page.
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="card" style="margin-top: 16px">
+            <h3 style="margin-top: 0">Danger zone</h3>
+            <p class="muted" style="font-size: 13px">
+                Deletes the rule from the library. Every program that attached it
+                loses the link. Prefer retiring (uncheck <em>Active</em>) if you
+                want the citation history to stay legible.
+            </p>
+            <form action="/ui/rules/{{ rule.id }}/delete" method="post"
+                data-confirm="Delete rule {{ rule.rule_id }}? Every program that attached it will lose the link.">
+                {{ csrf_input(request) }}
+                <button class="danger" type="submit" style="width: 100%">Delete rule</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var view = document.getElementById('rule-view');
+    var form = document.getElementById('rule-edit');
+    var editBtn = document.getElementById('rule-edit-toggle');
+    var cancelBtn = document.getElementById('rule-edit-cancel');
+    if (view && form && editBtn && cancelBtn) {
+        function show(mode) {
+            if (mode === 'edit') {
+                view.hidden = true;
+                form.hidden = false;
+                var first = form.querySelector('select, input[type="text"], textarea');
+                if (first) first.focus();
+            } else {
+                form.hidden = true;
+                view.hidden = false;
+            }
+        }
+        editBtn.addEventListener('click', function () { show('edit'); });
+        cancelBtn.addEventListener('click', function () { show('view'); });
+    }
+
+    // Tab strip — mirrors the pattern in admin_program_detail.html so the
+    // hash + sessionStorage keep History selected across saves.
+    var tabs = document.querySelectorAll('.rule-tabs .tab');
+    var panels = document.querySelectorAll('.tab-panel');
+    if (!tabs.length || !panels.length) return;
+    var STORAGE_KEY = 'rule-tab:' + location.pathname;
+    var VALID = ['details', 'history'];
+    function activate(name, persist) {
+        tabs.forEach(function (t) {
+            var on = t.dataset.tab === name;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.forEach(function (p) { p.hidden = p.id !== 'tab-' + name; });
+        try { history.replaceState(null, '', '#' + name); } catch (e) {}
+        if (persist !== false) {
+            try { sessionStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+        }
+    }
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function (e) {
+            e.preventDefault();
+            activate(t.dataset.tab, true);
+        });
+    });
+    var initial = (location.hash || '').replace('#', '');
+    if (VALID.indexOf(initial) === -1) {
+        try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
+    }
+    if (VALID.indexOf(initial) !== -1) activate(initial, false);
+})();
+</script>
+{% endblock %}

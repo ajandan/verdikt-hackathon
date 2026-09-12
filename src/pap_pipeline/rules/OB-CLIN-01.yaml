@@ -5,22 +5,10 @@ fields:
   - prescribed_drug
   - prescriber_npi
   - prescription_date
-text: >
-  Applicant must present a current prescription written by a U.S.-licensed
-  prescriber holding an active National Provider Identifier (NPI) in the
-  NPPES registry. OncoBridge is a drug-agnostic bridge program — it does
-  not restrict eligibility by molecule, brand, or therapeutic area, so any
-  FDA-approved outpatient prescription qualifies clinically provided the
-  prescriber and dating requirements are met.
-
-  `prescribed_drug` must be populated with the brand or generic INN as
-  written on the prescription; the coordinator verifies the drug is
-  FDA-approved for outpatient dispensing at intake. `prescription_date`
-  (form OB-200 Section 4, PRESCRIPTION SUMMARY) must fall within the six
-  months preceding the application — OncoBridge's bridge window is short,
-  and older prescriptions are stale and require re-issue by the prescriber.
-
-  The prescriber's NPI is captured in `prescriber_npi` on form OB-200
-  Section 4 and must be validated live against NPPES. Signature stamps are
-  not accepted; the prescriber's countersignature on OB-200 Section 6
-  (PRESCRIBER ATTESTATION) is required.
+title: Current Rx (any FDA-approved outpatient drug) from active U.S. prescriber
+criterion: >-
+  `prescribed_drug` FDA-approved for outpatient dispensing AND `prescriber_npi`
+  active in NPPES AND `prescription_date` within last 6 months
+exception: >-
+  Signature stamps not accepted — prescriber countersignature on OB-200
+  Section 6 is required.

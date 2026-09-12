@@ -44,6 +44,95 @@
         border-radius: 6px; cursor: pointer;
     }
     .add-row-btn:hover { background: var(--surface); }
+
+    .linked-rule {
+        display: grid;
+        grid-template-columns: 22px 1fr auto;
+        gap: 10px;
+        align-items: start;
+        padding: 12px 4px;
+        border-bottom: 1px solid var(--border);
+    }
+    .linked-rule:last-of-type { border-bottom: none; }
+    .linked-rule.paused { opacity: 0.55; }
+    .linked-rule .pos {
+        color: var(--text-muted); font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        padding-top: 3px;
+    }
+    .linked-rule .body .rid {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; font-weight: 600;
+    }
+    .linked-rule .body .kind-badge {
+        margin-left: 8px;
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+        padding: 2px 8px; border-radius: 999px;
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+    .linked-rule .body .rule-title {
+        margin: 4px 0 0; font-size: 13.5px; font-weight: 600;
+        color: var(--text); line-height: 1.4;
+    }
+    .linked-rule .body .rule-line {
+        margin: 3px 0 0; font-size: 12.5px; color: var(--text);
+        line-height: 1.45;
+    }
+    .linked-rule .body .rule-line .rule-label {
+        display: inline-block; min-width: 68px;
+        font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted); font-weight: 600;
+    }
+    .linked-rule .body .rule-fields {
+        margin-top: 4px; font-size: 11.5px; color: var(--text-muted);
+    }
+    .linked-rule .body .rule-fields code {
+        background: var(--surface-2); padding: 1px 6px; border-radius: 4px;
+        font-size: 11.5px;
+    }
+    .linked-rule .row-actions {
+        display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+        min-width: 130px;
+    }
+    .linked-rule .row-actions button,
+    .linked-rule .row-actions a {
+        font-size: 12px; padding: 4px 10px;
+    }
+    .rule-picker {
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        margin-top: 12px;
+    }
+    .rule-picker select {
+        flex: 1; min-width: 200px; padding: 6px 8px;
+        font-size: 13px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface);
+    }
+
+    /* Same tokens as _inbox_tabs.html so the tab strip matches other pages. */
+    .prog-tabs {
+        display: flex; gap: 0; align-items: baseline; flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        margin: 0 0 20px;
+    }
+    .prog-tabs .tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 16px 11px;
+        font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+        text-decoration: none; border-bottom: 2px solid transparent;
+        margin-bottom: -1px; transition: color 120ms, border-color 120ms;
+    }
+    .prog-tabs .tab:hover { color: var(--text); text-decoration: none; }
+    .prog-tabs .tab.active {
+        color: var(--brand); font-weight: 600;
+        border-bottom-color: var(--brand);
+    }
+    .prog-tabs .tab .tab-count {
+        display: inline-flex; align-items: center;
+        padding: 1px 6px; border-radius: 8px;
+        background: var(--surface-2); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); line-height: 1.4;
+    }
+    .tab-panel[hidden] { display: none; }
 </style>
 
 <p class="breadcrumb">
@@ -70,6 +159,15 @@
     </div>
 </div>
 
+<nav class="prog-tabs" role="tablist" aria-label="Program sections">
+    <a href="#extraction" class="tab active" role="tab" data-tab="extraction" aria-selected="true" aria-controls="tab-extraction" id="tab-btn-extraction">Extraction schema</a>
+    <a href="#rules" class="tab" role="tab" data-tab="rules" aria-selected="false" aria-controls="tab-rules" id="tab-btn-rules">
+        Attached rules
+        {% if attached_rules %}<span class="tab-count">{{ attached_rules|length }}</span>{% endif %}
+    </a>
+</nav>
+
+<section class="tab-panel" id="tab-extraction" role="tabpanel" aria-labelledby="tab-btn-extraction">
 <div class="prog-grid">
     <div>
         <div class="card">
@@ -200,6 +298,88 @@
         </div>
     </div>
 </div>
+</section>
+
+<section class="tab-panel" id="tab-rules" role="tabpanel" aria-labelledby="tab-btn-rules" hidden>
+    <div class="card">
+        <div class="card-header">
+            <h2>Attached rules</h2>
+                <span class="subtle">
+                    {{ attached_rules|length }} attached · edit the rule text in the
+                    <a href="/ui/rules">rule library</a>
+                </span>
+            </div>
+            <p class="muted" style="font-size: 13px; margin-top: 0">
+                Pick rules from your tenant's library. Editing a rule in the library
+                updates every program that has it attached. Use <em>Pause</em> to
+                skip a rule for this program only; use <em>Detach</em> to remove
+                the link (the library rule is untouched).
+            </p>
+
+            {% for r in attached_rules %}
+            <div class="linked-rule {% if not r.link_active or not r.rule_active %}paused{% endif %}">
+                <div class="pos">#{{ loop.index }}</div>
+                <div class="body">
+                    <a href="/ui/rules/{{ r.rule_id }}" class="rid">{{ r.public_id }}</a>
+                    <span class="kind-badge">{{ r.kind }}</span>
+                    {% if not r.link_active %}
+                    <span class="badge">paused</span>
+                    {% elif not r.rule_active %}
+                    <span class="badge">retired</span>
+                    {% endif %}
+                    <p class="rule-title">{{ r.title }}</p>
+                    <p class="rule-line"><span class="rule-label">Criterion</span>{{ r.criterion }}</p>
+                    {% if r.exception %}
+                    <p class="rule-line"><span class="rule-label">Exception</span>{{ r.exception }}</p>
+                    {% endif %}
+                    {% if r.fields %}
+                    <div class="rule-fields">
+                        Uses:
+                        {% for f in r.fields %}<code>{{ f }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="row-actions">
+                    <form method="post" action="/ui/programs/{{ program.id }}/rule-links/{{ r.link_id }}/toggle">
+                        {{ csrf_input(request) }}
+                        <button class="btn ghost" type="submit">
+                            {% if r.link_active %}Pause{% else %}Enable{% endif %}
+                        </button>
+                    </form>
+                    <form method="post" action="/ui/programs/{{ program.id }}/rule-links/{{ r.link_id }}/delete"
+                          data-confirm="Detach rule {{ r.public_id }} from this program?">
+                        {{ csrf_input(request) }}
+                        <button class="btn danger" type="submit">Detach</button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <p class="muted" style="font-size: 13px">
+                No rules attached yet. Attach one from the library below, or
+                <a href="/ui/rules">create a new library rule</a> first.
+            </p>
+            {% endfor %}
+
+            {% if available_rules %}
+            <form class="rule-picker" method="post" action="/ui/programs/{{ program.id }}/rule-links">
+                {{ csrf_input(request) }}
+                <label for="attach-rule-id" style="font-size: 12.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em">Attach from library</label>
+                <select id="attach-rule-id" name="rule_id" required>
+                    <option value="">— pick a rule —</option>
+                    {% for r in available_rules %}
+                    <option value="{{ r.id }}">{{ r.rule_id }} — {{ r.kind }} — {{ r.title }}</option>
+                    {% endfor %}
+                </select>
+                <button class="primary" type="submit">Attach</button>
+            </form>
+            {% else %}
+            <p class="muted" style="font-size: 12.5px; margin-top: 12px">
+                No more library rules available for this tenant.
+                <a href="/ui/rules">Add one to the library</a> to attach it here.
+            </p>
+            {% endif %}
+    </div>
+</section>
 
 <template id="slot-row-template">
     <tr>
@@ -233,12 +413,41 @@
         tbody.appendChild(frag);
     });
 
-    // Confirm on danger-zone delete
-    document.querySelectorAll('form[data-confirm]').forEach(function(f) {
-        f.addEventListener('submit', function(e) {
-            if (!window.confirm(f.getAttribute('data-confirm'))) e.preventDefault();
+    var tabs = document.querySelectorAll('.prog-tabs .tab');
+    var panels = document.querySelectorAll('.tab-panel');
+    var STORAGE_KEY = 'prog-tab:' + location.pathname;
+    function activate(name, persist) {
+        tabs.forEach(function (t) {
+            var on = t.dataset.tab === name;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.forEach(function (p) { p.hidden = p.id !== 'tab-' + name; });
+        try { history.replaceState(null, '', '#' + name); } catch (e) {}
+        if (persist !== false) {
+            try { sessionStorage.setItem(STORAGE_KEY, name); } catch (e) {}
+        }
+    }
+    tabs.forEach(function (t) {
+        t.addEventListener('click', function (e) {
+            e.preventDefault();
+            activate(t.dataset.tab, true);
         });
     });
+    // Any form submitted from inside the rules panel should return to
+    // that tab after the server redirect. We stash the current tab in
+    // sessionStorage on submit so the reload restores it.
+    var rulesPanel = document.getElementById('tab-rules');
+    if (rulesPanel) {
+        rulesPanel.addEventListener('submit', function () {
+            try { sessionStorage.setItem(STORAGE_KEY, 'rules'); } catch (e) {}
+        }, true);
+    }
+    var initial = (location.hash || '').replace('#', '');
+    if (initial !== 'rules' && initial !== 'extraction') {
+        try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
+    }
+    if (initial === 'rules' || initial === 'extraction') activate(initial, false);
 })();
 </script>
 {% endblock %}

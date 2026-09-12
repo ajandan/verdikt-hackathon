@@ -51,16 +51,13 @@
     .card.flush.attached th, .card.flush.attached td {
         vertical-align: middle;
     }
+    .col-expand    { width: 40px;  }
     .col-case      { width: 110px; }
     .col-received  { width: 128px; }
-    .col-from      { width: 190px; }
+    .col-from      { width: 22%;   }
     .col-subject   { width: auto;  }
-    .col-tenant    { width: 90px;  }
-    .col-template  { width: 170px; }
-    .col-score     { width: 72px;  }
-    .col-ingest    { width: 108px; }
     .col-review    { width: 108px; }
-    .col-action    { width: 84px;  }
+    .col-action    { width: 56px;  }
     .case-id {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; font-weight: 600; color: var(--brand);
@@ -70,15 +67,74 @@
     .card.flush.attached td.score-cell,
     .card.flush.attached td:first-child,
     .card.flush.attached td:last-child { white-space: nowrap; }
+    .card.flush.attached td.muted {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     .card.flush.attached td .badge { white-space: nowrap; }
     .score-cell { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
-    .subject-cell {
+    .subject-cell { line-height: 1.4; }
+    .subject-cell.replied .subject-clamp {
+        color: var(--success, #16a34a);
+        font-weight: 500;
+    }
+    .subject-clamp {
         display: -webkit-box;
-        -webkit-line-clamp: 3;
+        -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        line-height: 1.4;
+        text-overflow: ellipsis;
+        word-break: break-word;
         white-space: normal;
+        max-width: 100%;
+    }
+    .expand-cell { padding-left: 10px; padding-right: 0; }
+    .expand-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 24px; height: 24px; padding: 0;
+        background: transparent; border: 1px solid transparent;
+        border-radius: 6px; color: var(--text-muted, #64748b);
+        cursor: pointer;
+    }
+    .expand-btn:hover { background: var(--surface-2); color: var(--text); }
+    .expand-btn:focus-visible {
+        outline: 2px solid var(--brand, #6366f1);
+        outline-offset: 1px;
+    }
+    .expand-btn .chev { transition: transform 0.15s ease; display: block; }
+    .ev-row.is-expanded .expand-btn { color: var(--brand); }
+    .ev-row.is-expanded .expand-btn .chev { transform: rotate(90deg); }
+    .ev-row.is-expanded > td { background: var(--surface-2, #f8fafc); }
+    .ev-detail > td {
+        padding: 14px 20px 18px;
+        background: var(--surface-2, #f8fafc);
+        border-top: 1px dashed var(--border, #e2e8f0);
+        white-space: normal;
+    }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px 28px;
+        margin: 0;
+    }
+    .detail-item { min-width: 0; }
+    .detail-item.detail-item-wide { grid-column: 1 / -1; }
+    .detail-item dt {
+        font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
+        text-transform: uppercase; color: var(--text-muted, #64748b);
+        margin: 0 0 4px;
+    }
+    .detail-item dd {
+        margin: 0; font-size: 13.5px;
+        line-height: 1.5;
+        min-width: 0; max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+    .detail-item dd a {
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .from-cell {
         overflow: hidden;
@@ -93,11 +149,6 @@
     .attach-chip {
         display: inline-flex; align-items: center; gap: 4px;
         font-size: 11.5px; color: var(--text-muted);
-    }
-    .reply-sent {
-        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-        background: var(--success, #16a34a); margin-right: 4px;
-        vertical-align: middle;
     }
 </style>
 
@@ -153,62 +204,43 @@
 
 <div class="card flush attached">
     {% if events %}
-    <table>
+    <table id="inbox-table">
         <colgroup>
+            <col class="col-expand">
             <col class="col-case">
             <col class="col-received">
             <col class="col-from">
             <col class="col-subject">
-            <col class="col-tenant">
-            <col class="col-template">
-            <col class="col-score">
-            <col class="col-ingest">
             <col class="col-review">
             <col class="col-action">
         </colgroup>
         <thead>
             <tr>
+                <th></th>
                 <th>Case</th>
                 <th>Received</th>
                 <th>From</th>
                 <th>Subject</th>
-                <th>Tenant</th>
-                <th>Template</th>
-                <th>Score</th>
-                <th>Ingest</th>
                 <th>Review</th>
                 <th></th>
             </tr>
         </thead>
         <tbody>
         {% for e in events %}
-            <tr>
+            <tr class="ev-row" data-detail="ev-detail-{{ e.id }}">
+                <td class="expand-cell">
+                    <button type="button" class="expand-btn" aria-expanded="false" aria-controls="ev-detail-{{ e.id }}" aria-label="Show more details">
+                        <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3 L 7.5 6 L 4.5 9"/></svg>
+                    </button>
+                </td>
                 <td><a href="/ui/inbox/{{ e.id }}" class="case-id">{{ e.case_number|case_id }}</a></td>
                 <td class="muted">{{ e.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td class="from-cell" title="{{ e.from_addr }}">{{ e.from_addr }}</td>
-                <td class="subject-cell" title="{{ e.subject or '' }}">
-                    {% if e.reply_message_id %}<span class="reply-sent" title="Reply sent"></span>{% endif %}
-                    {{ e.subject or '(no subject)' }}
-                    {% if e.attachment_name %}<span class="attach-chip" title="{{ e.attachment_name }}">📎</span>{% endif %}
-                </td>
-                <td class="muted">{{ e.tenant_name or '—' }}</td>
-                <td class="template-cell">
-                    {% if e.template_id %}
-                        <a href="/ui/templates/{{ e.template_id }}" title="{{ e.template_name or e.template_id }}">{{ e.template_name or e.template_id }}</a>
-                    {% else %}
-                        <span class="muted">—</span>
-                    {% endif %}
-                </td>
-                <td class="score-cell">
-                    {% if e.score is not none %}{{ '%.1f'|format(e.score) }}{% else %}—{% endif %}
-                </td>
-                <td>
-                    {% if e.status == 'succeeded' %}<span class="badge accept">succeeded</span>
-                    {% elif e.status == 'failed' %}<span class="badge reject">failed</span>
-                    {% elif e.status == 'skipped' %}<span class="badge">skipped</span>
-                    {% elif e.status == 'processing' %}<span class="badge info">processing</span>
-                    {% else %}<span class="badge draft">{{ e.status }}</span>
-                    {% endif %}
+                <td class="subject-cell{% if e.reply_message_id %} replied{% endif %}">
+                    <div class="subject-clamp">
+                        {{ e.subject or '(no subject)' }}
+                        {% if e.attachment_name %}<span class="attach-chip" title="{{ e.attachment_name }}">📎</span>{% endif %}
+                    </div>
                 </td>
                 <td>
                     {% if e.review_state == 'pending_review' %}<span class="badge draft">pending</span>
@@ -222,6 +254,52 @@
                     <a href="/ui/inbox/{{ e.id }}" class="icon-btn" title="Review this ingest" aria-label="Review this ingest">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
                     </a>
+                </td>
+            </tr>
+            <tr class="ev-detail" id="ev-detail-{{ e.id }}" hidden>
+                <td></td>
+                <td colspan="6">
+                    <dl class="detail-grid">
+                        <div class="detail-item">
+                            <dt>Tenant</dt>
+                            <dd>{{ e.tenant_name or '—' }}</dd>
+                        </div>
+                        <div class="detail-item">
+                            <dt>Template</dt>
+                            <dd>
+                                {% if e.template_id %}
+                                    <a href="/ui/templates/{{ e.template_id }}">{{ e.template_name or e.template_id }}</a>
+                                {% else %}—{% endif %}
+                            </dd>
+                        </div>
+                        <div class="detail-item">
+                            <dt>Score</dt>
+                            <dd>{% if e.score is not none %}{{ '%.1f'|format(e.score) }}{% else %}—{% endif %}</dd>
+                        </div>
+                        <div class="detail-item">
+                            <dt>Ingest</dt>
+                            <dd>
+                                {% if e.status == 'succeeded' %}<span class="badge accept">succeeded</span>
+                                {% elif e.status == 'failed' %}<span class="badge reject">failed</span>
+                                {% elif e.status == 'skipped' %}<span class="badge">skipped</span>
+                                {% elif e.status == 'processing' %}<span class="badge info">processing</span>
+                                {% else %}<span class="badge draft">{{ e.status }}</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        {% if e.attachment_name %}
+                        <div class="detail-item">
+                            <dt>Attachment</dt>
+                            <dd>{{ e.attachment_name }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if e.subject %}
+                        <div class="detail-item detail-item-wide">
+                            <dt>Full subject</dt>
+                            <dd>{{ e.subject }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
                 </td>
             </tr>
         {% endfor %}
@@ -243,4 +321,22 @@
     </div>
     {% endif %}
 </div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    var rows = document.querySelectorAll('#inbox-table .ev-row');
+    rows.forEach(function (row) {
+        var btn = row.querySelector('.expand-btn');
+        var detailId = row.getAttribute('data-detail');
+        var detail = detailId ? document.getElementById(detailId) : null;
+        if (!btn || !detail) return;
+        btn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var expanded = row.classList.toggle('is-expanded');
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            detail.hidden = !expanded;
+        });
+    });
+})();
+</script>
 {% endblock %}

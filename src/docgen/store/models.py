@@ -91,6 +91,158 @@ class Program(Base):
     )
 
 
+class Rule(Base):
+    """One editable eligibility rule in the tenant's master rule library.
+
+    Rules were originally YAML packs shipped with the pipeline (see
+    `pap_pipeline/rules/*.yaml`). This table lifts them into a tenant-scoped,
+    editable library so ops can add / edit / retire rules from the admin UI
+    without a code deploy. Rules attach to programs through `ProgramRuleLink`
+    — one rule can be reused by many programs, and edits propagate to every
+    program that links it.
+
+    `rule_id` is the stable public identifier cited in Decision.citations —
+    e.g. "CV-INC-01". Kept string-based (not UUID) so it stays legible in
+    the reply letter and the decision ledger. Unique per tenant so a rule
+    id printed on a letter always refers to one rule row.
+    """
+
+    __tablename__ = "rules"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "rule_id", name="uq_rules_tenant_rule_id"),
+        CheckConstraint(
+            "kind IN ('financial', 'insurance', 'residency', 'clinical')",
+            name="ck_rules_kind",
+        ),
+        Index("ix_rules_tenant_id", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Structured rule body. Kept short so the LLM sees a compact contract and
+    # the coordinator reads the same block on the detail card.
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    criterion: Mapped[str] = mapped_column(String(400), nullable=False)
+    exception: Mapped[str] = mapped_column(String(400), nullable=False, default="", server_default="")
+    # Intake field names this rule needs to be evaluable. When any listed
+    # field is None at reason time, the rule contributes to missing_fields
+    # rather than a match/fail verdict.
+    fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    # Library-level active flag. A rule with is_active=False is hidden from
+    # the picker and skipped by the retriever even for programs that link it
+    # — think "retired rule" rather than "temporarily off for this program".
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class RuleVersion(Base):
+    """Immutable snapshot of a Rule row at a specific point in time.
+
+    Written on every rule create and rule update. Enables a compliance-grade
+    history: any decision letter cites a rule id + an implicit "as of" date,
+    and this table lets ops reconstruct exactly what the LLM saw at that
+    moment.
+
+    `version` is monotonic per rule (1 on create, then 2, 3, …). Rollback is
+    not built in — a "restore" is implemented as writing a new version whose
+    payload equals the older snapshot's payload, so history stays append-only.
+    """
+
+    __tablename__ = "rule_versions"
+    __table_args__ = (
+        UniqueConstraint("rule_id", "version", name="uq_rule_versions_rule_version"),
+        Index("ix_rule_versions_rule_id", "rule_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("rules.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Snapshot of the mutable rule body at save time. Public rule_id is
+    # snapshotted too so a rename (should we ever allow it) leaves the older
+    # citations legible.
+    public_rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    criterion: Mapped[str] = mapped_column(String(400), nullable=False)
+    exception: Mapped[str] = mapped_column(String(400), nullable=False, default="")
+    fields: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    # Actor context. `actor_user_id` is null when the write came from the
+    # env-var break-glass super_admin (no DB user row) or from a backfill.
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("admin_users.id", ondelete="SET NULL"),
+    )
+    actor_username: Mapped[str] = mapped_column(String(255), nullable=False, default="system")
+    change_note: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProgramRuleLink(Base):
+    """Join row: this program uses this rule from the library.
+
+    Split from :class:`Rule` so a single library rule can be attached to
+    many programs. Per-program `position` orders the reviewer view; per-
+    program `is_active` lets a program temporarily skip a rule without
+    detaching it or hiding it from other programs. Deletions cascade both
+    ways — if the rule is retired or the program is deleted, the link
+    disappears.
+    """
+
+    __tablename__ = "program_rule_links"
+    __table_args__ = (
+        UniqueConstraint("program_id", "rule_id", name="uq_program_rule_links_pair"),
+        Index("ix_program_rule_links_program_id", "program_id"),
+        Index("ix_program_rule_links_rule_id", "rule_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    program_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("programs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("rules.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class Template(Base):
     __tablename__ = "templates"
 

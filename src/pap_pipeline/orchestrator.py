@@ -33,6 +33,7 @@ from pydantic import ValidationError
 
 from pap_pipeline.schemas.decision import Citation, Decision
 from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig, extract
 from pap_pipeline.stages.reason import ReasonClientConfig, reason
 from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
@@ -57,6 +58,7 @@ async def run_from_intake(
     config: PipelineConfig,
     program: str | None = None,
     extras: dict[str, Any] | None = None,
+    rules: list[Rule] | None = None,
     k: int = 4,
 ) -> Decision:
     """Run retrieve → reason against an already-extracted Intake.
@@ -64,12 +66,19 @@ async def run_from_intake(
     This is the "middle-slice" entry point used by tests, by the demo
     script that feeds `load_canonical_intake()`, and (until Stage 1 lands)
     by the inbox agent when the extract stage is being stubbed.
+
+    `rules` is an explicit corpus that overrides the retrieve stage's YAML
+    loader — the inbox agent resolves DB-backed rules via
+    `pap_pipeline.rules.load_rules(session=...)` and hands them in so the
+    pap_pipeline package stays ignorant of the docgen.store boundary.
     """
     retrieved = await retrieve(
-        intake, config=config.retrieve, program=program, k=k
+        intake, config=config.retrieve, program=program, rules=rules, k=k
     )
-    rules = [rr.rule for rr in retrieved]
-    decision = await reason(intake, rules, config=config.reason, extras=extras)
+    reranked_rules = [rr.rule for rr in retrieved]
+    decision = await reason(
+        intake, reranked_rules, config=config.reason, extras=extras
+    )
     return _attach_retrieval_scores(decision, retrieved)
 
 
@@ -104,6 +113,7 @@ async def run(
     config: PipelineConfig,
     program: str | None = None,
     slots: list[dict[str, Any]] | None = None,
+    rules: list[Rule] | None = None,
     k: int = 4,
 ) -> Decision:
     """Full pipeline — attachments in, Decision out.
@@ -113,7 +123,12 @@ async def run(
     inbound message when `use_pipeline_backend` is enabled for the tenant.
     """
     _, _, decision = await run_with_intake(
-        attachments, config=config, program=program, slots=slots, k=k
+        attachments,
+        config=config,
+        program=program,
+        slots=slots,
+        rules=rules,
+        k=k,
     )
     return decision
 
@@ -124,6 +139,7 @@ async def run_with_intake(
     config: PipelineConfig,
     program: str | None = None,
     slots: list[dict[str, Any]] | None = None,
+    rules: list[Rule] | None = None,
     k: int = 4,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Same as :func:`run` but also returns the raw extraction dict + Intake.
@@ -140,7 +156,12 @@ async def run_with_intake(
     intake = _intake_from_extraction(raw)
     extras = _extras_from_extraction(raw)
     decision = await run_from_intake(
-        intake, config=config, program=program, extras=extras, k=k
+        intake,
+        config=config,
+        program=program,
+        extras=extras,
+        rules=rules,
+        k=k,
     )
     return raw, intake, decision
 

@@ -151,7 +151,9 @@ def _build_user_message(
                     "id": r.id,
                     "kind": r.kind,
                     "fields": r.fields,
-                    "text": r.text.strip(),
+                    "title": r.title,
+                    "criterion": r.criterion,
+                    "exception": r.exception,
                 }
                 for r in rules
             ],

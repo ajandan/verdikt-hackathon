@@ -26,8 +26,10 @@ from docgen.store.blob import get_object, put_object
 from docgen.store.models import InboxEvent, Program, Template, TemplateVersion, Tenant
 
 from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
+from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
 from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig
 from pap_pipeline.stages.reason import ReasonClientConfig
 from pap_pipeline.stages.retrieve import RetrieveClientConfig
@@ -526,18 +528,31 @@ def _run_pipeline(
     attachments: list[bytes],
     program: str | None,
     slots: list[dict[str, Any]] | None,
+    rules: list[Rule] | None,
     settings: Settings,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
     here; each call gets its own loop and NullPool means no cross-loop DB
     reuse). Returns the raw extraction dict, the Intake coerced from it, and
     the Decision — the raw dict is what the UI and reply mapper read to see
-    program-specific slots that Intake doesn't carry."""
+    program-specific slots that Intake doesn't carry.
+
+    `rules` is the tenant/program-scoped corpus resolved from the DB (with
+    a YAML fallback baked in). Passing it here rather than letting the
+    retrieve stage load its own copy keeps the docgen.store boundary on
+    the calling side — pap_pipeline stages never touch the DB directly.
+    """
     import asyncio
 
     config = _pipeline_config(settings)
     return asyncio.run(
-        run_with_intake(attachments, config=config, program=program, slots=slots)
+        run_with_intake(
+            attachments,
+            config=config,
+            program=program,
+            slots=slots,
+            rules=rules,
+        )
     )
 
 
@@ -571,8 +586,20 @@ def _handler(
     # even if the pipeline itself blows up mid-run.
     event.inbound_attachments = _persist_inbound_attachments(event, msg, settings)
     slots = _resolve_program_slots(session, tenant, program)
+    # Resolve the rule corpus on this side of the boundary so pap_pipeline
+    # stages stay ignorant of docgen.store. load_rules resolves the tenant's
+    # library rules linked to this program via `program_rule_links`, and
+    # falls through to the YAML pack when no Program row matches.
+    rules = (
+        load_rules(program, session=session, tenant_id=tenant.id)
+        if program
+        else None
+    )
     schema_source = (
         f"program schema ({len(slots)} slots)" if slots else "built-in default schema"
+    )
+    rules_source = (
+        f"program rules ({len(rules)} active)" if rules else "YAML fallback"
     )
     _append_audit(
         event,
@@ -580,14 +607,19 @@ def _handler(
         actor=_AI_ACTOR,
         note=(
             f"Received {len(attachments)} attachment(s) from {event.from_addr}. "
-            f"Program: {program or 'default'}. Extraction: {schema_source}."
+            f"Program: {program or 'default'}. Extraction: {schema_source}. "
+            f"Rules: {rules_source}."
         ),
     )
     session.commit()
 
     try:
         raw_extraction, intake, decision = _run_pipeline(
-            attachments, program=program, slots=slots, settings=settings
+            attachments,
+            program=program,
+            slots=slots,
+            rules=rules,
+            settings=settings,
         )
     except Exception as e:
         event.status = "failed"

@@ -288,10 +288,14 @@
                 </td>
                 <td class="rule-text">
                     {% if rule %}
-                        {{ rule.text }}
+                        <strong>{{ rule.title }}</strong>
                         <span class="kind">{{ rule.kind }}</span>
+                        <div>{{ rule.criterion }}</div>
+                        {% if rule.exception %}
+                        <div><em>Exception:</em> {{ rule.exception }}</div>
+                        {% endif %}
                     {% else %}
-                        <span class="missing">(rule text not found)</span>
+                        <span class="missing">(rule not found)</span>
                     {% endif %}
                 </td>
             </tr>
@@ -343,5 +347,46 @@
         <dd>{% if event.reply_message_id %}<code>{{ event.reply_message_id }}</code>{% else %}<span class="missing">(not sent — awaiting approval)</span>{% endif %}</dd>
     </dl>
 </div>
+
+<div class="card">
+    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px;">
+        <h2 class="text-[15px] font-semibold m-0">
+            Downstream JSON verdict
+            <span class="text-ink-muted text-[12.5px] font-normal">· the second artifact — for CRM, call center ops, case-mgmt</span>
+        </h2>
+        <div style="display:flex; gap:8px;">
+            <button type="button" id="verdict-copy-btn" class="btn" style="font-size:12px; padding:4px 10px;">Copy JSON</button>
+            {% if verdict_download_url %}
+            <a href="{{ verdict_download_url }}" class="btn" style="font-size:12px; padding:4px 10px;" download>Download</a>
+            {% endif %}
+        </div>
+    </div>
+    <p class="text-ink-muted text-[12.5px] m-0 mb-2">
+        Same object the audit trail and the downstream systems consume — the reply letter
+        and this verdict share one source of truth, so the operational path and the audit
+        path can't drift.
+    </p>
+    <pre class="json-pre" id="verdict-json" style="max-height:420px">{{ verdict_json }}</pre>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+  const btn = document.getElementById('verdict-copy-btn');
+  const pre = document.getElementById('verdict-json');
+  if (!btn || !pre) return;
+  btn.addEventListener('click', async () => {
+    const text = pre.textContent || '';
+    try {
+      await navigator.clipboard.writeText(text);
+      const orig = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.textContent = orig; }, 1400);
+    } catch (_e) {
+      btn.textContent = 'Copy failed';
+      setTimeout(() => { btn.textContent = 'Copy JSON'; }, 1400);
+    }
+  });
+})();
+</script>
 
 {% endblock %}

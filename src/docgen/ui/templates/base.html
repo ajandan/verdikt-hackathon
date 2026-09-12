@@ -845,6 +845,10 @@
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 3.5h11v2h-11z"/><path d="M2.5 7h11v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z"/><path d="M6 10h4"/></svg>
                     <span class="nav-label">Programs</span>
                 </a>
+                <a href="/ui/rules" class="nav-link {% if active == 'rules' %}active{% endif %}" data-tooltip="Rules library">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>
+                    <span class="nav-label">Rules</span>
+                </a>
                 <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}" data-tooltip="Templates">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
                     <span class="nav-label">Templates</span>

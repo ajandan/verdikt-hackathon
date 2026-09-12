@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}{{ rule.rule_id }} v{{ snapshot.version }} — Rule history{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .snapshot-banner {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 10px 14px; margin: 0 0 20px;
+        border: 1px solid var(--border); border-radius: 8px;
+        background: var(--surface-2);
+        font-size: 13px; color: var(--text);
+    }
+    .snapshot-banner.current {
+        background: var(--brand-soft);
+        border-color: var(--brand-soft);
+    }
+    .snapshot-banner .sb-ver {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; font-weight: 600;
+        padding: 3px 9px; border-radius: 5px;
+        background: var(--surface); border: 1px solid var(--border);
+    }
+    .snapshot-banner .sb-meta { color: var(--text-muted); font-size: 12.5px; }
+    .snapshot-banner .sb-actions { margin-left: auto; }
+
+    .rule-view .rv-header {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        padding: 18px 0 4px;
+    }
+    .rule-view .rv-rid {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px; font-weight: 600;
+        padding: 4px 10px; border-radius: 6px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        color: var(--text);
+    }
+    .rule-view .rv-status-dot {
+        display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+        background: var(--success, #22c55e); margin-right: 6px;
+        vertical-align: middle;
+    }
+    .rule-view .rv-status-dot.retired { background: var(--text-muted); }
+    .rule-view .rv-status { font-size: 12px; color: var(--text-muted); }
+    .rule-view .rv-status.active { color: var(--text); }
+    .rule-view .rv-title {
+        font-size: 20px; font-weight: 600; line-height: 1.3;
+        margin: 12px 0 20px; color: var(--text);
+        text-transform: none; letter-spacing: normal;
+    }
+    .rule-view .rv-block {
+        border: 1px solid var(--border); border-radius: 8px;
+        padding: 14px 16px; margin-top: 12px;
+        background: var(--surface);
+    }
+    .rule-view .rv-block.criterion {
+        background: var(--brand-soft); border-color: var(--brand-soft);
+    }
+    .rule-view .rv-block.exception { background: var(--surface-2); }
+    .rule-view .rv-block-label {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.06em; font-weight: 600;
+        color: var(--text-muted); margin-bottom: 6px;
+    }
+    .rule-view .rv-block.criterion .rv-block-label { color: var(--brand); }
+    .rule-view .rv-block-body {
+        font-size: 14px; color: var(--text); line-height: 1.55;
+    }
+    .rule-view .rv-block-body code {
+        background: var(--surface); padding: 1px 6px; border-radius: 4px;
+        font-size: 12.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .rule-view .rv-meta {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 24px; margin-top: 18px;
+        padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    @media (max-width: 640px) { .rule-view .rv-meta { grid-template-columns: 1fr; } }
+    .rule-view .rv-meta-label {
+        display: block; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .rule-view .rv-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .rule-view .rv-chips code {
+        background: var(--surface-2); padding: 3px 9px; border-radius: 999px;
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text); border: 1px solid var(--border);
+    }
+    .rule-view .rv-empty { color: var(--text-muted); font-size: 13px; }
+    .rule-view .card-actions { margin-top: 22px; display: flex; gap: 8px; }
+    .kind-badge {
+        display: inline-block; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px;
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/rules">Rules</a>
+    <span>/</span>
+    <a href="/ui/rules/{{ rule.id }}">{{ rule.rule_id }}</a>
+    <span>/</span>
+    v{{ snapshot.version }}
+</p>
+
+<div class="page-header">
+    <div>
+        <h1>{{ rule.rule_id }} — version {{ snapshot.version }}</h1>
+        <p class="page-subtitle">
+            Tenant <strong>{{ tenant.name if tenant else '—' }}</strong> ·
+            snapshotted {{ snapshot.created_at.strftime('%Y-%m-%d %H:%M UTC') }}
+            by <strong>{{ snapshot.actor_username }}</strong>
+        </p>
+    </div>
+</div>
+
+<div class="snapshot-banner {% if is_current %}current{% endif %}">
+    <span class="sb-ver">v{{ snapshot.version }}{% if is_current %} · current{% endif %}</span>
+    {% if snapshot.change_note %}
+    <span class="sb-meta">{{ snapshot.change_note }}</span>
+    {% endif %}
+    {% if not is_current %}
+    <span class="sb-meta">Latest is v{{ latest_version }} — this is a historical snapshot.</span>
+    {% endif %}
+    <span class="sb-actions">
+        <a href="/ui/rules/{{ rule.id }}" class="btn ghost">Back to current</a>
+    </span>
+</div>
+
+<div class="card">
+    <div class="rule-view">
+        <div class="rv-header">
+            <span class="rv-rid">{{ snapshot.public_rule_id }}</span>
+            <span class="kind-badge">{{ snapshot.kind }}</span>
+            <span class="rv-status {% if snapshot.is_active %}active{% endif %}">
+                <span class="rv-status-dot {% if not snapshot.is_active %}retired{% endif %}"></span>
+                {% if snapshot.is_active %}Active at this version{% else %}Retired at this version{% endif %}
+            </span>
+        </div>
+
+        <h3 class="rv-title">{{ snapshot.title }}</h3>
+
+        <div class="rv-block criterion">
+            <div class="rv-block-label">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l3 3 7-7"/></svg>
+                Criterion
+            </div>
+            <div class="rv-block-body">{{ snapshot.criterion }}</div>
+        </div>
+
+        {% if snapshot.exception %}
+        <div class="rv-block exception">
+            <div class="rv-block-label">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h0.01"/></svg>
+                Exception
+            </div>
+            <div class="rv-block-body">{{ snapshot.exception }}</div>
+        </div>
+        {% endif %}
+
+        <div class="rv-meta">
+            <div>
+                <span class="rv-meta-label">Intake fields</span>
+                {% if snapshot.fields %}
+                <div class="rv-chips">
+                    {% for f in snapshot.fields %}<code>{{ f }}</code>{% endfor %}
+                </div>
+                {% else %}
+                <span class="rv-empty">None declared</span>
+                {% endif %}
+            </div>
+            <div>
+                <span class="rv-meta-label">Saved by</span>
+                <div class="rv-block-body">{{ snapshot.actor_username }}</div>
+            </div>
+        </div>
+
+        <div class="card-actions">
+            <a href="/ui/rules/{{ rule.id }}" class="primary btn">Back to current rule</a>
+            <a href="/ui/rules" class="btn ghost">Back to library</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

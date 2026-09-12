@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Rules — Verdikt{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .rules-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .rules-grid { grid-template-columns: 1fr; } }
+    .rules-grid .card.flush { overflow-x: auto; }
+    .rules-grid table { table-layout: fixed; min-width: 640px; }
+    .rules-grid th, .rules-grid td {
+        overflow: hidden; padding: 10px 12px;
+    }
+    .col-tenant   { width: 110px; }
+    .col-rule     { width: auto; }
+    .col-kind     { width: 96px; }
+    .col-programs { width: 70px; text-align: center; }
+    .col-status   { width: 78px; }
+    .col-actions  { width: 84px; }
+    .row-actions {
+        display: inline-flex; gap: 2px; justify-content: flex-end;
+    }
+    .row-icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 6px;
+        color: var(--text-muted); text-decoration: none;
+        border: 1px solid transparent;
+    }
+    .row-icon:hover {
+        color: var(--brand); background: var(--surface-2);
+        border-color: var(--border); text-decoration: none;
+    }
+    .rule-cell { min-width: 0; }
+    .rule-cell .rid {
+        display: block; font-weight: 600;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rule-cell .snippet {
+        display: block; color: var(--text-muted); font-size: 12.5px;
+        margin-top: 2px; max-width: 100%;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .kind-badge {
+        display: inline-block; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.05em; padding: 2px 8px; border-radius: 999px;
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+    .badge.inactive { background: var(--surface-2); color: var(--text-muted); }
+    .create-form label { display: block; margin-top: 12px; }
+    .create-form input[type="text"],
+    .create-form textarea,
+    .create-form select {
+        width: 100%; box-sizing: border-box; margin-top: 4px;
+        padding: 6px 8px; font-size: 13px;
+        border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); font-family: inherit;
+    }
+    .create-form textarea { min-height: 72px; resize: vertical; }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Rules library</h1>
+        <p class="page-subtitle">
+            The tenant's master eligibility rules. Edit a rule here and every
+            program that has it attached picks up the change on the next
+            inbound case — no restart.
+        </p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ rules|length }} rule{{ 's' if rules|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="rules-grid">
+    {% if rules %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All rules</h2>
+            <span class="subtle">Grouped by tenant</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th class="col-tenant">Tenant</th>
+                    <th class="col-rule">Rule</th>
+                    <th class="col-kind">Kind</th>
+                    <th class="col-programs">Programs</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-actions" data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in rules %}
+                <tr>
+                    <td class="col-tenant">{{ r.tenant_name }}</td>
+                    <td class="col-rule">
+                        <div class="rule-cell">
+                            <span class="rid">{{ r.rule_id }}</span>
+                            <span class="snippet">{{ r.title }}</span>
+                        </div>
+                    </td>
+                    <td class="col-kind"><span class="kind-badge">{{ r.kind }}</span></td>
+                    <td class="col-programs" data-sort="{{ r.attached_programs }}">{{ r.attached_programs }}</td>
+                    <td class="col-status">
+                        {% if r.is_active %}
+                            <span class="badge success">Active</span>
+                        {% else %}
+                            <span class="badge inactive">Retired</span>
+                        {% endif %}
+                    </td>
+                    <td class="col-actions" style="text-align: right">
+                        <div class="row-actions">
+                            <a href="/ui/rules/{{ r.id }}" class="row-icon" title="Edit rule" aria-label="Edit rule">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-8 8H3v-3z"/><path d="M10 3l3 3"/></svg>
+                            </a>
+                            <a href="/ui/rules/{{ r.id }}" class="row-icon" title="Open rule" aria-label="Open rule">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H3v10h10v-3"/><path d="M9 3h4v4"/><path d="M13 3l-6 6"/></svg>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+            </div>
+            <h3>No rules yet</h3>
+            <p>Create the tenant's first rule on the right, then attach it from any program's detail page.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Create rule</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 4px">
+            The <code>Rule ID</code> is the stable citation printed on decision
+            letters. Once used, it should not change.
+        </p>
+        <form action="/ui/rules" method="post" class="create-form">
+            {{ csrf_input(request) }}
+            {% if sidebar_selected_tenant_id %}
+            <input type="hidden" name="tenant_id" value="{{ sidebar_selected_tenant_id }}">
+            <div class="muted" style="font-size: 12.5px; margin-top: 8px">
+                Under tenant scope — the sidebar workspace picker sets which tenant this rule belongs to.
+            </div>
+            {% else %}
+            <label>Tenant
+                <select name="tenant_id" required>
+                    <option value="">— pick tenant —</option>
+                    {% for t in tenants_all %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label>Rule ID
+                <input type="text" name="rule_id" required placeholder="e.g. CV-INC-02">
+            </label>
+            <label>Kind
+                <select name="kind" required>
+                    {% for k in rule_kinds %}
+                    <option value="{{ k }}">{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Intake fields
+                <input type="text" name="fields" placeholder="household_size, annual_household_income">
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                    Comma-separated intake field names the rule references.
+                </div>
+            </label>
+            <label>Title
+                <input type="text" name="title" required maxlength="200"
+                       placeholder="One-line summary the LLM cites">
+            </label>
+            <label>Criterion
+                <textarea name="criterion" required maxlength="400"
+                          placeholder="The check the reason stage evaluates."></textarea>
+            </label>
+            <label>Exception
+                <textarea name="exception" maxlength="400"
+                          placeholder="Optional carve-out or missing-info guidance."></textarea>
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create rule
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

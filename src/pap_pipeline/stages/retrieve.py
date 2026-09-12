@@ -152,7 +152,7 @@ async def _embed_and_rank(
     top_n: int,
 ) -> list[tuple[Rule, float]]:
     """First-stage retrieval: embed query + corpus, return top_n (rule, cosine)."""
-    texts = [query] + [r.text.strip() for r in corpus]
+    texts = [query] + [r.as_prompt_block() for r in corpus]
     resp = await client.post(
         f"{config.base_url.rstrip('/')}/embeddings",
         headers=_headers(config),
@@ -202,7 +202,7 @@ async def _rerank(
         json={
             "model": config.rerank_model,
             "query": query,
-            "documents": [r.text.strip() for r in candidates],
+            "documents": [r.as_prompt_block() for r in candidates],
         },
     )
     resp.raise_for_status()

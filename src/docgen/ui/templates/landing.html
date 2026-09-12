@@ -285,7 +285,7 @@
   .lede em { font-style: italic; }
 
   /* Hero */
-  .hero { position: relative; padding: 64px 0 80px; overflow: hidden; }
+  .hero { position: relative; padding: 64px 0 24px; overflow: hidden; }
   .grain::before {
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background-image: radial-gradient(rgba(20,20,16,0.035) 1px, transparent 1px);
@@ -415,8 +415,12 @@
 
   /* Split hero: narrative on the left, stamped verdict artifact on the right. */
   .hero-split { display: grid; grid-template-columns: 1fr; gap: 56px; align-items: center; }
-  @media (min-width: 960px) { .hero-split { grid-template-columns: 6fr 5fr; gap: 72px; } }
+  @media (min-width: 960px) { .hero-split { grid-template-columns: 7fr 5fr; gap: 56px; } }
   .hero-split .h1 { font-size: clamp(48px, 7vw, 88px); }
+  .hero-left .h1 em { display: inline-block; padding-left: 1.6em; }
+  @media (min-width: 960px) {
+    .hero-left .trust-chips { flex-wrap: nowrap; }
+  }
   .hero-left { position: relative; z-index: 1; }
   .hero-right { position: relative; z-index: 1; }
 
@@ -544,6 +548,7 @@
 
   /* Section spacing */
   .section { padding: 96px 0; }
+  #console { padding-top: 48px; }
   .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 40px; }
 
   /* Console screenshot: bordered frame + soft shadow, on a subtle mint wash so
@@ -1592,7 +1597,7 @@
         </div>
 
         <h1 class="headline h1">
-          Many inputs. <em>One verdict.</em>
+          Many inputs.<br/><em>One verdict.</em>
         </h1>
 
         <p class="lede mt-32">

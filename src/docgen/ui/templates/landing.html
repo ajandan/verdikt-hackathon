@@ -179,8 +179,8 @@
   .hero-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
   @media (min-width: 768px) { .hero-grid { grid-template-columns: 1fr 1fr; } }
   .card { border: 1px solid var(--hair); border-radius: 8px; background: #fff; overflow: hidden; }
-  .card-h { padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
-  .card-f { padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
+  .card-h { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
+  .card-f { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
   .card-h .mono, .card-f .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); }
 
   /* Field row: swatch sits inside the wrapper's padding zone; mapping is
@@ -201,7 +201,7 @@
   .link-plain { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink-900); cursor: pointer; }
 
   pre.code {
-    margin: 0; padding: 24px 28px;
+    margin: 0; padding: 28px 40px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 12px; line-height: 1.9; color: var(--ink-700);
     overflow-x: auto; white-space: pre;
@@ -635,10 +635,10 @@
     <div class="hero-frame">
       <div class="hero-grid">
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--hair);">
             <div>
               <div class="row-h">Pipeline · case intake</div>
-              <div class="headline" style="font-size:24px; margin-top:10px; line-height:1.35;">AI reads the case.</div>
+              <div class="headline" style="font-size:26px; margin-top:20px; line-height:1.15;">AI reads the case.</div>
             </div>
             <span class="tag"><span class="dot dot-amber"></span>vision · retrieval · reason</span>
           </div>
@@ -647,7 +647,7 @@
               <span class="mono">enrollment_packet.pdf · pipeline</span>
               <span class="mono">cardiovita · v3</span>
             </div>
-            <div style="padding: 8px 28px;">
+            <div style="padding: 12px 40px;">
               <div class="field-row"><span class="swatch"></span><span class="name">Extract</span><span class="map">vision · 31 slots</span></div>
               <div class="field-row"><span class="swatch"></span><span class="name">Retrieve</span><span class="map">embed + rerank · 4 rules</span></div>
               <div class="field-row"><span class="swatch"></span><span class="name">Reason</span><span class="map">approve · 4 citations</span></div>
@@ -661,10 +661,10 @@
         </div>
 
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--hair);">
             <div>
               <div class="row-h">Reply time</div>
-              <div class="headline" style="font-size:24px; margin-top:10px; line-height:1.35;">Byte-identical reply.</div>
+              <div class="headline" style="font-size:26px; margin-top:20px; line-height:1.15;">Byte-identical reply.</div>
             </div>
             <span class="tag"><span class="dot"></span>No AI</span>
           </div>

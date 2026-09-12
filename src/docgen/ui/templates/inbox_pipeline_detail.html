@@ -6,19 +6,41 @@
     .kv dt { color: var(--text-muted); font-weight: 500; }
     .kv dd { margin: 0; word-break: break-word; }
     .kv dd.missing { color: var(--text-muted); font-style: italic; }
-    .slot-group + .slot-group { margin-top: 18px; }
+    .slot-groups-cols {
+        column-count: 2;
+        column-gap: 28px;
+    }
+    @media (max-width: 900px) {
+        .slot-groups-cols { column-count: 1; }
+    }
+    .slot-group {
+        padding: 8px 0 10px 14px;
+        border-left: 3px solid var(--brand);
+        border-radius: 3px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 14px;
+    }
     .slot-group-hdr {
-        display: flex; align-items: baseline; justify-content: space-between;
-        gap: 12px; margin-bottom: 8px;
-        padding-bottom: 4px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; margin-bottom: 10px;
     }
     .slot-group-hdr h3 {
-        margin: 0; font-size: 11.5px; font-weight: 600;
-        text-transform: uppercase; letter-spacing: 0.06em;
-        color: var(--text-muted);
+        margin: 0; font-size: 12px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.07em;
+        color: var(--brand-hover);
     }
     .slot-group-hdr .slot-count {
-        font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+        font-size: 11px; color: var(--brand-hover);
+        font-variant-numeric: tabular-nums; font-weight: 600;
+        background: var(--brand-soft);
+        padding: 2px 9px; border-radius: 999px;
+        border: 1px solid var(--brand-soft);
+    }
+    .slot-group .kv {
+        grid-template-columns: 140px 1fr;
+        gap: 4px 14px;
+        font-size: 12.5px;
     }
     .outcome-hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
     .outcome-hero .outcome { font-size: 26px; font-weight: 700; text-transform: capitalize; }
@@ -194,6 +216,7 @@
         Every slot the program schema defined, populated by the extract stage from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
     </p>
     {% if extraction %}
+    <div class="slot-groups-cols">
         {% for group_name, group_slots in extraction_groups %}
         <div class="slot-group">
             <div class="slot-group-hdr">
@@ -217,6 +240,7 @@
             </dl>
         </div>
         {% endfor %}
+    </div>
     {% else %}
     <p class="text-ink-muted text-[13px] m-0">No fields extracted.</p>
     {% endif %}

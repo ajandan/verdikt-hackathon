@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt — Many inputs. One verdict.</title>
 <meta name="description" content="A decision pipeline for regulated document workflows. AI reads the case, retrieves the rules, and issues a structured verdict with citations. The reply letter is a byte-identical merge of a human-approved template — no model in the reply path." />
+<link rel="canonical" href="{{ request.url }}" />
 
 <meta property="og:type" content="website" />
+<meta property="og:url" content="{{ request.url }}" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt — Many inputs. One verdict." />
 <meta property="og:description" content="AI reads the case. Rules retrieve. Verdict emits with citations. Reply letter is a byte-identical merge — no model in the render path." />
@@ -94,6 +96,8 @@
   .btn-invert:hover { background: var(--seal-300); border-color: var(--seal-300); }
   .btn-ghost-dark { background: transparent; color: var(--ink-200); border-color: rgba(255,255,255,0.2); }
   .btn-ghost-dark:hover { background: rgba(255,255,255,0.05); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 7px; gap: 6px; }
+  .btn-sm svg { width: 12px; height: 12px; }
 
   .tag {
     display: inline-flex; align-items: center; gap: 6px;
@@ -1202,11 +1206,14 @@
   .demo-video {
     position: relative;
     aspect-ratio: 16 / 9;
-    border-radius: 16px;
+    border-radius: 20px;
     overflow: hidden;
-    border: 1px solid var(--hair);
+    border: 4px solid var(--seal-500);
     background: #0d1a13;
-    box-shadow: 0 20px 60px -20px rgba(20,20,16,0.35);
+    box-shadow:
+      0 24px 60px -20px rgba(20,20,16,0.40),
+      0 0 60px -20px rgba(47,143,118,0.35),
+      inset 0 0 0 2px var(--seal-700);
   }
   .demo-video iframe {
     position: absolute; inset: 0;
@@ -1354,6 +1361,16 @@
   }
   .demo-facade .yt-title em { color: var(--seal-300); font-style: italic; }
 
+  /* Small hint under the title — tells the visitor what happens on click. */
+  .demo-facade .yt-hint {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.10em;
+    color: rgba(255,255,255,0.55);
+  }
+  .demo-facade .yt-hint svg { opacity: 0.65; }
+
   /* Duration chip — bottom-right, classic YT-style but with our palette */
   .demo-facade .yt-duration {
     flex-shrink: 0;
@@ -1405,14 +1422,14 @@
       <a href="#faq">FAQ</a>
     </nav>
     {% if is_authenticated %}
-    <a href="/ui/" class="btn btn-primary">
+    <a href="/ui/" class="btn btn-primary btn-sm">
       Open dashboard
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     {% else %}
-    <a href="/ui/login" class="btn btn-primary">
+    <a href="/ui/login" class="btn btn-primary btn-sm">
       Sign in
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
     {% endif %}
   </div>
@@ -1434,7 +1451,7 @@
   </div>
   <div class="container">
     <div class="hero-tagline-row">
-      <span class="tag"><span class="dot"></span>Any channel · Rule retrieval · Structured verdict · Reply + JSON</span>
+      <span class="tag"><span class="dot"></span>Multimodal intake · Cited verdict · Byte-identical reply</span>
       <span class="stamp">audit-defensible</span>
     </div>
 
@@ -1443,13 +1460,9 @@
     </h1>
 
     <p class="lede mt-32">
-      Cases don't arrive one way. Fax, postal mail, web forms, direct email. Verdikt takes
-      them all through a single intake bus, reads the case, retrieves the rules that apply,
-      and issues a structured verdict of <em>approve</em>, <em>deny</em>, or
-      <em>missing_info</em>, with citations back to the human-authored rules that fired.
-      Two artifacts leave the pipeline: a byte-identical reply letter for the applicant, and
-      a JSON verdict for the downstream systems (call center ops, CRM, case management)
-      that keep the case moving after the letter is sent.
+      Fax, mail, web, email &mdash; one intake. Verdikt reads the case, cites the rules,
+      issues a verdict of <em>approve</em>, <em>deny</em>, or <em>missing_info</em>.
+      Two artifacts out: a byte-identical reply letter and a JSON verdict for downstream ops.
     </p>
 
     <p class="architect-note">
@@ -1457,18 +1470,15 @@
     </p>
 
     <div class="hero-cta">
+      <a href="#demo" class="btn btn-primary">
+        Watch the 3-min demo
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      </a>
       {% if is_authenticated %}
-      <a href="/ui/" class="btn btn-primary">
-        Open dashboard
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+      <a href="/ui/" class="btn btn-ghost">Open dashboard</a>
       {% else %}
-      <a href="/ui/login" class="btn btn-primary">
-        Sign in to Verdikt
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+      <a href="/ui/login" class="btn btn-ghost">Sign in</a>
       {% endif %}
-      <a href="#lifecycle" class="btn btn-ghost">See the pipeline</a>
     </div>
     <div class="trust-chips">
       <span class="trust-chip">No model in the reply path</span>
@@ -1600,7 +1610,7 @@
         Hackathon submission
       </span>
       <h2>Built for the <em>Nebius × NVIDIA</em> Global AI Hackathon.</h2>
-      <p>Three NVIDIA models composed one-per-stage on Nebius Token Factory. Hosted on Nebius AI Cloud. MIT-licensed source.</p>
+      <p>Three NVIDIA models composed one-per-stage on Nebius Token Factory. Nebius AI Cloud deploy runbook complete; app comes up on VM next. MIT-licensed source.</p>
     </div>
 
     <div class="powered-grid">
@@ -1622,7 +1632,7 @@
       <div class="powered-card">
         <span class="role">Hosted</span>
         <div class="name">Nebius AI Cloud</div>
-        <div class="note">Full stack — models on Nebius Token Factory, app on Nebius AI Cloud VMs.</div>
+        <div class="note">Models on Nebius Token Factory today; app deploys to Nebius AI Cloud VMs (runbook complete).</div>
       </div>
     </div>
 
@@ -1688,6 +1698,12 @@
             <div class="yt-title-block">
               <span class="yt-eyebrow"><span class="dot"></span>Demo · end-to-end</span>
               <p class="yt-title">Case in, <em>verdict out</em> — three minutes.</p>
+              <span class="yt-hint">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z"/>
+                </svg>
+                Plays embedded from YouTube
+              </span>
             </div>
             <span class="yt-duration">3:00</span>
           </div>
@@ -1844,9 +1860,9 @@
     <span class="k">"pdf"</span>:  <span class="s">"s3://verdikt/replies/…pdf"</span>
   },
   <span class="k">"handoff"</span>: {
-    <span class="k">"crm"</span>:         <span class="s">"salesforce://case/00X…"</span>,
+    <span class="k">"crm"</span>:         <span class="s">"crm://case/00X…"</span>,
     <span class="k">"call_center"</span>: <span class="s">"queued"</span>,
-    <span class="k">"case_mgmt"</span>:   <span class="s">"pega://work/A-4429"</span>
+    <span class="k">"case_mgmt"</span>:   <span class="s">"casemgr://work/A-4429"</span>
   }
 }</pre>
         </div>
@@ -1913,11 +1929,9 @@
       </div>
       <div class="cmp-row"><div class="cmp-cell">Multi-channel intake (fax, mail, web, email)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Multi-vendor, glue code per channel</div><div class="cmp-cell q" data-label="Verdikt">✓ One inbox, one pipeline</div></div>
       <div class="cmp-row"><div class="cmp-cell">Multimodal case extraction from inbound docs</div><div class="cmp-cell mute" data-label="Adjudication stacks today">OCR + regex, manual QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Vision + slot schema per program</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — pluggable connectors, clean data to LLM + downstream</div></div>
       <div class="cmp-row"><div class="cmp-cell">Rules retrieval with citations</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Analyst reads the rulebook</div><div class="cmp-cell q" data-label="Verdikt">✓ Versioned YAML packs, embed + rerank</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rules engine output, if wired</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable, cited</div></div>
       <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Development project</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Rules authoring UI for business analysts</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Engineer edits config, or vendor SOW</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — AI-assisted design-time authoring</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">Byte-identical reply (per-reply <span class="mono mono-inline">version_hash</span>)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Doc-gen + manual template QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output — call center, CRM, case-mgmt</div></div>
       <div class="cmp-row"><div class="cmp-cell">Decision ledger tying case → rules → verdict → letter</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rows across disparate systems</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
@@ -1925,6 +1939,8 @@
       <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Often per-tenant deployments</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
       <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — pluggable connectors, clean data to LLM + downstream</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Rules authoring UI for business analysts</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Engineer edits config, or vendor SOW</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — AI-assisted design-time authoring</div></div>
     </div>
 
     <div class="cmp-note">
@@ -2012,18 +2028,15 @@
     <em>Keep it out of the reply.</em>
   </h2>
   <div class="cta-buttons">
+    <a href="#demo" class="btn btn-invert">
+      Watch the 3-min demo
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    </a>
     {% if is_authenticated %}
-    <a href="/ui/" class="btn btn-invert">
-      Open dashboard
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </a>
+    <a href="/ui/" class="btn btn-ghost-dark">Open dashboard</a>
     {% else %}
-    <a href="/ui/login" class="btn btn-invert">
-      Sign in to Verdikt
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </a>
+    <a href="/ui/login" class="btn btn-ghost-dark">Sign in</a>
     {% endif %}
-    <a href="#lifecycle" class="btn btn-ghost-dark">Walk the pipeline again</a>
   </div>
   <div class="trust-chips trust-chips-dark">
     <span class="trust-chip">No model in the reply path</span>

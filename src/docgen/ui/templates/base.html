@@ -465,11 +465,13 @@
 
         /* Sidebar collapse toggle (desktop only) */
         .sidebar-collapse-btn {
-            position: absolute; top: 20px; right: -14px;
-            width: 28px; height: 28px; border-radius: 50%;
+            position: absolute; top: 10px; right: -14px;
+            width: 28px; height: 28px; padding: 0;
+            border-radius: 50%;
             background: var(--surface); border: 1px solid var(--border);
             color: var(--text-muted); cursor: pointer;
-            display: grid; place-items: center;
+            display: inline-flex; align-items: center; justify-content: center;
+            line-height: 0;
             box-shadow: 0 2px 6px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
             transition: background var(--dur-fast) var(--ease-out),
                         color var(--dur-fast) var(--ease-out),
@@ -482,7 +484,11 @@
             border-color: var(--brand);
             box-shadow: 0 3px 10px rgba(30,95,79,0.18), 0 1px 3px rgba(0,0,0,0.06);
         }
-        .sidebar-collapse-btn svg { width: 14px; height: 14px; transition: transform var(--dur-base) var(--ease-out); }
+        .sidebar-collapse-btn svg {
+            display: block;
+            width: 14px; height: 14px;
+            transition: transform var(--dur-base) var(--ease-out);
+        }
         html[data-sidebar="collapsed"] .sidebar-collapse-btn svg { transform: rotate(180deg); }
 
         /* Collapsed sidebar rail (desktop only — mobile uses the slide-out) */

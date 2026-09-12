@@ -436,6 +436,31 @@
   /* Section spacing */
   .section { padding: 96px 0; }
   .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 40px; }
+
+  /* Console screenshot: bordered frame + soft shadow, on a subtle mint wash so
+     it reads as a live artifact rather than a stock illustration. */
+  .console-shot {
+    margin: 24px 0 0;
+    padding: 18px;
+    border: 1px solid var(--hair);
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(47,143,118,0.05), rgba(47,143,118,0.01));
+    box-shadow:
+      0 24px 48px -28px rgba(20,20,16,0.20),
+      0 4px 14px -6px rgba(20,20,16,0.06);
+  }
+  .console-shot img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--hair-soft);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .console-shot .cap {
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.02em; color: var(--ink-500);
+    text-align: center;
+  }
   .section-head p { max-width: 420px; color: var(--ink-700); display: none; }
   @media (min-width: 768px) { .section-head p { display: block; } }
 
@@ -1551,6 +1576,23 @@
         <div><span class="dot-sm"></span>Structured verdict · deterministic merge</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- Inside Verdikt: real product screenshot for credibility -->
+<section id="console" class="section" aria-label="Inside the Verdikt console">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <span class="tag"><span class="dot"></span>Inside Verdikt</span>
+        <h2 class="headline h2">An operator's console, not a chat window.</h2>
+      </div>
+      <p>Templates, renders, publishes, and failures — every row scoped to a tenant. The same admin surface a compliance officer would review during an audit.</p>
+    </div>
+    <figure class="console-shot">
+      <img src="{{ url_for('static', path='landing-console.png') }}" alt="Verdikt admin dashboard showing templates, render volume, recent renders, and top templates for a selected tenant" loading="lazy" />
+      <figcaption class="cap">Admin dashboard · activity, health, and hotspots · per-tenant scoped</figcaption>
+    </figure>
   </div>
 </section>
 

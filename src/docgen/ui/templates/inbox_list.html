@@ -53,11 +53,13 @@
     }
     .col-expand    { width: 40px;  }
     .col-case      { width: 110px; }
-    .col-received  { width: 128px; }
+    .col-received  { width: 190px; }
     .col-from      { width: 22%;   }
     .col-subject   { width: auto;  }
     .col-review    { width: 108px; }
-    .col-action    { width: 56px;  }
+    .col-action    { width: 72px;  }
+    .card.flush.attached th:last-child,
+    .card.flush.attached .ev-row > td:last-child { padding-right: 18px; text-align: right; }
     .case-id {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         font-size: 12px; font-weight: 600; color: var(--brand);
@@ -70,6 +72,12 @@
     .card.flush.attached td.muted {
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    .card.flush.attached td.muted.received-cell {
+        overflow: visible;
+        text-overflow: clip;
+        padding-right: 8px;
+        font-variant-numeric: tabular-nums;
     }
     .card.flush.attached td .badge { white-space: nowrap; }
     .score-cell { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
@@ -150,6 +158,59 @@
         display: inline-flex; align-items: center; gap: 4px;
         font-size: 11.5px; color: var(--text-muted);
     }
+    th.sortable { padding: 0; }
+    th.sortable .sort-link {
+        display: inline-flex; align-items: center; gap: 6px;
+        width: 100%; height: 100%;
+        padding: 10px 12px;
+        color: inherit; text-decoration: none;
+        cursor: pointer; user-select: none;
+    }
+    th.sortable .sort-link:hover { color: var(--text); text-decoration: none; }
+    th.sortable .sort-ind {
+        font-size: 14px; line-height: 1;
+        color: var(--text-muted, #94a3b8);
+        opacity: 0.6;
+    }
+    th.sort-active .sort-ind { color: var(--brand); opacity: 1; }
+    th.sort-active .sort-link { color: var(--text); font-weight: 600; }
+
+    .pager {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 12px 16px; flex-wrap: wrap;
+        border-top: 1px solid var(--border, #e2e8f0);
+        background: var(--surface);
+    }
+    .pager-summary {
+        font-size: 12.5px; color: var(--text-muted, #64748b);
+        font-variant-numeric: tabular-nums;
+    }
+    .pager-controls { display: inline-flex; align-items: center; gap: 4px; }
+    .pager-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 32px; height: 30px; padding: 0 10px;
+        font-size: 12.5px; font-weight: 500;
+        color: var(--text-muted, #64748b);
+        background: transparent; border: 1px solid var(--border, #e2e8f0);
+        border-radius: 7px; text-decoration: none;
+        font-variant-numeric: tabular-nums;
+    }
+    .pager-btn:hover {
+        background: var(--surface-2); color: var(--text);
+        text-decoration: none;
+    }
+    .pager-btn.is-current {
+        background: var(--brand); color: #fff; border-color: var(--brand);
+        pointer-events: none;
+    }
+    .pager-btn.is-disabled {
+        opacity: 0.4; pointer-events: none;
+    }
+    .pager-ellipsis {
+        display: inline-flex; align-items: center;
+        min-width: 24px; color: var(--text-muted, #94a3b8);
+        font-size: 12.5px;
+    }
 </style>
 
 <section class="mb-6">
@@ -161,7 +222,7 @@
     </div>
 </section>
 
-{% macro filter_href(overrides) -%}
+{% macro build_href(overrides) -%}
     /ui/inbox?
     {%- set parts = [] -%}
     {%- if selected_tenant -%}{%- set _ = parts.append('tenant=' ~ selected_tenant) -%}{%- endif -%}
@@ -175,7 +236,30 @@
     {%- elif status_filter -%}
         {%- set _ = parts.append('status=' ~ status_filter) -%}
     {%- endif -%}
+    {%- if 'sort' in overrides -%}
+        {%- if overrides['sort'] -%}{%- set _ = parts.append('sort=' ~ overrides['sort']) -%}{%- endif -%}
+    {%- elif sort_key and sort_key != 'received' -%}
+        {%- set _ = parts.append('sort=' ~ sort_key) -%}
+    {%- endif -%}
+    {%- if 'dir' in overrides -%}
+        {%- if overrides['dir'] -%}{%- set _ = parts.append('dir=' ~ overrides['dir']) -%}{%- endif -%}
+    {%- elif sort_dir and not (sort_key in (None, 'received') and sort_dir == 'desc') -%}
+        {%- set _ = parts.append('dir=' ~ sort_dir) -%}
+    {%- endif -%}
+    {%- if 'page' in overrides -%}
+        {%- if overrides['page'] and overrides['page'] != 1 -%}{%- set _ = parts.append('page=' ~ overrides['page']) -%}{%- endif -%}
+    {%- endif -%}
     {{ parts|join('&') }}
+{%- endmacro %}
+
+{# Back-compat alias for the old filter_href name — filter changes reset to page 1. #}
+{% macro filter_href(overrides) -%}
+    {{- build_href(overrides) -}}
+{%- endmacro %}
+
+{% macro sort_href(col) -%}
+    {%- set next_dir = 'asc' if (sort_key == col and sort_dir == 'desc') else ('desc' if sort_key == col else ('desc' if col == 'received' else 'asc')) -%}
+    {{- build_href({'sort': col, 'dir': next_dir}) -}}
 {%- endmacro %}
 
 <div class="toolbar">
@@ -214,14 +298,28 @@
             <col class="col-review">
             <col class="col-action">
         </colgroup>
+        {% macro sort_head(col, label) -%}
+            {%- set active = (sort_key == col) -%}
+            <th class="sortable{% if active %} sort-active{% endif %}">
+                <a href="{{ sort_href(col) }}" class="sort-link"
+                   aria-sort="{% if active %}{{ 'ascending' if sort_dir == 'asc' else 'descending' }}{% else %}none{% endif %}">
+                    <span>{{ label }}</span>
+                    <span class="sort-ind" aria-hidden="true">
+                        {%- if active and sort_dir == 'asc' -%}▲
+                        {%- elif active -%}▼
+                        {%- else -%}⇅{%- endif -%}
+                    </span>
+                </a>
+            </th>
+        {%- endmacro %}
         <thead>
             <tr>
                 <th></th>
-                <th>Case</th>
-                <th>Received</th>
-                <th>From</th>
-                <th>Subject</th>
-                <th>Review</th>
+                {{ sort_head('case', 'Case') }}
+                {{ sort_head('received', 'Received') }}
+                {{ sort_head('from', 'From') }}
+                {{ sort_head('subject', 'Subject') }}
+                {{ sort_head('review', 'Review') }}
                 <th></th>
             </tr>
         </thead>
@@ -234,7 +332,7 @@
                     </button>
                 </td>
                 <td><a href="/ui/inbox/{{ e.id }}" class="case-id">{{ e.case_number|case_id }}</a></td>
-                <td class="muted">{{ e.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="muted received-cell">{{ e.received_at.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td class="from-cell" title="{{ e.from_addr }}">{{ e.from_addr }}</td>
                 <td class="subject-cell{% if e.reply_message_id %} replied{% endif %}">
                     <div class="subject-clamp">
@@ -305,6 +403,44 @@
         {% endfor %}
         </tbody>
     </table>
+    {% if total_pages and total_pages > 1 %}
+    {% set from_row = ((current_page - 1) * page_size) + 1 %}
+    {% set to_row = [current_page * page_size, total_count] | min %}
+    <div class="pager">
+        <div class="pager-summary">{{ from_row }}–{{ to_row }} of {{ total_count }}</div>
+        <nav class="pager-controls" aria-label="Pagination">
+            {% if current_page > 1 %}
+            <a class="pager-btn" href="{{ build_href({'page': current_page - 1}) }}" rel="prev">‹ Prev</a>
+            {% else %}
+            <span class="pager-btn is-disabled" aria-disabled="true">‹ Prev</span>
+            {% endif %}
+
+            {% set ws = [current_page - 2, 1] | max %}
+            {% set we = [current_page + 2, total_pages] | min %}
+            {% if ws > 1 %}
+                <a class="pager-btn" href="{{ build_href({'page': 1}) }}">1</a>
+                {% if ws > 2 %}<span class="pager-ellipsis">…</span>{% endif %}
+            {% endif %}
+            {% for p in range(ws, we + 1) %}
+                {% if p == current_page %}
+                <span class="pager-btn is-current" aria-current="page">{{ p }}</span>
+                {% else %}
+                <a class="pager-btn" href="{{ build_href({'page': p}) }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if we < total_pages %}
+                {% if we < total_pages - 1 %}<span class="pager-ellipsis">…</span>{% endif %}
+                <a class="pager-btn" href="{{ build_href({'page': total_pages}) }}">{{ total_pages }}</a>
+            {% endif %}
+
+            {% if current_page < total_pages %}
+            <a class="pager-btn" href="{{ build_href({'page': current_page + 1}) }}" rel="next">Next ›</a>
+            {% else %}
+            <span class="pager-btn is-disabled" aria-disabled="true">Next ›</span>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
     {% else %}
     <div class="empty">
         <h3>No emails{% if review_filter or status_filter %} match these filters{% endif %}</h3>

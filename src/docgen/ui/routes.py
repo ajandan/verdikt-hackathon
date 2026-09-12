@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -4323,6 +4324,17 @@ _INBOX_REVIEW_FILTERS = ("pending_review", "auto_approved", "approved", "rejecte
 _INBOX_STATUS_FILTERS = ("pending", "processing", "succeeded", "failed", "skipped")
 
 
+_INBOX_PAGE_SIZE = 20
+
+_INBOX_SORT_COLUMNS = {
+    "case": InboxEvent.case_number,
+    "received": InboxEvent.received_at,
+    "from": InboxEvent.from_addr,
+    "subject": InboxEvent.subject,
+    "review": InboxEvent.review_state,
+}
+
+
 @router.get("/inbox", response_class=HTMLResponse)
 async def inbox_list(
     request: Request,
@@ -4330,6 +4342,9 @@ async def inbox_list(
     tenant: str | None = None,
     review: str | None = None,
     status: str | None = None,
+    page: int = 1,
+    sort: str | None = None,
+    dir: str | None = None,
 ) -> HTMLResponse:
     """Every email the agent has received, newest first.
 
@@ -4352,6 +4367,28 @@ async def inbox_list(
     review_filter = review if review in _INBOX_REVIEW_FILTERS else None
     status_filter = status if status in _INBOX_STATUS_FILTERS else None
 
+    filters: list[Any] = []
+    if tenant_uuid is not None:
+        filters.append(InboxEvent.tenant_id == tenant_uuid)
+    if review_filter is not None:
+        filters.append(InboxEvent.review_state == review_filter)
+    if status_filter is not None:
+        filters.append(InboxEvent.status == status_filter)
+
+    count_stmt = select(func.count()).select_from(InboxEvent)
+    for f in filters:
+        count_stmt = count_stmt.where(f)
+    total_count = int((await session.execute(count_stmt)).scalar_one() or 0)
+
+    total_pages = max(1, math.ceil(total_count / _INBOX_PAGE_SIZE))
+    current_page = max(1, min(int(page or 1), total_pages))
+    offset = (current_page - 1) * _INBOX_PAGE_SIZE
+
+    sort_key = sort if sort in _INBOX_SORT_COLUMNS else "received"
+    sort_dir = "asc" if (dir or "").lower() == "asc" else "desc"
+    sort_col = _INBOX_SORT_COLUMNS[sort_key]
+    order_primary = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+
     q = (
         select(
             InboxEvent.id,
@@ -4373,15 +4410,12 @@ async def inbox_list(
         )
         .join(Tenant, Tenant.id == InboxEvent.tenant_id, isouter=True)
         .join(Template, Template.id == InboxEvent.template_id, isouter=True)
-        .order_by(InboxEvent.received_at.desc(), InboxEvent.id.desc())
-        .limit(200)
+        .order_by(order_primary, InboxEvent.id.desc())
+        .limit(_INBOX_PAGE_SIZE)
+        .offset(offset)
     )
-    if tenant_uuid is not None:
-        q = q.where(InboxEvent.tenant_id == tenant_uuid)
-    if review_filter is not None:
-        q = q.where(InboxEvent.review_state == review_filter)
-    if status_filter is not None:
-        q = q.where(InboxEvent.status == status_filter)
+    for f in filters:
+        q = q.where(f)
 
     rows = [dict(r._mapping) for r in (await session.execute(q)).all()]
 
@@ -4397,6 +4431,12 @@ async def inbox_list(
             events=rows,
             review_filter=review_filter,
             status_filter=status_filter,
+            current_page=current_page,
+            total_pages=total_pages,
+            total_count=total_count,
+            page_size=_INBOX_PAGE_SIZE,
+            sort_key=sort_key,
+            sort_dir=sort_dir,
         ),
     )
 

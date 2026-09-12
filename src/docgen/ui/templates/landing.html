@@ -1201,70 +1201,179 @@
   }
   .demo-video {
     position: relative;
-    display: block;
     aspect-ratio: 16 / 9;
     border-radius: 16px;
     overflow: hidden;
     border: 1px solid var(--hair);
-    background:
-      radial-gradient(circle at 30% 30%, rgba(47,143,118,0.18), transparent 60%),
-      radial-gradient(circle at 80% 70%, rgba(30,95,79,0.28), transparent 55%),
-      linear-gradient(135deg, #17281e, #0d1a13);
-    text-decoration: none;
-    color: inherit;
+    background: #0d1a13;
     box-shadow: 0 20px 60px -20px rgba(20,20,16,0.35);
-    transition: transform 200ms ease, box-shadow 200ms ease;
   }
-  .demo-video:hover { transform: translateY(-2px); box-shadow: 0 24px 72px -20px rgba(20,20,16,0.42); }
-  .demo-video::before {
+  .demo-video iframe {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border: 0;
+  }
+
+  /* Facade — YouTube-thumbnail-style poster in the Verdikt palette. Swaps
+     for a real iframe on click (see the inline script at end-of-body).
+     Grid: [channel row] / [play] / [title-block + duration] so the layout
+     reads like a real YouTube thumbnail without borrowing YT's red. */
+  .demo-facade {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    padding: 20px 24px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 12px;
+    text-align: left;
+    border: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 78% 18%, rgba(142,199,181,0.22), transparent 45%),
+      radial-gradient(ellipse at 15% 105%, rgba(47,143,118,0.42), transparent 62%),
+      linear-gradient(135deg, #0f1e17 0%, #14261e 45%, #0a1611 100%);
+  }
+  .demo-facade::before {
     content: "";
     position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.6;
+    background:
+      radial-gradient(circle at 35% 55%, rgba(255,255,255,0.04), transparent 55%),
+      radial-gradient(circle at 82% 72%, rgba(142,199,181,0.05), transparent 60%);
+    pointer-events: none;
   }
-  .demo-video-inner {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 20px;
-    padding: 24px;
-    text-align: center;
+  .demo-facade::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+      var(--seal-300) 0%, var(--seal-500) 34%,
+      rgba(255,255,255,0.18) 34%, rgba(255,255,255,0.18) 100%);
+    opacity: 0.75;
   }
-  .demo-video .play {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 76px; height: 76px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.94);
-    color: var(--ink-900);
-    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5);
-    transition: transform 160ms ease;
-  }
-  .demo-video:hover .play { transform: scale(1.05); }
-  .demo-video .play svg { margin-left: 4px; }
-  .demo-video-title {
-    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
-    font-size: 28px; line-height: 1.2;
+  .demo-facade:focus-visible { outline: 2px solid var(--seal-300); outline-offset: 4px; }
+
+  /* Verdikt mark watermark — echo of the hero, muted, upper-right.
+     Sits fully inside the poster (no bleed) so the mark reads whole. */
+  .demo-facade .yt-watermark {
+    position: absolute; top: 18px; right: 22px;
+    width: 108px; height: 108px;
+    opacity: 0.14;
+    pointer-events: none;
     color: #fff;
   }
-  .demo-video-sub {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
-    color: rgba(255,255,255,0.72);
+  .demo-facade .yt-watermark svg { width: 100%; height: 100%; display: block; }
+
+  /* Top-left channel row — mimics YouTube's channel identity strip */
+  .demo-facade .yt-channel {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 12px;
+    color: rgba(255,255,255,0.92);
   }
-  .demo-video-sub .sep { width: 4px; height: 4px; border-radius: 999px; background: var(--seal-300); }
-  .demo-video-tag {
-    position: absolute; top: 14px; left: 14px;
-    padding: 5px 10px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.10);
-    border: 1px solid rgba(255,255,255,0.14);
-    color: rgba(255,255,255,0.85);
+  .demo-facade .yt-avatar {
+    width: 32px; height: 32px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--seal-500), var(--seal-700));
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.20), 0 4px 12px -4px rgba(0,0,0,0.5);
+  }
+  .demo-facade .yt-avatar svg { width: 20px; height: 20px; }
+  .demo-facade .yt-channel-name {
+    color: #fff; font-weight: 600;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 13.5px; letter-spacing: -0.005em;
+  }
+  .demo-facade .yt-channel-sub {
+    color: rgba(255,255,255,0.55);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255,255,255,0.18);
+  }
+
+  /* Center play button — YouTube-style rounded rectangle in the Verdikt
+     palette. Subtle top-highlight gradient + tinted shadow for lift. */
+  .demo-facade .play {
+    place-self: center;
+    grid-row: 2;
+    position: relative; z-index: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 116px; height: 68px;
+    border-radius: 20px;
+    color: var(--ink-900);
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f4f2eb 100%);
+    box-shadow:
+      0 26px 56px -18px rgba(0,0,0,0.65),
+      0 8px 20px -8px rgba(47,143,118,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.9),
+      inset 0 -1px 0 rgba(20,20,16,0.06);
+    transition: transform 200ms cubic-bezier(0.2,0.9,0.3,1.2),
+                background 180ms ease,
+                box-shadow 180ms ease;
+  }
+  .demo-facade .play svg {
+    margin-left: 3px;
+    transition: color 160ms ease, transform 200ms ease;
+  }
+  .demo-facade:hover .play {
+    background: linear-gradient(180deg, var(--seal-300) 0%, var(--seal-500) 100%);
+    box-shadow:
+      0 30px 68px -20px rgba(30,95,79,0.75),
+      0 10px 26px -10px rgba(47,143,118,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.35);
+  }
+  .demo-facade:hover .play svg { color: #fff; transform: scale(1.08); }
+
+  /* Bottom title + duration row */
+  .demo-facade .yt-caption {
+    position: relative; z-index: 1;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 20px;
+  }
+  .demo-facade .yt-title-block { flex: 1 1 auto; min-width: 0; }
+  .demo-facade .yt-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--seal-300);
+    margin-bottom: 10px;
+  }
+  .demo-facade .yt-eyebrow .dot {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--seal-300);
+    box-shadow: 0 0 10px rgba(142,199,181,0.75);
+  }
+  .demo-facade .yt-title {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: clamp(22px, 3.2vw, 32px); line-height: 1.15;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .demo-facade .yt-title em { color: var(--seal-300); font-style: italic; }
+
+  /* Duration chip — bottom-right, classic YT-style but with our palette */
+  .demo-facade .yt-duration {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.72);
+    color: #fff;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 0.03em;
+    align-self: flex-end;
+    margin-bottom: 6px;
+  }
+
+  @media (max-width: 640px) {
+    .demo-facade { padding: 16px 18px; gap: 8px; }
+    .demo-facade .play { width: 92px; height: 56px; border-radius: 16px; }
+    .demo-facade .play svg { width: 24px; height: 24px; }
+    .demo-facade .yt-channel-sub { display: none; }
+    .demo-facade .yt-watermark { top: 12px; right: 14px; width: 76px; height: 76px; opacity: 0.10; }
   }
 </style>
 </head>
@@ -1534,27 +1643,56 @@
     <div class="section-head">
       <div>
         <div class="row-h">See it end-to-end</div>
-        <h2 class="headline h3">Two minutes. One case. Case in, verdict out.</h2>
+        <h2 class="headline h3">Three minutes. One case. Case in, verdict out.</h2>
       </div>
       <p>An email arrives with an application. Verdikt extracts the case, retrieves the rules, issues a verdict with citations, and merges a byte-identical reply. Everything after the model is deterministic.</p>
     </div>
 
     <div class="demo-video-wrap">
-      <a class="demo-video" href="https://youtu.be/verdikt-demo" target="_blank" rel="noopener" aria-label="Watch the Verdikt end-to-end demo on YouTube">
-        <span class="demo-video-tag">◉ Demo · YouTube</span>
-        <div class="demo-video-inner">
-          <span class="play" aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      {# Facade → real iframe on click. Swap data-yt-id for the final video. #}
+      <div class="demo-video">
+        <button type="button" class="demo-facade" data-yt-id="mb-kt8NOJKE" aria-label="Play Verdikt demo video">
+          <span class="yt-watermark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square">
+                <path d="M38 32C28 32 28 13 18 13H8"/>
+                <path d="M38 32C28 32 28 51 18 51H8"/>
+                <path d="M8 32H42"/>
+                <circle cx="51" cy="32" r="9"/>
+              </g>
+              <circle cx="51" cy="32" r="3.5" fill="currentColor"/>
+            </svg>
           </span>
-          <div class="demo-video-title">Watch Verdikt end-to-end · <em>2 min</em></div>
-          <div class="demo-video-sub">
-            <span>Case in</span><span class="sep"></span>
-            <span>Rules retrieved</span><span class="sep"></span>
-            <span>Verdict issued</span><span class="sep"></span>
-            <span>Byte-identical reply</span>
+
+          <div class="yt-channel">
+            <span class="yt-avatar" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="square">
+                  <path d="M38 32C28 32 28 13 18 13H8"/>
+                  <path d="M38 32C28 32 28 51 18 51H8"/>
+                  <path d="M8 32H42"/>
+                  <circle cx="51" cy="32" r="9"/>
+                </g>
+                <circle cx="51" cy="32" r="3.5" fill="currentColor"/>
+              </svg>
+            </span>
+            <span class="yt-channel-name">Verdikt</span>
+            <span class="yt-channel-sub">Nebius × NVIDIA Hackathon</span>
           </div>
-        </div>
-      </a>
+
+          <span class="play" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+
+          <div class="yt-caption">
+            <div class="yt-title-block">
+              <span class="yt-eyebrow"><span class="dot"></span>Demo · end-to-end</span>
+              <p class="yt-title">Case in, <em>verdict out</em> — three minutes.</p>
+            </div>
+            <span class="yt-duration">3:00</span>
+          </div>
+        </button>
+      </div>
     </div>
   </div>
 </section>
@@ -1919,6 +2057,28 @@
     </div>
   </div>
 </footer>
+
+<script nonce="{{ csp_nonce(request) }}">
+  // Facade → iframe swap on click. Autoplay requires the user gesture, which
+  // this click satisfies. rel=0 keeps the "related videos" screen scoped to
+  // this channel so a demo doesn't lead a judge into unrelated content.
+  document.querySelectorAll('.demo-facade').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.dataset.ytId;
+      if (!id) return;
+      var shell = btn.closest('.demo-video');
+      if (!shell) return;
+      var iframe = document.createElement('iframe');
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0';
+      iframe.title = 'Verdikt demo video';
+      iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      iframe.setAttribute('allowfullscreen', '');
+      shell.innerHTML = '';
+      shell.appendChild(iframe);
+    });
+  });
+</script>
 
 </body>
 </html>

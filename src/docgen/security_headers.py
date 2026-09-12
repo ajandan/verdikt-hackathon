@@ -51,13 +51,15 @@ def _base_csp(nonce: str) -> str:
     ])
 
 # Public marketing page at `/`. Same tight rules as base, but allows Google
-# Fonts (stylesheet + woff2) — no scripts, no XHR, no images beyond self+data.
+# Fonts (stylesheet + woff2) and YouTube's privacy-enhanced embed for the
+# hackathon demo video. No scripts, no XHR, no images beyond self+data.
 def landing_csp(nonce: str) -> str:
     return "; ".join([
         "default-src 'self'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
         "object-src 'none'",
         "img-src 'self' data:",
         "font-src 'self' https://fonts.gstatic.com data:",

@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Verdikt — Many inputs. One verdict.</title>
-<meta name="description" content="A decision pipeline for regulated document workflows. AI reads the case, retrieves the rules, and issues a structured verdict with citations. The reply letter is a byte-identical merge of a human-approved template — no model in the reply path." />
+<title>Verdikt · Many inputs. One verdict.</title>
+<meta name="description" content="A decision pipeline for regulated document workflows. AI reads the case, retrieves the rules, and issues a structured verdict with citations. The reply letter is a byte-identical merge of a human-approved template. No model in the reply path." />
 <link rel="canonical" href="{{ request.url }}" />
 
 <meta property="og:type" content="website" />
 <meta property="og:url" content="{{ request.url }}" />
 <meta property="og:site_name" content="Verdikt" />
-<meta property="og:title" content="Verdikt — Many inputs. One verdict." />
-<meta property="og:description" content="AI reads the case. Rules retrieve. Verdict emits with citations. Reply letter is a byte-identical merge — no model in the render path." />
+<meta property="og:title" content="Verdikt · Many inputs. One verdict." />
+<meta property="og:description" content="AI reads the case. Rules retrieve. Verdict emits with citations. Reply letter is a byte-identical merge. No model in the render path." />
 <meta property="og:image" content="/static/og-verdikt.png" />
-<meta property="og:image:alt" content="Verdikt — the trifurcation mark on paper stock" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Verdikt — Many inputs. One verdict." />
+<meta name="twitter:title" content="Verdikt · Many inputs. One verdict." />
 <meta name="twitter:description" content="AI-in, deterministic-out. A decision pipeline for regulated document workflows." />
 <meta name="twitter:image" content="/static/og-verdikt.png" />
 
@@ -976,7 +976,10 @@
   .callout-card:nth-child(1) { background: #eef6f1; border-color: rgba(47,143,118,0.18); }
   .callout-card:nth-child(2) { background: #e3efe8; border-color: rgba(47,143,118,0.22); }
   .callout-card:nth-child(3) { background: #d8e8de; border-color: rgba(47,143,118,0.26); }
-  .callout-card:nth-child(4) { background: #cde1d4; border-color: rgba(47,143,118,0.30); }
+  .callout-card:nth-child(4) { background: var(--seal-700); border-color: var(--seal-700); color: var(--ink-50); }
+  .callout-card:nth-child(4) .k { color: var(--seal-300); }
+  .callout-card:nth-child(4) .v { color: var(--ink-50); }
+  .callout-card:nth-child(4) .d { color: var(--ink-200); }
   .callout-card .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); }
   .callout-card .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 24px; line-height: 1.2; }
   .callout-card .d { margin-top: 8px; font-size: 14px; color: var(--ink-500); line-height: 1.5; }
@@ -1605,13 +1608,13 @@
         </h1>
 
         <p class="lede mt-32">
-          Fax, mail, web, email &mdash; one intake. Verdikt reads the case, cites the rules,
+          Fax, mail, web, email. One intake. Verdikt reads the case, cites the rules,
           issues a verdict of <em>approve</em>, <em>deny</em>, or <em>missing_info</em>.
           Two artifacts out: a byte-identical reply letter and a JSON verdict for downstream ops.
         </p>
 
         <p class="architect-note">
-          Built solo. The pipeline isn't the point &mdash; <em>the seam between AI and determinism</em> is.
+          Built solo. The pipeline isn't the point. <em>The seam between AI and determinism</em> is.
         </p>
 
         <div class="hero-cta">
@@ -1694,7 +1697,7 @@
         <span class="tag"><span class="dot"></span>Inside Verdikt</span>
         <h2 class="headline h2">An operator's console, not a chat window.</h2>
       </div>
-      <p>Templates, renders, publishes, and failures — every row scoped to a tenant. The same admin surface a compliance officer would review during an audit.</p>
+      <p>Templates, renders, publishes, and failures. Every row scoped to a tenant. The same admin surface a compliance officer would review during an audit.</p>
     </div>
     <figure class="console-shot">
       <img src="{{ url_for('static', path='landing-console.png') }}" alt="Verdikt admin dashboard showing templates, render volume, recent renders, and top templates for a selected tenant" loading="lazy" />
@@ -1722,7 +1725,7 @@
         </p>
         <p class="sm">
           Verdikt is the decision layer for that shape. Every stage's output is a structured
-          artifact a reviewer can read — intake, retrieved rules with rerank scores, verdict
+          artifact a reviewer can read: intake, retrieved rules with rerank scores, verdict
           with citations, rendered letter. Every reply is bound to a
           <span class="mono-hash">version_hash</span> a human approved,
           on a tenant a human provisioned. Supervision path, not hot path.
@@ -1766,7 +1769,7 @@
       <div class="powered-card">
         <span class="role">Reason</span>
         <div class="name">NVIDIA Nemotron Super</div>
-        <div class="note">Structured-JSON verdict per case — approve, deny, missing_info.</div>
+        <div class="note">Structured-JSON verdict per case: approve, deny, missing_info.</div>
       </div>
       <div class="powered-card">
         <span class="role">Retrieve</span>
@@ -1846,7 +1849,7 @@
           <div class="yt-caption">
             <div class="yt-title-block">
               <span class="yt-eyebrow"><span class="dot"></span>Demo · end-to-end</span>
-              <p class="yt-title">Case in, <em>verdict out</em> — three minutes.</p>
+              <p class="yt-title">Case in, <em>verdict out</em>. Three minutes.</p>
               <span class="yt-hint">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5.2 3L10 15z"/>
@@ -1868,7 +1871,7 @@
     <div class="section-head">
       <div>
         <div class="row-h">Decisions at the speed of intake</div>
-        <h2 class="headline h3">Case in. Verdict out. Same case, same reply — forever.</h2>
+        <h2 class="headline h3">Case in. Verdict out. Same case, same reply, forever.</h2>
       </div>
       <p>Anyone can render a template. What's harder is the pipeline that reads the case, retrieves the rules, and stays byte-identical at the seam where the letter leaves the building.</p>
     </div>
@@ -1939,12 +1942,12 @@
     </div>
 
     <div class="rail">
-      <div class="rail-step hot"><div class="n">01</div><div class="k">Intake</div><div class="d">Fax, mail, web, or email — every channel normalizes into one inbox and routes to tenant + program.</div></div>
+      <div class="rail-step hot"><div class="n">01</div><div class="k">Intake</div><div class="d">Fax, mail, web, or email. Every channel normalizes into one inbox and routes to tenant + program.</div></div>
       <div class="rail-step hot"><div class="n">02</div><div class="k">Extract</div><div class="d">Vision reads attachments into structured intake slots.</div></div>
       <div class="rail-step hot"><div class="n">03</div><div class="k">Retrieve</div><div class="d">Rules matched by embedding + rerank against a versioned pack.</div></div>
-      <div class="rail-step hot"><div class="n">04</div><div class="k">Reason</div><div class="d">Structured verdict — approve, deny, or missing_info. Citations attached.</div></div>
+      <div class="rail-step hot"><div class="n">04</div><div class="k">Reason</div><div class="d">Structured verdict: approve, deny, or missing_info. Citations attached.</div></div>
       <div class="rail-step"><div class="n">05</div><div class="k">Merge</div><div class="d">Verdict + frozen template → deterministic bytes.</div></div>
-      <div class="rail-step"><div class="n">06</div><div class="k">Deliver</div><div class="d">Two artifacts out — byte-identical reply letter, plus JSON verdict for downstream systems.</div></div>
+      <div class="rail-step"><div class="n">06</div><div class="k">Deliver</div><div class="d">Two artifacts out: byte-identical reply letter, plus JSON verdict for downstream systems.</div></div>
       <div class="rail-step"><div class="n">07</div><div class="k">Audit</div><div class="d">Every stage preserved: intake, rules, decision, letter, downstream handoff.</div></div>
       <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">Repin an earlier template version. No re-decision. No drift.</div></div>
       <div class="rail-split">
@@ -2036,7 +2039,7 @@
         <ul class="gov-list">
           <li><span class="m">◆</span><span><b>Row-level tenant_id scoping.</b> CI-enforced. One code path, three transports (REST, MCP, admin UI).</span></li>
           <li><span class="m">◆</span><span><b>API-key auth per tenant.</b> Keys are the trust boundary, not IP.</span></li>
-          <li><span class="m">◆</span><span><b>Idempotent by fingerprint.</b> Same case from the same caller returns the same decision — no duplicate letters in the wild.</span></li>
+          <li><span class="m">◆</span><span><b>Idempotent by fingerprint.</b> Same case from the same caller returns the same decision. No duplicate letters in the wild.</span></li>
           <li><span class="m">◆</span><span><b>Draft → Freeze → Publish.</b> No letter renders that a human didn't bless. No rule fires that a human didn't author.</span></li>
         </ul>
       </div>
@@ -2082,21 +2085,21 @@
       <div class="cmp-row hot"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rules engine output, if wired</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable, cited</div></div>
       <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Development project</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">Byte-identical reply (per-reply <span class="mono mono-inline">version_hash</span>)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Doc-gen + manual template QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
-      <div class="cmp-row hot"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output — call center, CRM, case-mgmt</div></div>
+      <div class="cmp-row hot"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output: call center, CRM, case-mgmt</div></div>
       <div class="cmp-row"><div class="cmp-cell">Decision ledger tying case → rules → verdict → letter</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rows across disparate systems</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
       <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Change-management ticket</div><div class="cmp-cell q" data-label="Verdikt">✓ Repoint version, no re-decision</div></div>
       <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Often per-tenant deployments</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
-      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
+      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">n/a</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
       <div class="cmp-row hot"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — pluggable connectors, clean data to LLM + downstream</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Rules authoring UI for business analysts</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Engineer edits config, or vendor SOW</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — AI-assisted design-time authoring</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap: pluggable connectors, clean data to LLM + downstream</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Rules authoring UI for business analysts</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Engineer edits config, or vendor SOW</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap: AI-assisted design-time authoring</div></div>
     </div>
 
     <div class="cmp-note">
       <span class="cmp-note-icon" aria-hidden="true">◷</span>
       <span>
         <b>Roadmap items.</b> Rows marked <span class="mono mono-inline">◷</span> aren't
-        shipped in this hackathon submission — the pipeline architecture and
+        shipped in this hackathon submission. The pipeline architecture and
         programs-as-data model leave clean seams for them, and they'd be built next in
         an actual product. The core loop (intake → extract → retrieve → reason →
         merge → deliver → audit → rollback) works today.
@@ -2107,8 +2110,8 @@
       <span class="cmp-note-icon" aria-hidden="true">◇</span>
       <span>
         <b>Architecture note.</b> In production, template authoring and rendering live
-        in a separate product (<b>Quire</b>) called from the pipeline over an API —
-        templates are a governed asset owned by comms and legal, not by the decision
+        in a separate product (<b>Quire</b>) called from the pipeline over an API.
+        Templates are a governed asset owned by comms and legal, not by the decision
         engine. For this hackathon submission we consolidated both into a single
         deployable so reviewers can see the full loop without spinning up two services.
         The seam is preserved: the merge step is a thin adapter that can be swapped
@@ -2125,14 +2128,14 @@
       <div class="row-h">Who this is for</div>
       <h2 class="headline h3 callout-h">Healthcare. Banking. Any workflow where the letter that leaves the building is the audit artifact.</h2>
       <p class="callout-p">
-        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the reply path can't include an LLM. Verdikt is built for buyers who already knew that and couldn't find a vendor who agreed.
+        If a compliance officer has to defend how a document came out the door (to a payer, an auditor, a regulator, or a patient), the reply path can't include an LLM. Verdikt is built for buyers who already knew that and couldn't find a vendor who agreed.
       </p>
     </div>
     <div class="callout-cards">
       <div class="callout-card"><div class="k">Healthcare</div><div class="v">Patient assistance, prior auth, enrollment, denial letters</div><div class="d">Rules a human authored. Cases an AI read. A ledger that maps both to a decision.</div></div>
       <div class="callout-card"><div class="k">Banking</div><div class="v">Disclosures, KYC packets, custodial notices</div><div class="d">Versioned wording. Reproducible bytes. Auditable per tenant.</div></div>
       <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent hands off the case. Verdikt runs the pipeline and produces the reply.</div></div>
-      <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin UI — same domain layer, same guarantees.</div></div>
+      <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin UI. Same domain layer, same guarantees.</div></div>
     </div>
   </div>
 </section>
@@ -2144,7 +2147,7 @@
   <div class="faq-list">
     <details>
       <summary>Is a model called at reply time?<span class="plus">＋</span></summary>
-      <p>No. The reply path is a deterministic template merge — no model, ever. Given the same frozen template and the same verdict, the output bytes are identical, forever. The boundary is enforced by a build-failing test, not a comment.</p>
+      <p>No. The reply path is a deterministic template merge. No model, ever. Given the same frozen template and the same verdict, the output bytes are identical, forever. The boundary is enforced by a build-failing test, not a comment.</p>
     </details>
     <details>
       <summary>Where does the AI actually run?<span class="plus">＋</span></summary>
@@ -2152,7 +2155,7 @@
     </details>
     <details>
       <summary>How do I onboard a new program?<span class="plus">＋</span></summary>
-      <p>As data, not code. A row in the <span class="mono">programs</span> table carries the extraction schema, the rules pack, and the reply template. The OncoBridge cameo proves it — same code, opposite verdict, no new deployment.</p>
+      <p>As data, not code. A row in the <span class="mono">programs</span> table carries the extraction schema, the rules pack, and the reply template. The OncoBridge cameo proves it: same code, opposite verdict, no new deployment.</p>
     </details>
     <details>
       <summary>Can an agent bypass the freeze step?<span class="plus">＋</span></summary>

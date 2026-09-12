@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Verdikt — Design-time AI. Deterministic render.</title>
-<meta name="description" content="Governance-first document generation for regulated industries. AI at design time, deterministic bytes at render time. Version-pinned, per-tenant, fully audited." />
+<title>Verdikt — Many inputs. One verdict.</title>
+<meta name="description" content="A decision pipeline for regulated document workflows. AI reads the case, retrieves the rules, and issues a structured verdict with citations. The reply letter is a byte-identical merge of a human-approved template — no model in the reply path." />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -151,8 +151,8 @@
   .hero-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
   @media (min-width: 768px) { .hero-grid { grid-template-columns: 1fr 1fr; } }
   .card { border: 1px solid var(--hair); border-radius: 8px; background: #fff; overflow: hidden; }
-  .card-h { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--hair); }
-  .card-f { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
+  .card-h { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
+  .card-f { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
   .card-h .mono, .card-f .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); }
 
   /* Field row: swatch sits inside the wrapper's padding zone; mapping is
@@ -510,7 +510,7 @@
         </svg>
       </span>
       <span class="wordmark" style="font-size:22px;">Verdikt</span>
-      <span class="brand-tag">/ document governance</span>
+      <span class="brand-tag">/ many inputs · one verdict</span>
     </a>
     <nav class="nav-links" aria-label="Primary">
       <a href="#wedge">For agents</a>
@@ -519,10 +519,17 @@
       <a href="#compare">Compare</a>
       <a href="#faq">FAQ</a>
     </nav>
+    {% if is_authenticated %}
+    <a href="/ui/" class="btn btn-primary">
+      Open dashboard
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    {% else %}
     <a href="/ui/login" class="btn btn-primary">
       Sign in
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
+    {% endif %}
   </div>
 </header>
 
@@ -530,84 +537,92 @@
 <section class="hero grain">
   <div class="container">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:32px;">
-      <span class="tag"><span class="dot"></span>SOC-adjacent · Multi-tenant · Audit-first</span>
-      <span class="stamp">v1 · frozen</span>
+      <span class="tag"><span class="dot"></span>Case intake · Rule retrieval · Structured verdict · Deterministic reply</span>
+      <span class="stamp">audit-defensible</span>
     </div>
 
     <h1 class="headline h1">
-      Design-time AI.<br/>
-      <em>Deterministic render.</em>
+      Many inputs.<br/>
+      <em>One verdict.</em>
     </h1>
 
     <p class="lede" style="margin-top:32px;">
-      A compliance officer can't approve an LLM in the render path.
-      Verdikt draws the line exactly where they need it drawn: AI helps you
-      <em>build</em> the template. Nothing but pure, reproducible bytes
-      come out at render time — same inputs, byte-identical output, every time.
+      A compliance officer can't approve an LLM on the code path that produces the artifact.
+      Verdikt reads the case, retrieves the rules that apply, and issues a structured verdict —
+      <em>approve</em>, <em>deny</em>, or <em>missing_info</em> — with citations back to the
+      human-authored rules that fired. The reply letter is a byte-identical merge of a frozen
+      template with that verdict.
     </p>
 
     <div class="hero-cta">
+      {% if is_authenticated %}
+      <a href="/ui/" class="btn btn-primary">
+        Open dashboard
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      {% else %}
       <a href="/ui/login" class="btn btn-primary">
         Sign in to Verdikt
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
-      <a href="#lifecycle" class="btn btn-ghost">See how it works</a>
-      <span class="note">No model in the render path · Version-pinned · Per-tenant scoped</span>
+      {% endif %}
+      <a href="#lifecycle" class="btn btn-ghost">See the pipeline</a>
+      <span class="note">No model in the reply path · Rules human-authored · Per-tenant scoped</span>
     </div>
 
     <div class="hero-frame">
       <div class="hero-grid">
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
             <div>
-              <div class="row-h">Design time</div>
-              <div class="headline" style="font-size:24px; margin-top:4px;">AI helps you map the blanks.</div>
+              <div class="row-h">Pipeline · case intake</div>
+              <div class="headline" style="font-size:24px; margin-top:4px;">AI reads the case.</div>
             </div>
-            <span class="tag"><span class="dot dot-amber"></span>LLM</span>
+            <span class="tag"><span class="dot dot-amber"></span>vision · retrieval · reason</span>
           </div>
           <div class="card">
             <div class="card-h">
-              <span class="mono">enrollment_form.docx · preflight</span>
-              <span class="mono" style="font-size:10px;">v1 · draft</span>
+              <span class="mono">enrollment_packet.pdf · pipeline</span>
+              <span class="mono">cardiovita · v3</span>
             </div>
-            <div style="padding: 12px 20px;">
-              <div class="field-row"><span class="swatch"></span><span class="name">Patient_First_Name__c</span><span class="map">→ {% raw %}{{ patient.first_name }}{% endraw %}</span></div>
-              <div class="field-row"><span class="swatch"></span><span class="name">Patient_DOB__c</span><span class="map">→ {% raw %}{{ patient.dob | date }}{% endraw %}</span></div>
-              <div class="field-row"><span class="swatch"></span><span class="name">Prescriber_NPI__c</span><span class="map">→ {% raw %}{{ prescriber.npi }}{% endraw %}</span></div>
-              <div class="field-row"><span class="swatch amber"></span><span class="name">Signature block <span class="mono" style="color:var(--ink-500); font-size:11px;">(needs human review)</span></span><button class="link-btn" type="button">Review</button></div>
+            <div style="padding: 12px 16px;">
+              <div class="field-row"><span class="swatch"></span><span class="name">Extract</span><span class="map">vision · 31 slots</span></div>
+              <div class="field-row"><span class="swatch"></span><span class="name">Retrieve</span><span class="map">embed + rerank · 4 rules</span></div>
+              <div class="field-row"><span class="swatch"></span><span class="name">Reason</span><span class="map">approve · 4 citations</span></div>
+              <div class="field-row"><span class="swatch amber"></span><span class="name">Prescriber signature date</span><button class="link-btn" type="button">Review</button></div>
             </div>
             <div class="card-f">
-              <span>31 fields · 3 need review</span>
-              <button class="link-plain" type="button">Freeze v1 →</button>
+              <span>3 stages · 1 slot flagged</span>
+              <button class="link-plain" type="button">Open pipeline detail →</button>
             </div>
           </div>
         </div>
 
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
             <div>
-              <div class="row-h">Render time</div>
-              <div class="headline" style="font-size:24px; margin-top:4px;">Pure, reproducible bytes.</div>
+              <div class="row-h">Reply time</div>
+              <div class="headline" style="font-size:24px; margin-top:4px;">Byte-identical reply.</div>
             </div>
             <span class="tag"><span class="dot"></span>No AI</span>
           </div>
           <div class="card">
             <div class="card-h">
-              <span class="mono">POST /render · frozen v1</span>
+              <span class="mono">POST /pipeline/reply · frozen v3</span>
               <span class="mono">200 · 84ms</span>
             </div>
 <pre class="code">{
-  "template_id": "e9727862-…",
-  "version": 1,
+  "case_id": "asp-201-…",
+  "program": "cardiovita-pap-2026",
+  "outcome": "approve",
+  "citations": 4,
+  "template_version": 3,
   "version_hash": "sha256:9b4c…",
-  "job_id": "01J8Y…",
-  "output": "s3://verdikt/renders/…docx",
-  "replayed": false,
-  "caller": "claude-desktop",
-  "tenant_id": "acme-health"
+  "output": "s3://verdikt/replies/…pdf",
+  "tenant_id": "alderwood-pharma"
 }</pre>
             <div class="card-f">
-              <span>Same inputs → identical bytes</span>
+              <span>Same case → identical bytes</span>
               <span class="pill">byte-identical</span>
             </div>
           </div>
@@ -615,9 +630,9 @@
       </div>
 
       <div class="hero-foot">
-        <div><span class="dot-sm"></span>Deterministic .docx + PDF pipeline</div>
-        <div><span class="dot-sm"></span>Content-addressed blob storage</div>
-        <div><span class="dot-sm"></span>Idempotent by request fingerprint</div>
+        <div><span class="dot-sm"></span>Multimodal PDF extraction</div>
+        <div><span class="dot-sm"></span>Versioned rules · rerank + citations</div>
+        <div><span class="dot-sm"></span>Structured verdict · deterministic merge</div>
       </div>
     </div>
   </div>
@@ -636,32 +651,33 @@
       </div>
       <div>
         <p>
-          The agent supplies JSON. A frozen, human-approved template supplies the words.
-          That's it. That's the shape of trustworthy agent output for the next five years,
-          and it's the only shape a bank or a payer will sign off on.
+          AI reads the case. Human-authored rules decide the outcome. A frozen, human-approved
+          template supplies the words. That's the shape of trustworthy agent output for the
+          next five years, and the only shape a bank or a payer will sign off on.
         </p>
         <p class="sm" style="margin-top:24px;">
-          Verdikt is the deterministic output layer for agents. Every render is bound to a
+          Verdikt is the decision layer for that shape. Every stage's output is a structured
+          artifact a reviewer can read — intake, retrieved rules with rerank scores, verdict
+          with citations, rendered letter. Every reply is bound to a
           <span class="mono" style="color:var(--seal-300);">version_hash</span> a human approved,
-          on a tenant a human provisioned, called by an app or agent recorded in the ledger.
-          Supervision path, not hot path.
+          on a tenant a human provisioned. Supervision path, not hot path.
         </p>
 
         <div class="wedge-triple">
           <div class="wedge-cell">
-            <div class="k">Agent supplies</div>
-            <div class="v">JSON</div>
-            <div class="d">Structured payload against a fixed schema.</div>
+            <div class="k">AI supplies</div>
+            <div class="v">Reading</div>
+            <div class="d">Vision extraction, retrieval + rerank, structured reasoning.</div>
           </div>
           <div class="wedge-cell">
-            <div class="k">Human supplies</div>
-            <div class="v">Words</div>
-            <div class="d">The frozen template, approved once.</div>
+            <div class="k">Humans supply</div>
+            <div class="v">Rules</div>
+            <div class="d">Versioned YAML rules packs and frozen reply templates.</div>
           </div>
           <div class="wedge-cell hot">
             <div class="k">Verdikt supplies</div>
-            <div class="v">Provenance</div>
-            <div class="d">Version, hash, caller, tenant, timestamp.</div>
+            <div class="v">Verdict</div>
+            <div class="d">Outcome with citations, tenant, provenance, byte-identical reply.</div>
           </div>
         </div>
       </div>
@@ -674,31 +690,31 @@
   <div class="container">
     <div class="section-head">
       <div>
-        <div class="row-h">The lifecycle</div>
-        <h2 class="headline h3" style="margin-top:8px;">Upload once. Freeze once. Render forever.</h2>
+        <div class="row-h">Decisions at the speed of intake</div>
+        <h2 class="headline h3" style="margin-top:8px;">Case in. Verdict out. Same case, same reply — forever.</h2>
       </div>
-      <p>Anyone can fill a <span class="kbd">.docx</span>. What almost nobody sells is the full lifecycle — governed, versioned, and auditable end to end.</p>
+      <p>Anyone can render a template. What's harder is the pipeline that reads the case, retrieves the rules, and stays byte-identical at the seam where the letter leaves the building.</p>
     </div>
 
     <div class="rail">
-      <div class="rail-step hot"><div class="n">01</div><div class="k">Upload</div><div class="d">.docx or PDF with blanks. Nothing else needed.</div></div>
-      <div class="rail-step hot"><div class="n">02</div><div class="k">AI map</div><div class="d">Fields detected, template tags suggested, caller profile drafted.</div></div>
-      <div class="rail-step hot"><div class="n">03</div><div class="k">Preflight</div><div class="d">Human reviews. Ambiguities flagged. Nothing publishes silently.</div></div>
-      <div class="rail-step"><div class="n">04</div><div class="k">Freeze</div><div class="d">Version pinned. Bytes content-addressed. Immutable.</div></div>
-      <div class="rail-step"><div class="n">05</div><div class="k">Publish</div><div class="d">Blessed as current. Prior versions stay callable.</div></div>
-      <div class="rail-step"><div class="n">06</div><div class="k">version_hash</div><div class="d">Every render bound to a hash a human approved.</div></div>
-      <div class="rail-step"><div class="n">07</div><div class="k">Provenance</div><div class="d">Caller ledger records who rendered what, when, from where.</div></div>
-      <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">One click. No re-render, no reconciliation, no drift.</div></div>
+      <div class="rail-step hot"><div class="n">01</div><div class="k">Inbox</div><div class="d">Email arrives. Subject-tag routes to tenant and program.</div></div>
+      <div class="rail-step hot"><div class="n">02</div><div class="k">Extract</div><div class="d">Vision reads attachments into structured intake slots.</div></div>
+      <div class="rail-step hot"><div class="n">03</div><div class="k">Retrieve</div><div class="d">Rules matched by embedding + rerank against a versioned pack.</div></div>
+      <div class="rail-step hot"><div class="n">04</div><div class="k">Reason</div><div class="d">Structured verdict — approve, deny, or missing_info. Citations attached.</div></div>
+      <div class="rail-step"><div class="n">05</div><div class="k">Merge</div><div class="d">Verdict + frozen template → deterministic bytes.</div></div>
+      <div class="rail-step"><div class="n">06</div><div class="k">Reply</div><div class="d">Outbound letter sent. Same bytes the reviewer downloads.</div></div>
+      <div class="rail-step"><div class="n">07</div><div class="k">Audit</div><div class="d">Every stage preserved: intake, rules, decision, letter.</div></div>
+      <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">Repin an earlier template version. No re-decision. No drift.</div></div>
       <div class="rail-split">
-        <div>◄ AI zone · design time · humans in the loop</div>
-        <div>Deterministic zone · run time · no model, ever ►</div>
+        <div>◄ AI zone · pipeline · human-authored rules & templates</div>
+        <div>Deterministic zone · reply time · no model, ever ►</div>
       </div>
     </div>
 
     <p style="margin-top:24px; font-size:14px; color:var(--ink-500); max-width:768px;">
-      Most doc-gen tools fill a template. Some do it for $49/month.
-      They stop at step 03. Verdikt ships the other five, scoped per tenant, so the buyer can defend
-      the whole path in an audit — not just the render call.
+      Most doc-gen tools stop at the render call. Verdikt ships the pipeline in front of it —
+      case intake, rule retrieval, structured verdict — plus the ledger behind it. All scoped
+      per tenant, so the buyer can defend the whole path in an audit, not just the last step.
     </p>
   </div>
 </section>
@@ -709,32 +725,32 @@
     <div class="gov-grid">
       <div>
         <div class="row-h">Governance in the shape of a product</div>
-        <h2 class="headline h3" style="margin-top:8px;">The caller ledger is the point.</h2>
+        <h2 class="headline h3" style="margin-top:8px;">The decision ledger is the point.</h2>
         <p style="margin-top:24px; color:var(--ink-700); line-height:1.7;">
-          Every render writes a row. Which app or agent pulled which frozen version, for which tenant, at which second, with which idempotency fingerprint. Reproducible on demand. Discoverable in a subpoena. Boring in the good way.
+          Every case writes a row. Which program, which rules fired, which outcome, which letter, for which tenant, at which second, with which citations. Reproducible on demand. Discoverable in a subpoena. Boring in the good way.
         </p>
         <ul class="gov-list">
-          <li><span class="m">◆</span><span><b>Row-level tenant_id scoping.</b> CI-enforced. One code path, three transports (REST, MCP, admin).</span></li>
+          <li><span class="m">◆</span><span><b>Row-level tenant_id scoping.</b> CI-enforced. One code path, three transports (REST, MCP, admin UI).</span></li>
           <li><span class="m">◆</span><span><b>API-key auth per tenant.</b> Keys are the trust boundary, not IP.</span></li>
-          <li><span class="m">◆</span><span><b>Idempotent by fingerprint.</b> Same payload from the same caller returns the same job — no duplicate documents in the wild.</span></li>
-          <li><span class="m">◆</span><span><b>Draft → Freeze → Publish.</b> Nothing renders that a human didn't bless.</span></li>
+          <li><span class="m">◆</span><span><b>Idempotent by fingerprint.</b> Same case from the same caller returns the same decision — no duplicate letters in the wild.</span></li>
+          <li><span class="m">◆</span><span><b>Draft → Freeze → Publish.</b> No letter renders that a human didn't bless. No rule fires that a human didn't author.</span></li>
         </ul>
       </div>
 
       <div>
         <div class="ledger">
-          <div class="ledger-h"><div>Time</div><div>Template · version</div><div>Caller</div><div>Version hash</div><div>Job</div></div>
-          <div class="ledger-r"><div class="mute">14:02:11</div><div>enrollment_form · v3</div><div><span class="pill">mcp</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
-          <div class="ledger-r"><div class="mute">14:01:58</div><div>denial_letter · v2</div><div><span class="pill">claude-desktop</span></div><div class="mute">sha256:2a10…c88b</div><div class="mute">01J8Y…</div></div>
-          <div class="ledger-r"><div class="mute">14:01:44</div><div>enrollment_form · v3</div><div><span class="pill">catalyst-app</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
-          <div class="ledger-r"><div class="mute">14:01:31</div><div>enrollment_form · v3</div><div><span class="pill warn">smoke-test</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
-          <div class="ledger-r"><div class="mute">14:00:07</div><div>enrollment_form · v2 <span class="faint">(rolled back)</span></div><div><span class="pill">catalyst-app</span></div><div class="mute">sha256:71fd…9004</div><div class="mute">01J8X…</div></div>
+          <div class="ledger-h"><div>Time</div><div>Program · case</div><div>Outcome</div><div>Version hash</div><div>Job</div></div>
+          <div class="ledger-r"><div class="mute">14:02:11</div><div>cardiovita · asp-201</div><div><span class="pill">approve</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:58</div><div>cardiovita · asp-198</div><div><span class="pill">deny</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:44</div><div>oncobridge · onc-115</div><div><span class="pill warn">missing_info</span></div><div class="mute">sha256:2a10…c88b</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:01:31</div><div>cardiovita · asp-197</div><div><span class="pill">approve</span></div><div class="mute">sha256:9b4c…f21e</div><div class="mute">01J8Y…</div></div>
+          <div class="ledger-r"><div class="mute">14:00:07</div><div>cardiovita · asp-201 <span class="faint">(v2 rolled back)</span></div><div><span class="pill">approve</span></div><div class="mute">sha256:71fd…9004</div><div class="mute">01J8X…</div></div>
         </div>
 
         <div class="stat-grid">
           <div class="stat"><div class="k">Tenants</div><div class="v">Row-level</div></div>
           <div class="stat"><div class="k">Rollback</div><div class="v">1 click</div></div>
-          <div class="stat"><div class="k">Render bytes</div><div class="v">Reproducible</div></div>
+          <div class="stat"><div class="k">Reply bytes</div><div class="v">Reproducible</div></div>
         </div>
       </div>
     </div>
@@ -746,7 +762,7 @@
   <div class="container">
     <div class="row-h">Where the market ends and Verdikt begins</div>
     <h2 class="headline h3" style="margin-top:8px; margin-bottom:40px; max-width:768px;">
-      A doc-gen product on the outside.<br/>
+      A pipeline product on the outside.<br/>
       <em>A governance product on the inside.</em>
     </h2>
 
@@ -756,15 +772,17 @@
         <div class="cmp-cell head">Typical doc-gen tools</div>
         <div class="cmp-cell head q">Verdikt</div>
       </div>
-      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Verdikt">✓</div></div>
-      <div class="cmp-row"><div class="cmp-cell">AI-assisted field mapping at design time</div><div class="cmp-cell mute" data-label="Others">Rare / manual</div><div class="cmp-cell q" data-label="Verdikt">✓ Preflight + human review</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Draft → freeze → publish lifecycle</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Version-pinned, immutable</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Per-render <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Caller ledger (which agent rendered what)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Every call, per tenant</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm / flat PDF</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Verdikt">✓ All three, one code path</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Multimodal case extraction from inbound docs</div><div class="cmp-cell mute" data-label="Others">Rare / regex</div><div class="cmp-cell q" data-label="Verdikt">✓ Vision + slot schema per program</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Rules retrieval with citations</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Versioned YAML packs, embed + rerank</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Per-reply <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Decision ledger (program, outcome, citations)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
       <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓</div></div>
       <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Others">Varies</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
       <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
-      <div class="cmp-row"><div class="cmp-cell">No LLM in the render path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Guaranteed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
     </div>
   </div>
 </section>
@@ -774,16 +792,16 @@
   <div class="container callout-grid">
     <div>
       <div class="row-h">Who this is for</div>
-      <h2 class="headline h3" style="margin-top:8px;">Healthcare. Banking. Anyone whose lawyers read the render path.</h2>
+      <h2 class="headline h3" style="margin-top:8px;">Healthcare. Banking. Any workflow where the letter that leaves the building is the audit artifact.</h2>
       <p style="margin-top:24px; color:var(--ink-700); line-height:1.7;">
-        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the render path can't include an LLM. Verdikt is built for the buyer who already knew that and couldn't find a vendor who agreed.
+        If a compliance officer has to defend how a document came out the door — to a payer, an auditor, a regulator, a patient — the reply path can't include an LLM. Verdikt is built for buyers who already knew that and couldn't find a vendor who agreed.
       </p>
     </div>
     <div class="callout-cards">
-      <div class="callout-card"><div class="k">Healthcare</div><div class="v">Prior-auth, enrollment, denial letters</div><div class="d">Templates a human approved. Fields an agent filled. A ledger that maps both to a job.</div></div>
-      <div class="callout-card"><div class="k">Banking</div><div class="v">Disclosures, KYC packets, custodial notices</div><div class="d">Version-pinned wording. Reproducible bytes. Auditable per tenant.</div></div>
-      <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent generates the JSON. Verdikt generates the document.</div></div>
-      <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin portal — same domain layer, same guarantees.</div></div>
+      <div class="callout-card"><div class="k">Healthcare</div><div class="v">Patient assistance, prior auth, enrollment, denial letters</div><div class="d">Rules a human authored. Cases an AI read. A ledger that maps both to a decision.</div></div>
+      <div class="callout-card"><div class="k">Banking</div><div class="v">Disclosures, KYC packets, custodial notices</div><div class="d">Versioned wording. Reproducible bytes. Auditable per tenant.</div></div>
+      <div class="callout-card"><div class="k">Agent teams</div><div class="v">Trustworthy output for LLM workflows</div><div class="d">Your agent hands off the case. Verdikt runs the pipeline and produces the reply.</div></div>
+      <div class="callout-card"><div class="k">Platform teams</div><div class="v">One code path. Three transports.</div><div class="d">REST, MCP, admin UI — same domain layer, same guarantees.</div></div>
     </div>
   </div>
 </section>
@@ -794,24 +812,28 @@
   <h2 class="headline h3" style="margin-top:8px; margin-bottom:40px;">Straight answers.</h2>
   <div class="faq-list">
     <details>
-      <summary>Is a model called at render time?<span class="plus">＋</span></summary>
-      <p>No. The render pipeline is a deterministic template engine — no model in the render path. Given the same frozen template and the same input JSON, the output bytes are identical, forever.</p>
+      <summary>Is a model called at reply time?<span class="plus">＋</span></summary>
+      <p>No. The reply path is a deterministic template merge — no model, ever. Given the same frozen template and the same verdict, the output bytes are identical, forever. The boundary is enforced by a build-failing test, not a comment.</p>
     </details>
     <details>
       <summary>Where does the AI actually run?<span class="plus">＋</span></summary>
-      <p>Only at design time: preflight, field detection, template tag suggestion, and caller-profile mapping. A human reviews before anything freezes. The frozen artifact is what runs in production.</p>
+      <p>Three stages, all in front of the reply: <b>extract</b> (vision reads the inbound case into structured intake slots), <b>retrieve</b> (rules matched by embedding + rerank against a versioned pack), and <b>reason</b> (structured verdict over the retrieved rules). Every stage's output is a structured artifact a reviewer can inspect.</p>
+    </details>
+    <details>
+      <summary>How do I onboard a new program?<span class="plus">＋</span></summary>
+      <p>As data, not code. A row in the <span class="mono">programs</span> table carries the extraction schema, the rules pack, and the reply template. The OncoBridge cameo proves it — same code, opposite verdict, no new deployment.</p>
     </details>
     <details>
       <summary>Can an agent bypass the freeze step?<span class="plus">＋</span></summary>
-      <p>No. Renders require a frozen version. An agent can call <span class="mono">render_template</span> over MCP; it can't publish a template. The freeze/publish flow is admin-scoped.</p>
+      <p>No. Replies require a frozen template and a versioned rules pack. An agent can hand off a case over MCP; it can't publish a template or edit a rule. Publish and freeze are admin-scoped.</p>
     </details>
     <details>
       <summary>How is multi-tenancy enforced?<span class="plus">＋</span></summary>
-      <p>Row-level <span class="mono">tenant_id</span> on every business table, API-key auth per tenant, and a CI-enforced tenant-scope audit script that fails the build on any query that could cross a tenant boundary.</p>
+      <p>Row-level <span class="mono">tenant_id</span> on every business table, API-key auth per tenant, subject-tag routing on inbound email, and a CI-enforced tenant-scope audit script that fails the build on any query that could cross a tenant boundary.</p>
     </details>
     <details>
       <summary>What does rollback actually do?<span class="plus">＋</span></summary>
-      <p>Repoints the "current" version to a prior frozen version. Nothing is re-rendered, no drift is introduced, and prior <span class="mono">version_hash</span> values remain valid for reproducibility.</p>
+      <p>Repoints the "current" version to a prior frozen template. Nothing is re-decided, no drift is introduced, and prior <span class="mono">version_hash</span> values remain valid for reproducibility.</p>
     </details>
   </div>
 </section>
@@ -820,17 +842,24 @@
 <section class="cta">
   <span class="tag tag-dark"><span class="dot"></span>Ready when your auditor is</span>
   <h2 class="headline h2" style="margin-top:24px; color:var(--ink-50);">
-    Bring the AI to the template.<br/>
-    <em>Keep it out of the render.</em>
+    Bring the AI to the case.<br/>
+    <em>Keep it out of the reply.</em>
   </h2>
   <div class="cta-buttons">
+    {% if is_authenticated %}
+    <a href="/ui/" class="btn btn-invert">
+      Open dashboard
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+    {% else %}
     <a href="/ui/login" class="btn btn-invert">
       Sign in to Verdikt
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </a>
-    <a href="#lifecycle" class="btn btn-ghost-dark">Read the lifecycle again</a>
+    {% endif %}
+    <a href="#lifecycle" class="btn btn-ghost-dark">Walk the pipeline again</a>
   </div>
-  <p class="note">No model in the render path · Version-pinned · Per-tenant · MCP-native</p>
+  <p class="note">No model in the reply path · Rules human-authored · Per-tenant · MCP-native</p>
 </section>
 
 <!-- Footer -->
@@ -848,7 +877,7 @@
           </g>
         </svg>
       </span>
-      <span>Verdikt · document governance for regulated teams</span>
+      <span>Verdikt · decision pipeline for regulated documents</span>
     </div>
     <div class="links">
       <a href="/docs">REST reference</a>

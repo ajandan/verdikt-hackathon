@@ -209,13 +209,15 @@ def create_app() -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     async def _root(request: Request) -> Response:
-        # Authenticated admins go straight to the dashboard; everyone else
-        # gets the public marketing landing. The "Sign in" CTAs point to
-        # /ui/login, which routes back into the standard admin flow.
+        # Always serve the public marketing landing at the root so admins
+        # can still show it during demos or after signing in. When a valid
+        # session cookie is present the template swaps the "Sign in" CTAs
+        # for "Open dashboard" so returning admins get one click back in.
         cookie = request.cookies.get(SESSION_COOKIE)
-        if cookie and verify_session(cookie) is not None:
-            return RedirectResponse("/ui/")
-        return ui_templates.TemplateResponse(request, "landing.html", {})
+        is_authenticated = bool(cookie and verify_session(cookie) is not None)
+        return ui_templates.TemplateResponse(
+            request, "landing.html", {"is_authenticated": is_authenticated}
+        )
 
     mcp_app = build_mcp_app()
     app.mount("/mcp", mcp_app)

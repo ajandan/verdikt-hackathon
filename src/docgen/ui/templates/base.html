@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
-    {# Set theme before paint to avoid flash-of-wrong-theme. #}
+    {# Set theme + sidebar-collapsed state before paint to avoid flashes. #}
     <script nonce="{{ csp_nonce(request) }}">
         (function () {
             try {
@@ -20,6 +20,9 @@
                     document.documentElement.classList.toggle('dark', saved === 'dark');
                 } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
                     document.documentElement.classList.add('dark');
+                }
+                if (localStorage.getItem('verdikt_sidebar_collapsed') === '1') {
+                    document.documentElement.setAttribute('data-sidebar', 'collapsed');
                 }
             } catch (e) { /* ignore */ }
         })();
@@ -101,7 +104,8 @@
             --radius: 12px;
             --radius-lg: 16px;
             --radius-xl: 22px;
-            --sidebar-w: 244px;
+            --sidebar-w: 224px;
+            --sidebar-w-collapsed: 64px;
 
             /* motion */
             --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -459,6 +463,91 @@
             color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.09em;
         }
 
+        /* Sidebar collapse toggle (desktop only) */
+        .sidebar-collapse-btn {
+            position: absolute; top: 22px; right: -12px;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: var(--surface); border: 1px solid var(--border);
+            color: var(--text-muted); cursor: pointer;
+            display: grid; place-items: center;
+            box-shadow: var(--shadow-sm);
+            transition: background var(--dur-fast) var(--ease-out),
+                        color var(--dur-fast) var(--ease-out),
+                        transform var(--dur-fast) var(--ease-out);
+            z-index: 5;
+        }
+        .sidebar-collapse-btn:hover { background: var(--brand-soft); color: var(--brand); }
+        .sidebar-collapse-btn svg { width: 12px; height: 12px; transition: transform var(--dur-base) var(--ease-out); }
+        html[data-sidebar="collapsed"] .sidebar-collapse-btn svg { transform: rotate(180deg); }
+
+        /* Collapsed sidebar rail (desktop only — mobile uses the slide-out) */
+        .app-sidebar {
+            transition: width var(--dur-base) var(--ease-out),
+                        flex-basis var(--dur-base) var(--ease-out);
+        }
+        .signin-cta-collapsed { display: none; }
+        @media (min-width: 901px) {
+            html[data-sidebar="collapsed"] .app-sidebar {
+                width: var(--sidebar-w-collapsed);
+                flex: 0 0 var(--sidebar-w-collapsed);
+            }
+            html[data-sidebar="collapsed"] .app-sidebar .brand-row {
+                padding-left: 0; padding-right: 0; justify-content: center; gap: 0;
+            }
+            html[data-sidebar="collapsed"] .app-sidebar .wordmark,
+            html[data-sidebar="collapsed"] .app-sidebar .nav-section,
+            html[data-sidebar="collapsed"] .app-sidebar .nav-label,
+            html[data-sidebar="collapsed"] .app-sidebar .nav-badge,
+            html[data-sidebar="collapsed"] .app-sidebar .user-card-details,
+            html[data-sidebar="collapsed"] .app-sidebar .user-card-signout,
+            html[data-sidebar="collapsed"] .app-sidebar .signin-cta-full {
+                display: none;
+            }
+            html[data-sidebar="collapsed"] .app-sidebar .nav-link {
+                justify-content: center; padding: 8px; gap: 0;
+            }
+            html[data-sidebar="collapsed"] .app-sidebar .nav-link.active::before { left: -8px; }
+            html[data-sidebar="collapsed"] .app-sidebar .user-card {
+                justify-content: center; padding: 0;
+            }
+            html[data-sidebar="collapsed"] .app-sidebar .signin-cta-collapsed { display: inline-flex; }
+
+            /* Custom tooltip — only when sidebar is collapsed */
+            html[data-sidebar="collapsed"] .app-sidebar [data-tooltip] { position: relative; }
+            html[data-sidebar="collapsed"] .app-sidebar [data-tooltip]:hover::after,
+            html[data-sidebar="collapsed"] .app-sidebar [data-tooltip]:focus-visible::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: calc(100% + 14px); top: 50%;
+                transform: translateY(-50%);
+                background: var(--surface);
+                color: var(--text);
+                border: 1px solid var(--border);
+                padding: 6px 10px; border-radius: 8px;
+                font-size: 12px; font-weight: 500; line-height: 1;
+                letter-spacing: -0.005em; white-space: nowrap;
+                box-shadow: var(--shadow-md);
+                z-index: 100; pointer-events: none;
+                animation: tooltip-slide-in var(--dur-fast) var(--ease-out);
+            }
+            html[data-sidebar="collapsed"] .app-sidebar [data-tooltip]:hover::before,
+            html[data-sidebar="collapsed"] .app-sidebar [data-tooltip]:focus-visible::before {
+                content: '';
+                position: absolute;
+                left: calc(100% + 8px); top: 50%;
+                transform: translateY(-50%) rotate(45deg);
+                width: 8px; height: 8px;
+                background: var(--surface);
+                border-left: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                z-index: 101; pointer-events: none;
+            }
+        }
+        @keyframes tooltip-slide-in {
+            from { opacity: 0; transform: translateY(-50%) translateX(-6px); }
+            to { opacity: 1; transform: translateY(-50%) translateX(0); }
+        }
+
         /* Icon button */
         .icon-btn {
             background: transparent; border: 1px solid transparent; color: var(--text-muted);
@@ -690,8 +779,11 @@
 {% else %}
 <a href="#main-content" class="skip-link">Skip to main content</a>
 <div class="flex min-h-screen">
-    <aside id="app-sidebar" class="app-sidebar">
-        <a href="/ui/" class="flex items-center gap-3 px-5 pt-6 pb-5 no-underline text-ink hover:text-ink">
+    <aside id="app-sidebar" class="app-sidebar" style="position: sticky;">
+        <button type="button" id="sidebar-collapse" class="sidebar-collapse-btn hide-mobile" aria-label="Collapse sidebar">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3L4 6l3.5 3"/></svg>
+        </button>
+        <a href="/ui/" class="brand-row flex items-center gap-3 px-5 pt-6 pb-5 no-underline text-ink hover:text-ink" data-tooltip="Verdikt">
             <span class="w-10 h-10 grid place-items-center" aria-hidden="true">
                 <svg viewBox="0 0 64 64" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g fill="none" stroke-width="5.5" stroke-linecap="square">
@@ -709,48 +801,48 @@
         <div class="px-3 pt-3 flex-1 overflow-y-auto">
             <div class="nav-section">Overview</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/ui/dashboard{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'dashboard' %}active{% endif %}">
+                <a href="/ui/dashboard{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l6-5 6 5"/><path d="M4 7v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7"/></svg>
-                    Dashboard
+                    <span class="nav-label">Dashboard</span>
                 </a>
             </nav>
 
             <div class="nav-section">Intake queue</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}">
+                <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}" data-tooltip="Inbox review">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M2 9h3l1 2h4l1-2h3"/></svg>
-                    Inbox review
+                    <span class="nav-label">Inbox review</span>
                 </a>
-                <a href="/ui/inbox/humanloop{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'humanloop' %}active{% endif %}">
+                <a href="/ui/inbox/humanloop{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'humanloop' %}active{% endif %}" data-tooltip="HumanLoop{% if humanloop_count and humanloop_count > 0 %} ({{ humanloop_count }}){% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="2.2"/><path d="M4.2 13c0-2.1 1.7-3.6 3.8-3.6s3.8 1.5 3.8 3.6"/><path d="M2 8.4a5.8 5.8 0 0 1 1.4-3.2"/><path d="M14 8.4a5.8 5.8 0 0 0-1.4-3.2"/></svg>
-                    HumanLoop
+                    <span class="nav-label">HumanLoop</span>
                     {% if humanloop_count and humanloop_count > 0 %}
-                    <span class="ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--brand)] text-white leading-none">{{ humanloop_count }}</span>
+                    <span class="nav-badge ml-auto text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--brand)] text-white leading-none">{{ humanloop_count }}</span>
                     {% endif %}
                 </a>
             </nav>
 
             <div class="nav-section">Configuration</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/ui/programs" class="nav-link {% if active == 'programs' %}active{% endif %}">
+                <a href="/ui/programs" class="nav-link {% if active == 'programs' %}active{% endif %}" data-tooltip="Programs">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 3.5h11v2h-11z"/><path d="M2.5 7h11v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z"/><path d="M6 10h4"/></svg>
-                    Programs
+                    <span class="nav-label">Programs</span>
                 </a>
-                <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}">
+                <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}" data-tooltip="Templates">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-                    Templates
+                    <span class="nav-label">Templates</span>
                 </a>
-                <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}">
+                <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}" data-tooltip="Upload template">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>
-                    Upload template
+                    <span class="nav-label">Upload template</span>
                 </a>
             </nav>
 
             <div class="nav-section">Output</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/ui/renders{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'renders' %}active{% endif %}">
+                <a href="/ui/renders{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'renders' %}active{% endif %}" data-tooltip="Renders">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg>
-                    Renders
+                    <span class="nav-label">Renders</span>
                 </a>
             </nav>
 
@@ -758,14 +850,14 @@
             <div class="nav-section">Administration</div>
             <nav class="flex flex-col gap-0.5">
                 {% set path = request.url.path if request else '' %}
-                <a href="{% if sidebar_selected_tenant_id %}/ui/admin/tenants/{{ sidebar_selected_tenant_id }}/keys{% else %}/ui/admin/tenants{% endif %}" class="nav-link {% if '/ui/admin/tenants' in path %}active{% endif %}">
+                <a href="{% if sidebar_selected_tenant_id %}/ui/admin/tenants/{{ sidebar_selected_tenant_id }}/keys{% else %}/ui/admin/tenants{% endif %}" class="nav-link {% if '/ui/admin/tenants' in path %}active{% endif %}" data-tooltip="Tenants & keys">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6l5-3 5 3v6l-5 3-5-3z"/><path d="M3 6l5 3 5-3M8 9v6"/></svg>
-                    Tenants &amp; keys
+                    <span class="nav-label">Tenants &amp; keys</span>
                 </a>
                 {% if is_super_admin %}
-                <a href="/ui/admin/users" class="nav-link {% if '/ui/admin/users' in path %}active{% endif %}">
+                <a href="/ui/admin/users" class="nav-link {% if '/ui/admin/users' in path %}active{% endif %}" data-tooltip="Portal users">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="2.5"/><path d="M3 14c0-2.5 2.5-4 5-4s5 1.5 5 4"/></svg>
-                    Portal users
+                    <span class="nav-label">Portal users</span>
                 </a>
                 {% endif %}
             </nav>
@@ -773,24 +865,24 @@
 
             <div class="nav-section">Reference</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/docs" target="_blank" rel="noopener" class="nav-link">
+                <a href="/docs" target="_blank" rel="noopener" class="nav-link" data-tooltip="API docs">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3H4a1 1 0 0 0-1 1z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg>
-                    API docs
+                    <span class="nav-label">API docs</span>
                 </a>
             </nav>
         </div>
 
         {% if admin_user %}
         <div class="border-t border-line px-3 py-3 mt-2">
-            <div class="flex items-center gap-2.5">
+            <div class="user-card flex items-center gap-2.5" data-tooltip="{{ admin_user }} · Admin">
                 <div class="w-8 h-8 rounded-full grid place-items-center text-[11px] font-semibold flex-shrink-0 shadow-brand" style="background: linear-gradient(135deg, rgb(var(--brand-rgb) / 0.85), rgb(var(--brand-hover-rgb))); color: rgb(var(--brand-fg-rgb));">{{ admin_user[0]|upper }}</div>
-                <div class="flex-1 min-w-0">
+                <div class="user-card-details flex-1 min-w-0">
                     <div class="text-[13px] font-semibold truncate leading-tight">{{ admin_user }}</div>
                     <div class="text-[11px] text-ink-subtle leading-tight">Admin</div>
                 </div>
-                <form action="/ui/logout" method="post" class="m-0">
+                <form action="/ui/logout" method="post" class="user-card-signout m-0">
                     {{ csrf_input(request) }}
-                    <button type="submit" class="icon-btn" title="Sign out" aria-label="Sign out">
+                    <button type="submit" class="icon-btn" aria-label="Sign out">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2M10 11l3-3-3-3M13 8H6"/></svg>
                     </button>
                 </form>
@@ -798,7 +890,10 @@
         </div>
         {% else %}
         <div class="border-t border-line px-3 py-3 mt-2">
-            <a class="btn primary sm" href="/ui/login" style="width: 100%; justify-content: center">Sign in</a>
+            <a class="signin-cta-full btn primary sm" href="/ui/login" style="width: 100%; justify-content: center">Sign in</a>
+            <a class="signin-cta-collapsed nav-link" href="/ui/login" data-tooltip="Sign in" style="justify-content: center; padding: 8px;">
+                <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2M6 11l-3-3 3-3M3 8h7"/></svg>
+            </a>
         </div>
         {% endif %}
     </aside>
@@ -996,6 +1091,23 @@
             backdrop.addEventListener('click', close);
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape' && sidebar.classList.contains('open')) close();
+            });
+        }
+
+        function initSidebarCollapse() {
+            var btn = document.getElementById('sidebar-collapse');
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+                var collapsed = document.documentElement.getAttribute('data-sidebar') === 'collapsed';
+                if (collapsed) {
+                    document.documentElement.removeAttribute('data-sidebar');
+                    try { localStorage.removeItem('verdikt_sidebar_collapsed'); } catch (e) {}
+                    btn.setAttribute('aria-label', 'Collapse sidebar');
+                } else {
+                    document.documentElement.setAttribute('data-sidebar', 'collapsed');
+                    try { localStorage.setItem('verdikt_sidebar_collapsed', '1'); } catch (e) {}
+                    btn.setAttribute('aria-label', 'Expand sidebar');
+                }
             });
         }
 
@@ -1259,6 +1371,7 @@
             bootstrapFlashes();
             initSortableTables();
             initSidebarToggle();
+            initSidebarCollapse();
             initThemeToggle();
             initConfirmModal();
             initDataDelegates();

@@ -230,6 +230,19 @@
   .rail-step .d { font-size: 11.5px; color: var(--ink-500); margin-top: 4px; line-height: 1.4; }
   .rail-step.hot { background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.02)); }
   .rail-step.hot .n { color: var(--seal-700); }
+  .rail-channels {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 10px 14px;
+    padding: 12px 16px; margin-bottom: 12px;
+    border: 1px solid var(--hair-soft); border-radius: 10px;
+    background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.02));
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: 0.05em;
+    color: var(--seal-700);
+  }
+  .rail-channels em { font-style: normal; color: var(--ink-500); font-size: 10.5px; margin-left: 4px; }
+  .rail-channels .sep { color: var(--ink-300); }
+  .rail-channels .tail { margin-left: auto; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-500); }
   .rail-split { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--hair-soft); background: rgba(20,20,16,0.02); }
   @media (min-width: 768px) { .rail-split { grid-template-columns: 1fr 1fr; } }
   .rail-split div { padding: 10px 16px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
@@ -537,7 +550,7 @@
 <section class="hero grain">
   <div class="container">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:32px;">
-      <span class="tag"><span class="dot"></span>Case intake · Rule retrieval · Structured verdict · Deterministic reply</span>
+      <span class="tag"><span class="dot"></span>Any channel · Rule retrieval · Structured verdict · Reply + JSON</span>
       <span class="stamp">audit-defensible</span>
     </div>
 
@@ -547,11 +560,13 @@
     </h1>
 
     <p class="lede" style="margin-top:32px;">
-      A compliance officer can't approve an LLM on the code path that produces the artifact.
-      Verdikt reads the case, retrieves the rules that apply, and issues a structured verdict —
-      <em>approve</em>, <em>deny</em>, or <em>missing_info</em> — with citations back to the
-      human-authored rules that fired. The reply letter is a byte-identical merge of a frozen
-      template with that verdict.
+      Cases don't arrive one way. Fax, postal mail, web forms, direct email — Verdikt takes
+      them all through a single intake bus, reads the case, retrieves the rules that apply,
+      and issues a structured verdict — <em>approve</em>, <em>deny</em>, or
+      <em>missing_info</em> — with citations back to the human-authored rules that fired.
+      Two artifacts leave the pipeline: a byte-identical reply letter for the applicant, and
+      a JSON verdict for the downstream systems — call center ops, CRM, case management —
+      that keep the case moving after the letter is sent.
     </p>
 
     <div class="hero-cta">
@@ -696,14 +711,25 @@
       <p>Anyone can render a template. What's harder is the pipeline that reads the case, retrieves the rules, and stays byte-identical at the seam where the letter leaves the building.</p>
     </div>
 
+    <div class="rail-channels" aria-label="Intake channels">
+      <span>Fax</span>
+      <span class="sep">→</span>
+      <span>Mail<em>scanned</em></span>
+      <span class="sep">→</span>
+      <span>Web<em>JSON</em></span>
+      <span class="sep">→</span>
+      <span>Email</span>
+      <span class="tail">one intake bus</span>
+    </div>
+
     <div class="rail">
-      <div class="rail-step hot"><div class="n">01</div><div class="k">Inbox</div><div class="d">Email arrives. Subject-tag routes to tenant and program.</div></div>
+      <div class="rail-step hot"><div class="n">01</div><div class="k">Intake</div><div class="d">Fax, mail, web, or email — every channel normalizes into one inbox and routes to tenant + program.</div></div>
       <div class="rail-step hot"><div class="n">02</div><div class="k">Extract</div><div class="d">Vision reads attachments into structured intake slots.</div></div>
       <div class="rail-step hot"><div class="n">03</div><div class="k">Retrieve</div><div class="d">Rules matched by embedding + rerank against a versioned pack.</div></div>
       <div class="rail-step hot"><div class="n">04</div><div class="k">Reason</div><div class="d">Structured verdict — approve, deny, or missing_info. Citations attached.</div></div>
       <div class="rail-step"><div class="n">05</div><div class="k">Merge</div><div class="d">Verdict + frozen template → deterministic bytes.</div></div>
-      <div class="rail-step"><div class="n">06</div><div class="k">Reply</div><div class="d">Outbound letter sent. Same bytes the reviewer downloads.</div></div>
-      <div class="rail-step"><div class="n">07</div><div class="k">Audit</div><div class="d">Every stage preserved: intake, rules, decision, letter.</div></div>
+      <div class="rail-step"><div class="n">06</div><div class="k">Deliver</div><div class="d">Two artifacts out — byte-identical reply letter, plus JSON verdict for downstream systems.</div></div>
+      <div class="rail-step"><div class="n">07</div><div class="k">Audit</div><div class="d">Every stage preserved: intake, rules, decision, letter, downstream handoff.</div></div>
       <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">Repin an earlier template version. No re-decision. No drift.</div></div>
       <div class="rail-split">
         <div>◄ AI zone · pipeline · human-authored rules & templates</div>

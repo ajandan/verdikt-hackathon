@@ -4,9 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Verdikt{% endblock %}</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cg%20fill%3D%22none%22%20stroke-width%3D%226.5%22%20stroke-linecap%3D%22square%22%3E%3Cpath%20d%3D%22M40%2032C30%2032%2030%2015%2020%2015H9%22%20stroke%3D%22%238ec7b5%22%2F%3E%3Cpath%20d%3D%22M40%2032C30%2032%2030%2049%2020%2049H9%22%20stroke%3D%22%238ec7b5%22%2F%3E%3Cpath%20d%3D%22M9%2032H56%22%20stroke%3D%22%231e5f4f%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cg%20fill%3D%22none%22%20stroke-width%3D%226%22%20stroke-linecap%3D%22square%22%3E%3Cpath%20d%3D%22M38%2032C28%2032%2028%2013%2018%2013H8%22%20stroke%3D%22%235fa58f%22%2F%3E%3Cpath%20d%3D%22M38%2032C28%2032%2028%2051%2018%2051H8%22%20stroke%3D%22%238ec7b5%22%2F%3E%3Cpath%20d%3D%22M8%2032H42%22%20stroke%3D%22%231e5f4f%22%2F%3E%3Ccircle%20cx%3D%2251%22%20cy%3D%2232%22%20r%3D%229%22%20stroke%3D%22%231e5f4f%22%2F%3E%3Ccircle%20cx%3D%2251%22%20cy%3D%2232%22%20r%3D%223.5%22%20fill%3D%22%233cb371%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
     <link rel="preconnect" href="https://rsms.me/">
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
     {# Set theme before paint to avoid flash-of-wrong-theme. #}
     <script nonce="{{ csp_nonce(request) }}">
         (function () {
@@ -154,6 +157,16 @@
         }
         a { color: var(--brand); text-decoration: none; }
         a:hover { color: var(--brand-hover); }
+
+        /* Verdikt wordmark — Space Grotesk, dark-teal matching the verdict bar */
+        .wordmark {
+            font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--brand-hover);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        [data-theme="dark"] .wordmark { color: var(--brand); }
 
         /* ============================================================
            Legacy component classes (kept so unmigrated pages still work)
@@ -678,16 +691,18 @@
 <div class="flex min-h-screen">
     <aside id="app-sidebar" class="app-sidebar">
         <a href="/ui/" class="flex items-center gap-3 px-5 pt-6 pb-5 no-underline text-ink hover:text-ink">
-            <span class="w-10 h-10 grid place-items-center" aria-hidden="true">
-                <svg viewBox="0 0 64 64" width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <span class="w-12 h-12 grid place-items-center" aria-hidden="true">
+                <svg viewBox="0 0 64 64" width="48" height="48" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <g fill="none" stroke-width="5.5" stroke-linecap="square">
-                        <path d="M40 32C30 32 30 15 20 15H9" stroke="#8ec7b5"/>
-                        <path d="M40 32C30 32 30 49 20 49H9" stroke="#8ec7b5"/>
-                        <path d="M9 32H56" stroke="#1e5f4f"/>
+                        <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+                        <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+                        <path d="M8 32H42" stroke="#1e5f4f"/>
+                        <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+                        <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
                     </g>
                 </svg>
             </span>
-            <span class="font-semibold text-[18px] tracking-tight leading-none">Verdikt</span>
+            <span class="wordmark text-[24px]">Verdikt</span>
         </a>
 
         <div class="px-3 pt-3 flex-1 overflow-y-auto">

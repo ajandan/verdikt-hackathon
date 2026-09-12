@@ -795,20 +795,22 @@
     <div class="cmp">
       <div class="cmp-row">
         <div class="cmp-cell head">Capability</div>
-        <div class="cmp-cell head">Typical doc-gen tools</div>
+        <div class="cmp-cell head">Adjudication stacks today</div>
         <div class="cmp-cell head q">Verdikt</div>
       </div>
-      <div class="cmp-row"><div class="cmp-cell">Fill a .docx / AcroForm / flat PDF</div><div class="cmp-cell" data-label="Others">✓</div><div class="cmp-cell q" data-label="Verdikt">✓ All three, one code path</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Multimodal case extraction from inbound docs</div><div class="cmp-cell mute" data-label="Others">Rare / regex</div><div class="cmp-cell q" data-label="Verdikt">✓ Vision + slot schema per program</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Rules retrieval with citations</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Versioned YAML packs, embed + rerank</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Per-reply <span class="mono" style="font-size:12px;">version_hash</span></div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Decision ledger (program, outcome, citations)</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
-      <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Others">Varies</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
-      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
-      <div class="cmp-row"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Others">—</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Multi-channel intake (fax, mail, web, email)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Multi-vendor, glue code per channel</div><div class="cmp-cell q" data-label="Verdikt">✓ One inbox, one pipeline</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Multimodal case extraction from inbound docs</div><div class="cmp-cell mute" data-label="Adjudication stacks today">OCR + regex, manual QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Vision + slot schema per program</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — pluggable connectors, clean data to LLM + downstream</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Rules retrieval with citations</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Analyst reads the rulebook</div><div class="cmp-cell q" data-label="Verdikt">✓ Versioned YAML packs, embed + rerank</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rules engine output, if wired</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable, cited</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Development project</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Byte-identical reply (per-reply <span class="mono" style="font-size:12px;">version_hash</span>)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Doc-gen + manual template QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output — call center, CRM, case-mgmt</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Decision ledger tying case → rules → verdict → letter</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rows across disparate systems</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
+      <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Change-management ticket</div><div class="cmp-cell q" data-label="Verdikt">✓ Repoint version, no re-decision</div></div>
+      <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Often per-tenant deployments</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
+      <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
+      <div class="cmp-row"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
     </div>
   </div>
 </section>

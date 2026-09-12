@@ -6,6 +6,23 @@
 <title>Verdikt — Many inputs. One verdict.</title>
 <meta name="description" content="A decision pipeline for regulated document workflows. AI reads the case, retrieves the rules, and issues a structured verdict with citations. The reply letter is a byte-identical merge of a human-approved template — no model in the reply path." />
 
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt — Many inputs. One verdict." />
+<meta property="og:description" content="AI reads the case. Rules retrieve. Verdict emits with citations. Reply letter is a byte-identical merge — no model in the render path." />
+<meta property="og:image" content="/static/og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt — the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt — Many inputs. One verdict." />
+<meta name="twitter:description" content="AI-in, deterministic-out. A decision pipeline for regulated document workflows." />
+<meta name="twitter:image" content="/static/og-verdikt.png" />
+
+<meta name="theme-color" content="#141410" />
+<meta name="color-scheme" content="light" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -295,8 +312,47 @@
   .hero-watermark svg { width: 100%; height: 100%; display: block; }
 
   .hero-cta { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-  .hero-cta .note { margin-left: 8px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; display: none; }
+  .hero-cta .note { margin-left: 8px; font-size: 13.5px; color: var(--ink-700); font-family: 'JetBrains Mono', ui-monospace, monospace; display: none; }
   @media (min-width: 640px) { .hero-cta .note { display: inline; } }
+
+  /* Trust chips — a row of tenet pills beneath the primary CTA row */
+  .trust-chips {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .trust-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--hair);
+    background: #fff;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--ink-700);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .trust-chip::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: var(--seal-500);
+    flex-shrink: 0;
+  }
+  .trust-chips-dark { justify-content: center; margin-top: 28px; }
+  .trust-chips-dark .trust-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: var(--ink-100);
+  }
+  .trust-chips-dark .trust-chip::before {
+    background: var(--seal-300);
+  }
 
   .hero-frame {
     position: relative; margin-top: 64px; padding: 32px;
@@ -718,6 +774,27 @@
     font-size: 13.5px;
   }
 
+  /* Signature rows — the differentiators that make Verdikt Verdikt.
+     A soft seal wash across the row, a star marker replacing the dot,
+     and a slightly heavier capability label so the eye finds them first. */
+  .cmp-row.hot {
+    background: linear-gradient(90deg, rgba(47,143,118,0.07), rgba(47,143,118,0.03) 60%, rgba(47,143,118,0.02));
+  }
+  .cmp-row.hot:hover { background: linear-gradient(90deg, rgba(47,143,118,0.12), rgba(47,143,118,0.06) 60%, rgba(47,143,118,0.04)); }
+  .cmp-row.hot .cmp-cell:first-child { font-weight: 600; }
+  .cmp-row.hot .cmp-cell:first-child::before {
+    content: "★";
+    background: transparent;
+    color: var(--seal-500);
+    font-size: 11px;
+    width: auto; height: auto;
+    left: 18px;
+    line-height: 1;
+    transform: translateY(-50%);
+  }
+  .cmp-row.hot .cmp-cell.q { background: rgba(47,143,118,0.10); }
+  .cmp-row.hot:hover .cmp-cell.q { background: rgba(47,143,118,0.16); }
+
   .cmp-note {
     display: flex;
     align-items: flex-start;
@@ -773,7 +850,7 @@
   .cta { background: var(--ink-900); color: var(--ink-50); border-top: 1px solid var(--hair); padding: 80px 24px; text-align: center; }
   .cta .headline em { color: var(--seal-300); }
   .cta-buttons { margin-top: 40px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
-  .cta .note { margin-top: 24px; font-size: 12px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--ink-300); }
+  .cta .note { margin-top: 24px; font-size: 13.5px; font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--ink-300); }
 
   /* Footer */
   .footer { border-top: 1px solid var(--hair); }
@@ -969,6 +1046,226 @@
       font-size: 14px; color: var(--ink-700);
     }
   }
+
+  /* ============ Hackathon "Powered by" section ============ */
+  /* Prominent block for judges — this is what a Nebius × NVIDIA reviewer
+     should see within seconds of landing. Full section vertical rhythm,
+     a proper headline, and four tech-pillar cards showing which model
+     does which stage. */
+  .powered {
+    padding: 72px 24px 64px;
+    border-top: 1px solid var(--hair);
+    border-bottom: 1px solid var(--hair);
+    background:
+      radial-gradient(circle at 15% 0%, rgba(47,143,118,0.10), transparent 50%),
+      radial-gradient(circle at 85% 100%, rgba(30,95,79,0.08), transparent 55%),
+      linear-gradient(180deg, var(--ink-50), #fff 55%, var(--ink-50));
+  }
+  .powered-container { max-width: 1200px; margin: 0 auto; }
+  .powered-head { max-width: 820px; margin: 0 auto 40px; text-align: center; }
+  .powered-eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 14px;
+    border: 1px solid rgba(47,143,118,0.30);
+    background: rgba(47,143,118,0.08);
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--seal-700);
+    margin-bottom: 20px;
+  }
+  .powered-eyebrow .sep { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); box-shadow: 0 0 0 3px rgba(47,143,118,0.20); }
+  .powered-head h2 {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: clamp(30px, 4vw, 44px); line-height: 1.1;
+    color: var(--ink-900);
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+  .powered-head h2 em { color: var(--seal-700); font-style: italic; }
+  .powered-head p {
+    font-size: 17px; line-height: 1.55; color: var(--ink-700);
+    margin: 0 auto; max-width: 640px;
+  }
+
+  .powered-grid {
+    display: grid; grid-template-columns: 1fr; gap: 14px;
+    margin-bottom: 28px;
+  }
+  @media (min-width: 640px) { .powered-grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1024px) { .powered-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .powered-card {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    padding: 22px 22px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  }
+  .powered-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(47,143,118,0.35);
+    box-shadow: 0 18px 40px -20px rgba(20,20,16,0.18);
+  }
+  .powered-card .role {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--seal-700);
+  }
+  .powered-card .role::before {
+    content: ""; width: 6px; height: 6px; border-radius: 999px;
+    background: var(--seal-500);
+  }
+  .powered-card .name {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 18px; font-weight: 600; letter-spacing: -0.005em;
+    color: var(--ink-900);
+    margin-top: 4px;
+  }
+  .powered-card .note {
+    font-size: 13.5px; line-height: 1.45; color: var(--ink-500);
+    margin-top: 2px;
+  }
+
+  .powered-foot {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 8px;
+  }
+  .powered-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid rgba(47,143,118,0.30);
+    background: rgba(47,143,118,0.08);
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; letter-spacing: 0.08em;
+    color: var(--seal-700);
+    font-weight: 600;
+  }
+  .powered-badge.mono {
+    background: #fff;
+    border-color: var(--hair);
+    color: var(--ink-700);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+  .powered-badge svg { flex-shrink: 0; }
+
+  @media (max-width: 767px) {
+    .powered { padding: 48px 20px 44px; }
+    .powered-head h2 { font-size: 26px; }
+    .powered-head p { font-size: 15px; }
+  }
+
+  /* ============ Case trace chip ============ */
+  .case-trace {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px;
+    margin: 0 auto 20px;
+    padding: 8px 14px;
+    max-width: max-content;
+    border: 1px dashed rgba(47,143,118,0.35);
+    border-radius: 999px;
+    background: rgba(47,143,118,0.04);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--seal-700);
+  }
+  .case-trace .dot {
+    width: 7px; height: 7px; border-radius: 999px;
+    background: var(--seal-500);
+    box-shadow: 0 0 0 3px rgba(47,143,118,0.15);
+  }
+  .case-trace .sep { color: rgba(47,143,118,0.35); }
+  .case-trace b { color: var(--ink-900); font-weight: 700; letter-spacing: 0.08em; }
+
+  /* ============ Demo video poster ============ */
+  /* Pair the demo section tighter to the lifecycle rail that follows: half
+     the default 96px on the seam, and a hairline so the eye reads them
+     as one thought (see-the-demo → then walk the pipeline). */
+  #demo { padding-bottom: 48px; }
+  #lifecycle { padding-top: 56px; border-top: 1px solid var(--hair); }
+  @media (max-width: 767px) {
+    #demo { padding-bottom: 32px; }
+    #lifecycle { padding-top: 36px; }
+  }
+
+  .demo-video-wrap {
+    max-width: 960px; margin: 0 auto;
+    padding: 0 4px;
+  }
+  .demo-video {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--hair);
+    background:
+      radial-gradient(circle at 30% 30%, rgba(47,143,118,0.18), transparent 60%),
+      radial-gradient(circle at 80% 70%, rgba(30,95,79,0.28), transparent 55%),
+      linear-gradient(135deg, #17281e, #0d1a13);
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 20px 60px -20px rgba(20,20,16,0.35);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  .demo-video:hover { transform: translateY(-2px); box-shadow: 0 24px 72px -20px rgba(20,20,16,0.42); }
+  .demo-video::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.6;
+  }
+  .demo-video-inner {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    padding: 24px;
+    text-align: center;
+  }
+  .demo-video .play {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 76px; height: 76px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.94);
+    color: var(--ink-900);
+    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5);
+    transition: transform 160ms ease;
+  }
+  .demo-video:hover .play { transform: scale(1.05); }
+  .demo-video .play svg { margin-left: 4px; }
+  .demo-video-title {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 28px; line-height: 1.2;
+    color: #fff;
+  }
+  .demo-video-sub {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(255,255,255,0.72);
+  }
+  .demo-video-sub .sep { width: 4px; height: 4px; border-radius: 999px; background: var(--seal-300); }
+  .demo-video-tag {
+    position: absolute; top: 14px; left: 14px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: rgba(255,255,255,0.85);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -1063,7 +1360,11 @@
       </a>
       {% endif %}
       <a href="#lifecycle" class="btn btn-ghost">See the pipeline</a>
-      <span class="note">No model in the reply path · Rules human-authored · Per-tenant scoped</span>
+    </div>
+    <div class="trust-chips">
+      <span class="trust-chip">No model in the reply path</span>
+      <span class="trust-chip">Rules human-authored</span>
+      <span class="trust-chip">Per-tenant scoped</span>
     </div>
 
     <div class="hero-frame">
@@ -1181,6 +1482,83 @@
   </div>
 </section>
 
+<!-- Powered by — hackathon submission block -->
+<section class="powered" aria-label="Hackathon submission stack">
+  <div class="powered-container">
+    <div class="powered-head">
+      <span class="powered-eyebrow">
+        <span class="sep"></span>
+        Hackathon submission
+      </span>
+      <h2>Built for the <em>Nebius × NVIDIA</em> Global AI Hackathon.</h2>
+      <p>Three NVIDIA models composed one-per-stage on Nebius Token Factory. Hosted on Nebius AI Cloud. MIT-licensed source.</p>
+    </div>
+
+    <div class="powered-grid">
+      <div class="powered-card">
+        <span class="role">Reason</span>
+        <div class="name">NVIDIA Nemotron Super</div>
+        <div class="note">Structured-JSON verdict per case — approve, deny, missing_info.</div>
+      </div>
+      <div class="powered-card">
+        <span class="role">Retrieve</span>
+        <div class="name">NeMo Retriever NIMs</div>
+        <div class="note">nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 against versioned rules.</div>
+      </div>
+      <div class="powered-card">
+        <span class="role">Extract</span>
+        <div class="name">nv-ingest</div>
+        <div class="note">Multimodal read of fax, mail, and email attachments into intake slots.</div>
+      </div>
+      <div class="powered-card">
+        <span class="role">Hosted</span>
+        <div class="name">Nebius AI Cloud</div>
+        <div class="note">Full stack — models on Nebius Token Factory, app on Nebius AI Cloud VMs.</div>
+      </div>
+    </div>
+
+    <div class="powered-foot">
+      <span class="powered-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        MIT License
+      </span>
+      <span class="powered-badge mono">Open source · public repo</span>
+      <span class="powered-badge mono">Deploys via docker compose</span>
+    </div>
+  </div>
+</section>
+
+<!-- Demo video · standalone section, swap the href for the real YouTube URL once uploaded -->
+<section id="demo" class="section" aria-label="Verdikt demo video">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="row-h">See it end-to-end</div>
+        <h2 class="headline h3">Two minutes. One case. Case in, verdict out.</h2>
+      </div>
+      <p>An email arrives with an application. Verdikt extracts the case, retrieves the rules, issues a verdict with citations, and merges a byte-identical reply. Everything after the model is deterministic.</p>
+    </div>
+
+    <div class="demo-video-wrap">
+      <a class="demo-video" href="https://youtu.be/verdikt-demo" target="_blank" rel="noopener" aria-label="Watch the Verdikt end-to-end demo on YouTube">
+        <span class="demo-video-tag">◉ Demo · YouTube</span>
+        <div class="demo-video-inner">
+          <span class="play" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <div class="demo-video-title">Watch Verdikt end-to-end · <em>2 min</em></div>
+          <div class="demo-video-sub">
+            <span>Case in</span><span class="sep"></span>
+            <span>Rules retrieved</span><span class="sep"></span>
+            <span>Verdict issued</span><span class="sep"></span>
+            <span>Byte-identical reply</span>
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
 <!-- Lifecycle -->
 <section id="lifecycle" class="section">
   <div class="container">
@@ -1190,6 +1568,16 @@
         <h2 class="headline h3">Case in. Verdict out. Same case, same reply — forever.</h2>
       </div>
       <p>Anyone can render a template. What's harder is the pipeline that reads the case, retrieves the rules, and stays byte-identical at the seam where the letter leaves the building.</p>
+    </div>
+
+    <div class="case-trace" aria-label="Following one case through the pipeline">
+      <span class="dot"></span>
+      <span>Following case</span>
+      <b>asp-201</b>
+      <span class="sep">·</span>
+      <span>cardiovita-pap-2026</span>
+      <span class="sep">·</span>
+      <span>arrived via email</span>
     </div>
 
     <figure class="intake-diagram" aria-label="Four intake channels converge into a single intake bus, then flow into the verdict pipeline">
@@ -1237,6 +1625,16 @@
       <span class="cx-arrow"></span>
     </div>
 
+    <div class="case-trace" aria-label="Same case, in the pipeline">
+      <span class="dot"></span>
+      <span>Same case</span>
+      <b>asp-201</b>
+      <span class="sep">·</span>
+      <span>extract → retrieve → reason</span>
+      <span class="sep">·</span>
+      <span>3 rules fired</span>
+    </div>
+
     <div class="rail">
       <div class="rail-step hot"><div class="n">01</div><div class="k">Intake</div><div class="d">Fax, mail, web, or email — every channel normalizes into one inbox and routes to tenant + program.</div></div>
       <div class="rail-step hot"><div class="n">02</div><div class="k">Extract</div><div class="d">Vision reads attachments into structured intake slots.</div></div>
@@ -1257,6 +1655,17 @@
       <span class="cx-pill"><span class="cx-dot"></span>two artifacts leave the pipeline</span>
       <span class="cx-line"></span>
       <span class="cx-arrow"></span>
+    </div>
+
+    <div class="case-trace" aria-label="Same case, verdict issued">
+      <span class="dot"></span>
+      <span>Same case</span>
+      <b>asp-201</b>
+      <span class="sep">·</span>
+      <span>verdict</span>
+      <b>approve</b>
+      <span class="sep">·</span>
+      <span>version_hash 9b4c…f21e</span>
     </div>
 
     <div class="outcome-grid">
@@ -1368,16 +1777,16 @@
       <div class="cmp-row"><div class="cmp-cell">Multimodal case extraction from inbound docs</div><div class="cmp-cell mute" data-label="Adjudication stacks today">OCR + regex, manual QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Vision + slot schema per program</div></div>
       <div class="cmp-row"><div class="cmp-cell">Connected validation APIs (address, eBV, income)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Point-to-point vendors, manual re-key from portals</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — pluggable connectors, clean data to LLM + downstream</div></div>
       <div class="cmp-row"><div class="cmp-cell">Rules retrieval with citations</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Analyst reads the rulebook</div><div class="cmp-cell q" data-label="Verdikt">✓ Versioned YAML packs, embed + rerank</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rules engine output, if wired</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable, cited</div></div>
+      <div class="cmp-row hot"><div class="cmp-cell">Structured verdict (approve / deny / missing_info)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rules engine output, if wired</div><div class="cmp-cell q" data-label="Verdikt">✓ Per case, auditable, cited</div></div>
       <div class="cmp-row"><div class="cmp-cell">Onboard a new program as data, not code</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Development project</div><div class="cmp-cell q" data-label="Verdikt">✓ Programs table + rules pack</div></div>
       <div class="cmp-row"><div class="cmp-cell">Rules authoring UI for business analysts</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Engineer edits config, or vendor SOW</div><div class="cmp-cell q" data-label="Verdikt">◷ Roadmap — AI-assisted design-time authoring</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Byte-identical reply (per-reply <span class="mono mono-inline">version_hash</span>)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Doc-gen + manual template QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
-      <div class="cmp-row"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output — call center, CRM, case-mgmt</div></div>
+      <div class="cmp-row hot"><div class="cmp-cell">Byte-identical reply (per-reply <span class="mono mono-inline">version_hash</span>)</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Doc-gen + manual template QA</div><div class="cmp-cell q" data-label="Verdikt">✓ Content-addressed</div></div>
+      <div class="cmp-row hot"><div class="cmp-cell">Structured JSON verdict for downstream ops</div><div class="cmp-cell mute" data-label="Adjudication stacks today">ETL to a warehouse</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class output — call center, CRM, case-mgmt</div></div>
       <div class="cmp-row"><div class="cmp-cell">Decision ledger tying case → rules → verdict → letter</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Rows across disparate systems</div><div class="cmp-cell q" data-label="Verdikt">✓ Every case, per tenant</div></div>
       <div class="cmp-row"><div class="cmp-cell">One-click rollback with no drift</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Change-management ticket</div><div class="cmp-cell q" data-label="Verdikt">✓ Repoint version, no re-decision</div></div>
       <div class="cmp-row"><div class="cmp-cell">Row-level multi-tenancy, CI-audited</div><div class="cmp-cell mute" data-label="Adjudication stacks today">Often per-tenant deployments</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced in pre-commit</div></div>
       <div class="cmp-row"><div class="cmp-cell">MCP endpoint for agent callers</div><div class="cmp-cell mute" data-label="Adjudication stacks today">—</div><div class="cmp-cell q" data-label="Verdikt">✓ First-class support</div></div>
-      <div class="cmp-row"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
+      <div class="cmp-row hot"><div class="cmp-cell">No LLM in the reply path</div><div class="cmp-cell mute" data-label="Adjudication stacks today">N/A (no LLM anywhere)</div><div class="cmp-cell q" data-label="Verdikt">✓ Enforced by boundary test</div></div>
     </div>
 
     <div class="cmp-note">
@@ -1388,6 +1797,19 @@
         programs-as-data model leave clean seams for them, and they'd be built next in
         an actual product. The core loop (intake → extract → retrieve → reason →
         merge → deliver → audit → rollback) works today.
+      </span>
+    </div>
+
+    <div class="cmp-note">
+      <span class="cmp-note-icon" aria-hidden="true">◇</span>
+      <span>
+        <b>Architecture note.</b> In production, template authoring and rendering live
+        in a separate product (<b>Quire</b>) called from the pipeline over an API —
+        templates are a governed asset owned by comms and legal, not by the decision
+        engine. For this hackathon submission we consolidated both into a single
+        deployable so reviewers can see the full loop without spinning up two services.
+        The seam is preserved: the merge step is a thin adapter that can be swapped
+        for an HTTP call to Quire without touching the verdict path.
       </span>
     </div>
   </div>
@@ -1465,7 +1887,12 @@
     {% endif %}
     <a href="#lifecycle" class="btn btn-ghost-dark">Walk the pipeline again</a>
   </div>
-  <p class="note">No model in the reply path · Rules human-authored · Per-tenant · MCP-native</p>
+  <div class="trust-chips trust-chips-dark">
+    <span class="trust-chip">No model in the reply path</span>
+    <span class="trust-chip">Rules human-authored</span>
+    <span class="trust-chip">Per-tenant</span>
+    <span class="trust-chip">MCP-native</span>
+  </div>
 </section>
 
 <!-- Footer -->

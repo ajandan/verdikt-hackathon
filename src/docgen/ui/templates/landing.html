@@ -131,37 +131,67 @@
   .lede em { font-style: italic; }
 
   /* Hero */
-  .hero { position: relative; padding: 64px 0 80px; }
+  .hero { position: relative; padding: 64px 0 80px; overflow: hidden; }
   .grain::before {
     content: ""; position: absolute; inset: 0; pointer-events: none;
     background-image: radial-gradient(rgba(20,20,16,0.035) 1px, transparent 1px);
     background-size: 3px 3px; mix-blend-mode: multiply;
+    z-index: 0;
   }
+  .hero > .container { position: relative; z-index: 1; }
+
+  /* Ambient tinted glow — two soft seal-tinted radial washes for depth. */
+  .hero-glow {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 900px 520px at 12% 18%, rgba(47,143,118,0.10), transparent 60%),
+      radial-gradient(ellipse 640px 420px at 92% 78%, rgba(142,199,181,0.12), transparent 65%);
+  }
+
+  /* Trifurcation mark as a large, faint watermark on the right. */
+  .hero-watermark {
+    position: absolute;
+    right: 4%; top: 2%;
+    width: clamp(360px, 60vw, 720px);
+    aspect-ratio: 1 / 1;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+    color: var(--seal-700);
+  }
+  .hero-watermark svg { width: 100%; height: 100%; display: block; }
+
   .hero-cta { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .hero-cta .note { margin-left: 8px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; display: none; }
   @media (min-width: 640px) { .hero-cta .note { display: inline; } }
 
   .hero-frame {
-    position: relative; margin-top: 64px; padding: 24px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0)), var(--ink-50);
+    position: relative; margin-top: 64px; padding: 32px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.35)), var(--ink-50);
     border: 1px solid rgba(20,20,16,0.10);
     border-radius: 16px; overflow: hidden;
+    box-shadow:
+      0 24px 48px -28px rgba(20,20,16,0.20),
+      0 4px 14px -6px rgba(20,20,16,0.06);
+    backdrop-filter: blur(6px);
   }
-  @media (min-width: 768px) { .hero-frame { padding: 32px; } }
-  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  @media (min-width: 768px) { .hero-frame { padding: 44px; } }
+  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
   @media (min-width: 768px) { .hero-grid { grid-template-columns: 1fr 1fr; } }
   .card { border: 1px solid var(--hair); border-radius: 8px; background: #fff; overflow: hidden; }
-  .card-h { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
-  .card-f { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
+  .card-h { padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--hair); }
+  .card-f { padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--hair); background: var(--ink-50); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); }
   .card-h .mono, .card-f .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); }
 
   /* Field row: swatch sits inside the wrapper's padding zone; mapping is
      pushed to the right by the flexing name column. */
   .field-row {
     display: flex; align-items: center;
-    gap: 10px; padding: 7px 0;
-    font-size: 14px;
+    gap: 14px; padding: 16px 0;
+    font-size: 15px;
+    border-top: 1px solid var(--hair);
   }
+  .field-row:first-child { border-top: 0; }
   .field-row .swatch { flex-shrink: 0; }
   .field-row .name { flex: 1; min-width: 0; }
   .field-row .map { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); padding-left: 8px; }
@@ -171,9 +201,9 @@
   .link-plain { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink-900); cursor: pointer; }
 
   pre.code {
-    margin: 0; padding: 16px;
+    margin: 0; padding: 24px 28px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 11.5px; line-height: 1.6; color: var(--ink-700);
+    font-size: 12px; line-height: 1.9; color: var(--ink-700);
     overflow-x: auto; white-space: pre;
   }
   .pill {
@@ -185,7 +215,7 @@
   }
   .pill.warn { background: rgba(180,120,40,0.12); color: #a26618; }
 
-  .hero-foot { margin-top: 24px; display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .hero-foot { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: 1fr; gap: 12px; font-size: 12px; color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; }
   @media (min-width: 768px) { .hero-foot { grid-template-columns: 1fr 1fr 1fr; } }
   .hero-foot > div { display: flex; align-items: center; gap: 8px; }
   .hero-foot .dot-sm { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); }
@@ -345,6 +375,7 @@
     .btn { padding: 10px 16px; font-size: 13px; }
 
     .hero { padding: 32px 0 40px; }
+    .hero-watermark { right: -18%; top: -2%; width: clamp(300px, 105vw, 480px); opacity: 0.05; }
     .hero-frame { margin-top: 32px; padding: 14px; border-radius: 12px; }
     .hero .tag { font-size: 10px; padding: 3px 8px; }
     .hero .stamp { font-size: 9.5px; padding: 3px 8px; transform: none; }
@@ -548,6 +579,18 @@
 
 <!-- Hero -->
 <section class="hero grain">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero-watermark" aria-hidden="true">
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square">
+        <path d="M38 32C28 32 28 13 18 13H8"/>
+        <path d="M38 32C28 32 28 51 18 51H8"/>
+        <path d="M8 32H42"/>
+        <circle cx="51" cy="32" r="9"/>
+      </g>
+      <circle cx="51" cy="32" r="3.5" fill="currentColor"/>
+    </svg>
+  </div>
   <div class="container">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:32px;">
       <span class="tag"><span class="dot"></span>Any channel · Rule retrieval · Structured verdict · Reply + JSON</span>
@@ -592,10 +635,10 @@
     <div class="hero-frame">
       <div class="hero-grid">
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
             <div>
               <div class="row-h">Pipeline · case intake</div>
-              <div class="headline" style="font-size:24px; margin-top:4px;">AI reads the case.</div>
+              <div class="headline" style="font-size:24px; margin-top:10px; line-height:1.35;">AI reads the case.</div>
             </div>
             <span class="tag"><span class="dot dot-amber"></span>vision · retrieval · reason</span>
           </div>
@@ -604,7 +647,7 @@
               <span class="mono">enrollment_packet.pdf · pipeline</span>
               <span class="mono">cardiovita · v3</span>
             </div>
-            <div style="padding: 12px 16px;">
+            <div style="padding: 8px 28px;">
               <div class="field-row"><span class="swatch"></span><span class="name">Extract</span><span class="map">vision · 31 slots</span></div>
               <div class="field-row"><span class="swatch"></span><span class="name">Retrieve</span><span class="map">embed + rerank · 4 rules</span></div>
               <div class="field-row"><span class="swatch"></span><span class="name">Reason</span><span class="map">approve · 4 citations</span></div>
@@ -618,10 +661,10 @@
         </div>
 
         <div>
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
             <div>
               <div class="row-h">Reply time</div>
-              <div class="headline" style="font-size:24px; margin-top:4px;">Byte-identical reply.</div>
+              <div class="headline" style="font-size:24px; margin-top:10px; line-height:1.35;">Byte-identical reply.</div>
             </div>
             <span class="tag"><span class="dot"></span>No AI</span>
           </div>

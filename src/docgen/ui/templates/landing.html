@@ -1408,8 +1408,9 @@
     .ledger-r > div:nth-child(5) { order: 5; text-align: right; font-size: 10.5px; }
 
     /* Comparison section: bump the heading breathing room and rebuild each
-       row as a small card — capability title on top, then Others vs Verdikt
-       side-by-side with proper labels and a mint tint on the Verdikt side. */
+       row as a small card — capability title on top, then the two comparison
+       cells stack as label-above-content blocks so the mono label never
+       collides with the sentence next to it on narrow screens. */
     #compare > .container > h2 { margin-bottom: 24px !important; }
     #compare > .container > .row-h { margin-bottom: 4px; }
     .cmp { border-radius: 10px; }
@@ -1419,34 +1420,61 @@
       border-bottom: 1px solid var(--hair-soft);
     }
     .cmp-row:first-child { display: none; } /* table header not needed once stacked */
-    .cmp-cell { padding: 0; font-size: 14px; }
+    .cmp-cell { padding: 0; font-size: 14px; display: block; }
     .cmp-cell:first-child {
       font-weight: 600; color: var(--ink-900);
       font-size: 14.5px; letter-spacing: -0.005em;
       padding: 0 0 10px;
     }
     .cmp-cell:not(:first-child) {
-      display: flex; align-items: flex-start; gap: 10px;
-      padding: 6px 0; font-size: 13px; line-height: 1.4;
+      padding: 6px 0 0;
+      font-size: 13px;
+      line-height: 1.5;
     }
     .cmp-cell:not(:first-child)::before {
       content: attr(data-label);
-      flex-shrink: 0;
-      width: 54px;
+      display: block;
+      width: auto;
+      margin-bottom: 4px;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
       color: var(--ink-500);
-      padding-top: 2px;
+      line-height: 1.2;
     }
     .cmp-cell.q {
       background: rgba(47,143,118,0.06);
       border-radius: 6px;
-      padding: 8px 10px;
-      margin-top: 4px;
+      padding: 10px 12px;
+      margin-top: 8px;
       font-weight: 500;
     }
-    .cmp-cell.q::before { color: var(--seal-700); padding-top: 0; }
+    .cmp-cell.q::before { color: var(--seal-700); }
     .cmp-cell.mute { color: var(--ink-500); }
+    /* Kill the desktop dot marker on the capability cell — it was
+       positioned for a padded left rail we no longer have on mobile. */
+    .cmp-cell:first-child::before { display: none; }
+    /* Hot rows keep their gradient background as the differentiator; the
+       star marker isn't needed once rows read as stacked cards. */
+
+    /* Outcome cards: on mobile the doc-stack (Reply package) and the
+       verdict JSON pre both try to force the grid item wider than the
+       viewport. Grid + flex children default to min-width: auto which
+       equals their content min-width — release that so the cards shrink
+       to their track. Tighten padding and font-size so the JSON block
+       actually fits without needing to horizontally scroll. */
+    .outcome-grid { min-width: 0; }
+    .outcome-card { padding: 22px 18px; min-width: 0; overflow: hidden; }
+    .outcome-card .out-title { font-size: 22px; }
+    .outcome-card .out-preview { min-width: 0; overflow: hidden; }
+    .doc-stack { max-width: 240px; }
+    .doc-stack .doc { max-width: 170px; }
+    .doc-stack .doc-back { transform: rotate(-6deg) translate(-10%, -5%); }
+    .doc-stack .doc-middle { transform: rotate(4deg) translate(9%, 3%); }
+    .verdict-json {
+      min-width: 0; max-width: 100%;
+      padding: 14px 12px;
+      font-size: 10.5px; line-height: 1.6;
+    }
 
     /* Governance stat grid: 3-across becomes wrap-friendly. */
     .stat-grid { grid-template-columns: 1fr 1fr; }

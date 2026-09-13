@@ -4538,6 +4538,42 @@ def _append_review_history(
     event.review_history = [*(event.review_history or []), entry]
 
 
+async def _fire_verdict_webhook(
+    event_id: uuid.UUID, *, reviewer_action: str, reviewer_actor: str
+) -> str | None:
+    """Deliver the reviewer's final verdict to the caller's callback_url.
+
+    Runs sync in a thread pool because the sender uses ``sync_session()``
+    + ``httpx.Client``. Returns a short flash fragment describing the
+    delivery outcome so the reviewer sees whether the caller got the
+    webhook — empty string when the case has no callback_url configured.
+    """
+    from fastapi.concurrency import run_in_threadpool
+
+    from pap_pipeline.webhooks import deliver_verdict_webhook
+
+    settings = get_settings()
+
+    def _run() -> tuple[bool, str | None]:
+        return deliver_verdict_webhook(
+            event_id,
+            settings,
+            reviewer_action=reviewer_action,
+            reviewer_actor=reviewer_actor,
+        )
+
+    try:
+        delivered, error = await run_in_threadpool(_run)
+    except Exception as e:  # pragma: no cover — defensive; sender catches its own
+        return f"Webhook delivery crashed: {type(e).__name__}: {e}"
+
+    if delivered:
+        return "Verdict webhook delivered to caller."
+    if error:
+        return f"Webhook delivery failed: {error}"
+    return None
+
+
 @router.get("/inbox/{event_id}", response_class=HTMLResponse)
 async def inbox_detail(
     event_id: uuid.UUID,
@@ -5124,6 +5160,33 @@ async def inbox_pipeline_approve(
             flash_kind="error",
         )
 
+    # REST and MCP intakes already returned the verdict inline to the caller
+    # — there is no downstream applicant email to send. The approve action
+    # for these channels just records the reviewer's OK and closes the case.
+    from_addr = ev.from_addr or ""
+    is_m2m_channel = from_addr.startswith(("rest://", "mcp://"))
+
+    if is_m2m_channel:
+        actor = str(getattr(request.state, "admin_user", None) or "inbox-review")
+        ev.review_state = "approved"
+        _append_review_history(
+            ev,
+            action="approved",
+            actor=actor,
+            note=(
+                "Reviewer approved the pipeline verdict. No email sent — "
+                "verdict was returned inline to the API/MCP caller at intake time."
+            ),
+        )
+        await session.commit()
+        webhook_flash = await _fire_verdict_webhook(
+            ev.id, reviewer_action="approved", reviewer_actor=actor
+        )
+        flash_msg = "Approved. No email sent — verdict was returned to the API caller at intake."
+        if webhook_flash:
+            flash_msg = flash_msg + " " + webhook_flash
+        return _redirect(detail_url, flash=flash_msg, flash_kind="success")
+
     from docgen.inbox.agent import get_pap_reply_sender
     from docgen.inbox.mailer import MailerError
 
@@ -5219,19 +5282,28 @@ async def inbox_pipeline_reject(
             flash_kind="error",
         )
     ev.review_state = "rejected"
-    actor = getattr(request.state, "admin_user", None) or "inbox-review"
+    actor = str(getattr(request.state, "admin_user", None) or "inbox-review")
     _append_review_history(
         ev,
         action="rejected",
-        actor=str(actor),
+        actor=actor,
         note="Pipeline verdict discarded — no reply sent.",
     )
     await session.commit()
-    return _redirect(
-        detail_url,
-        flash="Rejected. No reply was sent.",
-        flash_kind="success",
-    )
+
+    # M2M reject: if the caller registered a callback_url the reviewer's
+    # denial is the authoritative verdict for the case, and the caller
+    # needs to hear about it. Fire the webhook so downstream systems flip
+    # from "queued/draft-approve" to the final rejected state.
+    from_addr = ev.from_addr or ""
+    flash_msg = "Rejected. No reply was sent."
+    if from_addr.startswith(("rest://", "mcp://")):
+        webhook_flash = await _fire_verdict_webhook(
+            ev.id, reviewer_action="rejected", reviewer_actor=actor
+        )
+        if webhook_flash:
+            flash_msg = flash_msg + " " + webhook_flash
+    return _redirect(detail_url, flash=flash_msg, flash_kind="success")
 
 
 # ─── Programs (PAP pipeline schema per tenant) ────────────────────────────────
@@ -5690,6 +5762,7 @@ async def program_save(
 
     prog.name = (form.get("name") or prog.name).strip() or prog.name
     prog.is_active = form.get("is_active") == "on"
+    prog.requires_review = form.get("requires_review") == "on"
     raw_tv = (form.get("enrollment_template_version_id") or "").strip()
     if raw_tv:
         try:

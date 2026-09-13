@@ -66,6 +66,17 @@ class PapIntakeRequest(BaseModel):
         max_length=120,
         description="Optional caller label surfaced on the case row.",
     )
+    callback_url: str | None = Field(
+        default=None,
+        max_length=1024,
+        description=(
+            "HTTPS URL that receives the final verdict when the program "
+            "requires reviewer approval. Ignored for programs that "
+            "auto-approve M2M submissions. Signed with an "
+            "X-Verdikt-Signature HMAC header derived from the caller's API "
+            "key so the receiver can verify authenticity."
+        ),
+    )
 
 
 class PapIntakeErrorField(BaseModel):
@@ -78,12 +89,26 @@ class PapIntakeResponse(BaseModel):
 
     case_id: str = Field(..., description="Short human-readable ID (`QC-0042`).")
     event_id: uuid.UUID = Field(..., description="Underlying inbox_events row id.")
-    status: str = Field(..., description="Terminal status: succeeded / failed.")
+    status: str = Field(
+        ...,
+        description=(
+            "`succeeded` — verdict is final and returned inline. "
+            "`queued` — case is holding for reviewer approval; the final "
+            "verdict will be POSTed to `callback_url` if supplied. "
+            "`failed` — pipeline error; check `error`."
+        ),
+    )
     review_state: str | None = Field(
         default=None,
-        description="pending_review / auto_approved — reviewer-workflow flag.",
+        description="pending_review / auto_approved / approved / rejected.",
     )
-    outcome: str = Field(..., description="approve / deny / missing_info.")
+    outcome: str = Field(
+        ...,
+        description=(
+            "approve / deny / missing_info. For queued cases this is the "
+            "*draft* verdict — the reviewer's decision is authoritative."
+        ),
+    )
     decision: dict[str, Any] = Field(..., description="Full Decision dict.")
     intake: dict[str, Any] = Field(..., description="Coerced Intake dict.")
     unknown_keys: list[str] = Field(
@@ -91,6 +116,17 @@ class PapIntakeResponse(BaseModel):
         description=(
             "Payload keys that didn't match any slot in the program's schema. "
             "Surfaced so a caller can catch typos, but they're never fatal."
+        ),
+    )
+    callback_url: str | None = Field(
+        default=None,
+        description="Echo of the callback URL we'll POST the final verdict to.",
+    )
+    requires_review: bool = Field(
+        default=False,
+        description=(
+            "True when this program holds M2M submissions for reviewer "
+            "approval — signals to the caller that `outcome` is a draft."
         ),
     )
 
@@ -106,7 +142,6 @@ class PapIntakeValidationErrorResponse(BaseModel):
 @router.post(
     "/programs/{slug}/intake",
     response_model=PapIntakeResponse,
-    status_code=201,
 )
 async def submit_pap_intake(
     slug: str,
@@ -134,7 +169,11 @@ async def submit_pap_intake(
             settings,
             actor=actor,
             channel=CHANNEL_REST,
+            callback_url=body.callback_url,
         )
+    except ValueError as e:
+        # Raised by run_json_intake_sync for malformed callback_url etc.
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ProgramNotFound as e:
         # 404 (never 403) for cross-tenant / missing-program lookups so we
         # don't leak whether a slug exists in some other tenant.
@@ -165,7 +204,9 @@ async def submit_pap_intake(
             },
         ) from e
 
-    return PapIntakeResponse(
+    from fastapi.responses import JSONResponse
+
+    payload = PapIntakeResponse(
         case_id=result.case_id,
         event_id=result.event_id,
         status=result.status,
@@ -174,6 +215,15 @@ async def submit_pap_intake(
         decision=result.decision,
         intake=result.intake,
         unknown_keys=result.unknown_keys,
+        callback_url=result.callback_url,
+        requires_review=result.requires_review,
+    )
+    # 201 for a final verdict, 202 when the case is queued for reviewer
+    # approval — matches how Stripe/Plaid signal "not final yet".
+    status_code = 202 if result.status == "queued" else 201
+    return JSONResponse(
+        content=payload.model_dump(mode="json"),
+        status_code=status_code,
     )
 
 

@@ -85,6 +85,14 @@ class Program(Base):
     # names its slug.
     inbound_alias: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # M2M submissions (REST + MCP) to this program hold for reviewer approval
+    # instead of returning the full verdict inline. When true, the intake
+    # response is `status: "queued"` and the reviewer's approve/reject fires
+    # a signed webhook (if the caller supplied callback_url) with the final
+    # decision. Email cases always hold; this flag only affects the M2M lane.
+    requires_review: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -665,6 +673,20 @@ class InboxEvent(Base):
     # {"at": iso8601, "action": "approved|rejected|reply_sent|...", "actor": str, "note": str}.
     # Rendered on the reviewer detail pages so "who did what, when" is visible.
     review_history: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
+    # Webhook delivery bookkeeping for the hybrid REST/MCP intake path.
+    # callback_url is set by the caller at intake when the program requires
+    # reviewer approval; the approve/reject endpoints POST the final verdict
+    # to it and record delivery outcomes. NULL for cases without a webhook
+    # (email cases + sync-verdict M2M cases).
+    callback_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    callback_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    callback_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    callback_delivered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    callback_last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Short human-readable sequence for reviewer references. Populated by a
     # Postgres sequence at insert time — see migration 0022.
     case_number: Mapped[int] = mapped_column(

@@ -232,6 +232,21 @@
                     <input type="checkbox" name="is_active" {% if program.is_active %}checked{% endif %}>
                     <span>Active — accepts inbound intake</span>
                 </label>
+                <label style="margin-top: 8px; display: flex; align-items: flex-start; gap: 8px">
+                    <input type="checkbox" name="requires_review" style="margin-top: 3px" {% if program.requires_review %}checked{% endif %}>
+                    <span>
+                        Hold API/MCP cases for reviewer approval
+                        <span class="muted" style="display: block; font-size: 12px; margin-top: 2px">
+                            When on, REST + MCP submissions receive a
+                            <code>status: "queued"</code> response and the
+                            final verdict is delivered to the caller's
+                            <code>callback_url</code> once a reviewer
+                            approves or rejects here. When off, M2M cases
+                            auto-approve at intake time — the caller gets
+                            the verdict inline.
+                        </span>
+                    </span>
+                </label>
 
                 <div class="btn-row" style="margin-top: 20px">
                     <button class="primary" type="submit">Save changes</button>

@@ -479,6 +479,7 @@ async def submit_pap_intake(
     program_slug: str,
     intake: dict[str, Any],
     actor: str | None = None,
+    callback_url: str | None = None,
 ) -> dict[str, Any]:
     """Submit a structured PAP intake JSON payload — parallel to the email channel.
 
@@ -522,6 +523,7 @@ async def submit_pap_intake(
             settings,
             actor=actor_label,
             channel=CHANNEL_MCP,
+            callback_url=callback_url,
         )
     except ProgramNotFound as e:
         raise ValueError(f"Program not found: {e}") from e

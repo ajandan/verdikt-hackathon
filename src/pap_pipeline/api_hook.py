@@ -102,7 +102,20 @@ class PipelineExecutionFailed(Exception):
 
 @dataclass
 class ApiIntakeResult:
-    """Outcome of a successful JSON intake submission."""
+    """Outcome of a successful JSON intake submission.
+
+    Two shapes share this dataclass:
+
+    - **sync** (``status="succeeded"``): full decision is returned inline;
+      the caller is done. This is the path for programs without a review
+      hold.
+    - **queued** (``status="queued"``): the pipeline finished but the case
+      is holding for reviewer approval. ``outcome`` still carries the
+      draft verdict so the caller can render "pending — likely approve",
+      but the authoritative final answer is delivered later via webhook
+      when the reviewer clicks approve/reject. ``callback_url`` is
+      populated when the caller supplied one.
+    """
 
     event_id: uuid.UUID
     case_id: str
@@ -112,6 +125,8 @@ class ApiIntakeResult:
     decision: dict[str, Any]
     intake: dict[str, Any]
     unknown_keys: list[str]
+    callback_url: str | None = None
+    requires_review: bool = False
 
 
 def _channel_from_addr(channel: str, actor: str) -> str:
@@ -134,6 +149,7 @@ def run_json_intake_sync(
     *,
     actor: str = "api",
     channel: str = CHANNEL_REST,
+    callback_url: str | None = None,
 ) -> ApiIntakeResult:
     """Run the pipeline against a JSON payload; persist a case row.
 
@@ -153,6 +169,18 @@ def run_json_intake_sync(
     program_slug = (program_slug or "").strip().lower()
     if not program_slug:
         raise ProgramNotFound("program slug is required")
+
+    # Validate callback_url shape early so a malformed value doesn't crash
+    # the webhook worker later. Accept plain http(s) only — we're not going
+    # to POST to arbitrary schemes.
+    if callback_url is not None:
+        callback_url = callback_url.strip() or None
+    if callback_url is not None and not (
+        callback_url.startswith("http://") or callback_url.startswith("https://")
+    ):
+        raise ValueError(
+            f"callback_url must be an http(s) URL, got {callback_url!r}"
+        )
 
     with SyncSessionLocal() as session:
         tenant = session.get(Tenant, tenant_id)
@@ -276,25 +304,52 @@ def run_json_intake_sync(
             raise PipelineExecutionFailed(str(e), event_id=event.id) from e
 
         event.score = _score_from_decision(decision)
-        event.review_state = _OUTCOME_TO_REVIEW_STATE.get(
-            decision.outcome, "pending_review"
-        )
         event.status = "succeeded"
         event.pap_intake = intake.model_dump(mode="json")
         # date/datetime instances slip in via the coerce step; JSONB
         # rejects them, so shallow-convert to ISO strings before persist.
         event.pap_extraction = _json_safe(raw)
         event.pap_decision = decision.model_dump(mode="json")
+
+        # Contract split — sync vs queued for M2M:
+        #
+        # - Program requires review → hold in the HumanLoop queue; the
+        #   caller sees status="queued". If they registered a callback_url
+        #   we mark it pending; the approve/reject endpoint will POST the
+        #   final verdict later. Missing_info falls into this bucket too
+        #   even when requires_review is false — a human should look at
+        #   any case where the pipeline itself couldn't answer.
+        # - Program does not require review → auto-approve the M2M case
+        #   so it doesn't clog HumanLoop. The verdict has already been
+        #   handed to the caller inline; there is nothing for a reviewer
+        #   to release.
+        result_status = "succeeded"
+        if program.requires_review or decision.outcome == "missing_info":
+            event.review_state = "pending_review"
+            if callback_url:
+                event.callback_url = callback_url
+                event.callback_status = "pending"
+            if program.requires_review:
+                result_status = "queued"
+        else:
+            event.review_state = "auto_approved"
+
+        verdict_note = (
+            f"Outcome: {decision.outcome}. "
+            f"Citations: {len(decision.citations)}, "
+            f"missing fields: {len(decision.missing_fields)}. "
+        )
+        if result_status == "queued":
+            verdict_note += "Held for reviewer approval before webhook delivery."
+        elif event.review_state == "auto_approved":
+            verdict_note += "Auto-approved — verdict returned inline to the caller."
+        else:
+            verdict_note += "Queued for human review."
         _append_audit(
             event,
             action="verdict_rendered",
             actor=_AI_ACTOR,
-            note=(
-                f"Outcome: {decision.outcome}. "
-                f"Citations: {len(decision.citations)}, "
-                f"missing fields: {len(decision.missing_fields)}. "
-                f"Queued for human review."
-            ),
+            note=verdict_note,
         )
         session.commit()
 
@@ -344,12 +399,14 @@ def run_json_intake_sync(
         return ApiIntakeResult(
             event_id=event.id,
             case_id=event.case_id,
-            status=event.status,
+            status=result_status,
             review_state=event.review_state,
             outcome=decision.outcome,
             decision=event.pap_decision,
             intake=event.pap_intake,
             unknown_keys=validation.unknown_keys,
+            callback_url=event.callback_url,
+            requires_review=bool(program.requires_review),
         )
 
 

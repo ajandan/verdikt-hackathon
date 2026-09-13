@@ -532,6 +532,7 @@ async def list_pending_reviews(limit: int = 25) -> list[dict[str, Any]]:
             .where(
                 InboxEvent.tenant_id == tenant_id,
                 InboxEvent.review_state == "pending_review",
+                InboxEvent.reply_message_id.is_(None),
             )
             .order_by(InboxEvent.received_at.desc())
             .limit(limit)

@@ -551,9 +551,11 @@
   #console { padding-top: 48px; }
   .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 40px; }
 
-  /* Console screenshot: bordered frame + soft shadow, on a subtle mint wash so
-     it reads as a live artifact rather than a stock illustration. */
-  .console-shot {
+  /* Console carousel: bordered frame + soft shadow, on a subtle mint wash so
+     it reads as a live artifact rather than a stock illustration. Horizontal
+     scroll-snap for native swipe on trackpad + touch; dots + arrows for
+     click/keyboard nav (see script block near end of body). */
+  .console-carousel {
     margin: 24px 0 0;
     padding: 18px;
     border: 1px solid var(--hair);
@@ -563,17 +565,80 @@
       0 24px 48px -28px rgba(20,20,16,0.20),
       0 4px 14px -6px rgba(20,20,16,0.06);
   }
-  .console-shot img {
+  .cc-viewport { position: relative; }
+  .cc-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .cc-track::-webkit-scrollbar { display: none; }
+  .cc-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    margin: 0;
+    padding: 0 2px;
+  }
+  .cc-slide img {
     display: block; width: 100%; height: auto;
     border: 1px solid var(--hair-soft);
     border-radius: 8px;
     background: #fff;
   }
-  .console-shot .cap {
+  .cc-slide .cap {
     margin-top: 12px;
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 11px; letter-spacing: 0.02em; color: var(--ink-500);
     text-align: center;
+  }
+  .cc-arrow {
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--hair);
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: var(--ink-700);
+    font-size: 22px; line-height: 1; font-family: inherit;
+    display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px -4px rgba(20,20,16,0.15);
+    transition: background-color 0.15s, color 0.15s, transform 0.15s;
+    z-index: 2;
+  }
+  .cc-arrow:hover { background: #fff; color: var(--seal-700); }
+  .cc-arrow:active { transform: translateY(-50%) scale(0.94); }
+  .cc-prev { left: 8px; }
+  .cc-next { right: 8px; }
+  @media (min-width: 768px) { .cc-arrow { display: inline-flex; } }
+  .cc-dots {
+    display: flex; justify-content: center; align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .cc-dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    border: 1px solid var(--hair);
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+  }
+  .cc-dot:hover { border-color: var(--seal-500); }
+  .cc-dot[aria-current="true"] {
+    background: var(--seal-700);
+    border-color: var(--seal-700);
+    transform: scale(1.15);
+  }
+  .cc-counter {
+    margin-left: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.08em; color: var(--ink-500);
   }
   .section-head p { max-width: 420px; color: var(--ink-700); display: none; }
   @media (min-width: 768px) { .section-head p { display: block; } }
@@ -1702,10 +1767,42 @@
       </div>
       <p>Templates, renders, publishes, and failures. Every row scoped to a tenant. The same admin surface a compliance officer would review during an audit.</p>
     </div>
-    <figure class="console-shot">
-      <img src="{{ url_for('static', path='landing-console.png') }}" alt="Verdikt admin dashboard showing templates, render volume, recent renders, and top templates for a selected tenant" loading="lazy" />
-      <figcaption class="cap">Admin dashboard · activity, health, and hotspots · per-tenant scoped</figcaption>
-    </figure>
+    <div class="console-carousel" role="region" aria-roledescription="carousel" aria-label="Verdikt console screens">
+      <div class="cc-viewport">
+        <div class="cc-track" data-cc-track tabindex="0">
+          <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="1 of 5" data-cc-index="0">
+            <img src="{{ url_for('static', path='console-dashboard.png') }}" alt="Verdikt dashboard showing templates, pending drafts, renders in the last 24 hours, warnings, render volume, and top templates for a selected tenant" loading="lazy" />
+            <figcaption class="cap">Dashboard · activity, health, and hotspots</figcaption>
+          </figure>
+          <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="2 of 5" data-cc-index="1">
+            <img src="{{ url_for('static', path='console-inbox.png') }}" alt="Case queue with sortable rows showing status, received time, sender, subject, and review state for every case the pipeline processed" loading="lazy" />
+            <figcaption class="cap">Case queue · filter by ingest status or review state</figcaption>
+          </figure>
+          <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="3 of 5" data-cc-index="2">
+            <img src="{{ url_for('static', path='console-pipeline.png') }}" alt="Pipeline verdict detail showing the approve outcome, review state, extract stage with structured intake slots grouped into reviewer-facing sections" loading="lazy" />
+            <figcaption class="cap">Pipeline verdict · extract, retrieve, reason with rule citations</figcaption>
+          </figure>
+          <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="4 of 5" data-cc-index="3">
+            <img src="{{ url_for('static', path='console-audit.png') }}" alt="Audit trail listing every action taken on a case in order — pipeline stages, reviewer decisions, and system events with actor and timestamp" loading="lazy" />
+            <figcaption class="cap">Audit trail · every stage, reviewer decision, and system event</figcaption>
+          </figure>
+          <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="5 of 5" data-cc-index="4">
+            <img src="{{ url_for('static', path='console-renders.png') }}" alt="Render jobs list across all tenants, newest first, filterable by state to triage failures" loading="lazy" />
+            <figcaption class="cap">Renders · every job across tenants, filterable by state</figcaption>
+          </figure>
+        </div>
+        <button type="button" class="cc-arrow cc-prev" aria-label="Previous screen">&#8249;</button>
+        <button type="button" class="cc-arrow cc-next" aria-label="Next screen">&#8250;</button>
+      </div>
+      <div class="cc-dots" role="tablist" aria-label="Console screen">
+        <button type="button" class="cc-dot" data-cc-index="0" aria-label="Show dashboard" aria-current="true"></button>
+        <button type="button" class="cc-dot" data-cc-index="1" aria-label="Show case queue"></button>
+        <button type="button" class="cc-dot" data-cc-index="2" aria-label="Show pipeline verdict"></button>
+        <button type="button" class="cc-dot" data-cc-index="3" aria-label="Show audit trail"></button>
+        <button type="button" class="cc-dot" data-cc-index="4" aria-label="Show renders"></button>
+        <span class="cc-counter" data-cc-counter aria-hidden="true">1 / 5</span>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -2245,6 +2342,70 @@
       shell.innerHTML = '';
       shell.appendChild(iframe);
     });
+  });
+
+  // Console carousel: scroll-snap drives native swipe; JS wires dots, arrows,
+  // and keyboard arrows, then observes which slide is centered to sync the
+  // active-dot state and the "n / N" counter.
+  document.querySelectorAll('.console-carousel').forEach(function (root) {
+    var track = root.querySelector('[data-cc-track]');
+    if (!track) return;
+    var slides = Array.prototype.slice.call(track.querySelectorAll('.cc-slide'));
+    var dots = Array.prototype.slice.call(root.querySelectorAll('.cc-dot'));
+    var counter = root.querySelector('[data-cc-counter]');
+    var prev = root.querySelector('.cc-prev');
+    var next = root.querySelector('.cc-next');
+    if (!slides.length) return;
+
+    function scrollToIndex(i) {
+      var s = slides[i];
+      if (!s) return;
+      track.scrollTo({ left: s.offsetLeft, behavior: 'smooth' });
+    }
+    function currentIndex() {
+      var found = 0;
+      dots.forEach(function (d, i) {
+        if (d.getAttribute('aria-current') === 'true') found = i;
+      });
+      return found;
+    }
+    function setActive(i) {
+      dots.forEach(function (d, idx) {
+        d.setAttribute('aria-current', idx === i ? 'true' : 'false');
+      });
+      if (counter) counter.textContent = (i + 1) + ' / ' + slides.length;
+    }
+
+    dots.forEach(function (d) {
+      d.addEventListener('click', function () {
+        scrollToIndex(parseInt(d.dataset.ccIndex, 10));
+      });
+    });
+    if (prev) prev.addEventListener('click', function () {
+      var i = currentIndex() - 1;
+      if (i < 0) i = slides.length - 1;
+      scrollToIndex(i);
+    });
+    if (next) next.addEventListener('click', function () {
+      var i = currentIndex() + 1;
+      if (i >= slides.length) i = 0;
+      scrollToIndex(i);
+    });
+    track.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); (prev || {click: function(){}}).click(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); (next || {click: function(){}}).click(); }
+    });
+
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting && e.intersectionRatio >= 0.6) {
+            setActive(parseInt(e.target.dataset.ccIndex, 10));
+          }
+        });
+      }, { root: track, threshold: [0.6, 0.9] });
+      slides.forEach(function (s) { io.observe(s); });
+    }
   });
 </script>
 

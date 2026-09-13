@@ -515,6 +515,151 @@ async def fetch_case_reply(event_id: str) -> dict[str, Any]:
     }
 
 
+async def _fire_verdict_webhook_async(
+    event_id: uuid.UUID, *, reviewer_action: str, reviewer_actor: str
+) -> str | None:
+    """Async wrapper around the sync webhook sender.
+
+    Kept local to the MCP module so approve/reject don't reach into the UI
+    router's private helpers — the sender itself lives in pap_pipeline
+    and is the same code path the portal uses.
+    """
+    import asyncio as _asyncio
+
+    from pap_pipeline.webhooks import deliver_verdict_webhook
+
+    settings = get_settings()
+    try:
+        delivered, error = await _asyncio.to_thread(
+            deliver_verdict_webhook,
+            event_id,
+            settings,
+            reviewer_action=reviewer_action,
+            reviewer_actor=reviewer_actor,
+        )
+    except Exception as e:
+        return f"webhook crashed: {type(e).__name__}: {e}"
+    if delivered:
+        return "webhook delivered"
+    if error:
+        return f"webhook failed: {error}"
+    return None
+
+
+def _append_review_entry(ev: InboxEvent, *, action: str, actor: str, note: str) -> None:
+    """Mirror the UI's audit-append semantics (JSONB list reassignment)."""
+    entry = {
+        "at": datetime.now(UTC).isoformat(),
+        "action": action,
+        "actor": actor,
+        "note": note,
+    }
+    ev.review_history = [*(ev.review_history or []), entry]
+
+
+@mcp.tool()
+async def approve_case(event_id: str, note: str | None = None) -> dict[str, Any]:
+    """Approve a pending case's pipeline verdict — M2M channels only.
+
+    Flips review_state to 'approved', appends an audit entry, and fires
+    the tenant-configured verdict webhook if one is registered. Restricted
+    to cases that came in through the REST or MCP intake channels: email
+    cases route through SMTP send at approve time and stay portal-only so
+    a real letter to a real applicant can't be dispatched from a chat.
+
+    Refuses to double-approve (idempotent) or approve rejected cases.
+    Returns the new state so the caller can chain a fetch or webhook check.
+    """
+    tenant_id = _current_tenant_uuid()
+    eid = uuid.UUID(event_id)
+    actor = "mcp-review"
+    audit_note = note or (
+        "Reviewer approved the pipeline verdict via MCP. No email sent — "
+        "verdict was returned inline to the API/MCP caller at intake time."
+    )
+
+    async with async_session() as session:
+        ev = await session.get(InboxEvent, eid)
+        if ev is None or ev.tenant_id != tenant_id:
+            raise ValueError(f"Case event {event_id} not found")
+        if ev.pap_decision is None:
+            raise ValueError("no pipeline decision to approve on this event")
+        if ev.review_state in ("approved", "auto_approved"):
+            return {"event_id": event_id, "review_state": ev.review_state, "changed": False}
+        if ev.review_state == "rejected":
+            raise ValueError("case is already rejected — cannot approve")
+        if ev.reply_message_id:
+            raise ValueError("reply already sent (legacy auto-send) — refusing to reapprove")
+
+        from_addr = ev.from_addr or ""
+        if not from_addr.startswith(("rest://", "mcp://")):
+            raise ValueError(
+                "approve over MCP is restricted to REST/MCP-channel cases — "
+                "email intakes must be approved from the reviewer portal so "
+                "the outbound SMTP send is authorized by an admin session"
+            )
+
+        ev.review_state = "approved"
+        _append_review_entry(ev, action="approved", actor=actor, note=audit_note)
+        await session.commit()
+
+    webhook = await _fire_verdict_webhook_async(
+        eid, reviewer_action="approved", reviewer_actor=actor
+    )
+    return {
+        "event_id": event_id,
+        "review_state": "approved",
+        "changed": True,
+        "webhook": webhook,
+    }
+
+
+@mcp.tool()
+async def reject_case(event_id: str, note: str | None = None) -> dict[str, Any]:
+    """Reject a pending case's pipeline verdict.
+
+    Flips review_state to 'rejected', appends an audit entry, and fires
+    the verdict webhook for M2M channels. Safe for both email and M2M
+    intakes because rejection never sends an outbound letter.
+
+    Refuses to reject cases that have already been approved (a reply was
+    or will be sent) or that lack a decision to reject.
+    """
+    tenant_id = _current_tenant_uuid()
+    eid = uuid.UUID(event_id)
+    actor = "mcp-review"
+    audit_note = note or "Pipeline verdict discarded via MCP — no reply sent."
+
+    async with async_session() as session:
+        ev = await session.get(InboxEvent, eid)
+        if ev is None or ev.tenant_id != tenant_id:
+            raise ValueError(f"Case event {event_id} not found")
+        if ev.pap_decision is None:
+            raise ValueError("no pipeline decision to reject on this event")
+        if ev.review_state == "rejected":
+            return {"event_id": event_id, "review_state": "rejected", "changed": False}
+        if ev.review_state in ("approved", "auto_approved"):
+            raise ValueError("cannot reject — reply already approved/sent")
+
+        ev.review_state = "rejected"
+        _append_review_entry(ev, action="rejected", actor=actor, note=audit_note)
+        from_addr = ev.from_addr or ""
+        is_m2m = from_addr.startswith(("rest://", "mcp://"))
+        await session.commit()
+
+    webhook = None
+    if is_m2m:
+        webhook = await _fire_verdict_webhook_async(
+            eid, reviewer_action="rejected", reviewer_actor=actor
+        )
+    return {
+        "event_id": event_id,
+        "review_state": "rejected",
+        "changed": True,
+        "webhook": webhook,
+    }
+
+
 @mcp.tool()
 async def get_case_details(event_id: str) -> dict[str, Any]:
     """Return the full record for one case: verdict, intake, audit, reply link.

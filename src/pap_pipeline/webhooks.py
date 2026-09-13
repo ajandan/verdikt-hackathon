@@ -70,7 +70,17 @@ def deliver_verdict_webhook(
         signature = sign_body(body, secret=settings.webhook_signing_secret)
         callback_url = ev.callback_url
 
-        ev.callback_attempts = (ev.callback_attempts or 0) + 1
+        attempt_no = (ev.callback_attempts or 0) + 1
+        ev.callback_attempts = attempt_no
+        _append_audit_entry(
+            ev,
+            action="webhook_attempt",
+            actor=reviewer_actor,
+            note=(
+                f"POSTing verdict.{reviewer_action} to {callback_url} "
+                f"(attempt {attempt_no})."
+            ),
+        )
         session.commit()
 
     headers = {
@@ -109,9 +119,24 @@ def deliver_verdict_webhook(
             ev.callback_status = "delivered"
             ev.callback_delivered_at = datetime.now(UTC)
             ev.callback_last_error = None
+            _append_audit_entry(
+                ev,
+                action="webhook_delivered",
+                actor=reviewer_actor,
+                note=(
+                    f"Verdict webhook delivered to {callback_url} "
+                    f"(verdict.{reviewer_action})."
+                ),
+            )
         else:
             ev.callback_status = "failed"
             ev.callback_last_error = error
+            _append_audit_entry(
+                ev,
+                action="webhook_failed",
+                actor=reviewer_actor,
+                note=f"Verdict webhook to {callback_url} failed: {error}",
+            )
         session.commit()
 
     if delivered:
@@ -122,6 +147,23 @@ def deliver_verdict_webhook(
         )
 
     return delivered, error
+
+
+def _append_audit_entry(
+    ev: InboxEvent, *, action: str, actor: str, note: str
+) -> None:
+    """Append one row to the event's review_history JSONB list.
+
+    Mirrors ``docgen.ui.routes._append_review_history`` — a fresh list
+    assignment is required for the ORM to see the JSONB mutation.
+    """
+    entry = {
+        "at": datetime.now(UTC).isoformat(),
+        "action": action,
+        "actor": actor,
+        "note": note,
+    }
+    ev.review_history = [*(ev.review_history or []), entry]
 
 
 def _build_body(

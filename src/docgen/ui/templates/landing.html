@@ -973,9 +973,12 @@
   @media (min-width: 768px) { .callout-grid { grid-template-columns: 1fr 1fr; } }
   .callout-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .callout-card { border: 1px solid var(--hair); border-radius: 8px; padding: 20px; background: #fff; }
-  .callout-card:nth-child(1) { background: #eef6f1; border-color: rgba(47,143,118,0.18); }
-  .callout-card:nth-child(2) { background: #e3efe8; border-color: rgba(47,143,118,0.22); }
-  .callout-card:nth-child(3) { background: #d8e8de; border-color: rgba(47,143,118,0.26); }
+  .callout-card:nth-child(1) { background: #ffffff; border-color: var(--hair); color: var(--ink-900); }
+  .callout-card:nth-child(1) .k { color: var(--ink-900); }
+  .callout-card:nth-child(1) .v { color: var(--ink-900); }
+  .callout-card:nth-child(1) .d { color: var(--ink-900); }
+  .callout-card:nth-child(2) { background: #edf6e4; border-color: rgba(120,170,80,0.28); }
+  .callout-card:nth-child(3) { background: #b8dcc8; border-color: rgba(47,143,118,0.40); }
   .callout-card:nth-child(4) { background: var(--seal-700); border-color: var(--seal-700); color: var(--ink-50); }
   .callout-card:nth-child(4) .k { color: var(--seal-300); }
   .callout-card:nth-child(4) .v { color: var(--ink-50); }

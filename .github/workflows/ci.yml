@@ -79,12 +79,16 @@ jobs:
         # as a CMD arg. Start it here, poll /minio/health/live, then create
         # the two buckets the app expects using the mc client image on the
         # same host network.
+        #
+        # Images are pulled from quay.io (MinIO's other official registry)
+        # rather than docker.io to sidestep Docker Hub's unauthenticated
+        # pull rate limits on shared GitHub Actions runner IPs.
         run: |
           docker run -d --name minio \
             -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin \
             -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data
+            quay.io/minio/minio:latest server /data
           for i in {1..30}; do
             if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
               echo "MinIO up (attempt $i)"
@@ -99,7 +103,7 @@ jobs:
           done
           docker run --rm --network host --entrypoint sh \
             -e MC_HOST_local=http://minioadmin:minioadmin@localhost:9000 \
-            minio/mc:latest -c "
+            quay.io/minio/mc:latest -c "
               mc mb --ignore-existing local/docgen-templates &&
               mc mb --ignore-existing local/docgen-documents
             "

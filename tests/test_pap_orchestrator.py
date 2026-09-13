@@ -94,19 +94,21 @@ async def test_orchestrator_runs_full_slice_and_stitches_scores(monkeypatch) -> 
                 for i in range(n)
             ]})
         if p.endswith("/rerank"):
-            # Reranker sees documents in embed order; the four rules are
-            # sorted by id (Cardiovita: CLIN, INC, INS, RES). Return them in
-            # score-desc order matching rule_scores above.
+            # Reranker sees documents in embed order (the corpus order the
+            # retrieve stage passed in). Rule ids show up as `[{id}]` at the
+            # head of each prompt block — scan for our target ids rather
+            # than hard-coding a filename order that breaks when new rules
+            # land in the pack.
             docs = body["documents"]
             order = ["CV-INC-01", "CV-INS-01", "CV-RES-01", "CV-CLIN-01"]
-            # Match by leading rule id in text — the yaml files begin with
-            # the rule number in `id`, but rule.text doesn't include it.
-            # Use position-agnostic scoring: map by our known corpus order.
-            # load_rules() sorts by filename, i.e. CV-CLIN-01 first.
-            filename_order = ["CV-CLIN-01", "CV-INC-01", "CV-INS-01", "CV-RES-01"]
             results = []
             for target in order:
-                idx = filename_order.index(target)
+                idx = next(
+                    (i for i, d in enumerate(docs) if d.startswith(f"[{target}]")),
+                    None,
+                )
+                if idx is None:
+                    continue
                 results.append({"index": idx, "relevance_score": rule_scores[target]})
             return httpx.Response(200, json={"results": results})
         if p.endswith("/chat/completions"):

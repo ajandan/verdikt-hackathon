@@ -61,6 +61,19 @@ def _dispose_async_engine_between_tests():
     except RuntimeError:
         pass
     yield
+    # FastMCP's StreamableHTTPSessionManager guards run() with a `_has_started`
+    # flag that never resets. Each TestClient(app) triggers the parent app's
+    # lifespan, which calls `mcp.session_manager.run()` — a second test that
+    # uses TestClient after the first would raise RuntimeError. The lifespan
+    # exit path already tears down the task group and lifespan_state cleanly;
+    # only the flag persists. Reset it so the next test can start its own run.
+    try:
+        from docgen.mcp_server import mcp as _mcp
+        sm = _mcp._lowlevel_server._session_manager
+        if sm is not None:
+            sm._has_started = False
+    except Exception:
+        pass
 
 DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 

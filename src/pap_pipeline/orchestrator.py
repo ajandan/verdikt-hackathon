@@ -26,8 +26,11 @@ Extras are the extraction fields that don't overlap the canonical Intake
 schema (e.g., program-defined `member_id`). Retrieval keys on canonical
 fields only, but reasoning sees them merged into the intake JSON so a rule
 that cites a program-specific slot still has a value to evaluate against.
-History slot values (from the MDM slice) are merged into extras under
-`history_slots` so rules can reference them by name.
+History slot values (from the MDM slice) are flattened onto extras as
+top-level keys (`slot.name -> slot.value`) so a rule with
+`fields: [prior_enrollment_active]` evaluates against the slot the same way
+it evaluates against an intake field. The nested `history_slots` list
+remains too as an audit view (carries `from_events` linkage).
 """
 from __future__ import annotations
 
@@ -123,14 +126,28 @@ def _merge_history_slots(
 ) -> dict[str, Any]:
     """Fold derived slot values from the history slice into the extras dict.
 
-    Reason stage sees slot values under `history_slots` and evaluates rules
-    that reference them by name. Raw events (`history.events`) are *not*
-    merged — the reason stage's own boundary check forbids them
+    Two forms are emitted:
+
+    - **Flat** — each `slot.name -> slot.value` at the top level, so a rule
+      with `fields: [prior_enrollment_active]` treats it like any intake
+      field. This is the primary path the reason stage evaluates against.
+    - **Nested** — the full `history_slots` list stays too, preserving each
+      slot's `from_events` audit trail for downstream (letter/verdict) use.
+
+    Slot keys do *not* override intake keys — the reason stage's own merge
+    order lets Intake win on collision, which is intentional: an applicant's
+    submitted field beats an MDM-derived slot of the same name. Rename slots
+    if the collision would be ambiguous.
+
+    Raw events (`history.events`) are *not* merged — the reason stage's own
+    boundary check forbids them
     (see :func:`pap_pipeline.stages.reason._forbid_raw_history_events`).
     """
     merged = dict(extras or {})
     if history.slots:
         merged["history_slots"] = [s.model_dump() for s in history.slots]
+        for slot in history.slots:
+            merged.setdefault(slot.name, slot.value)
     return merged
 
 

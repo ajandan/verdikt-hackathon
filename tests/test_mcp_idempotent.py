@@ -64,8 +64,10 @@ def test_render_template_replays_identical_calls(default_tenant, sample_docx_byt
                 "claim_date": "2026-01-01",
                 "amount": 100,
             }
-            first = await render_template(template_id=template_id, data=data)
-            second = await render_template(template_id=template_id, data=data)
+            # Freeze no longer auto-publishes (see designtime.freeze); pin
+            # to version=1 so render_template doesn't need current_version.
+            first = await render_template(template_id=template_id, data=data, version=1)
+            second = await render_template(template_id=template_id, data=data, version=1)
             return first, second
         finally:
             _tenant_id.reset(tok)
@@ -103,7 +105,7 @@ def test_render_template_replays_fresh_when_blob_gone(
                 "claim_date": "2026-01-01",
                 "amount": 100,
             }
-            first = await render_template(template_id=template_id, data=data)
+            first = await render_template(template_id=template_id, data=data, version=1)
 
             # Simulate the blob having been garbage-collected out from under
             # the idempotency mapping. head_object() returns False → the tool
@@ -111,7 +113,7 @@ def test_render_template_replays_fresh_when_blob_gone(
             from docgen import mcp_server as _mcp
             monkeypatch.setattr(_mcp, "head_object", lambda bucket, key: False)
 
-            second = await render_template(template_id=template_id, data=data)
+            second = await render_template(template_id=template_id, data=data, version=1)
             return first, second
         finally:
             _tenant_id.reset(tok)
@@ -143,11 +145,12 @@ def test_render_template_different_payload_produces_new_job(
                 "claim_date": "2026-01-01",
                 "amount": 100,
             }
-            r1 = await render_template(template_id=template_id, data=base_data)
+            r1 = await render_template(template_id=template_id, data=base_data, version=1)
             # Change a single field — different fingerprint → fresh job.
             r2 = await render_template(
                 template_id=template_id,
                 data={**base_data, "amount": 200},
+                version=1,
             )
             return r1, r2
         finally:

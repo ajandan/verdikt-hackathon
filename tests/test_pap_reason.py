@@ -27,9 +27,14 @@ RULES_DIR = (
 
 
 def _load_rules() -> list[Rule]:
+    """Only the Cardiovita program's rules — since 2026-09 the corpus also
+    holds Obesity (OB-*) rules, but this test's canonical intake and the
+    stubbed model response only speak Cardiovita. Loading everything would
+    push OB-* rules into the reasoning payload and break the wire-shape
+    assertion below."""
     return [
         Rule.model_validate(yaml.safe_load(p.read_text(encoding="utf-8")))
-        for p in sorted(RULES_DIR.glob("*.yaml"))
+        for p in sorted(RULES_DIR.glob("CV-*.yaml"))
     ]
 
 
@@ -116,6 +121,7 @@ async def test_reason_posts_to_chat_completions_with_json_mode(monkeypatch) -> N
     assert "intake" in user_payload and "rules" in user_payload
     assert {r["id"] for r in user_payload["rules"]} == {
         "CV-INC-01", "CV-INS-01", "CV-RES-01", "CV-CLIN-01",
+        "CV-HIS-01", "CV-HIS-02",
     }
 
 

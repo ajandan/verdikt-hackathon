@@ -1,0 +1,13 @@
+id: CV-HIS-02
+program: cardiovita-pap-2026
+kind: history
+fields:
+  - prior_enrollment_active
+  - renewal_due_within_90d
+title: Fast-path renewal for members with expiring approvals
+criterion: >-
+  If `prior_enrollment_active` = true AND `renewal_due_within_90d` = true,
+  approve on the renewal track.
+exception: >-
+  If any intake field differs from the prior enrollment record, fall
+  through to CV-INC-01 / CV-RES-01 evaluation.

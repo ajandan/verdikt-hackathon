@@ -481,8 +481,6 @@ def test_concurrent_publish_serializes_per_template(
             asyncio.run(_do())
         except BaseException as e:
             errors.append(e)
-        finally:
-            asyncio.run(async_engine.dispose())
 
     t1 = threading.Thread(target=_worker, args=(1,))
     t2 = threading.Thread(target=_worker, args=(2,))
@@ -493,21 +491,28 @@ def test_concurrent_publish_serializes_per_template(
 
     assert not errors, f"worker failed: {errors!r}"
 
-    # Both publishes must have succeeded and the audit chain must be intact:
-    # events ordered by created_at, second event's previous_version == first's version.
+    # Both publishes must have succeeded and the audit chain must be intact.
+    # We order by created_at for readability, but PG's server-side `now()` is
+    # transaction-*start* time, not commit time — so under contention the row
+    # ordering by created_at can invert the actual commit order. The invariant
+    # we care about is the chain: exactly one event has previous_version=None
+    # (the loser of the race committed first), and the other event's
+    # previous_version links back to it.
     with sync_session() as s:
         rows = s.execute(
             _select(PublishEvent)
             .where(PublishEvent.template_id == template_id)
-            .order_by(PublishEvent.created_at.asc())
         ).scalars().all()
         assert len(rows) == 2
-        first, second = rows
-        assert first.previous_version is None
-        assert second.previous_version == first.version, (
+        firsts = [r for r in rows if r.previous_version is None]
+        seconds = [r for r in rows if r.previous_version is not None]
+        assert len(firsts) == 1 and len(seconds) == 1, (
+            f"expected one chain-head and one chain-tail, got firsts={firsts!r} seconds={seconds!r}"
+        )
+        head, tail = firsts[0], seconds[0]
+        assert tail.previous_version == head.version, (
             f"concurrent publish corrupted audit chain: "
-            f"first={first.version} prev={first.previous_version}, "
-            f"second={second.version} prev={second.previous_version}"
+            f"head={head.version}, tail={tail.version} prev={tail.previous_version}"
         )
         tmpl = s.get(Template, template_id)
-        assert tmpl.current_version == second.version
+        assert tmpl.current_version == tail.version

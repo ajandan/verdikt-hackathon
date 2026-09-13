@@ -60,16 +60,18 @@ def test_tenant_b_cannot_see_tenant_a_template(two_tenants_with_keys, sample_doc
     a_id, a_raw, _b_id, b_raw = two_tenants_with_keys
     tid = _upload_sync(a_id, sample_docx_bytes, "A-only template")
 
+    # Both requests share one TestClient — the MCP session manager (bound to
+    # the module-level `mcp` singleton mounted on `app`) rejects a second
+    # `.run()` on the same instance, so we can't open two client contexts
+    # against the same app in one test.
     with TestClient(app) as client:
         r_b = client.get(
             f"/templates/{tid}/provenance", headers={"Authorization": f"Bearer {b_raw}"}
         )
-    assert r_b.status_code == 404
-
-    with TestClient(app) as client:
         r_a = client.get(
             f"/templates/{tid}/provenance", headers={"Authorization": f"Bearer {a_raw}"}
         )
+    assert r_b.status_code == 404
     assert r_a.status_code == 200
     assert r_a.json() == []
 

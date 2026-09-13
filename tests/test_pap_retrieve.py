@@ -94,7 +94,11 @@ async def test_retrieve_hits_embeddings_then_rerank(monkeypatch) -> None:
     calls = _patch_async_client(monkeypatch, _handler)
 
     intake = load_canonical_intake()
-    reranked = await retrieve(intake, config=_config(), k=4)
+    # Pin to the Cardiovita program. The Cardiovita corpus is the source of
+    # truth for input-length below — pull the live count so adding a new
+    # CV-* rule bumps the expectation automatically.
+    cardiovita_rules = load_rules("cardiovita-pap-2026")
+    reranked = await retrieve(intake, config=_config(), k=4, program="cardiovita-pap-2026")
 
     assert len(reranked) == 4
     assert all(isinstance(r, RetrievedRule) for r in reranked)
@@ -106,13 +110,13 @@ async def test_retrieve_hits_embeddings_then_rerank(monkeypatch) -> None:
     embed_call, rerank_call = calls
     assert embed_call["url"].endswith("/embeddings")
     assert embed_call["body"]["model"] == "nvidia/nv-embedqa-e5-v5"
-    # Query + one text per rule; corpus is the four Cardiovita rules.
-    assert len(embed_call["body"]["input"]) == 1 + 4
+    # Query + one text per rule in the Cardiovita corpus.
+    assert len(embed_call["body"]["input"]) == 1 + len(cardiovita_rules)
 
     assert rerank_call["url"].endswith("/rerank")
     assert rerank_call["body"]["model"] == "nvidia/nv-rerankqa-mistral-4b-v3"
     assert rerank_call["body"]["query"] == embed_call["body"]["input"][0]
-    assert len(rerank_call["body"]["documents"]) <= 4
+    assert len(rerank_call["body"]["documents"]) <= len(cardiovita_rules)
 
 
 @pytest.mark.asyncio
@@ -149,10 +153,11 @@ async def test_retrieve_respects_program_namespace(monkeypatch) -> None:
     calls = _patch_async_client(monkeypatch, _handler)
 
     intake = load_canonical_intake()
+    cardiovita_rules = load_rules("cardiovita-pap-2026")
     await retrieve(intake, config=_config(), program="cardiovita-pap-2026", k=4)
 
-    # Query + four Cardiovita rules.
-    assert len(calls[0]["body"]["input"]) == 5
+    # Query + one text per rule in the Cardiovita corpus.
+    assert len(calls[0]["body"]["input"]) == 1 + len(cardiovita_rules)
 
     calls_b = _patch_async_client(monkeypatch, _handler)
     await retrieve(intake, config=_config(), program="does-not-exist", k=4)

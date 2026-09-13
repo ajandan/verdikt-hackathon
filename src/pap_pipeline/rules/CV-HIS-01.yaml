@@ -1,0 +1,13 @@
+id: CV-HIS-01
+program: cardiovita-pap-2026
+kind: history
+fields:
+  - prior_enrollment_active
+title: No duplicate enrollment while a prior approval is active
+criterion: >-
+  If `prior_enrollment_active` = true, deny — the active enrollment
+  remains in force through its renewal date.
+exception: >-
+  If the clinical indication has materially changed vs. the prior
+  enrollment, route to missing_info for a clinical-change attestation
+  instead of denying.

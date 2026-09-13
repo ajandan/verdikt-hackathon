@@ -5808,7 +5808,7 @@ async def program_detail(
 # Kept as a tuple so the template's <select> and the write-path validator
 # read from one source. Must stay in sync with the ck_rules_kind check
 # constraint and RuleKind Literal in pap_pipeline.schemas.rule.
-_RULE_KINDS = ("financial", "insurance", "residency", "clinical")
+_RULE_KINDS = ("financial", "insurance", "residency", "clinical", "history")
 
 
 def _parse_rule_fields(raw: str) -> list[str]:

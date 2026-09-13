@@ -22,7 +22,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-RuleKind = Literal["financial", "insurance", "residency", "clinical"]
+RuleKind = Literal["financial", "insurance", "residency", "clinical", "history"]
 
 
 class Rule(BaseModel):

@@ -304,7 +304,14 @@ def _draw_scenario(
     today = datetime.now(timezone.utc).date()
 
     if scenario == "novel":
-        return [], []
+        # Novel members still need the canonical slot set emitted with
+        # well-defined defaults so history-referencing rules can be
+        # evaluated instead of falling into missing_info. The empty events
+        # list is what pins the "novel" state in the snapshot hash.
+        return [], [
+            HistorySlot(name="prior_enrollment_active", value=False, from_events=[]),
+            HistorySlot(name="renewal_due_within_90d", value=False, from_events=[]),
+        ]
 
     prefix = _short_member_prefix(member_id)
 
@@ -334,6 +341,11 @@ def _draw_scenario(
                 value=days_ago,
                 from_events=[event.event_id],
             ),
+            HistorySlot(
+                name="renewal_due_within_90d",
+                value=False,
+                from_events=[event.event_id],
+            ),
         ]
 
     if scenario == "prior_deny_recent":
@@ -361,6 +373,11 @@ def _draw_scenario(
             HistorySlot(
                 name="last_determination_days_ago",
                 value=days_ago,
+                from_events=[event.event_id],
+            ),
+            HistorySlot(
+                name="renewal_due_within_90d",
+                value=False,
                 from_events=[event.event_id],
             ),
         ]

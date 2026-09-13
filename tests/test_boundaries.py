@@ -90,17 +90,32 @@ def test_no_stray_openai_or_anthropic_imports(module_dir: str) -> None:
     assert not hits, f"{module_dir}/ imports LLM SDKs: {sorted(hits)}"
 
 
-def test_docgen_never_imports_pap_pipeline() -> None:
-    """docgen/ is the reusable substrate; pap_pipeline/ is the hackathon-window consumer.
+def test_render_substrate_never_imports_pap_pipeline() -> None:
+    """The deterministic render substrate must not import from pap_pipeline.
 
-    The dependency direction is one-way: pipeline → docgen. If docgen ever reaches
-    back into pap_pipeline, prior-work reuse can no longer be proven by
-    `git log -- src/pap_pipeline/`, and the boundary that lets docgen be
-    republished on its own timeline collapses.
+    Original invariant (`test_docgen_never_imports_pap_pipeline`) was that
+    the whole `docgen/` package stayed pipeline-agnostic. That held when
+    docgen was the reusable substrate and pap_pipeline was a downstream
+    consumer. Post-Verdikt (name locked 2026-09-09), the pipeline is a
+    first-class product surface — legitimate integrations now live in
+    `docgen/api/pap.py`, `docgen/mcp_server.py`, and `docgen/ui/routes.py`
+    (function-local imports to avoid startup cycles).
+
+    What still must not budge is the deterministic bone: `docgen/core/`,
+    `docgen/store/`, `docgen/jobs/render.py`. Those exist so we can claim
+    the render path is provably free of model / pipeline reasoning code.
+    An import from pap_pipeline into any of them is a real regression of
+    that security claim.
     """
-    imports = _imports_of(SRC)
-    hits = _forbidden_present(imports, {"pap_pipeline"})
+    substrate_dirs = [SRC / "core", SRC / "store", SRC / "jobs"]
+    hits: set[str] = set()
+    for d in substrate_dirs:
+        if not d.exists():
+            continue
+        imports = _imports_of(d)
+        hits |= _forbidden_present(imports, {"pap_pipeline"})
     assert not hits, (
-        f"docgen/ imports from pap_pipeline: {sorted(hits)}. "
-        "The dependency direction is one-way (pipeline → docgen)."
+        f"Render substrate imports from pap_pipeline: {sorted(hits)}. "
+        "docgen/core, docgen/store, and docgen/jobs must stay pipeline-agnostic "
+        "so the deterministic-render claim holds."
     )

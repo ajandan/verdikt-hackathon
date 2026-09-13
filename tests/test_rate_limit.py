@@ -25,14 +25,15 @@ def test_render_burst_hits_429(low_render_limit: int, auth_headers) -> None:
         "data": {},
     }
     statuses: list[int] = []
+    # One TestClient for both halves — reopening on the same app hits FastMCP's
+    # single-run session-manager guard on lifespan startup.
     with TestClient(app) as client:
         for _ in range(low_render_limit + 2):
             r = client.post("/render", json=payload, headers=auth_headers)
             statuses.append(r.status_code)
-    # At least one of the extra requests must be 429 (limit exceeded).
-    assert 429 in statuses, f"expected a 429 in {statuses}"
-    # The 429 response must carry Retry-After.
-    with TestClient(app) as client:
+        # At least one of the extra requests must be 429 (limit exceeded).
+        assert 429 in statuses, f"expected a 429 in {statuses}"
+        # The 429 response must carry Retry-After.
         for _ in range(low_render_limit + 3):
             r = client.post("/render", json=payload, headers=auth_headers)
             if r.status_code == 429:

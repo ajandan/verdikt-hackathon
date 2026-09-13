@@ -98,6 +98,17 @@ def test_deliver_webhook_actor_posts_with_signature(monkeypatch, default_tenant,
     # This test focuses on signing/plumbing; SSRF URL validation is exercised
     # by dedicated tests. `example.invalid` is unresolvable, so bypass here.
     monkeypatch.setattr(wh, "validate_public_url", lambda _u: None)
+    # In the container, DOCGEN_WEBHOOK_SIGNING_SECRET is set to a real value
+    # before conftest can override it (env-var setdefault is a no-op then).
+    # Pin the actor's view of the secret to what the test signs against.
+    real_get_settings = wh.get_settings
+
+    def _pinned_settings():
+        s = real_get_settings()
+        s.webhook_signing_secret = "test-webhook-secret"
+        return s
+
+    monkeypatch.setattr(wh, "get_settings", _pinned_settings)
 
     # Call the actor's underlying function directly (skip Dramatiq broker/queue).
     wh.deliver_webhook.fn(str(job_id))

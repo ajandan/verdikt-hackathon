@@ -61,6 +61,20 @@ _TRUTHY = {"true", "yes", "y", "1", "on"}
 _FALSY = {"false", "no", "n", "0", "off"}
 
 
+def _map_key(value: Any) -> str:
+    """Stringify a coerced value so it can key an `intake_value_map` lookup.
+
+    JSON object keys are always strings, so callers write booleans as
+    ``"true"`` / ``"false"`` in the map. Dates fall back to their ISO
+    string form, matching what a JSON-configured map would carry.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    return str(value)
+
+
 def _coerce_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -249,6 +263,29 @@ def validate_json_intake(
             )
             continue
         result.normalized[canonical] = coerced
+
+        # Slot-alias fanout: when a program-specific slot declares
+        # `intake_field`, mirror the coerced value under the canonical
+        # Intake field name too so `_intake_from_extraction` in the
+        # orchestrator lands it on the Intake pydantic model. Optional
+        # `intake_value_map` transforms the raw value (e.g., the boolean
+        # `ins_uninsured=True` becomes the enum `"uninsured"` under
+        # `insurance_status`). First writer wins on collision so a caller
+        # that also sent the canonical name explicitly isn't overridden.
+        alias = (slot.get("intake_field") or "").strip()
+        if alias and alias not in result.normalized:
+            aliased = coerced
+            value_map = slot.get("intake_value_map")
+            if isinstance(value_map, dict) and value_map:
+                key_str = _map_key(coerced)
+                if key_str in value_map:
+                    aliased = value_map[key_str]
+                elif aliased is None or aliased is False:
+                    # No mapping hit and the source is "empty" — don't
+                    # stamp a bogus value on the canonical field.
+                    aliased = None
+            if aliased is not None:
+                result.normalized[alias] = aliased
 
     # Required-field check runs after normalization so missing keys report
     # against the canonical slot name — not whichever alias the caller

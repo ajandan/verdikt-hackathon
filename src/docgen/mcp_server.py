@@ -474,6 +474,85 @@ async def fetch_render_result(job_id: str) -> dict[str, Any]:
     return response
 
 
+@mcp.tool()
+async def submit_pap_intake(
+    program_slug: str,
+    intake: dict[str, Any],
+    actor: str | None = None,
+) -> dict[str, Any]:
+    """Submit a structured PAP intake JSON payload — parallel to the email channel.
+
+    Skips OCR/VLM entirely: the pipeline treats ``intake`` as the raw
+    extraction dict, runs retrieve + reason against the program's active
+    rules, and returns the verdict inline. Every submission (including
+    validation failures) is persisted to the reviewer queue under a new
+    ``inbox_events`` row so ops staff can audit MCP-sourced cases the
+    same way they audit email intakes.
+
+    ``intake`` keys may be either the slot ``name`` values from the
+    program's extraction schema or their ``source_field`` labels
+    (whichever the caller already has on hand). Type coercion follows the
+    slot definitions; type failures come back as a ``ValueError`` listing
+    every offending field.
+
+    ``actor`` is a caller-supplied label surfaced on the case row so
+    reviewers can trace which MCP session or downstream integration
+    submitted the case — defaults to the API key's short prefix.
+    """
+    import asyncio as _asyncio
+
+    from pap_pipeline.api_hook import (
+        CHANNEL_MCP,
+        IntakeValidationFailed,
+        PipelineExecutionFailed,
+        ProgramNotFound,
+        run_json_intake_sync,
+    )
+
+    tenant_id = _current_tenant_uuid()
+    settings = get_settings()
+    actor_label = (actor or "mcp").strip()[:100] or "mcp"
+
+    try:
+        result = await _asyncio.to_thread(
+            run_json_intake_sync,
+            tenant_id,
+            program_slug,
+            intake,
+            settings,
+            actor=actor_label,
+            channel=CHANNEL_MCP,
+        )
+    except ProgramNotFound as e:
+        raise ValueError(f"Program not found: {e}") from e
+    except IntakeValidationFailed as e:
+        # Serialize into a ValueError so the MCP client sees a structured
+        # message. Include event_id + per-field errors so a Claude Desktop
+        # user can see what to fix.
+        parts = [f"{err.field}: {err.message}" for err in e.errors]
+        if e.missing_required:
+            parts.append(f"missing required: {', '.join(e.missing_required)}")
+        raise ValueError(
+            "intake validation failed — case_event=" + str(e.event_id)
+            + "; " + "; ".join(parts)
+        ) from e
+    except PipelineExecutionFailed as e:
+        raise ValueError(
+            f"pipeline execution failed (case_event={e.event_id}): {e}"
+        ) from e
+
+    return {
+        "case_id": result.case_id,
+        "event_id": str(result.event_id),
+        "status": result.status,
+        "review_state": result.review_state,
+        "outcome": result.outcome,
+        "decision": result.decision,
+        "intake": result.intake,
+        "unknown_keys": result.unknown_keys,
+    }
+
+
 def build_mcp_app():
     """ASGI app for streamable-http transport, mountable under FastAPI.
 

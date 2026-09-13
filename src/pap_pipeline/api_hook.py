@@ -1,0 +1,397 @@
+"""Sync entry point for the JSON intake channel (REST + MCP).
+
+Parallel to :mod:`pap_pipeline.inbox_hook` but for callers that already
+have structured fields — CRMs, call-center apps, MCP tool users. Skips
+the extract stage entirely: the payload becomes the "raw extraction"
+directly, so the pipeline resumes at retrieve → reason.
+
+The design mirrors the email path deliberately:
+
+- A row is written to ``inbox_events`` for every submission (even
+  validation failures). Reviewers see API cases in the same queue as
+  email cases; the channel is encoded on the ``from_addr`` prefix
+  (``api://…`` for REST, ``mcp://…`` for MCP).
+- The pipeline is invoked sync in-process via ``asyncio.run`` — same
+  pattern as :func:`pap_pipeline.inbox_hook._run_pipeline`. FastAPI
+  handlers call this from a thread-pool executor so we don't block the
+  event loop.
+- Reply-letter rendering runs on success so the reviewer can preview
+  what the applicant would receive; sending it is still gated on human
+  approval via the existing inbox-agent path.
+"""
+from __future__ import annotations
+
+import asyncio
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
+from typing import Any
+
+import structlog
+
+from docgen.config import Settings
+from docgen.store.db import SyncSessionLocal
+from docgen.store.models import InboxEvent, Program, Tenant
+
+from pap_pipeline.inbox_hook import (
+    _AI_ACTOR,
+    _OUTCOME_TO_REVIEW_STATE,
+    _append_audit,
+    _pipeline_config,
+    _render_reply_attachment,
+    _score_from_decision,
+)
+from pap_pipeline.json_intake import (
+    IntakeValidationError,
+    NormalizedIntake,
+    validate_json_intake,
+)
+from pap_pipeline.orchestrator import (
+    _extras_from_extraction,
+    _intake_from_extraction,
+    run_from_intake,
+)
+from pap_pipeline.rules import load_rules
+from pap_pipeline.schemas.decision import Decision
+from pap_pipeline.schemas.intake import Intake
+
+log = structlog.get_logger(__name__)
+
+
+# Prefix on InboxEvent.from_addr that tells the UI + reviewers this case
+# arrived over a non-email channel. Kept as a URL-ish scheme so it reads
+# naturally in the "From" column of the inbox list.
+CHANNEL_REST = "rest"
+CHANNEL_MCP = "mcp"
+
+
+class ProgramNotFound(Exception):
+    """Raised when the (tenant, slug) pair doesn't resolve to an active program."""
+
+
+class IntakeValidationFailed(Exception):
+    """Raised when the payload fails schema validation.
+
+    Carries the structured error list so the REST handler can render a
+    400 response with per-field messages, and the event_id so the UI can
+    link the caller to the recorded failure for audit purposes.
+    """
+
+    def __init__(
+        self,
+        errors: list[IntakeValidationError],
+        *,
+        missing_required: list[str],
+        unknown_keys: list[str],
+        event_id: uuid.UUID,
+    ) -> None:
+        super().__init__(f"json intake validation failed ({len(errors)} error(s))")
+        self.errors = errors
+        self.missing_required = missing_required
+        self.unknown_keys = unknown_keys
+        self.event_id = event_id
+
+
+class PipelineExecutionFailed(Exception):
+    """Raised when retrieve/reason blew up. Includes event_id for follow-up."""
+
+    def __init__(self, message: str, *, event_id: uuid.UUID) -> None:
+        super().__init__(message)
+        self.event_id = event_id
+
+
+@dataclass
+class ApiIntakeResult:
+    """Outcome of a successful JSON intake submission."""
+
+    event_id: uuid.UUID
+    case_id: str
+    status: str
+    review_state: str | None
+    outcome: str
+    decision: dict[str, Any]
+    intake: dict[str, Any]
+    unknown_keys: list[str]
+
+
+def _channel_from_addr(channel: str, actor: str) -> str:
+    """Encode the intake channel + caller identity as a URL-ish string.
+
+    Stored on ``InboxEvent.from_addr`` so the UI can show a channel icon
+    on the inbox row and reviewers can trace which integration or MCP
+    session submitted the case. ``actor`` is typically the API key's
+    display name — never the raw key.
+    """
+    safe = (actor or "unknown").strip().replace(" ", "-")[:100]
+    return f"{channel}://{safe}"
+
+
+def run_json_intake_sync(
+    tenant_id: uuid.UUID,
+    program_slug: str,
+    payload: dict[str, Any],
+    settings: Settings,
+    *,
+    actor: str = "api",
+    channel: str = CHANNEL_REST,
+) -> ApiIntakeResult:
+    """Run the pipeline against a JSON payload; persist a case row.
+
+    Sync-only: creates its own :class:`SyncSessionLocal` to mirror the
+    inbox handler and to keep the reply-render helpers happy (they were
+    written for the sync inbox actor). FastAPI handlers should call this
+    from ``run_in_threadpool`` so the event loop doesn't stall on the
+    Nemotron round-trip.
+
+    Raises :class:`ProgramNotFound`, :class:`IntakeValidationFailed`, or
+    :class:`PipelineExecutionFailed` — all three carry enough context for
+    the caller to render a useful 4xx/5xx response.
+    """
+    if channel not in (CHANNEL_REST, CHANNEL_MCP):
+        raise ValueError(f"unknown channel: {channel!r}")
+
+    program_slug = (program_slug or "").strip().lower()
+    if not program_slug:
+        raise ProgramNotFound("program slug is required")
+
+    with SyncSessionLocal() as session:
+        tenant = session.get(Tenant, tenant_id)
+        if tenant is None:
+            raise ProgramNotFound("tenant not found")
+
+        program = (
+            session.query(Program)
+            .filter(
+                Program.tenant_id == tenant_id,
+                Program.slug == program_slug,
+                Program.is_active.is_(True),
+            )
+            .first()
+        )
+        if program is None:
+            raise ProgramNotFound(
+                f"program {program_slug!r} not found for this tenant"
+            )
+
+        schema = list(program.extraction_schema or [])
+        validation = validate_json_intake(payload, schema)
+
+        # Always create the case row — even failed validations should be
+        # visible to reviewers for audit. The channel prefix on from_addr
+        # is what the inbox list renders as a source icon.
+        event = InboxEvent(
+            message_id=f"{channel}://{uuid.uuid4()}",
+            from_addr=_channel_from_addr(channel, actor),
+            to_addr=None,
+            received_at=datetime.now(UTC),
+            subject=f"{channel.upper()} intake — {program.slug}",
+            tenant_id=tenant_id,
+            status="processing",
+            inbound_attachments=[
+                {
+                    "filename": "intake.json",
+                    "content_type": "application/json",
+                    "size": _payload_size(payload),
+                    "blob_key": None,
+                }
+            ],
+        )
+        session.add(event)
+        session.flush()
+
+        _append_audit(
+            event,
+            action="pipeline_started",
+            actor=_AI_ACTOR,
+            note=(
+                f"JSON intake received over {channel.upper()} from {actor!r}. "
+                f"Program: {program.slug}. "
+                f"Schema: {len(schema)} slot(s). "
+                f"Payload keys: {len(payload) if isinstance(payload, dict) else 0}."
+            ),
+        )
+        session.commit()
+
+        if validation.errors or validation.missing_required:
+            event.status = "failed"
+            note_parts = []
+            if validation.errors:
+                note_parts.append(
+                    f"{len(validation.errors)} field(s) failed type coercion"
+                )
+            if validation.missing_required:
+                note_parts.append(
+                    "missing required: " + ", ".join(validation.missing_required)
+                )
+            if validation.unknown_keys:
+                note_parts.append(
+                    "unknown keys: " + ", ".join(validation.unknown_keys)
+                )
+            event.error = "json_intake_validation_failed: " + "; ".join(note_parts)
+            _append_audit(
+                event,
+                action="pipeline_failed",
+                actor=_AI_ACTOR,
+                note=event.error,
+            )
+            session.commit()
+            raise IntakeValidationFailed(
+                validation.errors,
+                missing_required=validation.missing_required,
+                unknown_keys=validation.unknown_keys,
+                event_id=event.id,
+            )
+
+        # Split the normalized dict into an Intake (canonical PAP fields)
+        # + extras (program-specific slots). Same helper the extract path
+        # uses, so downstream stages don't know they got here via JSON.
+        raw = dict(validation.normalized)
+        intake = _intake_from_extraction(raw)
+        extras = _extras_from_extraction(raw)
+
+        rules = load_rules(program_slug, session=session, tenant_id=tenant_id) or None
+        config = _pipeline_config(settings)
+
+        try:
+            decision: Decision = asyncio.run(
+                run_from_intake(
+                    intake,
+                    config=config,
+                    program=program_slug,
+                    extras=extras,
+                    rules=rules,
+                )
+            )
+        except Exception as e:
+            event.status = "failed"
+            event.error = f"pap_pipeline_failed: {type(e).__name__}: {e}"
+            _append_audit(
+                event,
+                action="pipeline_failed",
+                actor=_AI_ACTOR,
+                note=f"{type(e).__name__}: {e}",
+            )
+            session.commit()
+            log.exception("pap_api_pipeline_failed", event_id=str(event.id))
+            raise PipelineExecutionFailed(str(e), event_id=event.id) from e
+
+        event.score = _score_from_decision(decision)
+        event.review_state = _OUTCOME_TO_REVIEW_STATE.get(
+            decision.outcome, "pending_review"
+        )
+        event.status = "succeeded"
+        event.pap_intake = intake.model_dump(mode="json")
+        # date/datetime instances slip in via the coerce step; JSONB
+        # rejects them, so shallow-convert to ISO strings before persist.
+        event.pap_extraction = _json_safe(raw)
+        event.pap_decision = decision.model_dump(mode="json")
+        _append_audit(
+            event,
+            action="verdict_rendered",
+            actor=_AI_ACTOR,
+            note=(
+                f"Outcome: {decision.outcome}. "
+                f"Citations: {len(decision.citations)}, "
+                f"missing fields: {len(decision.missing_fields)}. "
+                f"Queued for human review."
+            ),
+        )
+        session.commit()
+
+        # Draft the reply letter so a reviewer can preview it. Failures
+        # here don't fail the intake — same tolerance as the email path.
+        try:
+            _, blob_key = _render_reply_attachment(
+                session,
+                tenant,
+                intake,
+                decision,
+                program_slug,
+                event,
+                settings,
+                extras=extras,
+            )
+            if blob_key:
+                event.reply_attachment_blob_key = blob_key
+                _append_audit(
+                    event,
+                    action="reply_drafted",
+                    actor=_AI_ACTOR,
+                    note=(
+                        f"Drafted {decision.outcome} reply letter and stored for "
+                        f"reviewer preview."
+                    ),
+                )
+                session.commit()
+            else:
+                _append_audit(
+                    event,
+                    action="reply_draft_skipped",
+                    actor=_AI_ACTOR,
+                    note=(
+                        "No outcome-matched template found — reply will be "
+                        "text-only when sent."
+                    ),
+                )
+                session.commit()
+        except Exception as e:
+            log.warning(
+                "pap_api_reply_render_failed",
+                event_id=str(event.id),
+                error=f"{type(e).__name__}: {e}",
+            )
+
+        return ApiIntakeResult(
+            event_id=event.id,
+            case_id=event.case_id,
+            status=event.status,
+            review_state=event.review_state,
+            outcome=decision.outcome,
+            decision=event.pap_decision,
+            intake=event.pap_intake,
+            unknown_keys=validation.unknown_keys,
+        )
+
+
+def _json_safe(value: Any) -> Any:
+    """Recursively coerce dates/datetimes to ISO strings for JSONB.
+
+    The coerce step in :mod:`pap_pipeline.json_intake` builds typed
+    values so downstream code can rely on real ``date`` objects, but
+    psycopg's JSONB codec can't marshal them. This one-time conversion
+    at the persistence boundary keeps the domain logic typed while
+    letting the audit blob round-trip through Postgres.
+    """
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _payload_size(payload: Any) -> int:
+    """Best-effort byte count for the inbound-attachment manifest.
+
+    Not authoritative — the JSON we serialize may differ from what the
+    caller sent (whitespace, key order). But close enough to give
+    reviewers a sense of "how big was this submission" on the case row.
+    """
+    try:
+        import json as _json
+
+        return len(_json.dumps(payload).encode("utf-8"))
+    except Exception:
+        return 0
+
+
+__all__ = [
+    "ApiIntakeResult",
+    "CHANNEL_MCP",
+    "CHANNEL_REST",
+    "IntakeValidationFailed",
+    "PipelineExecutionFailed",
+    "ProgramNotFound",
+    "run_json_intake_sync",
+]

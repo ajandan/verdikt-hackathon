@@ -824,11 +824,11 @@
                 </a>
             </nav>
 
-            <div class="nav-section">Intake queue</div>
+            <div class="nav-section">Case queue</div>
             <nav class="flex flex-col gap-0.5">
-                <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}" data-tooltip="Inbox review">
+                <a href="/ui/inbox{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'inbox' %}active{% endif %}" data-tooltip="All cases">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"/><path d="M2 9h3l1 2h4l1-2h3"/></svg>
-                    <span class="nav-label">Inbox review</span>
+                    <span class="nav-label">Cases</span>
                 </a>
                 <a href="/ui/inbox/humanloop{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'humanloop' %}active{% endif %}" data-tooltip="HumanLoop{% if humanloop_count and humanloop_count > 0 %} ({{ humanloop_count }}){% endif %}">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="2.2"/><path d="M4.2 13c0-2.1 1.7-3.6 3.8-3.6s3.8 1.5 3.8 3.6"/><path d="M2 8.4a5.8 5.8 0 0 1 1.4-3.2"/><path d="M14 8.4a5.8 5.8 0 0 0-1.4-3.2"/></svg>

@@ -7,7 +7,7 @@
 
 ## What we're submitting
 
-**Verdikt** is a decision pipeline for regulated document workflows. When a Patient Assistance Program (PAP) enrollment packet arrives by email, Verdikt reads the attachments, retrieves the program's eligibility rules, and issues a structured decision — `approve`, `deny`, or `missing_info` — with citations back to the rules that fired. The reply letter is a byte-identical merge of a human-approved template with that decision.
+**Verdikt** is a decision pipeline for regulated document workflows. When a Patient Assistance Program (PAP) enrollment packet arrives by email, Verdikt reads the attachments, retrieves the program's eligibility rules, and issues a structured decision — `approve`, `deny`, or `missing_info` — with citations back to the rules that fired. The reply that leaves the building is an **ordered doc package** for that outcome: a byte-identical letter rendered from a human-approved template, concatenated with the tenant's static appeals notices, benefits guides, and blank forms in the order the operator declared. Same input → same package → forever.
 
 We took the opposite bet from the industry: **AI-in, deterministic-out.** AI runs where it earns its place — reading documents, retrieving rules, reasoning over both. Then AI stops. No language model sits on the code path that generates the audited artifact. Full architectural argument in [`docs/demo-scripts/architecture-justification.md`](demo-scripts/architecture-justification.md).
 
@@ -60,7 +60,7 @@ exposes the artifacts a template-flow page has no slot for:
 | **Extract — structured intake** | Every slot the program's `extraction_schema` defined, rendered dynamically (blanks shown as `—`). Custom program slots appear alongside canonical Intake fields. | `inbox_events.pap_extraction` (raw slot dict), falling back to `pap_intake` for pre-migration events |
 | **Retrieve → Reason — citations** | Table of every rule the reason stage evaluated: rule ID, matched yes/no, reranker score, and the rule statement + kind chip | `Decision.citations` joined against `pap_pipeline/rules/*.yaml` at render time |
 | **Missing information** | Field-name list; empty on approve/deny | `Decision.missing_fields` |
-| **Reply** | Outbound Message-ID and a link to the exact PDF the applicant received | `inbox_events.reply_message_id`, `inbox_events.reply_attachment_blob_key` |
+| **Assemble → Reply** | Outbound Message-ID and a link to the exact merged PDF package the applicant received, plus the item-by-item list of what went in (letter template version + each static PDF version, in package order) | `inbox_events.reply_message_id`, `inbox_events.reply_attachment_blob_key`, `doc_package_assemblies.resolved_items` |
 
 Persistence primitives added for this view:
 
@@ -87,6 +87,14 @@ Persistence primitives added for this view:
   merges into `_build_render_data` so program-specific slots (e.g.
   `member_id`, `rx_medication`) flow into matching template fields
   without needing an Intake schema change.
+- `static_documents` + `static_document_versions` + `doc_packages` +
+  `doc_package_assemblies` — Alembic migration `0029_doc_packages.py`.
+  Tenant-scoped versioned PDF library, ordered composition into packages,
+  and an append-only assembly log stamping the resolved template + static
+  versions per case. `programs.outcomes` (JSONB array) and
+  `programs.package_bindings` (JSONB `outcome → package_id`) added on the
+  same migration. See [`docs/adr/0003-doc-packages.md`](adr/0003-doc-packages.md)
+  for the model and the version-pinning rationale.
 
 Why a dedicated view rather than expanding the shared page: see
 [`docs/adr/0002-pipeline-inbox-view.md`](adr/0002-pipeline-inbox-view.md).

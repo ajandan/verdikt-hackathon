@@ -862,7 +862,7 @@
                 </a>
             </nav>
 
-            <div class="nav-section">Configuration</div>
+            <div class="nav-section">Program setup</div>
             <nav class="flex flex-col gap-0.5">
                 <a href="/ui/programs" class="nav-link {% if active == 'programs' %}active{% endif %}" data-tooltip="Programs">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 3.5h11v2h-11z"/><path d="M2.5 7h11v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1z"/><path d="M6 10h4"/></svg>
@@ -872,6 +872,10 @@
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>
                     <span class="nav-label">Rules</span>
                 </a>
+            </nav>
+
+            <div class="nav-section">Library</div>
+            <nav class="flex flex-col gap-0.5">
                 <a href="/ui/{% if sidebar_selected_tenant_id %}?tenant={{ sidebar_selected_tenant_id }}{% endif %}" class="nav-link {% if active == 'index' %}active{% endif %}" data-tooltip="Templates">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
                     <span class="nav-label">Templates</span>
@@ -879,6 +883,14 @@
                 <a href="/ui/upload" class="nav-link {% if active == 'upload' %}active{% endif %}" data-tooltip="Upload template">
                     <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 11V3M8 3l-3 3M8 3l3 3"/><path d="M3 11v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1"/></svg>
                     <span class="nav-label">Upload template</span>
+                </a>
+                <a href="/ui/static-documents" class="nav-link {% if active == 'static_documents' %}active{% endif %}" data-tooltip="Static documents">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h6l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M10 2v3h3"/></svg>
+                    <span class="nav-label">Static docs</span>
+                </a>
+                <a href="/ui/packages" class="nav-link {% if active == 'packages' %}active{% endif %}" data-tooltip="Doc packages">
+                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.5 4.5l5.5-2.5 5.5 2.5v7l-5.5 2.5-5.5-2.5z"/><path d="M2.5 4.5L8 7l5.5-2.5M8 7v7"/></svg>
+                    <span class="nav-label">Doc packages</span>
                 </a>
             </nav>
 
@@ -907,13 +919,6 @@
             </nav>
             {% endif %}
 
-            <div class="nav-section">Reference</div>
-            <nav class="flex flex-col gap-0.5">
-                <a href="/docs" target="_blank" rel="noopener" class="nav-link" data-tooltip="API docs">
-                    <svg class="icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3H4a1 1 0 0 0-1 1z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg>
-                    <span class="nav-label">API docs</span>
-                </a>
-            </nav>
         </div>
 
         {% if admin_user %}

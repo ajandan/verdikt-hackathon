@@ -88,9 +88,19 @@ from docgen.ratelimit import (
 )
 from docgen.security_headers import preview_csp, secure_cookie_flag
 from docgen.store.blob import get_object, put_object
+from docgen.store.doc_packages import (
+    DocPackageValidationError,
+    StaticDocRejected,
+    add_static_document_version,
+    create_doc_package,
+    create_static_document,
+    list_static_document_versions,
+    normalize_package_items,
+)
 from docgen.store.models import (
     ApiKey,
     CallerProfile,
+    DocPackage,
     InboxEvent,
     InboxTestResult,
     Program,
@@ -100,6 +110,8 @@ from docgen.store.models import (
     RenderJob,
     Rule,
     RuleVersion,
+    StaticDocument,
+    StaticDocumentVersion,
     Template,
     TemplateAuditEvent,
     TemplateVersion,
@@ -4525,6 +4537,21 @@ async def _load_inbox_event(
     return ev
 
 
+async def _latest_assembly_for_event(session: AsyncSession, event_id: uuid.UUID):
+    """Return the most recent doc-package assembly for this inbox event, if
+    any. Used by the pipeline detail page + verdict JSON download so the
+    per-item ledger is visible to reviewers and downstream systems."""
+    from docgen.store.models import DocPackageAssembly
+
+    stmt = (
+        select(DocPackageAssembly)
+        .where(DocPackageAssembly.inbox_event_id == event_id)
+        .order_by(DocPackageAssembly.assembled_at.desc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
 def _append_review_history(
     event: InboxEvent, *, action: str, actor: str, note: str
 ) -> None:
@@ -4801,7 +4828,8 @@ async def inbox_pipeline_detail(
     # persist the resolved slug on the event row, but the subject tag is
     # the canonical source it was resolved from.
     _, program_slug = _pap_program_from_subject(ev.subject)
-    verdict = build_verdict(ev, tenant=tenant, program=program_slug)
+    assembly = await _latest_assembly_for_event(session, ev.id)
+    verdict = build_verdict(ev, tenant=tenant, program=program_slug, assembly=assembly)
     import json as _json
     verdict_pretty = _json.dumps(verdict, indent=2, default=str)
 
@@ -4860,7 +4888,8 @@ async def inbox_verdict_json(
         tenant = await session.get(Tenant, ev.tenant_id)
 
     _, program_slug = _pap_program_from_subject(ev.subject)
-    verdict = build_verdict(ev, tenant=tenant, program=program_slug)
+    assembly = await _latest_assembly_for_event(session, ev.id)
+    verdict = build_verdict(ev, tenant=tenant, program=program_slug, assembly=assembly)
     filename = f"verdict-{ev.case_id}.json"
     return JSONResponse(
         content=verdict,
@@ -5570,6 +5599,30 @@ async def program_detail(
     available_all = list((await session.execute(available_stmt)).scalars())
     available = [r for r in available_all if r.id not in attached_rule_ids]
 
+    # Doc packages available in this tenant for outcome bindings.
+    pkg_stmt = (
+        select(DocPackage)
+        .where(DocPackage.tenant_id == prog.tenant_id, DocPackage.is_active.is_(True))
+        .order_by(DocPackage.name.asc())
+    )
+    tenant_packages = [
+        {"id": str(p.id), "name": p.name, "item_count": len(p.items or [])}
+        for p in (await session.execute(pkg_stmt)).scalars()
+    ]
+    pkg_name_by_id = {p["id"]: p["name"] for p in tenant_packages}
+
+    declared_outcomes = list(prog.outcomes or [])
+    bindings_raw = dict(prog.package_bindings or {})
+    outcome_rows = [
+        {
+            "outcome": o,
+            "package_id": bindings_raw.get(o, ""),
+            "package_name": pkg_name_by_id.get(bindings_raw.get(o, ""), ""),
+            "bound": bool(bindings_raw.get(o)),
+        }
+        for o in declared_outcomes
+    ]
+
     return templates.TemplateResponse(
         request,
         "admin_program_detail.html",
@@ -5582,6 +5635,9 @@ async def program_detail(
             bound_fields=bound_fields,
             attached_rules=attached,
             available_rules=available,
+            tenant_packages=tenant_packages,
+            outcome_rows=outcome_rows,
+            declared_outcomes=declared_outcomes,
             flash=flash, flash_kind=flash_kind,
         ),
     )
@@ -6170,3 +6226,21 @@ async def rule_version_view(
             latest_version=int(latest_version),
         ),
     )
+
+
+
+# ------------------------------------------------------------------
+# Doc packages routes (static docs library + ordered composition +
+# program outcome bindings). Split into its own module because this
+# feature landed as a self-contained slice — see ADR-0003.
+# ------------------------------------------------------------------
+from docgen.ui.routes_doc_packages import register as _register_doc_packages
+
+_register_doc_packages(
+    router,
+    templates,
+    _base_ctx,
+    _forced_tenant_scope,
+    _enforce_scope,
+    _redirect,
+)

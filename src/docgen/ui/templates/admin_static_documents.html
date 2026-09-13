@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Static documents — Verdikt{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .sd-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .sd-grid { grid-template-columns: 1fr; } }
+    .sd-grid .card.flush { overflow-x: auto; }
+    .sd-cell strong { display: block; }
+    .sd-cell .desc {
+        display: block; color: var(--text-muted); font-size: 12.5px;
+        margin-top: 2px;
+    }
+    .badge.no-versions { background: var(--surface-2); color: var(--text-muted); }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Static documents</h1>
+        <p class="page-subtitle">
+            The tenant's byte-stable PDF library — appeals notices, benefits
+            guides, blank forms. Never rendered; the assembler concatenates
+            these as-is into outbound doc packages.
+        </p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ docs|length }} document{{ 's' if docs|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="sd-grid">
+    {% if docs %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All static documents</h2>
+            <span class="subtle">Grouped by tenant</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>Tenant</th>
+                    <th>Document</th>
+                    <th>Version</th>
+                    <th>Updated</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in docs %}
+                <tr>
+                    <td>{{ d.tenant_name }}</td>
+                    <td>
+                        <div class="sd-cell">
+                            <strong>{{ d.name }}</strong>
+                            {% if d.description %}<span class="desc">{{ d.description }}</span>{% endif %}
+                        </div>
+                    </td>
+                    <td data-sort="{{ d.current_version }}">
+                        {% if d.current_version %}
+                            <span class="badge success">v{{ d.current_version }}</span>
+                        {% else %}
+                            <span class="badge no-versions">no upload yet</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted" data-sort="{{ d.updated_at.isoformat() }}">
+                        {{ d.updated_at.strftime('%Y-%m-%d %H:%M UTC') }}
+                    </td>
+                    <td style="text-align: right">
+                        <a href="/ui/static-documents/{{ d.id }}">Open →</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 2h8l4 4v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v4h4"/></svg>
+            </div>
+            <h3>No static documents yet</h3>
+            <p>Create one on the right, then upload a PDF version. Static documents belong to doc packages, alongside generated templates.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">New static document</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">
+            Creates an empty row. Upload the first PDF version on the next screen — versions auto-follow, so live packages pick up the latest upload automatically.
+        </p>
+        <form action="/ui/static-documents" method="post">
+            {{ csrf_input(request) }}
+            {% if sidebar_selected_tenant_id %}
+            <input type="hidden" name="tenant_id" value="{{ sidebar_selected_tenant_id }}">
+            {% else %}
+            <label>Tenant
+                <select name="tenant_id" required>
+                    <option value="">— pick tenant —</option>
+                    {% for t in tenants_all %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label style="margin-top: 12px">Name
+                <input type="text" name="name" required placeholder="Appeals rights notice" autofocus>
+            </label>
+            <label style="margin-top: 12px">Description
+                <input type="text" name="description" placeholder="Optional — shown in package composer">
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create document
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

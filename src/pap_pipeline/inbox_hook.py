@@ -25,6 +25,12 @@ from docgen.inbox.mailer import Attachment, MailerError, send_reply
 from docgen.store.blob import get_object, put_object
 from docgen.store.models import InboxEvent, Program, Template, TemplateVersion, Tenant
 
+from pap_pipeline.assembler import (
+    AssemblerError,
+    AssemblerMissingBinding,
+    AssemblyResult,
+    assemble_reply_package,
+)
 from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
@@ -497,6 +503,94 @@ def _render_reply_attachment(
     return attachment, blob_key
 
 
+def _lookup_program_row(
+    session: Any, tenant: Tenant, program: str | None
+) -> Program | None:
+    """Fetch the Program row for this tenant + slug, if any."""
+    slug = (program or "").strip().lower()
+    if not slug:
+        return None
+    return (
+        session.query(Program)
+        .filter(
+            Program.tenant_id == tenant.id,
+            Program.slug == slug,
+            Program.is_active.is_(True),
+        )
+        .first()
+    )
+
+
+def _draft_reply_artifact(
+    session: Any,
+    tenant: Tenant,
+    intake: Intake,
+    decision: Decision,
+    program: str | None,
+    event: InboxEvent,
+    settings: Settings,
+    *,
+    extras: dict[str, Any] | None,
+) -> str | None:
+    """Return the persisted blob key for the reply PDF, or None on failure.
+
+    Dispatches between two rendering modes based on program configuration:
+
+      1. Program has a package bound to this outcome → run the assembler.
+         The merged package (approval letter + guides + forms) becomes the
+         reply attachment; a `doc_package_assemblies` row records the exact
+         versions merged for audit + downstream retrieval.
+      2. No binding, or binding lookup fails → fall back to the legacy
+         single-template flow (`_render_reply_attachment`). Kept so tenants
+         that haven't declared outcomes/bindings yet still get a reply
+         during the migration window.
+
+    Any assembler failure other than "no binding" is logged and falls through
+    to the legacy flow — losing the enrichment (static guides + forms) is
+    preferable to blocking the reply entirely. Bindings are configuration;
+    a config error shouldn't stall an approved case.
+    """
+    prog = _lookup_program_row(session, tenant, program)
+    if prog is not None and (prog.package_bindings or {}).get(decision.outcome):
+        try:
+            data = _build_render_data(intake, decision, program, event, extras=extras)
+            result: AssemblyResult = assemble_reply_package(
+                session,
+                tenant=tenant,
+                program=prog,
+                decision=decision,
+                event=event,
+                render_data=data,
+                settings=settings,
+            )
+        except AssemblerMissingBinding as e:
+            # Shouldn't happen — we just checked the binding — but keep the
+            # branch tidy for concurrent binding edits.
+            log.warning(
+                "pap_assembler_missing_binding",
+                event_id=str(event.id),
+                outcome=decision.outcome,
+                error=str(e),
+            )
+        except AssemblerError as e:
+            # Item missing / render failed. Log with enough detail for the
+            # operator to fix the package, then fall through to legacy.
+            log.warning(
+                "pap_assembler_failed",
+                event_id=str(event.id),
+                outcome=decision.outcome,
+                error=f"{type(e).__name__}: {e}",
+            )
+        else:
+            return result.blob_key
+
+    _, blob_key = _render_reply_attachment(
+        session, tenant, intake, decision, program, event, settings,
+        extras=extras,
+    )
+    return blob_key
+
+
 def _resolve_program_slots(
     session: Any, tenant: Tenant, program: str | None
 ) -> list[dict[str, Any]] | None:
@@ -655,10 +749,11 @@ def _handler(
     )
     session.commit()
 
-    # Render + persist the reply PDF now so the reviewer can preview the
-    # exact letter that will be sent. The send itself is deferred to the
-    # human-approval endpoint — see _send_pap_reply_for_event.
-    _, blob_key = _render_reply_attachment(
+    # Draft the reply artifact now so the reviewer previews the exact bytes
+    # that will be sent. Two paths — package assembler wins when the program
+    # has an outcome→package binding, else we fall back to the single-template
+    # legacy flow so tenants that haven't migrated yet still get a reply.
+    blob_key = _draft_reply_artifact(
         session, tenant, intake, decision, program, event, settings,
         extras=_extras_only(raw_extraction),
     )
@@ -668,7 +763,7 @@ def _handler(
             event,
             action="reply_drafted",
             actor=_AI_ACTOR,
-            note=f"Drafted {decision.outcome} reply letter and stored for reviewer preview.",
+            note=f"Drafted {decision.outcome} reply and stored for reviewer preview.",
         )
         session.commit()
     else:
@@ -676,7 +771,7 @@ def _handler(
             event,
             action="reply_draft_skipped",
             actor=_AI_ACTOR,
-            note="No outcome-matched template found — reply will be text-only when sent.",
+            note="No outcome-matched template or package found — reply will be text-only when sent.",
         )
         session.commit()
 

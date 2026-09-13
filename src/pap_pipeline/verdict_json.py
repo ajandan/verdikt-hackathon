@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from docgen.store.models import InboxEvent, Tenant
+from docgen.store.models import DocPackageAssembly, InboxEvent, Tenant
 
 
 VERDICT_SCHEMA = "verdikt.decision.v1"
@@ -50,7 +50,7 @@ def _decided_at(event: InboxEvent) -> str | None:
     return _iso(event.updated_at)
 
 
-def _artifacts(event: InboxEvent) -> dict[str, Any]:
+def _artifacts(event: InboxEvent, *, assembly: DocPackageAssembly | None) -> dict[str, Any]:
     reply: dict[str, Any] = {
         "kind": "reply_letter_pdf",
         "blob_key": event.reply_attachment_blob_key,
@@ -72,7 +72,27 @@ def _artifacts(event: InboxEvent) -> dict[str, Any]:
         }
         for a in (event.inbound_attachments or [])
     ]
-    return {"reply_letter": reply, "inbound": inbound}
+    out: dict[str, Any] = {"reply_letter": reply, "inbound": inbound}
+    if assembly is not None:
+        # Package artifact: exposes the merged bytes + a per-item ledger so
+        # downstream systems (CRM, call center ops) can enumerate exactly
+        # which templates and static docs the applicant received.
+        out["package"] = {
+            "assembly_id": str(assembly.id),
+            "doc_package_id": str(assembly.doc_package_id),
+            "outcome": assembly.outcome,
+            "package_url": (
+                f"/ui/inbox/{event.id}/reply-attachment"
+                if event.reply_attachment_blob_key
+                else None
+            ),
+            "blob_key": assembly.merged_blob_key,
+            "page_count": assembly.merged_page_count,
+            "byte_size": assembly.merged_byte_size,
+            "items": list(assembly.resolved_items or []),
+            "assembled_at": _iso(assembly.assembled_at),
+        }
+    return out
 
 
 def _rule_ids(decision: dict[str, Any] | None) -> list[str]:
@@ -86,6 +106,7 @@ def build_verdict(
     *,
     tenant: Tenant | None,
     program: str | None = None,
+    assembly: DocPackageAssembly | None = None,
 ) -> dict[str, Any]:
     """Return the downstream-consumable verdict envelope for one event.
 
@@ -121,7 +142,7 @@ def build_verdict(
         },
         "intake": intake,
         "extras": extras,
-        "artifacts": _artifacts(event),
+        "artifacts": _artifacts(event, assembly=assembly),
         "review": {
             "state": event.review_state,
             "reply_sent": event.reply_message_id is not None,

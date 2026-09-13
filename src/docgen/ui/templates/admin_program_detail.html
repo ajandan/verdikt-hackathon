@@ -133,6 +133,40 @@
         color: var(--text-muted); line-height: 1.4;
     }
     .tab-panel[hidden] { display: none; }
+
+    .bindings-list { list-style: none; padding: 0; margin: 0; }
+    .bind-row {
+        display: grid;
+        grid-template-columns: 160px minmax(0, 1fr) auto;
+        gap: 12px; align-items: center;
+        padding: 10px 12px; border: 1px solid var(--border);
+        border-radius: 8px; margin-bottom: 8px; background: var(--surface);
+    }
+    .bind-row.unbound { border-color: #e0a800; background: #fffbe6; }
+    .bind-outcome {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-weight: 600; font-size: 13px;
+    }
+    .bind-row form { display: contents; }
+    .bind-row select {
+        width: 100%; box-sizing: border-box; padding: 6px 8px;
+        font-size: 13px; border: 1px solid var(--border);
+        border-radius: 6px; background: var(--surface); font-family: inherit;
+    }
+    .bind-row button {
+        padding: 6px 12px; font-size: 12.5px; font-weight: 500;
+        border: 1px solid var(--border); background: var(--surface-2);
+        border-radius: 6px; cursor: pointer; font-family: inherit;
+    }
+    .bind-row button.primary {
+        background: var(--brand); color: white; border-color: var(--brand);
+    }
+    .outcomes-editor textarea {
+        width: 100%; box-sizing: border-box; padding: 8px 10px;
+        font-size: 13px; font-family: inherit;
+        border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); resize: vertical; min-height: 60px;
+    }
 </style>
 
 <p class="breadcrumb">
@@ -164,6 +198,10 @@
     <a href="#rules" class="tab" role="tab" data-tab="rules" aria-selected="false" aria-controls="tab-rules" id="tab-btn-rules">
         Attached rules
         {% if attached_rules %}<span class="tab-count">{{ attached_rules|length }}</span>{% endif %}
+    </a>
+    <a href="#bindings" class="tab" role="tab" data-tab="bindings" aria-selected="false" aria-controls="tab-bindings" id="tab-btn-bindings">
+        Reply bindings
+        {% if declared_outcomes %}<span class="tab-count">{{ declared_outcomes|length }}</span>{% endif %}
     </a>
 </nav>
 
@@ -396,6 +434,98 @@
     </div>
 </section>
 
+<section class="tab-panel" id="tab-bindings" role="tabpanel" aria-labelledby="tab-btn-bindings" hidden>
+<div class="prog-grid">
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Outcome → doc package</h2>
+                <span class="subtle">
+                    Assembler picks the bound package at verdict time and merges its items into the reply
+                </span>
+            </div>
+
+            {% if outcome_rows %}
+            <ul class="bindings-list">
+                {% for row in outcome_rows %}
+                <li class="bind-row {% if not row.bound %}unbound{% endif %}">
+                    <span class="bind-outcome">{{ row.outcome }}</span>
+                    <form action="/ui/programs/{{ program.id }}/bindings" method="post">
+                        {{ csrf_input(request) }}
+                        <input type="hidden" name="outcome" value="{{ row.outcome }}">
+                        <select name="package_id">
+                            <option value="">— no package (assembly will fail) —</option>
+                            {% for p in tenant_packages %}
+                            <option value="{{ p.id }}" {% if p.id == row.package_id %}selected{% endif %}>
+                                {{ p.name }} ({{ p.item_count }} item{{ 's' if p.item_count != 1 else '' }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <button class="primary" type="submit">Save</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty" style="padding: 20px 0">
+                <h3 style="margin: 0 0 6px 0">No outcomes declared</h3>
+                <p class="muted" style="margin: 0; font-size: 13px">
+                    Set the outcome vocabulary on the right, then bind a package to each outcome.
+                </p>
+            </div>
+            {% endif %}
+
+            <p class="muted" style="font-size: 12.5px; margin-top: 16px">
+                <strong>Publishing gate:</strong> every declared outcome must have a package bound
+                or the pipeline will refuse to assemble a reply. Create packages in the
+                <a href="/ui/packages">doc-package composer</a>.
+            </p>
+        </div>
+    </div>
+
+    <div>
+        <div class="card outcomes-editor">
+            <h3 style="margin-top: 0">Outcome vocabulary</h3>
+            <p class="muted" style="font-size: 13px">
+                Comma-separated list of outcomes this program can emit. Typical
+                sets are <code>approved, denied, missing_info</code>. Dropping
+                an outcome here also clears its binding.
+            </p>
+            <form action="/ui/programs/{{ program.id }}/outcomes" method="post">
+                {{ csrf_input(request) }}
+                <label>Outcomes
+                    <textarea name="outcomes" placeholder="approved, denied, missing_info">{{ declared_outcomes|join(', ') }}</textarea>
+                </label>
+                <button class="primary" type="submit" style="width: 100%; margin-top: 12px">
+                    Save vocabulary
+                </button>
+            </form>
+        </div>
+
+        <div class="card" style="margin-top: 16px">
+            <h3 style="margin-top: 0">Tenant packages</h3>
+            {% if tenant_packages %}
+            <p class="muted" style="font-size: 13px; margin-bottom: 8px">
+                {{ tenant_packages|length }} active package{{ 's' if tenant_packages|length != 1 else '' }} available in this tenant.
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px">
+                {% for p in tenant_packages %}
+                <li style="padding: 4px 0">
+                    <a href="/ui/packages/{{ p.id }}">{{ p.name }}</a>
+                    <span class="muted"> — {{ p.item_count }} item{{ 's' if p.item_count != 1 else '' }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="muted" style="font-size: 13px">
+                No packages yet. <a href="/ui/packages">Create one</a> in this tenant first.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+</section>
+
 <template id="slot-row-template">
     <tr>
         <td><input type="text" name="slot_name" class="slot-name" required></td>
@@ -458,11 +588,18 @@
             try { sessionStorage.setItem(STORAGE_KEY, 'rules'); } catch (e) {}
         }, true);
     }
+    var bindingsPanel = document.getElementById('tab-bindings');
+    if (bindingsPanel) {
+        bindingsPanel.addEventListener('submit', function () {
+            try { sessionStorage.setItem(STORAGE_KEY, 'bindings'); } catch (e) {}
+        }, true);
+    }
     var initial = (location.hash || '').replace('#', '');
-    if (initial !== 'rules' && initial !== 'extraction') {
+    var valid = { rules: 1, extraction: 1, bindings: 1 };
+    if (!valid[initial]) {
         try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
     }
-    if (initial === 'rules' || initial === 'extraction') activate(initial, false);
+    if (valid[initial]) activate(initial, false);
 })();
 </script>
 {% endblock %}

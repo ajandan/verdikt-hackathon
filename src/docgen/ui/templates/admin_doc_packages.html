@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Doc packages — Verdikt{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .pkg-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .pkg-grid { grid-template-columns: 1fr; } }
+    .pkg-grid .card.flush { overflow-x: auto; }
+    .pkg-cell strong { display: block; }
+    .pkg-cell .desc {
+        display: block; color: var(--text-muted); font-size: 12.5px;
+        margin-top: 2px;
+    }
+    .item-count-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 999px;
+        font-size: 12px; background: var(--surface-2); color: var(--text-muted);
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Doc packages</h1>
+        <p class="page-subtitle">
+            An ordered composition of templates and static documents. Programs
+            bind a package per outcome — the assembler resolves the binding at
+            runtime and merges the items in declared order.
+        </p>
+    </div>
+    <div class="page-actions">
+        <span class="badge draft">{{ packages|length }} package{{ 's' if packages|length != 1 else '' }}</span>
+    </div>
+</div>
+
+<div class="pkg-grid">
+    {% if packages %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>All packages</h2>
+            <span class="subtle">Grouped by tenant</span>
+        </div>
+        <table class="sortable">
+            <thead>
+                <tr>
+                    <th>Tenant</th>
+                    <th>Package</th>
+                    <th>Items</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in packages %}
+                <tr>
+                    <td>{{ p.tenant_name }}</td>
+                    <td>
+                        <div class="pkg-cell">
+                            <strong>{{ p.name }}</strong>
+                            {% if p.description %}<span class="desc">{{ p.description }}</span>{% endif %}
+                        </div>
+                    </td>
+                    <td data-sort="{{ p.item_count }}">
+                        <span class="item-count-badge">{{ p.item_count }}</span>
+                    </td>
+                    <td>
+                        {% if p.is_active %}
+                            <span class="badge success">Active</span>
+                        {% else %}
+                            <span class="badge inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td class="muted" data-sort="{{ p.updated_at.isoformat() }}">
+                        {{ p.updated_at.strftime('%Y-%m-%d %H:%M UTC') }}
+                    </td>
+                    <td style="text-align: right">
+                        <a href="/ui/packages/{{ p.id }}">Edit →</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>
+            </div>
+            <h3>No packages yet</h3>
+            <p>Create one on the right. A package is a tenant-scoped ordered list — you add template and static-document items on the composer screen.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">New package</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 16px">
+            A package is scoped to one tenant. Once created, bind it to a
+            program's outcome on the program detail page.
+        </p>
+        <form action="/ui/packages" method="post">
+            {{ csrf_input(request) }}
+            {% if sidebar_selected_tenant_id %}
+            <input type="hidden" name="tenant_id" value="{{ sidebar_selected_tenant_id }}">
+            {% else %}
+            <label>Tenant
+                <select name="tenant_id" required>
+                    <option value="">— pick tenant —</option>
+                    {% for t in tenants_all %}
+                    <option value="{{ t.id }}">{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% endif %}
+            <label style="margin-top: 12px">Name
+                <input type="text" name="name" required placeholder="Denial reply — CardioVita 2026" autofocus>
+            </label>
+            <label style="margin-top: 12px">Description
+                <input type="text" name="description" placeholder="Optional — shown on program bindings">
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Create package
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

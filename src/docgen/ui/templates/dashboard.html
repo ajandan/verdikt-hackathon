@@ -247,6 +247,24 @@
         animation: live-flash-anim 900ms ease-out;
         border-radius: 4px;
     }
+
+    /* Dashboard footer — quiet strip for reference links (API docs, etc.) */
+    .dash-footer {
+        margin-top: 28px; padding: 16px 4px 4px;
+        border-top: 1px solid var(--border);
+        display: flex; flex-wrap: wrap; align-items: center;
+        gap: 16px; font-size: 12.5px; color: var(--text-subtle);
+    }
+    .dash-footer .footer-links {
+        display: flex; flex-wrap: wrap; gap: 14px; margin-left: auto;
+    }
+    .dash-footer a {
+        color: var(--text-muted); text-decoration: none;
+        display: inline-flex; align-items: center; gap: 6px;
+        transition: color var(--dur-fast) var(--ease-out);
+    }
+    .dash-footer a:hover { color: var(--text); }
+    .dash-footer a svg { opacity: 0.8; }
 </style>
 
 <div class="page-header">
@@ -580,4 +598,14 @@
         </div>
     </div>
 </div>
+
+<footer class="dash-footer">
+    <span>Verdikt &middot; deterministic decisions and reply artifacts</span>
+    <div class="footer-links">
+        <a href="/docs" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V5l-3-3H4a1 1 0 0 0-1 1z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg>
+            API docs
+        </a>
+    </div>
+</footer>
 {% endblock %}

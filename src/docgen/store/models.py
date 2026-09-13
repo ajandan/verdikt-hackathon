@@ -93,9 +93,165 @@ class Program(Base):
     requires_review: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # Declared outcome vocabulary — the set of verdict slugs this program's
+    # rules can emit. Every entry must have a package_bindings entry before
+    # the program can be published (see ADR-0003). Seeded to
+    # ["approved", "denied", "missing_info"] by migration 0029.
+    outcomes: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    # Outcome -> doc_package_id map. Assembler at runtime does
+    # package_bindings[verdict.outcome]. Missing binding is a hard error at
+    # publish, not a silent fall-through.
+    package_bindings: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class StaticDocument(Base):
+    """A tenant-scoped byte-stable PDF (guide, appeals notice, blank form).
+
+    Static docs are the non-generated half of a doc package. Unlike Templates,
+    they are never merged with case data — the assembler concatenates them
+    as-is into the outbound bundle. Versioned so an operator can update a
+    guide without breaking the audit trail of packages already assembled with
+    the old version. See ADR-0003.
+    """
+
+    __tablename__ = "static_documents"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_static_documents_tenant_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Denormalized latest version number. Zero means no versions uploaded yet
+    # (the row exists but the assembler will refuse to include it in a package
+    # resolution).
+    current_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class StaticDocumentVersion(Base):
+    """One immutable version of a StaticDocument.
+
+    A new upload for the same document name creates a new row. The blob is
+    hashed on upload (SHA-256) so uploading the same bytes twice can be
+    detected upstream and skipped.
+    """
+
+    __tablename__ = "static_document_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "static_document_id", "version", name="uq_static_document_versions_doc_ver"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    static_document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("static_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    blob_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class DocPackage(Base):
+    """Tenant-scoped ordered composition of template + static items.
+
+    `items` is an ordered JSONB list where each entry is:
+      {"kind": "template" | "static",
+       "ref_id": "<uuid>",
+       "label": "<optional operator-facing label>"}
+
+    Items reference the parent Template or StaticDocument by id — not by
+    version. The assembler picks the latest published version at runtime
+    (see ADR-0003 for the version-pinning rationale).
+    """
+
+    __tablename__ = "doc_packages"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_doc_packages_tenant_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    items: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class DocPackageAssembly(Base):
+    """Append-only provenance for one assembler run.
+
+    `resolved_items` stamps the exact (template_version_id /
+    static_document_version_id) tuple per item — so "which bytes did this
+    case receive?" is a single primary-key lookup against `merged_blob_key`,
+    and "what versions were merged into those bytes?" is `resolved_items`.
+    """
+
+    __tablename__ = "doc_package_assemblies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    doc_package_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("doc_packages.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    inbox_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("inbox_events.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    outcome: Mapped[str] = mapped_column(String(64), nullable=False)
+    resolved_items: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    merged_blob_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+    merged_byte_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    merged_page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assembled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

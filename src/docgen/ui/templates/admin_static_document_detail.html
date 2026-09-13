@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.name }} — Static document{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .sdd-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .sdd-grid { grid-template-columns: 1fr; } }
+    .ver-hash {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px; color: var(--text-muted);
+    }
+    .live-pill {
+        display: inline-block; padding: 2px 8px; border-radius: 999px;
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <div class="breadcrumbs">
+            <a href="/ui/static-documents">Static documents</a>
+            <span class="sep">/</span>
+            <span>{{ doc.name }}</span>
+        </div>
+        <h1>{{ doc.name }}</h1>
+        {% if doc.description %}<p class="page-subtitle">{{ doc.description }}</p>{% endif %}
+        <p class="muted" style="font-size: 12.5px; margin-top: 6px">
+            Tenant: <strong>{{ tenant.name }}</strong>
+            &nbsp;·&nbsp; Current version:
+            {% if doc.current_version %}
+            <span class="live-pill">v{{ doc.current_version }}</span>
+            {% else %}
+            <em>none uploaded</em>
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="sdd-grid">
+    {% if versions %}
+    <div class="card flush">
+        <div class="card-header">
+            <h2>Versions</h2>
+            <span class="subtle">Assembler picks the highest version at runtime</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Pages</th>
+                    <th>Size</th>
+                    <th>Content hash</th>
+                    <th>Uploaded</th>
+                    <th data-no-sort style="text-align: right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for v in versions %}
+                <tr>
+                    <td>
+                        <strong>v{{ v.version }}</strong>
+                        {% if v.version == doc.current_version %}
+                        &nbsp;<span class="live-pill">live</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ v.page_count or '—' }}</td>
+                    <td>{{ (v.byte_size / 1024) | round(1) }} KB</td>
+                    <td class="ver-hash" title="{{ v.content_hash }}">
+                        {{ v.content_hash[:12] }}…
+                    </td>
+                    <td class="muted">{{ v.uploaded_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+                    <td style="text-align: right">
+                        <a href="/ui/static-documents/{{ doc.id }}/versions/{{ v.version }}/download"
+                           target="_blank" rel="noopener">Download →</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 3v12M6 9l6-6 6 6"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+            </div>
+            <h3>No versions yet</h3>
+            <p>Upload the first PDF on the right. Packages that reference this document won't resolve until at least one version exists.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h3 style="margin-top: 0">Upload new version</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 12px">
+            Uploading a new version bumps <strong>current_version</strong> to
+            {{ (doc.current_version or 0) + 1 }}. All live doc packages that
+            reference this document will use the new bytes on the next assembly.
+        </p>
+        <form action="/ui/static-documents/{{ doc.id }}/versions" method="post" enctype="multipart/form-data">
+            {{ csrf_input(request) }}
+            <label>PDF file
+                <input type="file" name="file" accept="application/pdf,.pdf" required>
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    Upload version {{ (doc.current_version or 0) + 1 }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

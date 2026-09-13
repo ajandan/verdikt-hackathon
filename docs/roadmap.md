@@ -210,6 +210,72 @@ stripped from the output).
 
 ---
 
+## Doc packages (outbound artifact = ordered PDF bundle)
+
+New in 2026-09: the pipeline's outbound artifact is a *package*, not a
+single letter. Rationale + full model in
+[`docs/adr/0003-doc-packages.md`](adr/0003-doc-packages.md).
+
+Shape:
+
+- **`static_documents`** — tenant-scoped versioned PDF library
+  (guides, appeals notices, blank forms). Bytes-in, bytes-out — never
+  rendered.
+- **`doc_packages`** — tenant-scoped ordered list of items
+  `{kind: "template"|"static", ref_id}`. No version pin; assembler
+  picks the latest published version at runtime.
+- **`programs.outcomes[]`** — declared outcome vocabulary per program.
+- **`programs.package_bindings{}`** — `outcome → package_id`. Every
+  declared outcome must have a binding before publish.
+- **Assembler stage** — runs after the signed verdict: resolve
+  `package_bindings[verdict.outcome]` → render templates → concat
+  static PDFs → attach to outbound + expose `package_url` in the JSON
+  verdict.
+
+### Pending
+
+- **PR-A — Schema + admin CRUD for static docs.**
+  Alembic `0029_doc_packages.py` adds all four new tables plus the two
+  `programs` columns. `docgen.storage.static_documents` module gives
+  `create_static_document`, `add_version` (SHA-256 hash, page-count
+  probe via pypdfium2), `list_versions`, `latest_version`. Admin
+  screens at `/ui/admin/static-documents` (list) and
+  `/ui/admin/static-documents/{id}` (versions + upload new). Upload
+  reuses the existing preflight-lite: reject non-PDF magic bytes,
+  encrypted PDFs, and 0-page PDFs.
+
+- **PR-B — Doc package composer.**
+  `/ui/admin/packages` list + `/ui/admin/packages/{id}` composer
+  (drag-to-reorder items, add-template picker, add-static-doc picker).
+  Save is `PUT /admin/packages/{id}` with the ordered item list.
+  Tenant-scoped throughout.
+
+- **PR-C — Program outcome bindings.**
+  Extend the program detail screen with a "Reply bindings" card: one
+  row per declared outcome, package picker per row, publish gate that
+  refuses to mark a program `publishable` while any binding is
+  missing. `programs.outcomes[]` seeded from the program's rules pack
+  (union of every rule's emitted outcome) on first render; operator
+  can add or remove.
+
+- **PR-D — Assembler pipeline stage.**
+  New `pap_pipeline.assembler` module. Runs after `_run_pipeline`
+  succeeds: resolves the package, renders each template item through
+  the existing Quire render path (job-per-item, awaited), fetches
+  each static item's latest blob, concatenates in package order via
+  `pypdf.PdfWriter`, writes the merged PDF to
+  `inbox-replies/{event.id}/{filename}.pdf`, writes a
+  `doc_package_assemblies` row, hands the merged bytes to the mailer,
+  and stamps `package_url` on the outgoing JSON verdict. Missing
+  binding fails loud (`AssemblerMissingBinding`) — no fallback to the
+  legacy single-template path.
+
+- **PR-E — Preview merged package.**
+  "Preview package" action on the package composer runs the assembler
+  against a sample intake and returns the merged PDF inline for
+  operator sanity-check. No provenance row written — this is
+  dry-run.
+
 ## Ship-first (best impact ÷ effort)
 
 1. ~~**Precompile Tailwind at build time.**~~ **Done 2026-08-24.**

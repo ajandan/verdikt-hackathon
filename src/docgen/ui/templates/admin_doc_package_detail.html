@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}{{ package.name }} — Package composer{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .pkgd-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .pkgd-grid { grid-template-columns: 1fr; } }
+
+    .items-list { list-style: none; padding: 0; margin: 0; }
+    .item-row {
+        display: grid;
+        grid-template-columns: 32px 78px minmax(0, 1fr) auto auto;
+        gap: 12px; align-items: center;
+        padding: 12px 14px; border: 1px solid var(--border);
+        border-radius: 8px; margin-bottom: 8px; background: var(--surface);
+    }
+    .item-row.missing { border-color: #e0a800; background: #fffbe6; }
+    .item-pos {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--text-muted); font-size: 13px; text-align: center;
+    }
+    .kind-chip {
+        display: inline-block; padding: 3px 8px; border-radius: 999px;
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .kind-chip.template {
+        background: var(--brand-soft); color: var(--brand-hover);
+    }
+    .kind-chip.static {
+        background: #e7f0ff; color: #1e4e9e;
+    }
+    .item-name { min-width: 0; }
+    .item-name strong {
+        display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .item-name .meta {
+        display: block; color: var(--text-muted); font-size: 12px; margin-top: 2px;
+    }
+    .item-actions { display: inline-flex; gap: 4px; }
+    .item-actions button, .item-actions .icon-btn {
+        border: 1px solid var(--border); background: var(--surface-2);
+        color: var(--text-muted); border-radius: 6px;
+        width: 28px; height: 28px; display: inline-flex; align-items: center;
+        justify-content: center; cursor: pointer;
+        font-family: inherit; font-size: 14px;
+    }
+    .item-actions button:hover { color: var(--brand); border-color: var(--brand); }
+    .item-actions form { display: inline-block; margin: 0; }
+    .item-actions .danger:hover { color: #c62828; border-color: #c62828; }
+    .add-form { margin-top: 12px; }
+    .add-form label { display: block; margin-top: 8px; }
+    .add-form select, .add-form input[type="text"] {
+        width: 100%; box-sizing: border-box; margin-top: 4px;
+        padding: 6px 8px; font-size: 13px;
+        border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); font-family: inherit;
+    }
+    .picker-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+    .picker-tabs button {
+        flex: 1; padding: 8px 12px; border: 1px solid var(--border);
+        background: var(--surface-2); color: var(--text-muted);
+        border-radius: 6px; cursor: pointer; font-family: inherit;
+        font-size: 13px; font-weight: 600;
+    }
+    .picker-tabs button.on {
+        background: var(--brand-soft); color: var(--brand-hover);
+        border-color: var(--brand);
+    }
+</style>
+
+<div class="page-header">
+    <div>
+        <div class="breadcrumbs">
+            <a href="/ui/packages">Doc packages</a>
+            <span class="sep">/</span>
+            <span>{{ package.name }}</span>
+        </div>
+        <h1>{{ package.name }}</h1>
+        {% if package.description %}<p class="page-subtitle">{{ package.description }}</p>{% endif %}
+        <p class="muted" style="font-size: 12.5px; margin-top: 6px">
+            Tenant: <strong>{{ tenant.name }}</strong>
+            &nbsp;·&nbsp; Items: <strong>{{ items_view|length }}</strong>
+            &nbsp;·&nbsp; Items auto-follow the latest published version at assembly time
+        </p>
+    </div>
+</div>
+
+<div class="pkgd-grid">
+    <div class="card">
+        <div class="card-header">
+            <h2>Package items</h2>
+            <span class="subtle">Merged in declared order into one PDF</span>
+        </div>
+        {% if items_view %}
+        <ul class="items-list">
+            {% for it in items_view %}
+            <li class="item-row {% if it.missing %}missing{% endif %}">
+                <div class="item-pos">{{ loop.index }}.</div>
+                <div>
+                    <span class="kind-chip {{ it.kind }}">{{ it.kind }}</span>
+                </div>
+                <div class="item-name">
+                    <strong>{{ it.label or it.name }}</strong>
+                    <span class="meta">
+                        {% if it.missing %}
+                            <em>{{ it.version_note }}</em>
+                        {% elif not it.has_version %}
+                            <em>⚠ {{ it.version_note }} — assembly will fail until this is fixed</em>
+                        {% else %}
+                            {{ it.version_note }} · auto-follow
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="item-actions">
+                    <form action="/ui/packages/{{ package.id }}/items/move" method="post">
+                        {{ csrf_input(request) }}
+                        <input type="hidden" name="index" value="{{ it.index }}">
+                        <input type="hidden" name="direction" value="up">
+                        <button type="submit" aria-label="Move up" title="Move up"
+                                {% if loop.first %}disabled{% endif %}>↑</button>
+                    </form>
+                    <form action="/ui/packages/{{ package.id }}/items/move" method="post">
+                        {{ csrf_input(request) }}
+                        <input type="hidden" name="index" value="{{ it.index }}">
+                        <input type="hidden" name="direction" value="down">
+                        <button type="submit" aria-label="Move down" title="Move down"
+                                {% if loop.last %}disabled{% endif %}>↓</button>
+                    </form>
+                </div>
+                <div class="item-actions">
+                    <form action="/ui/packages/{{ package.id }}/items/remove" method="post">
+                        {{ csrf_input(request) }}
+                        <input type="hidden" name="index" value="{{ it.index }}">
+                        <button type="submit" class="danger" aria-label="Remove" title="Remove">×</button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty" style="padding: 24px 0">
+            <h3 style="margin: 0 0 6px 0">No items yet</h3>
+            <p class="muted" style="margin: 0">
+                Add a template or static document on the right to start composing the package.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3 style="margin-top: 0">Add item</h3>
+        <p class="muted" style="font-size: 13px; margin-bottom: 12px">
+            New items append to the end. Reorder with the ↑ / ↓ buttons.
+        </p>
+
+        <form action="/ui/packages/{{ package.id }}/items/add" method="post" class="add-form">
+            {{ csrf_input(request) }}
+            <label>Kind
+                <select name="kind" required>
+                    <option value="template">Template (generated per case)</option>
+                    <option value="static">Static document (byte-stable)</option>
+                </select>
+            </label>
+            <label>Item
+                <select name="ref_id" required>
+                    <optgroup label="Templates">
+                        {% for t in templates_available %}
+                        <option value="{{ t.id }}">📄 {{ t.name }}</option>
+                        {% else %}
+                        <option disabled>No templates in this tenant</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Static documents">
+                        {% for s in statics_available %}
+                        <option value="{{ s.id }}">📎 {{ s.name }}{% if not s.current_version %} (no version yet){% endif %}</option>
+                        {% else %}
+                        <option disabled>No static documents in this tenant</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </label>
+            <label>Label
+                <input type="text" name="label" placeholder="Optional — defaults to item name">
+            </label>
+            <div style="margin-top: 20px">
+                <button class="primary" type="submit" style="width: 100%">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M8 3v10M3 8h10"/></svg>
+                    Add to package
+                </button>
+            </div>
+            <p class="muted" style="font-size: 12px; margin-top: 10px">
+                <strong>Note:</strong> the Kind selector determines the type — pick the item from the matching group below.
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

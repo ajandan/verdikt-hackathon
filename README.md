@@ -90,6 +90,7 @@ walk through [`docs/HACKATHON.md`](docs/HACKATHON.md).
 - **MCP endpoint**: `http://localhost:8000/mcp/` (streamable-http)
 - **MinIO console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)
 - **Roadmap + design notes**: [`docs/roadmap.md`](docs/roadmap.md)
+- **Design system reference**: [`docs/design-system.html`](docs/design-system.html) (open directly — self-contained, no server needed)
 
 ## Development
 

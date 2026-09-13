@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Design System</title>
+<meta name="description" content="Tokens, type, components, and voice for the Verdikt product surface." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --ink-50:  #f6f5f1;
+    --ink-100: #eeece4;
+    --ink-200: #dcd8c8;
+    --ink-300: #a9a394;
+    --ink-500: #6c6858;
+    --ink-700: #3a382f;
+    --ink-900: #141410;
+    --seal-300: #8ec7b5;
+    --seal-500: #2f8f76;
+    --seal-700: #1e5f4f;
+    --hair: rgba(20,20,16,0.12);
+    --hair-soft: rgba(20,20,16,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--ink-50);
+    color: var(--ink-900);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-feature-settings: "ss01","cv11";
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .container { max-width: 1152px; margin: 0 auto; padding: 0 24px; }
+  .grain::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(rgba(20,20,16,0.035) 1px, transparent 1px);
+    background-size: 3px 3px; mix-blend-mode: multiply; z-index: 0;
+  }
+
+  header.hairline-b { border-bottom: 1px solid var(--hair); background: var(--ink-50); position: sticky; top: 0; z-index: 10; backdrop-filter: blur(6px); }
+  .nav { height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; font-size: 18px; }
+  .brand-tag { color: var(--ink-500); font-size: 12px; margin-left: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .toc { display: none; gap: 22px; font-size: 13px; color: var(--ink-700); font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.02em; }
+  .toc a:hover { color: var(--seal-700); }
+  @media (min-width: 900px) { .toc { display: flex; } }
+
+  .hero { position: relative; padding: 72px 0 40px; overflow: hidden; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hair); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--seal-700); background: #fff; }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); }
+  .display { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: clamp(48px, 7vw, 84px); line-height: 1.02; letter-spacing: -0.02em; margin: 20px 0 16px; }
+  .display em { font-style: italic; color: var(--seal-700); }
+  .lede { max-width: 720px; font-size: 20px; line-height: 1.55; color: var(--ink-700); }
+
+  section.block { padding: 64px 0; border-top: 1px solid var(--hair); position: relative; }
+  section.block h2 { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 40px; line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 8px; }
+  section.block .kicker { display: inline-block; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--seal-700); margin-bottom: 8px; }
+  section.block .subhead { color: var(--ink-500); max-width: 640px; margin: 0 0 32px; font-size: 15px; }
+
+  /* ── Color swatches ─────────────────────────────────────── */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+  .swatch { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; background: #fff; }
+  .swatch .sw { height: 92px; }
+  .swatch .meta { padding: 14px 14px 16px; }
+  .swatch .name { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; font-weight: 600; color: var(--ink-900); }
+  .swatch .hex { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); margin-top: 2px; }
+  .swatch .use { margin-top: 8px; font-size: 12.5px; color: var(--ink-700); line-height: 1.4; }
+  .swatch.dark .name, .swatch.dark .hex, .swatch.dark .use { color: var(--ink-50); }
+  .swatch.dark { background: var(--ink-900); border-color: var(--ink-900); }
+
+  /* ── Typography specimens ───────────────────────────────── */
+  .type-row { display: grid; grid-template-columns: 180px 1fr; gap: 24px; padding: 20px 0; border-top: 1px dashed var(--hair); align-items: baseline; }
+  .type-row:first-of-type { border-top: 0; }
+  .type-row .label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-500); }
+  .type-row .label small { display: block; text-transform: none; letter-spacing: 0; color: var(--ink-300); margin-top: 4px; font-size: 10.5px; }
+  .type-h1 { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 84px; line-height: 1; letter-spacing: -0.02em; }
+  .type-h2 { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 56px; line-height: 1.05; letter-spacing: -0.01em; }
+  .type-h3 { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 32px; line-height: 1.15; }
+  .type-lede { font-size: 20px; line-height: 1.55; color: var(--ink-700); max-width: 640px; }
+  .type-body { font-size: 15px; line-height: 1.6; color: var(--ink-900); max-width: 640px; }
+  .type-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-500); }
+  .type-mono strong { color: var(--seal-700); font-weight: 500; }
+
+  /* ── Buttons ────────────────────────────────────────────── */
+  .btn-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn-row.dark { background: var(--ink-900); padding: 20px; border-radius: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 8px; font-weight: 500; font-size: 14px; border: 1px solid transparent; cursor: pointer; transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; font-family: inherit; }
+  .btn-primary { background: var(--ink-900); color: var(--ink-50); border-color: var(--ink-900); }
+  .btn-primary:hover { background: var(--seal-500); border-color: var(--seal-500); transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--ink-900); border-color: rgba(20,20,16,0.2); }
+  .btn-ghost:hover { background: rgba(20,20,16,0.05); }
+  .btn-invert { background: var(--ink-50); color: var(--ink-900); border-color: var(--ink-50); }
+  .btn-invert:hover { background: var(--seal-300); border-color: var(--seal-300); }
+  .btn-ghost-dark { background: transparent; color: var(--ink-200); border-color: rgba(255,255,255,0.2); }
+  .btn-ghost-dark:hover { background: rgba(255,255,255,0.05); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: 7px; gap: 6px; }
+  .btn-sm svg { width: 12px; height: 12px; }
+  .btn-note { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-500); margin-top: 10px; }
+
+  /* ── Chips & tags ───────────────────────────────────────── */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .tag { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--hair); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; color: var(--ink-700); background: #fff; }
+  .tag .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); }
+  .tag .dot-amber { background: #f59e0b; }
+  .tag-dark { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); color: var(--ink-100); }
+  .stamp { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--seal-700); padding: 4px 10px; border: 1px dashed var(--seal-500); border-radius: 4px; background: rgba(47,143,118,0.06); }
+  .trust-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--hair); background: #fff; font-size: 13px; line-height: 1; color: var(--ink-700); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .trust-chip::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--seal-500); }
+
+  /* ── Cards ──────────────────────────────────────────────── */
+  .card { border: 1px solid var(--hair); border-radius: 8px; background: #fff; padding: 20px; }
+  .card .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); }
+  .card .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 24px; line-height: 1.2; }
+  .card .d { margin-top: 8px; font-size: 14px; color: var(--ink-500); line-height: 1.5; }
+
+  .callout-row { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 720px) { .callout-row { grid-template-columns: repeat(4, 1fr); } }
+  .cc { border: 1px solid var(--hair); border-radius: 8px; padding: 20px; background: #fff; }
+  .cc .k { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500); }
+  .cc .v { margin-top: 4px; font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 22px; line-height: 1.2; }
+  .cc .d { margin-top: 8px; font-size: 13px; color: var(--ink-500); line-height: 1.5; }
+  .cc.n1 { background: #ffffff; }
+  .cc.n1 .k, .cc.n1 .v, .cc.n1 .d { color: var(--ink-900); }
+  .cc.n2 { background: #edf6e4; border-color: rgba(120,170,80,0.28); }
+  .cc.n3 { background: #b8dcc8; border-color: rgba(47,143,118,0.40); }
+  .cc.n4 { background: var(--seal-700); border-color: var(--seal-700); }
+  .cc.n4 .k { color: var(--seal-300); }
+  .cc.n4 .v { color: var(--ink-50); }
+  .cc.n4 .d { color: var(--ink-200); }
+
+  /* ── Verdict card component ─────────────────────────────── */
+  .verdict-stage { position: relative; padding: 24px 4px; }
+  .verdict-stage::before {
+    content: ""; position: absolute; inset: -6% -6% -6% -6%; pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 45%, rgba(47,143,118,0.18), transparent 65%),
+      radial-gradient(ellipse 40% 30% at 30% 85%, rgba(142,199,181,0.20), transparent 70%);
+  }
+  .verdict-card { position: relative; z-index: 1; width: 100%; max-width: 440px; background: #f8f4e8; border: 1px solid rgba(20,20,16,0.14); border-radius: 6px; padding: 26px 30px 24px; transform: rotate(1.4deg); color: var(--ink-900); box-shadow: 0 32px 70px -32px rgba(20,20,16,0.38), 0 10px 24px -14px rgba(47,143,118,0.22), inset 0 1px 0 rgba(255,255,255,0.65); }
+  .verdict-card::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(30,95,79,0.14); border-radius: 4px; pointer-events: none; }
+  .vc-head { display: flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--seal-700); padding-bottom: 12px; border-bottom: 1px dashed rgba(30,95,79,0.32); }
+  .vc-head .title { flex: 1; }
+  .vc-head .seq { color: var(--ink-500); font-size: 10px; letter-spacing: 0.14em; }
+  .vc-meta { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .vc-meta .k { color: var(--ink-500); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .vc-meta .v { color: var(--ink-900); font-size: 12px; }
+  .vc-verdict-row { position: relative; margin: 22px 0 18px; display: flex; justify-content: center; align-items: center; min-height: 118px; }
+  .vc-verdict { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 56px; letter-spacing: 0.10em; color: var(--seal-700); line-height: 1; }
+  .vc-stamp { position: absolute; right: -10px; top: -4px; width: 108px; height: 108px; border-radius: 999px; border: 2px solid var(--seal-700); color: var(--seal-700); transform: rotate(-11deg); display: grid; place-items: center; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.5px; letter-spacing: 0.24em; text-align: center; padding: 12px; opacity: 0.9; }
+  .vc-stamp::before { content: ""; position: absolute; inset: 5px; border: 1px solid var(--seal-700); border-radius: 999px; opacity: 0.55; }
+  .vc-stamp span { display: block; line-height: 1.5; }
+
+  /* ── Table row (compare) ────────────────────────────────── */
+  .table { border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; background: #fff; }
+  .table .row { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr; border-top: 1px solid var(--hair); }
+  .table .row:first-child { border-top: 0; background: var(--ink-50); font-weight: 500; }
+  .table .cell { padding: 14px 18px; font-size: 14px; color: var(--ink-900); }
+  .table .cell.mute { color: var(--ink-500); }
+  .table .cell.q { background: rgba(47,143,118,0.05); }
+  .table .row.hot { background: linear-gradient(90deg, rgba(47,143,118,0.08), rgba(47,143,118,0.02) 70%, transparent); }
+  .table .row.hot .cell:first-child { font-weight: 600; }
+  .table .row.hot .cell.q { background: rgba(47,143,118,0.10); }
+
+  /* ── Dark section variant ───────────────────────────────── */
+  .dark-section { background: var(--ink-900); color: var(--ink-50); border-radius: 12px; padding: 40px; }
+  .dark-section h3 { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400; font-size: 32px; margin: 0 0 8px; }
+  .dark-section h3 em { color: var(--seal-300); }
+  .dark-section p { color: var(--ink-200); margin: 0; max-width: 560px; }
+
+  /* ── Spacing scale ──────────────────────────────────────── */
+  .spacing { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
+  .sp-cell { border: 1px solid var(--hair); border-radius: 8px; padding: 14px; background: #fff; }
+  .sp-cell .bar { height: 8px; background: var(--seal-500); border-radius: 999px; margin-bottom: 10px; }
+  .sp-cell .label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--ink-700); }
+  .sp-cell .use { font-size: 12px; color: var(--ink-500); margin-top: 4px; }
+
+  /* ── Voice / rules list ─────────────────────────────────── */
+  .rules { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .rules li { border-left: 2px solid var(--seal-500); padding: 4px 0 4px 16px; font-size: 14.5px; color: var(--ink-900); line-height: 1.55; }
+  .rules li b { color: var(--seal-700); }
+
+  .warn-box { border: 1px solid rgba(160,80,40,0.25); background: rgba(255,220,180,0.20); border-radius: 8px; padding: 16px 18px; font-size: 14px; color: var(--ink-900); }
+  .warn-box b { color: #8a3f14; }
+
+  /* ── Small utilities ────────────────────────────────────── */
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-700); }
+  .grid-2 { display: grid; grid-template-columns: 1fr; gap: 32px; align-items: start; }
+  @media (min-width: 900px) { .grid-2 { grid-template-columns: 5fr 6fr; gap: 48px; } }
+
+  footer { padding: 48px 0; border-top: 1px solid var(--hair); color: var(--ink-500); font-size: 13px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+</style>
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <span class="brand">
+      <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="none" stroke-width="5.5" stroke-linecap="square">
+          <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+          <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+          <path d="M8 32H42" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+        </g>
+      </svg>
+      Verdikt <span class="brand-tag">/ design system</span>
+    </span>
+    <nav class="toc" aria-label="Sections">
+      <a href="#colors">Colors</a>
+      <a href="#type">Type</a>
+      <a href="#buttons">Buttons</a>
+      <a href="#chips">Chips</a>
+      <a href="#cards">Cards</a>
+      <a href="#verdict">Verdict card</a>
+      <a href="#tables">Tables</a>
+      <a href="#dark">Dark</a>
+      <a href="#space">Spacing</a>
+      <a href="#voice">Voice</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero grain">
+  <div class="container">
+    <span class="eyebrow"><span class="dot"></span>Internal reference</span>
+    <h1 class="display">The <em>Verdikt</em> design system.</h1>
+    <p class="lede">
+      Tokens, type, and components used across the product surface. The palette leans on
+      two families (ink for paper stock, seal for the brand accent), one display serif, one
+      utility mono, and one body sans. Everything else is composition.
+    </p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── COLORS ─────────────────────────── -->
+<section id="colors" class="block">
+  <div class="container">
+    <span class="kicker">01 · Palette</span>
+    <h2>Colors</h2>
+    <p class="subhead">
+      Two families, both anchored by a paper stock. Ink for text, structure, and dark
+      sections. Seal for the brand accent, verdict stamps, and hover lifts.
+    </p>
+
+    <h3 class="mono" style="margin: 0 0 16px; color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px;">Ink family · paper stock &amp; text</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="sw" style="background: var(--ink-50);"></div><div class="meta"><div class="name">--ink-50</div><div class="hex">#f6f5f1</div><div class="use">Page background. Warm off-white; reads as paper, not screen.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--ink-100);"></div><div class="meta"><div class="name">--ink-100</div><div class="hex">#eeece4</div><div class="use">Card wash on hover, alt-row zebra stripes.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--ink-200);"></div><div class="meta"><div class="name">--ink-200</div><div class="hex">#dcd8c8</div><div class="use">Muted body text on dark backgrounds.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--ink-300);"></div><div class="meta"><div class="name">--ink-300</div><div class="hex">#a9a394</div><div class="use">Subordinate labels, footer copy.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--ink-500);"></div><div class="meta"><div class="name">--ink-500</div><div class="hex">#6c6858</div><div class="use">Secondary body copy, table cells, mono metadata.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--ink-700);"></div><div class="meta"><div class="name">--ink-700</div><div class="hex">#3a382f</div><div class="use">Primary body text (lede &amp; paragraphs).</div></div></div>
+      <div class="swatch dark"><div class="sw" style="background: var(--ink-900);"></div><div class="meta"><div class="name">--ink-900</div><div class="hex">#141410</div><div class="use">Headlines, primary buttons, dark sections. Nearly-black.</div></div></div>
+    </div>
+
+    <h3 class="mono" style="margin: 32px 0 16px; color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px;">Seal family · brand accent</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="sw" style="background: var(--seal-300);"></div><div class="meta"><div class="name">--seal-300</div><div class="hex">#8ec7b5</div><div class="use">Highlights on dark, hover accents, invert-button hover.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--seal-500);"></div><div class="meta"><div class="name">--seal-500</div><div class="hex">#2f8f76</div><div class="use">Primary hover state, dots, indicators, primary CTA hover.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--seal-700); color: #fff;"></div><div class="meta"><div class="name">--seal-700</div><div class="hex">#1e5f4f</div><div class="use">Verdict text, stamps, eyebrows, dark-tinted callout card, nav-link hover.</div></div></div>
+    </div>
+
+    <h3 class="mono" style="margin: 32px 0 16px; color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px;">Callout tint scale</h3>
+    <p class="mono" style="max-width: 640px; margin: 0 0 16px; color: var(--ink-500); font-family: 'Inter', sans-serif; font-size: 14px;">
+      When a row of cards needs to feel like a spectrum rather than a grid, walk this ladder: white → warm pale green → cool deeper mint → deep seal. Applies to the &ldquo;Who this is for&rdquo; callout row on the landing.
+    </p>
+    <div class="callout-row">
+      <div class="cc n1"><div class="k">Card 1</div><div class="v">Neutral</div><div class="d">#ffffff · ink-900 text · anchors the row on the left.</div></div>
+      <div class="cc n2"><div class="k">Card 2</div><div class="v">Warm sage</div><div class="d">#edf6e4 · yellow-green pale wash.</div></div>
+      <div class="cc n3"><div class="k">Card 3</div><div class="v">Cool mint</div><div class="d">#b8dcc8 · deeper cyan-green.</div></div>
+      <div class="cc n4"><div class="k">Card 4</div><div class="v">Deep seal</div><div class="d">seal-700 · ink-50 text · anchors the row on the right.</div></div>
+    </div>
+
+    <h3 class="mono" style="margin: 32px 0 16px; color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase; font-size: 11px;">Hairlines &amp; supporting</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="sw" style="background: var(--hair);"></div><div class="meta"><div class="name">--hair</div><div class="hex">rgba(20,20,16,0.12)</div><div class="use">Default 1px border on cards, tables, dividers.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: var(--hair-soft);"></div><div class="meta"><div class="name">--hair-soft</div><div class="hex">rgba(20,20,16,0.08)</div><div class="use">Softer divider inside cards.</div></div></div>
+      <div class="swatch"><div class="sw" style="background: #f8f4e8;"></div><div class="meta"><div class="name">Verdict paper</div><div class="hex">#f8f4e8</div><div class="use">Only on the stamped verdict-card artifact; cream, warmer than ink-50.</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── TYPE ─────────────────────────── -->
+<section id="type" class="block">
+  <div class="container">
+    <span class="kicker">02 · Typography</span>
+    <h2>Type</h2>
+    <p class="subhead">
+      Three families, three jobs: <b>Instrument Serif</b> for display and verdict text,
+      <b>Inter</b> for body prose, <b>JetBrains Mono</b> for metadata, eyebrows, code,
+      hashes, and case IDs. Never mix roles.
+    </p>
+
+    <div class="type-row">
+      <div class="label">Display H1<small>Instrument Serif · 84–96px · line 1.0</small></div>
+      <div class="type-h1">Many inputs.</div>
+    </div>
+    <div class="type-row">
+      <div class="label">Section H2<small>Instrument Serif · 40–56px · line 1.05</small></div>
+      <div class="type-h2">Case in. Verdict out.</div>
+    </div>
+    <div class="type-row">
+      <div class="label">Sub-H3<small>Instrument Serif · 26–32px</small></div>
+      <div class="type-h3">An operator's console, not a chat window.</div>
+    </div>
+    <div class="type-row">
+      <div class="label">Lede<small>Inter · 20px · ink-700 · max-width 640</small></div>
+      <div class="type-lede">Fax, mail, web, email. One intake. Verdikt reads the case, cites the rules, issues a verdict.</div>
+    </div>
+    <div class="type-row">
+      <div class="label">Body<small>Inter · 15px · line 1.6</small></div>
+      <div class="type-body">AI reads the case. Human-authored rules decide the outcome. A frozen, human-approved template supplies the words.</div>
+    </div>
+    <div class="type-row">
+      <div class="label">Mono utility<small>JetBrains Mono · 11–13px</small></div>
+      <div class="type-mono">case: <strong>asp-201-c4f8</strong> · program: <strong>cardiovita · v3</strong> · sha256:<strong>9b4c…</strong></div>
+    </div>
+    <div class="type-row">
+      <div class="label">Eyebrow chip<small>JetBrains Mono · 11px · uppercase · 0.14em tracking</small></div>
+      <div><span class="eyebrow"><span class="dot"></span>Pipeline · case intake</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── BUTTONS ─────────────────────────── -->
+<section id="buttons" class="block">
+  <div class="container">
+    <span class="kicker">03 · Actions</span>
+    <h2>Buttons</h2>
+    <p class="subhead">
+      Two sizes: default (12&times;20px, 14px) for CTAs, <span class="mono">.btn-sm</span>
+      (8&times;14px, 13px) for header rows. All buttons lift 1px on hover; primary swaps
+      to seal-500 to hint at brand.
+    </p>
+
+    <div class="btn-row" style="margin-bottom: 20px;">
+      <button class="btn btn-primary">Watch the 3-min demo</button>
+      <button class="btn btn-ghost">Open dashboard</button>
+      <span class="mono" style="margin-left: 12px;">.btn-primary · .btn-ghost</span>
+    </div>
+    <div class="btn-row" style="margin-bottom: 20px;">
+      <button class="btn btn-primary btn-sm">Sign in</button>
+      <button class="btn btn-ghost btn-sm">More</button>
+      <span class="mono" style="margin-left: 12px;">+ .btn-sm — for header rows</span>
+    </div>
+    <div class="btn-row dark">
+      <button class="btn btn-invert">Watch the 3-min demo</button>
+      <button class="btn btn-ghost-dark">Sign in</button>
+      <span style="color: var(--ink-300); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; margin-left: 12px;">.btn-invert · .btn-ghost-dark — for use on dark sections</span>
+    </div>
+    <p class="btn-note">Never use <code style="font-family: inherit; color: var(--seal-700);">.btn-primary</code> on a dark background — use <code style="font-family: inherit; color: var(--seal-700);">.btn-invert</code> instead so the label reads.</p>
+  </div>
+</section>
+
+<!-- ─────────────────────────── CHIPS ─────────────────────────── -->
+<section id="chips" class="block">
+  <div class="container">
+    <span class="kicker">04 · Labels</span>
+    <h2>Chips &amp; tags</h2>
+    <p class="subhead">
+      Small monospace labels do three jobs: <b>tag</b> (context above a headline),
+      <b>stamp</b> (validation seal), <b>trust-chip</b> (tenet pills under a CTA).
+      All three are dot-first with 6px seal-500 accents.
+    </p>
+
+    <div class="chip-row" style="margin-bottom: 24px;">
+      <span class="tag"><span class="dot"></span>Any channel</span>
+      <span class="tag"><span class="dot"></span>Multimodal intake · Cited verdict</span>
+      <span class="tag"><span class="dot dot-amber"></span>vision · retrieval · reason</span>
+      <span class="stamp">audit-defensible</span>
+    </div>
+    <div class="chip-row" style="margin-bottom: 20px;">
+      <span class="trust-chip">No model in the reply path</span>
+      <span class="trust-chip">Rules human-authored</span>
+      <span class="trust-chip">Per-tenant scoped</span>
+    </div>
+    <div class="chip-row dark" style="background: var(--ink-900); padding: 16px; border-radius: 8px;">
+      <span class="tag tag-dark"><span class="dot"></span>On a dark section</span>
+      <span class="tag tag-dark"><span class="dot"></span>Rules retrieval</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── CARDS ─────────────────────────── -->
+<section id="cards" class="block">
+  <div class="container">
+    <span class="kicker">05 · Surface</span>
+    <h2>Cards</h2>
+    <p class="subhead">
+      Base card is <span class="mono">1px hair · 8px radius · 20px padding · #fff</span>.
+      Three text elements: mono eyebrow (10px, 0.14em tracking, uppercase, ink-500),
+      serif title (24px), sans body (14px, ink-500).
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="k">Healthcare</div>
+        <div class="v">Patient assistance, prior auth, enrollment, denial letters</div>
+        <div class="d">Rules a human authored. Cases an AI read. A ledger that maps both to a decision.</div>
+      </div>
+      <div class="card" style="background: var(--seal-700); border-color: var(--seal-700);">
+        <div class="k" style="color: var(--seal-300);">Platform teams</div>
+        <div class="v" style="color: var(--ink-50);">One code path. Three transports.</div>
+        <div class="d" style="color: var(--ink-200);">REST, MCP, admin UI. Same domain layer, same guarantees.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── VERDICT CARD ─────────────────────────── -->
+<section id="verdict" class="block">
+  <div class="container">
+    <span class="kicker">06 · Signature component</span>
+    <h2>Verdict card</h2>
+    <p class="subhead">
+      The signature artifact. A tilted cream-paper document with a circular seal-color
+      stamp overlay, hairline dashed dividers, and a mono footer with the version hash.
+      Only used to represent an <em>adjudication outcome</em> — never as a decoration.
+    </p>
+
+    <div class="grid-2">
+      <div class="verdict-stage">
+        <article class="verdict-card">
+          <div class="vc-head">
+            <span class="title">Verdikt · adjudication</span>
+            <span class="seq">no. asp-201</span>
+          </div>
+          <div class="vc-meta">
+            <div><span class="k">Case</span><span class="v">asp-201-c4f8</span></div>
+            <div><span class="k">Program</span><span class="v">cardiovita · v3</span></div>
+          </div>
+          <div class="vc-verdict-row">
+            <div class="vc-verdict">APPROVED</div>
+            <div class="vc-stamp"><span>VERIFIED</span><span>· CITED ·</span></div>
+          </div>
+        </article>
+      </div>
+      <div>
+        <ul class="rules">
+          <li><b>Paper</b> — <span class="mono">#f8f4e8</span> (warmer than ink-50). Only for verdict artifact.</li>
+          <li><b>Tilt</b> — <span class="mono">1.4deg</span> at desktop, none on mobile.</li>
+          <li><b>Aurora</b> — dual radial seal-tinted washes behind the card, not on it.</li>
+          <li><b>Stamp</b> — <span class="mono">-11deg</span>, seal-700 double ring, 90% opacity.</li>
+          <li><b>Verdict serif</b> — Instrument Serif, <span class="mono">letter-spacing: 0.10em</span>. Always past-participle (APPROVED, DENIED, HELD).</li>
+          <li><b>Header</b> — mono, uppercase, 0.18em tracking, seal-700, dashed hairline underneath.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── TABLES ─────────────────────────── -->
+<section id="tables" class="block">
+  <div class="container">
+    <span class="kicker">07 · Comparison</span>
+    <h2>Tables</h2>
+    <p class="subhead">
+      Three-column comparison, with a signature <span class="mono">.hot</span> row
+      variant for differentiator capabilities. The Verdikt column always gets a soft
+      seal wash so the eye locates it without a header pointer.
+    </p>
+
+    <div class="table" role="table">
+      <div class="row" role="row">
+        <div class="cell">Capability</div>
+        <div class="cell">Adjudication stacks today</div>
+        <div class="cell">Verdikt</div>
+      </div>
+      <div class="row hot" role="row">
+        <div class="cell">Structured verdict (approve / deny / missing_info)</div>
+        <div class="cell mute">Rules engine output, if wired</div>
+        <div class="cell q">✓ Per case, auditable, cited</div>
+      </div>
+      <div class="row" role="row">
+        <div class="cell">MCP endpoint for agent callers</div>
+        <div class="cell mute">n/a</div>
+        <div class="cell q">✓ First-class support</div>
+      </div>
+      <div class="row" role="row">
+        <div class="cell">Rules authoring UI for business analysts</div>
+        <div class="cell mute">Engineer edits config, or vendor SOW</div>
+        <div class="cell q">◷ Roadmap: AI-assisted design-time authoring</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── DARK ─────────────────────────── -->
+<section id="dark" class="block">
+  <div class="container">
+    <span class="kicker">08 · Inversion</span>
+    <h2>Dark sections</h2>
+    <p class="subhead">
+      Dark sections use <span class="mono">--ink-900</span> as background, <span class="mono">--ink-50</span> for
+      body, and <span class="mono">--seal-300</span> for accent italics. They break rhythm on long pages —
+      use for wedges, final CTAs, or contrast anchors, not as default.
+    </p>
+    <div class="dark-section">
+      <h3>Agents can generate documents. <em>They can't be trusted to author them.</em></h3>
+      <p>AI reads the case. Human-authored rules decide the outcome. A frozen, human-approved template supplies the words.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── SPACING ─────────────────────────── -->
+<section id="space" class="block">
+  <div class="container">
+    <span class="kicker">09 · Rhythm</span>
+    <h2>Spacing &amp; radius</h2>
+    <p class="subhead">
+      Section rhythm is <span class="mono">64–96px</span> top-and-bottom, with tighter
+      gaps between visually joined sections (e.g., hero → console at 24 + 48).
+    </p>
+    <div class="spacing">
+      <div class="sp-cell"><div class="bar" style="width: 8px;"></div><div class="label">8px</div><div class="use">Icon gap, dot spacing</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 16px;"></div><div class="label">16px</div><div class="use">Card grid gaps</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 24px;"></div><div class="label">24px</div><div class="use">Container padding</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 32px;"></div><div class="label">32px</div><div class="use">Section-head margin</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 48px;"></div><div class="label">48px</div><div class="use">Compressed section (tight adjacency)</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 64px;"></div><div class="label">64px</div><div class="use">Hero top padding</div></div>
+      <div class="sp-cell"><div class="bar" style="width: 96px;"></div><div class="label">96px</div><div class="use">Default section padding</div></div>
+    </div>
+
+    <p class="subhead" style="margin: 32px 0 16px;">Radius</p>
+    <div class="chip-row">
+      <span class="mono" style="padding: 6px 12px; border: 1px solid var(--hair); border-radius: 4px; background: #fff;">4px · verdict card, stamps</span>
+      <span class="mono" style="padding: 6px 12px; border: 1px solid var(--hair); border-radius: 6px; background: #fff;">6px · verdict card outer</span>
+      <span class="mono" style="padding: 6px 12px; border: 1px solid var(--hair); border-radius: 8px; background: #fff;">8px · cards, buttons default</span>
+      <span class="mono" style="padding: 6px 12px; border: 1px solid var(--hair); border-radius: 10px; background: #fff;">10px · tables</span>
+      <span class="mono" style="padding: 6px 12px; border: 1px solid var(--hair); border-radius: 999px; background: #fff;">999px · chips, dots, stamps</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────── VOICE ─────────────────────────── -->
+<section id="voice" class="block">
+  <div class="container">
+    <span class="kicker">10 · Content</span>
+    <h2>Voice &amp; rules</h2>
+    <p class="subhead">
+      Short sentences. Plain words. Metadata in mono, display in serif, prose in sans.
+      The reader is a compliance officer, not an engineer.
+    </p>
+
+    <ul class="rules">
+      <li><b>No em dashes.</b> Sentence breaks become periods, list intros become colons, parenthetical asides use ( ). Titles use middot (·).</li>
+      <li><b>Past-participle for verdicts.</b> Stamped artifacts read APPROVED / DENIED / HELD. JSON enums stay lowercase present-tense (approve, deny, missing_info).</li>
+      <li><b>No vendor names.</b> No specific CRMs, case-management systems, or competitor products in body copy or JSON samples. Use generic schemes (<span class="mono">crm://</span>, <span class="mono">casemgr://</span>).</li>
+      <li><b>Verdikt is the product name.</b> Python package remains <span class="mono">pap_pipeline</span>. Don't leak the internal name to end-users.</li>
+      <li><b>Hackathon claims must be true today.</b> If deploy is deferred, say &ldquo;runbook complete, VM comes up next&rdquo; — not &ldquo;deployed on Nebius.&rdquo;</li>
+    </ul>
+
+    <div class="warn-box" style="margin-top: 24px;">
+      <b>CSP nonce trap.</b> On any template with <span class="mono">nonce="{{ '{{ csp_nonce(request) }}' }}"</span> on its <span class="mono">&lt;style&gt;</span> tag, browsers silently drop every <span class="mono">style=""</span> attribute. All styling must live in the nonce-scoped block as classes. No inline styles. Detected by <span class="mono">grep -c 'style="' /tmp/landing.html</span> approaching zero.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Verdikt design system · living reference · not linked from the public site
+  </div>
+</footer>
+
+</body>
+</html>

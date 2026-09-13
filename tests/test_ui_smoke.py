@@ -24,18 +24,22 @@ def test_root_serves_landing_and_authenticated_redirect() -> None:
     # at /mcp/) only sees a single lifespan startup — see also `_admin_client`.
     client = TestClient(app, follow_redirects=False)
 
-    # Anonymous → landing HTML with the headline + login CTA.
+    # Anonymous → landing HTML with the brand + login CTA. Assert on the
+    # brand name (locked 2026-09-09) instead of headline copy, which drifts
+    # every time marketing rewrites the hero.
     r_anon = client.get("/")
     assert r_anon.status_code == 200
     assert "text/html" in r_anon.headers["content-type"]
-    assert "Design-time AI" in r_anon.text
+    assert "Verdikt" in r_anon.text
     assert "/ui/login" in r_anon.text
 
-    # Authenticated → straight to the dashboard.
+    # Authenticated → the root handler serves the same landing template but
+    # swaps the CTAs (see main._root). Assert on that swap rather than a
+    # redirect, since main._root deliberately does NOT redirect authed users.
     client.cookies.set("docgen_session", sign_session("admin"))
     r_auth = client.get("/")
-    assert r_auth.status_code == 307
-    assert r_auth.headers["location"] == "/ui/"
+    assert r_auth.status_code == 200
+    assert "Verdikt" in r_auth.text
 
 
 def test_upload_form_renders_for_admin() -> None:

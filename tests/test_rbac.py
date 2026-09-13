@@ -258,8 +258,23 @@ def test_super_admin_cannot_delete_own_account() -> None:
 def test_env_admin_still_authenticates_when_db_users_exist() -> None:
     """Once real users exist in admin_users, the env-var identity ('admin' in
     tests, per conftest) must still resolve as super_admin — otherwise a
-    wedged DB row could lock the operator out."""
+    wedged DB row could lock the operator out.
+
+    Note: the first-boot seeder in main._startup_checks may have already
+    written an 'admin' row from the env-var creds. We evict it up-front so
+    this test exercises the env-var break-glass path exclusively; the
+    seeder is idempotent, so future startups will reseed if needed.
+    """
     from docgen.auth import resolve_admin_identity
+
+    # Drop any pre-seeded 'admin' row so we exercise the env-var branch.
+    with sync_session() as s:
+        existing = s.execute(
+            select(AdminUser).where(AdminUser.username == "admin")
+        ).scalar_one_or_none()
+        if existing is not None:
+            s.delete(existing)
+            s.commit()
 
     # Guarantee at least one DB row exists so the "table is empty" fast-path
     # in resolve_admin_identity isn't the reason env-var still works.

@@ -5,15 +5,25 @@ class pydantic models means each stage is independently testable with
 fixture data.
 """
 from pap_pipeline.schemas.decision import Citation, Decision, Outcome
+from pap_pipeline.schemas.history import (
+    HistoryEvent,
+    HistorySlice,
+    HistorySlot,
+    canonical_snapshot_hash,
+)
 from pap_pipeline.schemas.intake import InsuranceStatus, Intake
 from pap_pipeline.schemas.rule import Rule, RuleKind
 
 __all__ = [
     "Citation",
     "Decision",
+    "HistoryEvent",
+    "HistorySlice",
+    "HistorySlot",
     "InsuranceStatus",
     "Intake",
     "Outcome",
     "Rule",
     "RuleKind",
+    "canonical_snapshot_hash",
 ]

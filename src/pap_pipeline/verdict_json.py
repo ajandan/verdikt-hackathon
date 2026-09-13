@@ -28,10 +28,19 @@ def _iso(dt: Any) -> str | None:
 def _score_from_decision(decision: dict[str, Any] | None) -> float | None:
     """Highest citation score scaled to 0–100. Mirrors the inbox handler's
     `_score_from_decision`, kept local so this module doesn't reach back
-    into the plugin layer."""
+    into the plugin layer.
+
+    Only rule-typed citations carry retrieval scores (ADR-0004). Legacy
+    events pre-migration have no `type` key on their citation dicts; those
+    are treated as rule citations for backward compat.
+    """
     if not decision:
         return None
-    scores = [c.get("score") for c in (decision.get("citations") or []) if c.get("score") is not None]
+    scores = [
+        c.get("score")
+        for c in (decision.get("citations") or [])
+        if c.get("type", "rule") == "rule" and c.get("score") is not None
+    ]
     if not scores:
         return None
     return round(max(scores) * 100.0, 1)
@@ -96,9 +105,18 @@ def _artifacts(event: InboxEvent, *, assembly: DocPackageAssembly | None) -> dic
 
 
 def _rule_ids(decision: dict[str, Any] | None) -> list[str]:
+    """Rule ids from the decision's citations, in original order.
+
+    Filters to rule-typed citations (ADR-0004). Missing `type` is treated
+    as `"rule"` so legacy events keep resolving.
+    """
     if not decision:
         return []
-    return [c.get("rule_id") for c in (decision.get("citations") or []) if c.get("rule_id")]
+    return [
+        c.get("rule_id")
+        for c in (decision.get("citations") or [])
+        if c.get("type", "rule") == "rule" and c.get("rule_id")
+    ]
 
 
 def build_verdict(

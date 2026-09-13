@@ -45,6 +45,16 @@ class Tenant(Base):
     inbound_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
+    # MDM connector config (ADR-0004). Schema:
+    #   provider: "simulated" | "null" | "<real-connector-name>"
+    #   base_url, api_key_env, program_families, max_window_days,
+    #   max_events, timeout — provider-specific.
+    # Empty dict → SimulatedMdmSource by default so a fresh tenant demos
+    # end-to-end without setup. Operators wire `provider: "null"` to opt
+    # out explicitly, or a real connector name to point at a live MDM.
+    mdm_config: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

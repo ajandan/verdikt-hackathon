@@ -12,6 +12,7 @@ Contract:
 """
 from __future__ import annotations
 
+import os
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -37,6 +38,7 @@ from pap_pipeline.schemas.decision import Decision
 from pap_pipeline.schemas.intake import Intake
 from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig
+from pap_pipeline.stages.mdm_lookup import MdmSourceConfig
 from pap_pipeline.stages.reason import ReasonClientConfig
 from pap_pipeline.stages.retrieve import RetrieveClientConfig
 
@@ -73,10 +75,18 @@ def _append_audit(event: InboxEvent, *, action: str, actor: str, note: str) -> N
     event.review_history = [*(event.review_history or []), entry]
 
 
-def _pipeline_config(settings: Settings) -> PipelineConfig:
-    """Build a PipelineConfig from docgen Settings — same Nebius endpoint the
-    template pipeline uses. The three stages share `ai_base_url` + `ai_api_key`
-    because they all target Nebius Token Factory."""
+def _pipeline_config(
+    settings: Settings, tenant: Tenant | None = None
+) -> PipelineConfig:
+    """Build a PipelineConfig from docgen Settings + the tenant's MDM config.
+
+    The three AI stages share `ai_base_url` + `ai_api_key` because they all
+    target Nebius Token Factory. The MDM slot is per-tenant: each tenant
+    owns its own connector config on the `Tenant.mdm_config` JSONB column
+    (ADR-0004). When the tenant isn't in scope (rare — the JSON-in API path
+    resolves it) or hasn't wired a config, we fall back to the simulated
+    source so the demo works out-of-the-box.
+    """
     base_url = (settings.ai_base_url or "https://api.studio.nebius.com/v1").rstrip("/")
     api_key = settings.ai_api_key or ""
     return PipelineConfig(
@@ -102,6 +112,71 @@ def _pipeline_config(settings: Settings) -> PipelineConfig:
             model=settings.ai_verdict_model or "nvidia/nemotron-3-super-120b-a12b",
             timeout=settings.ai_timeout_seconds,
         ),
+        mdm=_mdm_config_for_tenant(tenant),
+    )
+
+
+# Numeric fields on MdmSourceConfig — coerced from JSON with a safe
+# fallback so a stray string in `tenant.mdm_config` can't crash the
+# whole pipeline. Missing keys inherit the dataclass default.
+_MDM_NUMERIC_KEYS = ("max_window_days", "max_events", "timeout")
+
+
+def _mdm_config_for_tenant(tenant: Tenant | None) -> MdmSourceConfig:
+    """Map ``tenant.mdm_config`` (JSONB) → :class:`MdmSourceConfig`.
+
+    Empty / missing dict → ``provider="simulated"``. Operators opt out
+    explicitly with ``{"provider": "null"}`` — silently falling back to
+    "null" would hide misconfiguration, which is worse than showing a
+    demo scenario the operator didn't ask for.
+
+    ``api_key_env`` holds the *name* of an env var; the actual secret
+    never lands in the DB. Missing env var → api_key stays ``None`` and
+    the connector fails at lookup time with a clear message rather than
+    running with an empty bearer token.
+    """
+    cfg = dict((tenant.mdm_config if tenant is not None else None) or {})
+    provider = str(cfg.get("provider") or "").strip().lower() or "simulated"
+
+    api_key: str | None = None
+    env_name = cfg.get("api_key_env")
+    if isinstance(env_name, str) and env_name:
+        api_key = os.environ.get(env_name) or None
+        if api_key is None:
+            log.warning(
+                "pap_mdm_api_key_env_missing",
+                tenant_id=str(tenant.id) if tenant else None,
+                env_name=env_name,
+            )
+
+    families = cfg.get("program_families") or ()
+    if isinstance(families, list):
+        families = tuple(str(f) for f in families)
+    elif not isinstance(families, tuple):
+        families = ()
+
+    numeric: dict[str, Any] = {}
+    defaults = {"max_window_days": 1825, "max_events": 200, "timeout": 30.0}
+    for key in _MDM_NUMERIC_KEYS:
+        raw_val = cfg.get(key)
+        if raw_val is None:
+            continue
+        try:
+            numeric[key] = type(defaults[key])(raw_val)
+        except (TypeError, ValueError):
+            log.warning(
+                "pap_mdm_config_bad_numeric",
+                tenant_id=str(tenant.id) if tenant else None,
+                key=key,
+                value=raw_val,
+            )
+
+    return MdmSourceConfig(
+        provider=provider,
+        program_families=families,
+        base_url=cfg.get("base_url") or None,
+        api_key=api_key,
+        **numeric,
     )
 
 
@@ -164,21 +239,35 @@ def _persist_inbound_attachments(
 
 def _score_from_decision(decision: Decision) -> float | None:
     """Highest citation score, scaled to 0–100 to match the template flow's
-    review-page score column. None when no citation carries a score."""
-    scores = [c.score for c in decision.citations if c.score is not None]
+    review-page score column. None when no citation carries a score.
+
+    Only rule-typed citations carry retrieval scores; history-typed
+    citations (ADR-0004) don't and are skipped here.
+    """
+    scores = [
+        c.score
+        for c in decision.citations
+        if c.type == "rule" and c.score is not None
+    ]
     if not scores:
         return None
     return round(max(scores) * 100.0, 1)
 
 
 def _build_reply(decision: Decision) -> tuple[str, str, str]:
-    """(subject_suffix, text, html) for the applicant reply."""
+    """(subject_suffix, text, html) for the applicant reply.
+
+    Only rule-typed citations are rendered as the "rules considered"
+    list. History-typed citations (ADR-0004) belong in the outcome-bound
+    template body, not this evidence summary.
+    """
     outcome = decision.outcome
+    rule_cites = [c for c in decision.citations if c.type == "rule"]
     cite_lines = [
         f"- {c.rule_id}"
         + (f" (score {c.score:.2f})" if c.score is not None else "")
         + (" — matched" if c.matched else " — not matched")
-        for c in decision.citations
+        for c in rule_cites
     ]
     missing_lines = [f"- {m}" for m in decision.missing_fields]
 
@@ -624,6 +713,7 @@ def _run_pipeline(
     slots: list[dict[str, Any]] | None,
     rules: list[Rule] | None,
     settings: Settings,
+    tenant: Tenant | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
     here; each call gets its own loop and NullPool means no cross-loop DB
@@ -635,15 +725,21 @@ def _run_pipeline(
     a YAML fallback baked in). Passing it here rather than letting the
     retrieve stage load its own copy keeps the docgen.store boundary on
     the calling side — pap_pipeline stages never touch the DB directly.
+
+    `tenant` flows into the pipeline config so the MDM adapter is picked
+    from the tenant's `mdm_config` JSONB column (ADR-0004). The inbox
+    handler always has a tenant; the JSON-in API path also resolves one
+    before calling here.
     """
     import asyncio
 
-    config = _pipeline_config(settings)
+    config = _pipeline_config(settings, tenant)
     return asyncio.run(
         run_with_intake(
             attachments,
             config=config,
             program=program,
+            tenant_id=str(tenant.id) if tenant else "",
             slots=slots,
             rules=rules,
         )
@@ -714,6 +810,7 @@ def _handler(
             slots=slots,
             rules=rules,
             settings=settings,
+            tenant=tenant,
         )
     except Exception as e:
         event.status = "failed"

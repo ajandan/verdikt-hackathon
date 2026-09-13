@@ -276,6 +276,90 @@ Shape:
   operator sanity-check. No provenance row written — this is
   dry-run.
 
+## MDM history lookup (retrieval seam for prior enrollments & case history)
+
+New in 2026-09-13: the retrieve step gains a parallel arm that pulls a
+bounded, tenant-scoped slice of the applicant's prior history from a
+master-data source. Rationale + full model in
+[`docs/adr/0004-mdm-lookup-history-retrieval.md`](adr/0004-mdm-lookup-history-retrieval.md).
+
+Shape:
+
+- **`schemas/history.py`** — `HistoryEvent`, `HistorySlot`, `HistorySlice`
+  plus `canonical_snapshot_hash()` (SHA-256 over the sorted,
+  canonicalized slice payload).
+- **`stages/mdm_lookup.py`** — `MdmSource` protocol (structural, one
+  `async def lookup(...)` method), `MdmSourceConfig` (per-tenant scope
+  + transport), `NullMdmSource` (default, returns an empty hashed
+  slice).
+- **Orchestrator** — `retrieve()` and `source.lookup()` fire under one
+  `asyncio.gather(...)`; slice's `slots` merge into `extras`; the
+  reason stage sees derived slot values, never raw events.
+- **Reason-stage boundary** — `_forbid_raw_history_events(extras)` on
+  entry. Raw member-history events in `extras` fail immediately; the
+  rules pack, not the LLM, decides how history matters.
+- **`Decision.citations`** — discriminates on `type`
+  (`"rule" | "history"`). History citations name the specific prior
+  event that satisfied the slot, plus the slice's `snapshot_hash`.
+- **Comparison-row claim** — the landing page's
+  *"MDM lookup for prior enrollments & case history"* row on the
+  compare table is architecturally true today; the ◷ marker will drop
+  once a real connector ships.
+
+### Shipped
+
+- ~~**PR1 — Retrieval seam + null source.**~~ **Done 2026-09-13.**
+  New `pap_pipeline.stages.mdm_lookup` module (`MdmSource` protocol,
+  `NullMdmSource`, `MdmSourceConfig`). New `pap_pipeline.schemas.history`
+  module. `PipelineConfig` gains `mdm` field with null default.
+  Orchestrator's `run_from_intake` / `run_with_intake` / `run` gain
+  `program_family_id`, `tenant_id`, and `mdm_source` kwargs and now do
+  `asyncio.gather(retrieve, source.lookup)`. `Decision.Citation` gains
+  a `type` discriminator + per-type field-set validator; all consumers
+  (`inbox_hook._score_from_decision` / `_build_reply`,
+  `verdict_json._score_from_decision` / `_rule_ids`, and the
+  pipeline-detail template) filter to `type == "rule"`. Reason stage
+  gains `_forbid_raw_history_events`. Coverage in
+  `tests/test_pap_mdm_lookup.py`.
+
+### Pending
+
+- **PR2 — Slot compiler + `Rule.references_slots`.**
+  New `pap_pipeline.stages.slot_compile` (pure function of
+  `(events, slot_defs) -> list[HistorySlot]`). `Rule` schema gains a
+  nullable `references_slots: list[str] | None` field. The rules-pack
+  publish gate validates that every referenced slot name is declared
+  in the program pack's `history_slots` section. Once this lands,
+  `orchestrator._attach_history_citations` starts producing history
+  citations for fired rules that reference fired slots.
+
+- **PR3 — First real adapter: `state-mdm-v1`.**
+  Generic REST + JWT-auth connector. Exercises the projection contract
+  (source record → allowed field subset) and the audit-log wire-up
+  (queried / returned / cited). Adds a Docker-Compose fake MDM
+  service under `local/mdm-fake/` for local development so the
+  adapter has something to talk to without live credentials.
+
+- **PR4 — Ledger columns + backfill migration.**
+  Alembic migration adds `mdm_snapshot_hash` and `mdm_source_provider`
+  columns to the pipeline-event / case row. Backfills existing rows to
+  the null-slice hash + `"null"` provider so every historical row is
+  representable in the new shape.
+
+- **PR5 — History citation UI treatment.**
+  Extend `inbox_pipeline_detail.html` with a second citation table for
+  `type="history"` entries (event id, slot name, snapshot hash, source
+  system). Reply-letter template gains a conditional block referencing
+  the cited prior event ("Based on your prior determination on
+  {{date}} for {{program}}, …"). Merge-time fill only — no LLM in the
+  reply path (existing invariant preserved).
+
+- **PR6 — CI boundary test.**
+  Add `tests/test_slot_mediation_invariant.py` — sweeps every rules
+  pack, asserts every `references_slots` name is declared, asserts no
+  reason-prompt template branch references `history_events`. Same
+  shape as the existing "no LLM in the reply path" boundary check.
+
 ## Ship-first (best impact ÷ effort)
 
 1. ~~**Precompile Tailwind at build time.**~~ **Done 2026-08-24.**

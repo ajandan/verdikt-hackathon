@@ -82,7 +82,15 @@ async def reason(
     the canonical :class:`Intake` schema. They're merged into the intake JSON
     payload sent to the model so a rule that references (e.g.) a program's
     `member_id` slot can still be evaluated.
+
+    Slot-mediation invariant (ADR-0004): history reaches this stage only as
+    derived slot values under `history_slots`. Raw member-history events are
+    not permitted in `extras` — the rules pack, not the LLM, decides how
+    history matters. A caller that violates this boundary fails here, not
+    silently in the prompt.
     """
+    _forbid_raw_history_events(extras)
+
     headers = {
         "Authorization": f"Bearer {config.api_key}",
         "Content-Type": "application/json",
@@ -124,6 +132,25 @@ async def reason(
         return Decision.model_validate(parsed)
     except ValidationError as e:
         raise RuntimeError(f"Nemotron JSON did not match Decision schema: {e}") from e
+
+
+def _forbid_raw_history_events(extras: dict[str, Any] | None) -> None:
+    """Enforce the ADR-0004 slot-mediation invariant at the stage boundary.
+
+    History reaches the reason stage as derived slot values (`history_slots`),
+    never as raw events. This guard is intentionally strict: it rejects the
+    key regardless of value shape so a well-meaning "pass an empty list for
+    now" doesn't erode the invariant over time.
+    """
+    if extras is None:
+        return
+    if "history_events" in extras:
+        raise ValueError(
+            "reason() extras must not contain 'history_events' — "
+            "raw member-history events are forbidden by the slot-mediation "
+            "invariant (see ADR-0004). Pass derived slot values under "
+            "'history_slots' instead."
+        )
 
 
 def _build_user_message(

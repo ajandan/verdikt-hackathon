@@ -105,6 +105,19 @@
         border-radius: 6px; font-size: 12px; max-height: 340px; overflow: auto;
         white-space: pre-wrap; word-break: break-word;
     }
+    .mdm-row {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .badge-provider {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-provider.simulated { background: var(--brand-soft); color: var(--brand); }
+    .badge-provider.null { background: var(--surface-2); color: var(--text-muted); }
+    .badge-provider.http { background: rgba(16,185,129,0.12); color: rgb(6,95,70); }
+    .mdm-hint { color: var(--text-muted); font-size: 12.5px; margin: 8px 0 0; }
+    .mdm-hint code { font-size: 12px; }
 </style>
 
 <section class="mb-4">
@@ -303,7 +316,11 @@
     <p class="stage-hint">
         Every rule the reason stage evaluated against the intake. Score is the retrieval reranker's relevance; matched is the reason stage's boolean verdict.
     </p>
-    {% if decision.citations %}
+    {# Filter out history-typed citations (ADR-0004). Legacy events pre-migration
+       have no `type` key on their citation dicts; those are treated as rule
+       citations for backward compat. #}
+    {% set rule_citations = decision.citations | rejectattr('type', 'equalto', 'history') | list %}
+    {% if rule_citations %}
     <table class="cite-table">
         <thead>
             <tr>
@@ -314,7 +331,7 @@
             </tr>
         </thead>
         <tbody>
-        {% for c in decision.citations %}
+        {% for c in rule_citations %}
             {% set rule = rules_by_id.get(c.rule_id) %}
             <tr>
                 <td><code>{{ c.rule_id }}</code></td>
@@ -348,6 +365,41 @@
         <p class="text-ink-muted text-[13.5px] m-0">No rules cited.</p>
     {% endif %}
 </div>
+
+{% if mdm_provider %}
+<div class="card">
+    <div class="stage-hdr">
+        <span class="num">M</span>
+        <h2>MDM connector</h2>
+    </div>
+    <p class="stage-hint">
+        Prior-enrollment history slice hashed into the ledger with this case
+        (<a href="/docs/adr/0004-mdm-lookup-history-retrieval.md">ADR-0004</a>).
+        Derived from the tenant's current setting.
+    </p>
+    <div class="mdm-row">
+        <span class="badge-provider {{ mdm_provider_class }}">{{ mdm_provider }}</span>
+        {% if mdm_provider_class == 'http' and mdm_base_url %}
+            <code style="font-size: 12px">{{ mdm_base_url }}/history-slices</code>
+        {% endif %}
+        {% if mdm_admin_url %}
+            <a href="{{ mdm_admin_url }}" class="text-[13px]">Configure →</a>
+        {% endif %}
+    </div>
+    <p class="mdm-hint">
+        {% if mdm_provider_class == 'simulated' %}
+            Demo adapter — deterministic-per-member fake history. Every case
+            still contributes a hashed slice to the ledger.
+        {% elif mdm_provider_class == 'null' %}
+            MDM lookup is off. The ledger still carries a hashed empty slice
+            so <code>mdm_snapshot_hash</code> stays populated for every case.
+        {% else %}
+            HTTP connector — the reason stage saw whatever history the live
+            MDM returned at decision time.
+        {% endif %}
+    </p>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="stage-hdr">

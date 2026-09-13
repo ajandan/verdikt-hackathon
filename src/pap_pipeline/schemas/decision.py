@@ -4,27 +4,82 @@ The Decision is the pipeline's contract with the inbox agent — outcome picks
 which reply template to render; citations and missing_fields flow into the
 template as payload data so the letter can name specific rules and specific
 gaps rather than a generic response.
+
+Citations discriminate on `type`:
+
+- ``type="rule"`` — one rule the reason stage evaluated. Carries `rule_id`,
+  `matched`, and (after orchestrator stitching) `score`.
+- ``type="history"`` — one prior event that satisfied a slot referenced by a
+  rule. Carries `event_id`, `slot_name`, and `snapshot_hash`. Added by the
+  orchestrator's ``_attach_history_citations`` pass, not by the reason stage.
+
+See ADR-0004 for why the two shapes share one class instead of a
+discriminated union.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Outcome = Literal["approve", "deny", "missing_info"]
+CitationType = Literal["rule", "history"]
 
 
 class Citation(BaseModel):
-    """One rule that fired during reasoning.
+    """One item in the decision's evidence trail.
 
-    `matched` is the reason stage's boolean verdict on that rule against the
-    intake; `score` is the reranker's relevance score preserved through from
-    retrieval, which lets the letter order citations by confidence.
+    Two shapes on one class so consumers that iterate
+    ``decision.citations`` don't grow a type-switch overnight. The
+    per-type field set is enforced by a model validator so a bad shape
+    fails fast instead of leaking to downstream systems.
     """
 
-    rule_id: str
-    matched: bool
+    type: CitationType = "rule"
+
+    # rule-typed fields
+    rule_id: str | None = None
+    matched: bool | None = None
     score: float | None = None
+
+    # history-typed fields
+    event_id: str | None = None
+    slot_name: str | None = None
+    snapshot_hash: str | None = None
+
+    @model_validator(mode="after")
+    def _enforce_per_type_fields(self) -> "Citation":
+        if self.type == "rule":
+            if self.rule_id is None or self.matched is None:
+                raise ValueError(
+                    "rule citation requires rule_id and matched"
+                )
+            if (
+                self.event_id is not None
+                or self.slot_name is not None
+                or self.snapshot_hash is not None
+            ):
+                raise ValueError(
+                    "rule citation must not carry history-typed fields"
+                )
+        else:  # type == "history"
+            if (
+                self.event_id is None
+                or self.slot_name is None
+                or self.snapshot_hash is None
+            ):
+                raise ValueError(
+                    "history citation requires event_id, slot_name, snapshot_hash"
+                )
+            if (
+                self.rule_id is not None
+                or self.matched is not None
+                or self.score is not None
+            ):
+                raise ValueError(
+                    "history citation must not carry rule-typed fields"
+                )
+        return self
 
 
 class Decision(BaseModel):
@@ -35,7 +90,8 @@ class Decision(BaseModel):
       - citations       every rule the reason stage evaluated, with match verdicts.
                         Approvals list the rules that passed; denials list at
                         least one that failed; missing_info lists the ones that
-                        could not be evaluated.
+                        could not be evaluated. May also carry history-typed
+                        citations added by the orchestrator after reasoning.
       - missing_fields  intake field names to ask for. Empty unless outcome
                         is missing_info.
       - rationale       one-sentence human-readable reason rendered into the

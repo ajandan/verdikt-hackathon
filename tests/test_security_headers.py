@@ -23,12 +23,13 @@ def _patched_login_settings(*, secure_cookies: bool = False, hsts: bool = False)
     stack = ExitStack()
 
     def _fake_settings():
+        session_secret = os.getenv(
+            "DOCGEN_SESSION_SECRET", "change-me-in-prod-please"
+        )
         m = patch("docgen.ui.routes.get_settings").start()
         m.return_value.admin_user = "admin"
         m.return_value.admin_password_hash = hash_password("s3cret")
-        m.return_value.session_secret = os.getenv(
-            "DOCGEN_SESSION_SECRET", "change-me-in-prod-please"
-        )
+        m.return_value.session_secret = session_secret
         m.return_value.secure_cookies = secure_cookies
         m.return_value.hsts_enabled = hsts
         stack.callback(patch.stopall)
@@ -38,9 +39,14 @@ def _patched_login_settings(*, secure_cookies: bool = False, hsts: bool = False)
         sh.return_value.secure_cookies = secure_cookies
         sh.return_value.hsts_enabled = hsts
 
-        # AdminSessionMiddleware reads via docgen.auth.get_settings for the
-        # session serializer salt only, but signing uses the real secret via
-        # verify_session — so we don't need to patch that.
+        # authenticate_admin (docgen.auth) reads settings from its own
+        # namespace — patch it too, otherwise the login POST hits the
+        # container's real DOCGEN_ADMIN_PASSWORD_HASH env var and 401s
+        # before any Set-Cookie header is produced.
+        a = patch("docgen.auth.get_settings").start()
+        a.return_value.admin_user = "admin"
+        a.return_value.admin_password_hash = hash_password("s3cret")
+        a.return_value.session_secret = session_secret
 
     _fake_settings()
     return stack

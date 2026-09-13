@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -3653,6 +3654,147 @@ async def admin_save_inbox_settings(
 
 
 # ---------------------------------------------------------------------------
+# Admin: MDM connector (per-tenant history retrieval — ADR-0004)
+#
+# Every tenant carries its own `mdm_config` JSONB. Empty → the pipeline
+# picks the simulated adapter (demo-friendly). `{"provider": "null"}`
+# opts out. Anything else is treated as an HTTP connector name and needs
+# `base_url` + `api_key_env` (env var *name*, not the raw key).
+# ---------------------------------------------------------------------------
+
+# Provider tag → CSS class on the sidecar badge. Anything unknown falls
+# through to "http" so the operator sees the HTTP badge for a real
+# connector name (e.g. "state-mdm-v1", "salesforce-hc").
+_MDM_PROVIDER_CLASS = {"simulated": "simulated", "": "simulated", "null": "null"}
+
+
+@router.get("/admin/tenants/{tenant_id}/mdm", response_class=HTMLResponse)
+async def admin_mdm_settings(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    _enforce_scope(request, tenant_id)
+    from docgen.store.models import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+    cfg = dict(tenant.mdm_config or {})
+    provider = str(cfg.get("provider") or "").strip().lower()
+    api_key_env = str(cfg.get("api_key_env") or "")
+    families = cfg.get("program_families") or []
+    if not isinstance(families, list):
+        families = []
+    return templates.TemplateResponse(
+        request,
+        "admin_mdm_settings.html",
+        await _base_ctx(
+            request,
+            session,
+            active="admin",
+            tenant=tenant,
+            provider=provider,
+            provider_class=_MDM_PROVIDER_CLASS.get(provider, "http"),
+            base_url=cfg.get("base_url") or "",
+            api_key_env=api_key_env,
+            # Reveal in the sidebar whether the named env var is
+            # actually populated in this process — makes a stale
+            # config obvious to the operator before it fails at runtime.
+            api_key_env_present=bool(api_key_env and os.environ.get(api_key_env)),
+            program_families="\n".join(str(f) for f in families),
+            max_window_days=int(cfg.get("max_window_days") or 1825),
+            max_events=int(cfg.get("max_events") or 200),
+            timeout=cfg.get("timeout") or 30,
+        ),
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/mdm", response_model=None)
+async def admin_save_mdm_settings(
+    tenant_id: uuid.UUID,
+    request: Request,
+    provider: str = Form(""),
+    base_url: str = Form(""),
+    api_key_env: str = Form(""),
+    program_families: str = Form(""),
+    max_window_days: str = Form("1825"),
+    max_events: str = Form("200"),
+    timeout: str = Form("30"),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    _enforce_scope(request, tenant_id)
+    from docgen.store.models import Tenant
+    from sqlalchemy.orm.attributes import flag_modified
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    def _coerce_num(raw: str, default, kind):
+        # Silent fallback → confusing; surface as a flash instead so the
+        # operator sees why their value didn't stick.
+        raw_stripped = (raw or "").strip()
+        if not raw_stripped:
+            return default, None
+        try:
+            return kind(raw_stripped), None
+        except ValueError:
+            return default, f"Invalid {kind.__name__} value {raw_stripped!r}"
+
+    window, window_err = _coerce_num(max_window_days, 1825, int)
+    events, events_err = _coerce_num(max_events, 200, int)
+    to, to_err = _coerce_num(timeout, 30.0, float)
+    err = window_err or events_err or to_err
+    if err:
+        return _redirect(
+            f"/ui/admin/tenants/{tenant_id}/mdm",
+            flash=err,
+            flash_kind="error",
+        )
+
+    cfg: dict[str, Any] = {}
+    provider_clean = provider.strip().lower()
+    if provider_clean:
+        cfg["provider"] = provider_clean
+    base_url_clean = base_url.strip()
+    if base_url_clean:
+        cfg["base_url"] = base_url_clean
+    api_key_env_clean = api_key_env.strip()
+    if api_key_env_clean:
+        cfg["api_key_env"] = api_key_env_clean
+    families = _parse_lines(program_families)
+    if families:
+        cfg["program_families"] = families
+    # Only persist numeric fields when they differ from the dataclass
+    # defaults — keeps the JSONB tidy so an operator reading it in psql
+    # sees only what was actually customized.
+    if window != 1825:
+        cfg["max_window_days"] = window
+    if events != 200:
+        cfg["max_events"] = events
+    if to != 30.0:
+        cfg["timeout"] = to
+
+    tenant.mdm_config = cfg
+    flag_modified(tenant, "mdm_config")
+    await session.commit()
+    log.info(
+        "tenant_mdm_settings_saved",
+        tenant_id=str(tenant_id),
+        provider=cfg.get("provider") or "(empty→simulated)",
+        base_url_set=bool(cfg.get("base_url")),
+        api_key_env=cfg.get("api_key_env") or None,
+        families=len(cfg.get("program_families") or []),
+    )
+    return _redirect(
+        f"/ui/admin/tenants/{tenant_id}/mdm",
+        flash="MDM connector settings saved.",
+        flash_kind="success",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Admin: portal users (super_admin-only)
 #
 # Adds/deactivates admin_users rows so tenants can be given their own UI login
@@ -4809,6 +4951,22 @@ async def inbox_pipeline_detail(
         from docgen.store.models import Tenant
         tenant = await session.get(Tenant, ev.tenant_id)
 
+    # Surface the MDM connector used for this case (ADR-0004). Today we
+    # derive it from the tenant's current mdm_config — that's honest as
+    # long as the config hasn't been retuned since the case was
+    # processed. Persisting the exact slice per-event is a follow-up so
+    # audit still reflects config-at-decision-time.
+    mdm_provider = ""
+    mdm_base_url = ""
+    if tenant is not None:
+        mdm_cfg = dict(tenant.mdm_config or {})
+        mdm_provider = str(mdm_cfg.get("provider") or "").strip().lower() or "simulated"
+        mdm_base_url = str(mdm_cfg.get("base_url") or "")
+    mdm_provider_class = _MDM_PROVIDER_CLASS.get(mdm_provider, "http")
+    mdm_admin_url = (
+        f"/ui/admin/tenants/{tenant.id}/mdm" if tenant is not None else None
+    )
+
     # Hydrate rule text so citations can be shown as rule statements, not
     # opaque IDs. The loader reads YAML on every call — cheap at demo scale
     # and keeps the page in sync with any rule edits without a restart.
@@ -4852,6 +5010,10 @@ async def inbox_pipeline_detail(
             rules_by_id=rules_by_id,
             verdict_json=verdict_pretty,
             verdict_download_url=f"/ui/inbox/{ev.id}/verdict.json",
+            mdm_provider=mdm_provider,
+            mdm_provider_class=mdm_provider_class,
+            mdm_base_url=mdm_base_url,
+            mdm_admin_url=mdm_admin_url,
         ),
     )
 

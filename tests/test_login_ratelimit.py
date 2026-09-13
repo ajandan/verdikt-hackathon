@@ -37,13 +37,24 @@ def _trust_xff(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _patch_admin(monkeypatch=None):
-    """Patch the login handler's view of settings so it accepts admin/s3cret."""
+    """Patch the login stack's view of settings so it accepts admin/s3cret.
+
+    Both `docgen.ui.routes` (handler) and `docgen.auth` (authenticate_admin)
+    call `get_settings()` from their own module; the login POST path can only
+    succeed when both see our fake hash. Otherwise authenticate_admin still
+    checks against the container's real DOCGEN_ADMIN_PASSWORD_HASH env var.
+    """
     m = patch("docgen.ui.routes.get_settings").start()
     m.return_value.admin_user = "admin"
     m.return_value.admin_password_hash = hash_password("s3cret")
     m.return_value.session_secret = "test-session-secret"
     m.return_value.secure_cookies = False
     m.return_value.hsts_enabled = False
+
+    m_auth = patch("docgen.auth.get_settings").start()
+    m_auth.return_value.admin_user = "admin"
+    m_auth.return_value.admin_password_hash = hash_password("s3cret")
+    m_auth.return_value.session_secret = "test-session-secret"
     return m
 
 

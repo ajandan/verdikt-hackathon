@@ -80,18 +80,24 @@ def test_get_requests_never_require_csrf() -> None:
 
 
 def test_login_sets_csrf_cookie() -> None:
-    """Successful login must issue both session and CSRF cookies."""
+    """Successful login must issue both session and CSRF cookies.
+
+    We patch `get_settings` in both `docgen.ui.routes` (login handler) and
+    `docgen.auth` (authenticate_admin) — otherwise authenticate_admin still
+    compares against the container's real DOCGEN_ADMIN_PASSWORD_HASH.
+    """
     import os
     from unittest.mock import patch
 
     from docgen.auth import hash_password
 
-    # Craft settings-friendly env: the login handler compares against
-    # settings.admin_user + admin_password_hash. Patch through get_settings.
-    with patch("docgen.ui.routes.get_settings") as gs:
-        gs.return_value.admin_user = "admin"
-        gs.return_value.admin_password_hash = hash_password("s3cret")
-        gs.return_value.session_secret = os.getenv("DOCGEN_SESSION_SECRET", "change-me-in-prod-please")
+    session_secret = os.getenv("DOCGEN_SESSION_SECRET", "change-me-in-prod-please")
+    with patch("docgen.ui.routes.get_settings") as gs, \
+         patch("docgen.auth.get_settings") as gs_auth:
+        for m in (gs, gs_auth):
+            m.return_value.admin_user = "admin"
+            m.return_value.admin_password_hash = hash_password("s3cret")
+            m.return_value.session_secret = session_secret
         with TestClient(app, follow_redirects=False) as client:
             r = client.post("/ui/login", data={"username": "admin", "password": "s3cret"})
     assert r.status_code == 303

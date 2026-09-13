@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}MDM connector — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .settings-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .settings-grid { grid-template-columns: 1fr; } }
+    .form-row { margin-bottom: 18px; }
+    .form-row label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: var(--text); margin-bottom: 4px;
+    }
+    .form-row .hint {
+        display: block; font-size: 12px; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .form-row textarea, .form-row input, .form-row select {
+        width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+    }
+    .form-row textarea { min-height: 90px; }
+    .form-row-inline {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+    }
+    @media (max-width: 700px) { .form-row-inline { grid-template-columns: 1fr; } }
+    .side-card h3 {
+        margin: 0 0 6px; font-size: 13px; color: var(--text);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .side-card p, .side-card li { font-size: 12.5px; color: var(--text-muted); margin: 6px 0; }
+    .side-card ul { padding-left: 18px; margin: 6px 0; }
+    .badge-provider {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .badge-provider.simulated { background: var(--brand-soft); color: var(--brand); }
+    .badge-provider.null { background: var(--surface-2); color: var(--text-muted); }
+    .badge-provider.http { background: rgba(16,185,129,0.12); color: rgb(6,95,70); }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a> ›
+    <span>{{ tenant.name }}</span> ›
+    MDM connector
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">MDM connector</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Configure how <strong>{{ tenant.name }}</strong>'s pipeline looks up
+    prior enrollments, determinations, and case history. See
+    <a href="/docs/adr/0004-mdm-lookup-history-retrieval.md">ADR-0004</a>
+    for the retrieval architecture.
+</p>
+
+<div class="settings-grid">
+    <form method="post" action="/ui/admin/tenants/{{ tenant.id }}/mdm" class="card">
+        {{ csrf_input(request) }}
+
+        <div class="form-row">
+            <label for="provider">Provider</label>
+            <span class="hint">
+                <code>simulated</code> ships deterministic-per-member demo
+                history (default). <code>null</code> disables MDM lookup
+                — the case still gets a hashed empty slice. Any other
+                value routes to the HTTP connector — set base URL and API
+                key env below.
+            </span>
+            <input type="text" id="provider" name="provider"
+                   value="{{ provider }}"
+                   list="provider-suggestions"
+                   placeholder="simulated">
+            <datalist id="provider-suggestions">
+                <option value="simulated">
+                <option value="null">
+                <option value="state-mdm-v1">
+                <option value="salesforce-hc">
+                <option value="custom-http">
+            </datalist>
+        </div>
+
+        <div class="form-row">
+            <label for="base_url">Base URL <span class="muted">(HTTP providers only)</span></label>
+            <span class="hint">Root URL of the MDM REST API. The connector POSTs to <code>{base_url}/history-slices</code>.</span>
+            <input type="url" id="base_url" name="base_url"
+                   value="{{ base_url }}"
+                   placeholder="https://mdm.example.com/api">
+        </div>
+
+        <div class="form-row">
+            <label for="api_key_env">API key env var name <span class="muted">(HTTP providers only)</span></label>
+            <span class="hint">
+                Name of the environment variable holding the bearer token
+                — the raw key never lands in the database.
+                {% if api_key_env and api_key_env_present %}
+                <br>Currently resolves to a value in this process.
+                {% elif api_key_env %}
+                <br><strong style="color: var(--warning, #d97706)">Warning:</strong>
+                <code>{{ api_key_env }}</code> is not set in this process's environment.
+                {% endif %}
+            </span>
+            <input type="text" id="api_key_env" name="api_key_env"
+                   value="{{ api_key_env }}"
+                   placeholder="TENANT_ACME_MDM_KEY">
+        </div>
+
+        <div class="form-row">
+            <label for="program_families">Program families</label>
+            <span class="hint">One per line. The connector will only return events matching these program families. Empty = no restriction.</span>
+            <textarea id="program_families" name="program_families"
+                      placeholder="cardiovita&#10;oncobridge">{{ program_families }}</textarea>
+        </div>
+
+        <div class="form-row-inline">
+            <div class="form-row" style="margin-bottom: 0">
+                <label for="max_window_days">Max window (days)</label>
+                <span class="hint">How far back to search. Default 1825 (5 years).</span>
+                <input type="number" id="max_window_days" name="max_window_days"
+                       value="{{ max_window_days }}" min="1" max="10000">
+            </div>
+            <div class="form-row" style="margin-bottom: 0">
+                <label for="max_events">Max events</label>
+                <span class="hint">Cap on events per lookup. Default 200.</span>
+                <input type="number" id="max_events" name="max_events"
+                       value="{{ max_events }}" min="1" max="10000">
+            </div>
+            <div class="form-row" style="margin-bottom: 0">
+                <label for="timeout">Timeout (s)</label>
+                <span class="hint">HTTP timeout per lookup. Default 30.</span>
+                <input type="number" id="timeout" name="timeout"
+                       value="{{ timeout }}" min="1" max="600" step="0.5">
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn primary">Save MDM settings</button>
+            <a href="/ui/admin/tenants" class="btn">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-card">
+        <h3>Current adapter</h3>
+        <p>
+            <span class="badge-provider {{ provider_class }}">{{ provider or 'simulated' }}</span>
+        </p>
+        <p>
+            {% if provider_class == 'simulated' %}
+                Demo path — deterministic-per-member fake history. Every
+                case gets a hashed slice, no live MDM contacted.
+            {% elif provider_class == 'null' %}
+                MDM lookup is off. The pipeline still emits a hashed
+                empty slice so the ledger's snapshot column stays
+                populated.
+            {% else %}
+                HTTP connector. The pipeline POSTs to
+                <code>{{ base_url or '(unset)' }}/history-slices</code>
+                on every case.
+            {% endif %}
+        </p>
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 14px 0">
+        <h3>What ships</h3>
+        <ul>
+            <li><code>simulated</code> — bundled demo adapter, no setup.</li>
+            <li><code>null</code> — no-op, empty slice.</li>
+            <li>Anything else — HTTP adapter, needs base URL + API key env.</li>
+        </ul>
+        <h3 style="margin-top: 14px">Why env vars</h3>
+        <p>
+            The raw bearer token never sits in the database.
+            <code>api_key_env</code> holds only the <em>name</em> of the
+            env var; the value is read from the process at lookup time.
+            Same pattern as <code>Tenant.key_ref</code> for AI credentials.
+        </p>
+    </aside>
+</div>
+{% endblock %}

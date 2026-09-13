@@ -69,6 +69,12 @@ EXPLICIT_EXCEPTIONS: dict[str, str] = {
     "dramatiq": "LGPLv3+ — chosen in §4 as the job broker; dynamic import.",
     "psycopg": "LGPL-3.0 — standard PostgreSQL driver; dynamic import.",
     "psycopg-binary": "LGPL-3.0 — wheel bundle of psycopg; dynamic import.",
+    "pypdfium2": (
+        "Apache-2.0 / BSD-3-Clause — pip-licenses reports the atypical string "
+        "'BSD-3-Clause, Apache-2.0, dependency licenses' because the wrapper "
+        "is Apache-2.0/BSD-3-Clause dual-licensed and bundles PDFium (BSD-3-Clause). "
+        "All components are permissive and compatible with our MIT distribution."
+    ),
 }
 
 # Own package.

@@ -30,6 +30,7 @@ from docgen.store.blob import delete_object, get_object, head_object
 from docgen.store.db import async_session
 from docgen.store.models import (
     IdempotencyKey,
+    InboxEvent,
     Provenance,
     RenderJob,
     Template,
@@ -471,6 +472,53 @@ async def fetch_render_result(job_id: str) -> dict[str, Any]:
     data = get_object(settings.s3_bucket_documents, job.result_blob_key)
     payload_key = "pdf_base64" if fmt == "pdf" else "docx_base64"
     response[payload_key] = base64.b64encode(data).decode("ascii")
+    return response
+
+
+@mcp.tool()
+async def fetch_case_reply(event_id: str) -> dict[str, Any]:
+    """Fetch the drafted reply artifact for a case by inbox event_id.
+
+    Returns the PDF the reviewer will preview — the assembler's output
+    (or the legacy single-template render, if the program has no package
+    bindings). Inline base64 when ≤256 KB, otherwise metadata + a signed
+    REST fetch URL.
+
+    This is a *preview*: the case may still be pending review. Fetching
+    does not approve, send, or otherwise advance the case — it only
+    reads the already-drafted artifact.
+    """
+    tenant_id = _current_tenant_uuid()
+    eid = uuid.UUID(event_id)
+    async with async_session() as session:
+        event = await session.get(InboxEvent, eid)
+        if event is None or event.tenant_id != tenant_id:
+            raise ValueError(f"Case event {event_id} not found")
+        if not event.reply_attachment_blob_key:
+            raise ValueError(
+                f"Case event {event_id} has no drafted reply yet "
+                f"(status={event.status!r})"
+            )
+        blob_key = event.reply_attachment_blob_key
+        case_number = event.case_number
+
+    settings = get_settings()
+    data = get_object(settings.s3_bucket_documents, blob_key)
+    size = len(data)
+    response: dict[str, Any] = {
+        "event_id": event_id,
+        "case_number": case_number,
+        "blob_key": blob_key,
+        "bytes": size,
+        "output_format": "pdf",
+    }
+    if size > _MCP_INLINE_MAX_BYTES:
+        response["inline_omitted"] = (
+            f"artifact is {size} bytes, above the "
+            f"{_MCP_INLINE_MAX_BYTES}-byte MCP inline cap; download via reviewer UI"
+        )
+        return response
+    response["pdf_base64"] = base64.b64encode(data).decode("ascii")
     return response
 
 

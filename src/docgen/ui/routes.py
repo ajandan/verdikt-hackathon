@@ -4405,6 +4405,11 @@ async def inbox_list(
             InboxEvent.attachment_name,
             InboxEvent.reply_message_id,
             InboxEvent.tenant_id,
+            InboxEvent.callback_url,
+            InboxEvent.callback_status,
+            InboxEvent.callback_attempts,
+            InboxEvent.callback_delivered_at,
+            InboxEvent.callback_last_error,
             Template.name.label("template_name"),
             Tenant.name.label("tenant_name"),
         )

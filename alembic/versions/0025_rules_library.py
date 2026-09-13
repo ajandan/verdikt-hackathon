@@ -159,12 +159,21 @@ def upgrade() -> None:
     # Every tenant gets a copy of every YAML rule as their starting library.
     # Keyed by (tenant_id, program_slug) -> {rule_id: rules.id} so we can
     # wire the program_rule_links below.
+    #
+    # Only kinds allowed by *this migration's* ck_rules_kind are seeded here.
+    # Later kinds (e.g. 'history' added in 0031) are seeded by their own
+    # migration after the CHECK constraint has been widened. Without this
+    # filter, adding a new kind to a shipped YAML pack silently breaks
+    # `alembic upgrade head` on fresh databases.
+    _ALLOWED_KINDS_AT_0025 = {"financial", "insurance", "residency", "clinical"}
     seeded: dict[tuple[str, str], dict[str, str]] = {}
     for (tenant_id,) in tenants:
         for slug, pack in packs.items():
             for rule in pack:
                 rule_public_id = rule.get("id")
                 if not rule_public_id:
+                    continue
+                if rule.get("kind") not in _ALLOWED_KINDS_AT_0025:
                     continue
                 new_rules_id = str(uuid.uuid4())
                 conn.execute(

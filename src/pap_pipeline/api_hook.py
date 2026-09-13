@@ -35,8 +35,8 @@ from docgen.store.models import InboxEvent, Program, Tenant
 from pap_pipeline.inbox_hook import (
     _AI_ACTOR,
     _append_audit,
+    _draft_reply_artifact,
     _pipeline_config,
-    _render_reply_attachment,
     _score_from_decision,
 )
 from pap_pipeline.json_intake import (
@@ -350,10 +350,12 @@ def run_json_intake_sync(
         )
         session.commit()
 
-        # Draft the reply letter so a reviewer can preview it. Failures
-        # here don't fail the intake — same tolerance as the email path.
+        # Draft the reply artifact so a reviewer can preview it. Uses the
+        # same dispatcher as the email path: package assembler when the
+        # program has bindings, single-template fallback otherwise. Failures
+        # don't fail the intake — same tolerance as the email path.
         try:
-            _, blob_key = _render_reply_attachment(
+            blob_key = _draft_reply_artifact(
                 session,
                 tenant,
                 intake,

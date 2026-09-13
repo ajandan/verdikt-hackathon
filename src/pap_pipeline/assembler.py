@@ -276,10 +276,10 @@ def _load_static_item(
 ) -> tuple[bytes, dict[str, Any]]:
     """Fetch the latest StaticDocumentVersion bytes and stamp its provenance row."""
     doc = session.get(StaticDocument, doc_id)
-    if doc is None or doc.tenant_id != tenant.id or not doc.is_active:
+    if doc is None or doc.tenant_id != tenant.id:
         raise AssemblerItemMissing(
             f"item #{pos + 1} ({label or 'static doc'}) references static document "
-            f"{doc_id} which is missing or inactive"
+            f"{doc_id} which is missing or belongs to another tenant"
         )
     version = (
         session.query(StaticDocumentVersion)

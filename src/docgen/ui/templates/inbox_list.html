@@ -112,90 +112,142 @@
     .expand-btn .chev { transition: transform 0.15s ease; display: block; }
     .ev-row.is-expanded .expand-btn { color: var(--brand); }
     .ev-row.is-expanded .expand-btn .chev { transform: rotate(90deg); }
-    .ev-row.is-expanded > td { background: var(--surface-2, #f8fafc); }
-    .ev-detail > td {
-        padding: 14px 20px 18px;
+    /* Highlight the expanded parent row + link it visually to its detail below */
+    .ev-row.is-expanded > td {
         background: var(--surface-2, #f8fafc);
-        border-top: 1px dashed var(--border, #e2e8f0);
-        white-space: normal;
+        border-bottom-color: transparent;
     }
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px 24px;
-        margin: 0;
+    .ev-row.is-expanded > td:first-child {
+        box-shadow: inset 3px 0 0 var(--brand, #4f46e5);
     }
-    .detail-item { min-width: 0; }
-    .detail-item.detail-item-wide { grid-column: 1 / -1; }
-    .detail-item dt {
-        font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
-        text-transform: uppercase; color: var(--text-muted, #64748b);
-        margin: 0 0 4px;
-    }
-    .detail-item dd {
-        margin: 0; font-size: 13.5px;
-        line-height: 1.5;
-        min-width: 0; max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        word-break: break-word;
-    }
-    .detail-item dd a {
-        overflow-wrap: anywhere;
-        word-break: break-word;
+    .ev-row.is-expanded + .ev-detail > td:first-child {
+        box-shadow: inset 3px 0 0 var(--brand, #4f46e5);
     }
 
-    /* Bordered panel for richer content (webhook status, full subject) */
-    .detail-panel {
-        grid-column: 1 / -1;
-        margin: 0;
-        padding: 12px 14px;
+    /* The detail row is a recessed "well" — content lives inside a nested card */
+    .ev-detail > td {
+        padding: 0 16px 14px;
+        background: var(--surface-2, #f8fafc);
+        border-top: 0;
+        white-space: normal;
+    }
+    .ev-detail > td:first-child {
+        padding: 0;
+        background: var(--surface-2, #f8fafc);
+    }
+
+    /* Section rhythm inside the expanded body (nested card) */
+    .detail-body {
+        display: flex; flex-direction: column; gap: 14px;
+        padding: 16px 18px 18px;
+        background: var(--surface, #ffffff);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    }
+    .detail-section { min-width: 0; }
+    .detail-section-label {
+        display: block;
+        font-size: 10px; font-weight: 700;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--text-muted, #64748b);
+        margin: 0 0 8px;
+    }
+
+    /* Stat tiles: compact key/value cards */
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+    }
+    .stat-tile {
         background: var(--surface, #ffffff);
         border: 1px solid var(--border, #e2e8f0);
         border-radius: 8px;
+        padding: 9px 12px;
+        min-width: 0;
+        display: flex; flex-direction: column; gap: 3px;
     }
-    .detail-panel > dt {
-        display: block;
-        font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
-        text-transform: uppercase; color: var(--text-muted, #64748b);
-        margin: 0 0 8px;
+    .stat-tile-label {
+        font-size: 10px; font-weight: 600;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--text-muted, #64748b);
     }
-    .detail-panel > dd {
-        margin: 0;
-        font-size: 13px;
-        line-height: 1.55;
-        overflow-wrap: anywhere;
-        word-break: break-word;
+    .stat-tile-value {
+        font-size: 13px; color: var(--text, #0f172a);
+        font-weight: 500;
+        min-width: 0;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .webhook-status {
+    .stat-tile-value.numeric {
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 13.5px;
+    }
+    .stat-tile-value.muted { color: var(--text-muted, #64748b); }
+    .stat-tile-value a { color: var(--brand); text-decoration: none; }
+    .stat-tile-value a:hover { text-decoration: underline; }
+
+    /* Delivery panel (webhook) */
+    .delivery-panel {
+        background: var(--surface, #ffffff);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    .delivery-status {
         display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         margin-bottom: 8px;
     }
-    .webhook-meta {
+    .delivery-meta {
         font-size: 12px; color: var(--text-muted, #64748b);
         font-variant-numeric: tabular-nums;
     }
-    .webhook-url {
-        display: block; margin-top: 4px;
+    .delivery-endpoint {
+        display: flex; align-items: baseline; gap: 8px;
         font-size: 12px; color: var(--text-muted, #64748b);
-    }
-    .webhook-url code, .webhook-error code {
-        display: inline-block; max-width: 100%;
-        padding: 2px 6px; border-radius: 4px;
-        background: var(--surface-2, #f1f5f9);
-        color: var(--text, #0f172a);
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 11.5px;
         overflow-wrap: anywhere;
     }
-    .webhook-error {
-        margin-top: 8px; padding-top: 8px;
-        border-top: 1px dashed var(--border, #e2e8f0);
-        font-size: 12px; color: var(--danger, #b91c1c);
+    .delivery-verb {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10.5px; font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 2px 6px; border-radius: 4px;
+        background: color-mix(in srgb, var(--brand, #4f46e5) 12%, var(--surface, #fff));
+        color: var(--brand, #4f46e5);
+        flex-shrink: 0;
     }
-    .webhook-error code {
-        background: color-mix(in srgb, var(--danger, #b91c1c) 8%, var(--surface-2, #f1f5f9));
-        color: var(--danger, #b91c1c);
+    .delivery-url {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11.5px;
+        color: var(--text, #0f172a);
+        overflow-wrap: anywhere;
+        min-width: 0;
+    }
+    .delivery-error {
+        margin-top: 10px; padding: 8px 10px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--danger, #b91c1c) 6%, var(--surface-2, #f1f5f9));
+        border-left: 3px solid var(--danger, #b91c1c);
+        font-size: 12px; color: var(--danger, #b91c1c);
+        overflow-wrap: anywhere;
+    }
+    .delivery-error code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11.5px;
+    }
+
+    /* Full subject: quoted-style block with brand accent */
+    .subject-panel {
+        background: var(--surface, #ffffff);
+        border: 1px solid var(--border, #e2e8f0);
+        border-left: 3px solid var(--brand, #4f46e5);
+        border-radius: 6px;
+        padding: 10px 14px;
+        font-size: 13.5px;
+        line-height: 1.55;
+        color: var(--text, #0f172a);
+        overflow-wrap: anywhere;
     }
     .from-cell {
         overflow: hidden;
@@ -458,74 +510,84 @@
             <tr class="ev-detail" id="ev-detail-{{ e.id }}" hidden>
                 <td></td>
                 <td colspan="6">
-                    <dl class="detail-grid">
-                        <div class="detail-item">
-                            <dt>Tenant</dt>
-                            <dd>{{ e.tenant_name or '—' }}</dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt>Template</dt>
-                            <dd>
-                                {% if e.template_id %}
-                                    <a href="/ui/templates/{{ e.template_id }}">{{ e.template_name or e.template_id }}</a>
-                                {% else %}—{% endif %}
-                            </dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt>Score</dt>
-                            <dd>{% if e.score is not none %}{{ '%.1f'|format(e.score) }}{% else %}—{% endif %}</dd>
-                        </div>
-                        <div class="detail-item">
-                            <dt>Ingest</dt>
-                            <dd>
-                                {% if e.status == 'succeeded' %}<span class="badge accept">succeeded</span>
-                                {% elif e.status == 'failed' %}<span class="badge reject">failed</span>
-                                {% elif e.status == 'skipped' %}<span class="badge">skipped</span>
-                                {% elif e.status == 'processing' %}<span class="badge info">processing</span>
-                                {% else %}<span class="badge draft">{{ e.status }}</span>
+                    <div class="detail-body">
+                        <div class="detail-section">
+                            <span class="detail-section-label">Case facts</span>
+                            <div class="stat-grid">
+                                <div class="stat-tile">
+                                    <span class="stat-tile-label">Tenant</span>
+                                    <span class="stat-tile-value" title="{{ e.tenant_name or '' }}">{{ e.tenant_name or '—' }}</span>
+                                </div>
+                                <div class="stat-tile">
+                                    <span class="stat-tile-label">Template</span>
+                                    <span class="stat-tile-value" title="{{ e.template_name or e.template_id or '' }}">
+                                        {% if e.template_id %}
+                                            <a href="/ui/templates/{{ e.template_id }}">{{ e.template_name or e.template_id }}</a>
+                                        {% else %}—{% endif %}
+                                    </span>
+                                </div>
+                                <div class="stat-tile">
+                                    <span class="stat-tile-label">Score</span>
+                                    <span class="stat-tile-value numeric{% if e.score is none %} muted{% endif %}">{% if e.score is not none %}{{ '%.1f'|format(e.score) }}{% else %}—{% endif %}</span>
+                                </div>
+                                <div class="stat-tile">
+                                    <span class="stat-tile-label">Ingest</span>
+                                    <span class="stat-tile-value">
+                                        {% if e.status == 'succeeded' %}<span class="badge accept">succeeded</span>
+                                        {% elif e.status == 'failed' %}<span class="badge reject">failed</span>
+                                        {% elif e.status == 'skipped' %}<span class="badge">skipped</span>
+                                        {% elif e.status == 'processing' %}<span class="badge info">processing</span>
+                                        {% else %}<span class="badge draft">{{ e.status }}</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if e.attachment_name %}
+                                <div class="stat-tile">
+                                    <span class="stat-tile-label">Attachment</span>
+                                    <span class="stat-tile-value" title="{{ e.attachment_name }}">📎 {{ e.attachment_name }}</span>
+                                </div>
                                 {% endif %}
-                            </dd>
+                            </div>
                         </div>
-                        {% if e.attachment_name %}
-                        <div class="detail-item">
-                            <dt>Attachment</dt>
-                            <dd>{{ e.attachment_name }}</dd>
-                        </div>
-                        {% endif %}
+
                         {% if e.callback_url %}
-                        <div class="detail-panel">
-                            <dt>Verdict webhook</dt>
-                            <dd>
-                                <div class="webhook-status">
+                        <div class="detail-section">
+                            <span class="detail-section-label">Verdict webhook</span>
+                            <div class="delivery-panel">
+                                <div class="delivery-status">
                                     {% if e.callback_status == 'delivered' %}
                                         <span class="badge accept">delivered</span>
                                         {% if e.callback_delivered_at %}
-                                        <span class="webhook-meta">at {{ e.callback_delivered_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+                                        <span class="delivery-meta">at {{ e.callback_delivered_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
                                         {% endif %}
                                     {% elif e.callback_status == 'failed' %}
                                         <span class="badge reject">failed</span>
-                                        <span class="webhook-meta">after {{ e.callback_attempts }} attempt{{ '' if e.callback_attempts == 1 else 's' }}</span>
+                                        <span class="delivery-meta">after {{ e.callback_attempts }} attempt{{ '' if e.callback_attempts == 1 else 's' }}</span>
                                     {% elif e.callback_status == 'pending' %}
                                         <span class="badge draft">pending</span>
-                                        <span class="webhook-meta">fires on approve or reject</span>
+                                        <span class="delivery-meta">fires on approve or reject</span>
                                     {% else %}
-                                        <span class="webhook-meta">no state recorded</span>
+                                        <span class="delivery-meta">no state recorded</span>
                                     {% endif %}
                                 </div>
-                                <span class="webhook-url">POST <code>{{ e.callback_url }}</code></span>
+                                <div class="delivery-endpoint">
+                                    <span class="delivery-verb">POST</span>
+                                    <span class="delivery-url">{{ e.callback_url }}</span>
+                                </div>
                                 {% if e.callback_last_error %}
-                                <div class="webhook-error">Last error: <code>{{ e.callback_last_error }}</code></div>
+                                <div class="delivery-error">Last error: <code>{{ e.callback_last_error }}</code></div>
                                 {% endif %}
-                            </dd>
+                            </div>
                         </div>
                         {% endif %}
+
                         {% if e.subject %}
-                        <div class="detail-item detail-item-wide">
-                            <dt>Full subject</dt>
-                            <dd>{{ e.subject }}</dd>
+                        <div class="detail-section">
+                            <span class="detail-section-label">Full subject</span>
+                            <div class="subject-panel">{{ e.subject }}</div>
                         </div>
                         {% endif %}
-                    </dl>
+                    </div>
                 </td>
             </tr>
         {% endfor %}
@@ -589,6 +651,14 @@
 <script nonce="{{ csp_nonce(request) }}">
 (function () {
     var rows = document.querySelectorAll('#inbox-table .ev-row');
+    function collapseRow(row) {
+        var otherBtn = row.querySelector('.expand-btn');
+        var otherDetailId = row.getAttribute('data-detail');
+        var otherDetail = otherDetailId ? document.getElementById(otherDetailId) : null;
+        row.classList.remove('is-expanded');
+        if (otherBtn) otherBtn.setAttribute('aria-expanded', 'false');
+        if (otherDetail) otherDetail.hidden = true;
+    }
     rows.forEach(function (row) {
         var btn = row.querySelector('.expand-btn');
         var detailId = row.getAttribute('data-detail');
@@ -596,9 +666,17 @@
         if (!btn || !detail) return;
         btn.addEventListener('click', function (ev) {
             ev.stopPropagation();
-            var expanded = row.classList.toggle('is-expanded');
-            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            detail.hidden = !expanded;
+            var willExpand = !row.classList.contains('is-expanded');
+            if (willExpand) {
+                rows.forEach(function (other) {
+                    if (other !== row && other.classList.contains('is-expanded')) {
+                        collapseRow(other);
+                    }
+                });
+            }
+            row.classList.toggle('is-expanded', willExpand);
+            btn.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+            detail.hidden = !willExpand;
         });
     });
 })();

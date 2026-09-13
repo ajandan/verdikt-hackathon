@@ -17,7 +17,6 @@ from typing import Any
 
 from docgen.store.models import DocPackageAssembly, InboxEvent, Tenant
 
-
 VERDICT_SCHEMA = "verdikt.decision.v1"
 
 

@@ -134,7 +134,7 @@ def _seed_template(tenant_id: uuid.UUID, name: str) -> uuid.UUID:
 def test_tenant_admin_cannot_view_other_tenants_template(
     two_tenants_and_admins,
 ) -> None:
-    a_id, b_id, a_admin = two_tenants_and_admins
+    _a_id, b_id, a_admin = two_tenants_and_admins
     # Seed a template that belongs to Tenant B. Tenant A's admin should
     # see the same 404 they'd see for a completely non-existent template.
     b_template_id = _seed_template(b_id, f"b-only-{uuid.uuid4().hex[:6]}")

@@ -32,10 +32,8 @@ import structlog
 from docgen.config import Settings
 from docgen.store.db import SyncSessionLocal
 from docgen.store.models import InboxEvent, Program, Tenant
-
 from pap_pipeline.inbox_hook import (
     _AI_ACTOR,
-    _OUTCOME_TO_REVIEW_STATE,
     _append_audit,
     _pipeline_config,
     _render_reply_attachment,
@@ -43,7 +41,6 @@ from pap_pipeline.inbox_hook import (
 )
 from pap_pipeline.json_intake import (
     IntakeValidationError,
-    NormalizedIntake,
     validate_json_intake,
 )
 from pap_pipeline.orchestrator import (
@@ -53,7 +50,6 @@ from pap_pipeline.orchestrator import (
 )
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
-from pap_pipeline.schemas.intake import Intake
 
 log = structlog.get_logger(__name__)
 
@@ -445,9 +441,9 @@ def _payload_size(payload: Any) -> int:
 
 
 __all__ = [
-    "ApiIntakeResult",
     "CHANNEL_MCP",
     "CHANNEL_REST",
+    "ApiIntakeResult",
     "IntakeValidationFailed",
     "PipelineExecutionFailed",
     "ProgramNotFound",

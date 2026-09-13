@@ -25,7 +25,6 @@ from docgen.store.models import (
     StaticDocumentVersion,
 )
 
-
 _PDF_MAGIC = b"%PDF-"
 
 

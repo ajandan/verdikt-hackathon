@@ -102,7 +102,7 @@ def test_schema_reaches_prompt_for_semantic_check(monkeypatch) -> None:
         def __init__(self, *a, **kw): ...
         def __enter__(self): return self
         def __exit__(self, *a): return None
-        def post(self, url, headers, json):  # noqa: A002
+        def post(self, url, headers, json):
             captured["body"] = json
             return _Resp()
 

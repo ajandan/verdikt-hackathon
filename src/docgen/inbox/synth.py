@@ -49,10 +49,10 @@ _STRING_SAMPLES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(npi|provider\s*(id|number)|prov)\b"), "1234567893"),
     (re.compile(r"\b(dea)\b"), "AB1234567"),
     (re.compile(r"\b(license|lic)\b"), "LIC-12345678"),
-    (re.compile(r"\b(policy|policy\s*number|member\s*id|subscriber\s*id|ins(urance)?\s*id)\b"), "POL-000123456"),
+    (re.compile(r"\b(policy|policy\s*number|member\s*id|subscriber\s*id|ins(urance)?\s*id)\b"), "POL-000123456"),  # noqa: E501
     (re.compile(r"\b(group\s*(number|no|id))\b"), "GRP-00789"),
     (re.compile(r"\b(claim|reference|ref|confirmation)\s*(number|no|id)?\b"), "CLM-2026-000123"),
-    (re.compile(r"\b(medicare|medicaid|part [abcd]|advantage|hmo|ppo|health\s*insurance|insurance)\b"), "Original Medicare"),
+    (re.compile(r"\b(medicare|medicaid|part [abcd]|advantage|hmo|ppo|health\s*insurance|insurance)\b"), "Original Medicare"),  # noqa: E501
     (re.compile(r"\b(diagnosis|dx|icd)\b"), "E11.9 - Type 2 diabetes"),
     (re.compile(r"\b(cpt|procedure)\b"), "99213"),
     (re.compile(r"\b(medication|med|rx|prescription|drug)\b"), "Metformin 500mg"),
@@ -61,10 +61,10 @@ _STRING_SAMPLES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\b(pharmacy)\b"), "Sample Pharmacy"),
     (re.compile(r"\b(hospital|clinic|facility|practice)\b"), "Sample Medical Center"),
     (re.compile(r"\b(department|dept|specialty)\b"), "Internal Medicine"),
-    (re.compile(r"\b(amount|balance|total|paid|due|copay|deductible|premium|income|salary|wage)\b"), "$1,250.00"),
+    (re.compile(r"\b(amount|balance|total|paid|due|copay|deductible|premium|income|salary|wage)\b"), "$1,250.00"),  # noqa: E501
     (re.compile(r"\b(household|family)\b.*\b(size|members|people|number)\b"), "3"),
     (re.compile(r"\b(number of|no\.? of|count|qty)\b"), "3"),
-    (re.compile(r"\b(comments?|notes?|remarks?|description|reason|explanation)\b"), "Sample comment for testing."),
+    (re.compile(r"\b(comments?|notes?|remarks?|description|reason|explanation)\b"), "Sample comment for testing."),  # noqa: E501
     (re.compile(r"\b(relation(ship)?)\b"), "Self"),
     (re.compile(r"\b(home|mailing|billing|shipping)\b"), "Home"),
     (re.compile(r"\bto my home\b"), "Yes"),
@@ -99,7 +99,7 @@ def _sample_scalar(f: FieldSpec) -> Any:
             return 2026
         return 42
     if f.type == "number":
-        if re.search(r"\b(amount|balance|total|paid|due|copay|deductible|premium|income|salary|wage|cost|price)\b", lower):
+        if re.search(r"\b(amount|balance|total|paid|due|copay|deductible|premium|income|salary|wage|cost|price)\b", lower):  # noqa: E501
             return 1250.00
         return 3.14
     if f.type == "boolean":

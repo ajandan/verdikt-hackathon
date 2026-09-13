@@ -13,7 +13,7 @@ not instead of.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 from pap_pipeline.orchestrator import _merge_history_slots
 from pap_pipeline.schemas.history import HistorySlice, HistorySlot
@@ -31,7 +31,7 @@ def _slice(*slots: HistorySlot) -> HistorySlice:
         events=[],
         slots=list(slots),
         snapshot_hash="sha256:test",
-        snapshot_at=datetime.now(timezone.utc),
+        snapshot_at=datetime.now(UTC),
         source_provider="simulated",
     )
 

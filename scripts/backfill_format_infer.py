@@ -15,7 +15,7 @@ import json
 import sys
 import uuid
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from docgen.config import get_settings

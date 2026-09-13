@@ -25,7 +25,6 @@ from docgen.inbox.imap_poller import InboundMessage
 from docgen.inbox.mailer import Attachment, MailerError, send_reply
 from docgen.store.blob import get_object, put_object
 from docgen.store.models import InboxEvent, Program, Template, TemplateVersion, Tenant
-
 from pap_pipeline.assembler import (
     AssemblerError,
     AssemblerMissingBinding,
@@ -408,7 +407,7 @@ def _compose_city_state_zip(intake: Intake) -> str:
     line = " ".join(parts).strip()
     # Only append country when it's non-US — US recipients don't expect
     # "United States" on their own address block.
-    if country and country.lower() not in {"us", "usa", "u.s.", "u.s.a.", "united states", "united states of america"}:
+    if country and country.lower() not in {"us", "usa", "u.s.", "u.s.a.", "united states", "united states of america"}:  # noqa: E501
         line = f"{line}, {country}" if line else country
     return line
 

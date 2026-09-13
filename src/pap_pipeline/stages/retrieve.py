@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
 
 import httpx
 
@@ -172,7 +171,7 @@ async def _embed_and_rank(
     q_vec = vectors[0]
     scored = [
         (rule, _cosine(q_vec, rule_vec))
-        for rule, rule_vec in zip(corpus, vectors[1:])
+        for rule, rule_vec in zip(corpus, vectors[1:], strict=True)
     ]
     scored.sort(key=lambda pair: pair[1], reverse=True)
     return scored[:top_n]
@@ -228,7 +227,7 @@ def _headers(config: RetrieveClientConfig) -> dict[str, str]:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0.0 or nb == 0.0:
@@ -237,7 +236,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 __all__ = [
-    "RetrievedRule",
     "RetrieveClientConfig",
+    "RetrievedRule",
     "retrieve",
 ]

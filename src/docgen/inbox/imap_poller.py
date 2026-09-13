@@ -14,11 +14,11 @@ from __future__ import annotations
 import email
 import imaplib
 import ssl
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.message import Message
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
-from typing import Iterator
 
 import structlog
 

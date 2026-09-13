@@ -20,7 +20,6 @@ import hashlib
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -811,7 +810,7 @@ def _build_trials_table_html(
             f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">{t.ordinal}</td>"
             f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">"
             f"<strong>{_html_escape(t.name)}</strong>"
-            + (f"<br><span style=\"color:#57606a;font-size:12px\">{_html_escape(t.description)}</span>" if t.description else "")
+            + (f"<br><span style=\"color:#57606a;font-size:12px\">{_html_escape(t.description)}</span>" if t.description else "")  # noqa: E501
             + "</td>"
             f"<td style=\"border-bottom:1px solid #eaeef2;padding:8px;vertical-align:top\">"
             f"<span style=\"background:{badge_bg};color:{badge_color};padding:2px 8px;"
@@ -1088,7 +1087,7 @@ def process_message(
             body_text=body_text,
             body_html=body_html,
             in_reply_to=msg.message_id,
-            references=msg.references + [msg.message_id],
+            references=[*msg.references, msg.message_id],
             attachments=attachments,
         )
         event.reply_message_id = reply_msgid
@@ -1105,7 +1104,7 @@ def process_message(
     event.status = status
     session.commit()
 
-    return ProcessResult(event.id, status, "ok" if status == "succeeded" else (render_error or "freeze_failed"))
+    return ProcessResult(event.id, status, "ok" if status == "succeeded" else (render_error or "freeze_failed"))  # noqa: E501
 
 
 def _try_send_reject_reply(
@@ -1126,7 +1125,7 @@ def _try_send_reject_reply(
             body_text=text,
             body_html=html,
             in_reply_to=msg.message_id,
-            references=msg.references + [msg.message_id],
+            references=[*msg.references, msg.message_id],
         )
     except MailerError as e:
         log.warning("inbox_reject_reply_failed", error=str(e), reason=reason)
@@ -1236,7 +1235,7 @@ def _send_reply_ack(
             body_text=text,
             body_html=html,
             in_reply_to=msg.message_id,
-            references=msg.references + [msg.message_id],
+            references=[*msg.references, msg.message_id],
         )
     except MailerError as e:
         log.warning("inbox_reply_ack_failed", error=str(e))

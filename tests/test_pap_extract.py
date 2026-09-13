@@ -58,8 +58,8 @@ def _one_page_pdf() -> bytes:
     """Real (tiny) PDF via pypdfium2's inverse — actually build one with reportlab
     if available, else use the pdfplumber test fixture path. For unit-test scope
     we just need something starting with %PDF- that pypdfium2 can open."""
-    from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=letter)

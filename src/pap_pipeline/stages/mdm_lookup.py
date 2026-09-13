@@ -27,8 +27,8 @@ from __future__ import annotations
 import hashlib
 import random
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
 import httpx
 from pydantic import ValidationError
@@ -112,7 +112,7 @@ class NullMdmSource:
             events=[],
             slots=[],
             snapshot_hash=digest,
-            snapshot_at=datetime.now(timezone.utc),
+            snapshot_at=datetime.now(UTC),
             source_provider="null",
         )
 
@@ -197,7 +197,7 @@ class HttpMdmSource:
             events=events,
             slots=slots,
             snapshot_hash=digest,
-            snapshot_at=datetime.now(timezone.utc),
+            snapshot_at=datetime.now(UTC),
             source_provider=config.provider or "http",
         )
 
@@ -222,7 +222,7 @@ def _sim_rng(member_id: str, program_family_id: str) -> random.Random:
     stable across runs, processes, and workers.
     """
     seed_bytes = hashlib.sha256(
-        f"{member_id}|{program_family_id}".encode("utf-8")
+        f"{member_id}|{program_family_id}".encode()
     ).digest()[:8]
     return random.Random(int.from_bytes(seed_bytes, "big"))
 
@@ -280,7 +280,7 @@ class SimulatedMdmSource:
             events=events,
             slots=slots,
             snapshot_hash=digest,
-            snapshot_at=datetime.now(timezone.utc),
+            snapshot_at=datetime.now(UTC),
             source_provider="simulated",
         )
 
@@ -299,9 +299,9 @@ def _draw_scenario(
     compiler would emit — pre-computing them here lets the demo show the
     history-mediated verdict without waiting on the slot-compiler PR.
     """
-    choices, weights = zip(*_SIM_SCENARIO_WEIGHTS)
+    choices, weights = zip(*_SIM_SCENARIO_WEIGHTS, strict=True)
     scenario = rng.choices(choices, weights=weights, k=1)[0]
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     if scenario == "novel":
         # Novel members still need the canonical slot set emitted with

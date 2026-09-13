@@ -14,10 +14,10 @@ from __future__ import annotations
 import smtplib
 import ssl
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from email.message import EmailMessage
-from email.utils import formataddr, formatdate, make_msgid
-from typing import Iterable
+from email.utils import formatdate, make_msgid
 
 import structlog
 

@@ -12,7 +12,6 @@ import uuid
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgen.auth import verify_inbox_test_token
 from docgen.config import get_settings

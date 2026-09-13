@@ -338,8 +338,8 @@ def _short_id(event_id: Any) -> str:
 
 __all__ = [
     "AssemblerError",
-    "AssemblerMissingBinding",
     "AssemblerItemMissing",
+    "AssemblerMissingBinding",
     "AssemblerRenderFailed",
     "AssemblyResult",
     "assemble_reply_package",

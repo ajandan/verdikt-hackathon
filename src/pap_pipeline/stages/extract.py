@@ -23,7 +23,6 @@ from typing import Any
 
 import httpx
 
-
 _PDF_MAGIC = b"%PDF-"
 
 
@@ -34,7 +33,7 @@ _PDF_MAGIC = b"%PDF-"
 _DEFAULT_SLOTS: list[dict[str, Any]] = [
     {"name": "patient_name", "type": "string", "description": "Patient full legal name as written."},
     {"name": "family_name", "type": "string", "description": "Patient surname / last name only."},
-    {"name": "honorific", "type": "enum", "description": "Title (Ms., Mr., Dr.) — only when explicitly written.", "enum_values": ["Mr.", "Ms.", "Mrs.", "Mx.", "Dr."]},
+    {"name": "honorific", "type": "enum", "description": "Title (Ms., Mr., Dr.) — only when explicitly written.", "enum_values": ["Mr.", "Ms.", "Mrs.", "Mx.", "Dr."]},  # noqa: E501
     {"name": "date_of_birth", "type": "date", "description": "ISO date; null if partial."},
     {"name": "address_line1", "type": "string", "description": "Street address, first line."},
     {"name": "address_line2", "type": "string", "description": "Apt / unit / suite — null if none."},
@@ -42,15 +41,15 @@ _DEFAULT_SLOTS: list[dict[str, Any]] = [
     {"name": "postal_code", "type": "string", "description": "ZIP or postal code as written."},
     {"name": "country", "type": "string", "description": "Country name."},
     {"name": "household_size", "type": "integer", "description": "Integer >= 1."},
-    {"name": "annual_household_income", "type": "number", "description": "USD, annualize monthly pay stub figures."},
-    {"name": "insurance_status", "type": "enum", "description": "commercial_denied only when the page IS a denial letter.", "enum_values": ["uninsured", "medicare", "medicaid", "commercial", "commercial_denied", "unknown"]},
-    {"name": "has_denial_letter", "type": "boolean", "description": "True only when the page IS a denial letter."},
+    {"name": "annual_household_income", "type": "number", "description": "USD, annualize monthly pay stub figures."},  # noqa: E501
+    {"name": "insurance_status", "type": "enum", "description": "commercial_denied only when the page IS a denial letter.", "enum_values": ["uninsured", "medicare", "medicaid", "commercial", "commercial_denied", "unknown"]},  # noqa: E501
+    {"name": "has_denial_letter", "type": "boolean", "description": "True only when the page IS a denial letter."},  # noqa: E501
     {"name": "country_of_residence", "type": "string", "description": "Country of residence."},
-    {"name": "mailing_state", "type": "string", "description": "US state name or 2-letter abbrev. Leave null for non-US applicants."},
+    {"name": "mailing_state", "type": "string", "description": "US state name or 2-letter abbrev. Leave null for non-US applicants."},  # noqa: E501
     {"name": "prescribed_drug", "type": "string", "description": "Drug brand or generic name."},
     {"name": "prescriber_npi", "type": "string", "description": "10-digit NPI as string."},
     {"name": "prescription_date", "type": "date", "description": "ISO date."},
-    {"name": "referral_id", "type": "string", "description": "Form-supplied application/reference number. Do not invent."},
+    {"name": "referral_id", "type": "string", "description": "Form-supplied application/reference number. Do not invent."},  # noqa: E501
 ]
 
 

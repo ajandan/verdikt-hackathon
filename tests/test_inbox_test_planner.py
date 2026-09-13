@@ -18,7 +18,6 @@ import pytest
 from docgen.inbox import test_planner
 from docgen.inbox.test_planner import Trial, plan_trials
 
-
 _SCHEMA = {
     "fields": [
         {"name": "member_name", "type": "string"},
@@ -76,11 +75,11 @@ def test_ai_response_flows_through(monkeypatch) -> None:
         def __init__(self, *a, **kw) -> None: ...
         def __enter__(self): return self
         def __exit__(self, *a): return None
-        def post(self, url, headers, json):  # noqa: A002 - matches httpx signature
+        def post(self, url, headers, json):
             content = json_dumps({
                 "trials": [
-                    {"name": "happy",  "description": "typical", "payload": {"member_name": "Alice", "amount": 1, "is_denied": False}},
-                    {"name": "edge",   "description": "boundary", "payload": {"member_name": "B",     "amount": 999, "is_denied": True}},
+                    {"name": "happy",  "description": "typical", "payload": {"member_name": "Alice", "amount": 1, "is_denied": False}},  # noqa: E501
+                    {"name": "edge",   "description": "boundary", "payload": {"member_name": "B",     "amount": 999, "is_denied": True}},  # noqa: E501
                 ]
             })
             return _FakeResp({"choices": [{"message": {"content": content}}]})

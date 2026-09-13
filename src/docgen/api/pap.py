@@ -26,7 +26,6 @@ from pydantic import BaseModel, Field
 
 from docgen.api.deps import get_tenant_id
 from docgen.config import get_settings
-
 from pap_pipeline.api_hook import (
     CHANNEL_REST,
     ApiIntakeResult,

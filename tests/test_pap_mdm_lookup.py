@@ -18,8 +18,8 @@ import asyncio
 import pytest
 
 from pap_pipeline.schemas import HistoryEvent, HistorySlice, HistorySlot, Intake
-from pap_pipeline.schemas.history import canonical_snapshot_hash
 from pap_pipeline.schemas.decision import Citation
+from pap_pipeline.schemas.history import canonical_snapshot_hash
 from pap_pipeline.stages.mdm_lookup import (
     HttpMdmSource,
     MdmSourceConfig,
@@ -175,6 +175,7 @@ def test_orchestrator_passes_null_slice_through_gather(monkeypatch) -> None:
     import json as _json
 
     import httpx
+
     from pap_pipeline.demo_data import load_canonical_intake
     from pap_pipeline.orchestrator import PipelineConfig, run_from_intake
     from pap_pipeline.stages import extract as extract_mod
@@ -360,6 +361,7 @@ def test_http_mdm_source_posts_query_and_parses_response(monkeypatch) -> None:
     import json as _json
 
     import httpx
+
     from pap_pipeline.stages import mdm_lookup as mdm_mod
 
     captured: dict = {}

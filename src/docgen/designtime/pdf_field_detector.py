@@ -33,14 +33,14 @@ from typing import Any
 
 import httpx
 
-log = logging.getLogger(__name__)
-
 from docgen.designtime.geometry import Rect
 from docgen.designtime.pdf_text import (
     extract_spans,
     extract_words,
     group_into_visual_rows,
 )
+
+log = logging.getLogger(__name__)
 
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
@@ -73,7 +73,7 @@ async def _post_with_retry(
     for attempt in range(_RETRY_MAX_ATTEMPTS):
         try:
             resp = await client.post(url, headers=headers, json=json_body)
-        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError, httpx.TimeoutException) as e:
+        except (httpx.ConnectError, httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError, httpx.TimeoutException) as e:  # noqa: E501
             last_exc = e
             if attempt == _RETRY_MAX_ATTEMPTS - 1:
                 raise
@@ -826,7 +826,7 @@ Fields to label. Each is `#<idx> at (x=<x0..x1>, y=<y0..y1>) [type]`:
 Return STRICT JSON:
 {{"labels": [{{"index": 0, "section": "", "label": "..."}}, ...]}}
 
-Every listed index must appear exactly once."""
+Every listed index must appear exactly once."""  # noqa: E501
 
 
 def pdf_has_extractable_text(pdf_bytes: bytes) -> bool:
@@ -937,7 +937,7 @@ def _annotate_page_with_boxes(
     draw = ImageDraw.Draw(img)
     try:
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 18)
-    except (OSError, IOError):
+    except OSError:
         font = ImageFont.load_default()
 
     box_to_field_idx: list[int] = []

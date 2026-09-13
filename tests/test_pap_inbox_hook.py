@@ -11,7 +11,6 @@ import uuid
 from unittest.mock import MagicMock
 
 from docgen.store.models import Tenant
-
 from pap_pipeline.inbox_hook import _resolve_program_slots
 
 

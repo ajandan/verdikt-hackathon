@@ -16,7 +16,6 @@ Run: python scripts/qc_nemotron_labeling.py
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import sys
 import time
@@ -33,7 +32,6 @@ from docgen.config import get_settings
 from docgen.designtime.pdf_field_detector import detect_fields_in_pdf
 from docgen.designtime.pdf_text import extract_words, group_into_visual_rows
 from docgen.designtime.preflight_pdf import _harvest_widget_placements
-
 
 ROOT = Path(__file__).resolve().parent.parent
 FLAT_PDF = ROOT / "sample_templates" / "denial_letter_flat.pdf"
@@ -140,13 +138,13 @@ Return STRICT JSON:
 {{"labels": [{{"index": 0, "section": "", "label": "..."}}, ...]}}
 
 Every listed index must appear exactly once.
-"""
+"""  # noqa: E501
 
 
 def build_ocr_dump(lines: list[dict[str, Any]]) -> str:
     return "\n".join(
-        f"y={l['y0']:.0f} x={l['x0']:.0f}..{l['x1']:.0f}: {l['text']}"
-        for l in lines
+        f"y={line['y0']:.0f} x={line['x0']:.0f}..{line['x1']:.0f}: {line['text']}"
+        for line in lines
     )
 
 

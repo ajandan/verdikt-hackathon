@@ -8,13 +8,12 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from docgen.api.pap import router as pap_router
 from docgen.api.routes import router as rest_router
-from docgen.downloads import router as downloads_router
 from docgen.auth import (
     SESSION_COOKIE,
     AdminSessionMiddleware,
@@ -23,6 +22,7 @@ from docgen.auth import (
     verify_session,
 )
 from docgen.config import get_settings
+from docgen.downloads import router as downloads_router
 from docgen.mcp_server import build_mcp_app, mcp
 from docgen.observability import RequestLoggingMiddleware, configure_logging
 from docgen.ratelimit import RateLimitMiddleware

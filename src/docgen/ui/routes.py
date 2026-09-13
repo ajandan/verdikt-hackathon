@@ -89,15 +89,6 @@ from docgen.ratelimit import (
 )
 from docgen.security_headers import preview_csp, secure_cookie_flag
 from docgen.store.blob import get_object, put_object
-from docgen.store.doc_packages import (
-    DocPackageValidationError,
-    StaticDocRejected,
-    add_static_document_version,
-    create_doc_package,
-    create_static_document,
-    list_static_document_versions,
-    normalize_package_items,
-)
 from docgen.store.models import (
     ApiKey,
     CallerProfile,
@@ -111,8 +102,6 @@ from docgen.store.models import (
     RenderJob,
     Rule,
     RuleVersion,
-    StaticDocument,
-    StaticDocumentVersion,
     Template,
     TemplateAuditEvent,
     TemplateVersion,
@@ -1874,8 +1863,10 @@ def _placements_equal(a: list[dict[str, Any]], b: list[dict[str, Any]]) -> bool:
     return True
 
 
-from docgen.designtime.pdf_labeler_backend import (
+from docgen.designtime.pdf_labeler_backend import (  # noqa: E402  (lazy: after local helpers)
     LABELER_UNCONFIGURED as _PDF_LABELER_UNCONFIGURED,
+)
+from docgen.designtime.pdf_labeler_backend import (  # noqa: E402
     pick_pdf_labeler_backend as _pick_pdf_labeler_backend,
 )
 
@@ -3609,8 +3600,9 @@ async def admin_save_inbox_settings(
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:
     _enforce_scope(request, tenant_id)
-    from docgen.store.models import Tenant
     from sqlalchemy.orm.attributes import flag_modified
+
+    from docgen.store.models import Tenant
 
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -3724,8 +3716,9 @@ async def admin_save_mdm_settings(
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:
     _enforce_scope(request, tenant_id)
-    from docgen.store.models import Tenant
     from sqlalchemy.orm.attributes import flag_modified
+
+    from docgen.store.models import Tenant
 
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -3857,7 +3850,7 @@ async def admin_create_user(
             flash_kind="error",
         )
     if role not in ("super_admin", "tenant_admin"):
-        return _redirect("/ui/admin/users", flash="Role must be super_admin or tenant_admin.", flash_kind="error")
+        return _redirect("/ui/admin/users", flash="Role must be super_admin or tenant_admin.", flash_kind="error")  # noqa: E501
     parsed_tenant: uuid.UUID | None = None
     if role == "tenant_admin":
         if not tenant_id:
@@ -4905,20 +4898,20 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
                 "stage": "PDF field labeler",
                 "model": "(deterministic geometry — no model call)",
                 "provider": "local",
-                "purpose": "Matches each AcroForm widget to its printed caption using widget rects + page text-span bboxes.",
+                "purpose": "Matches each AcroForm widget to its printed caption using widget rects + page text-span bboxes.",  # noqa: E501
             })
         else:
             rows.insert(0, {
                 "stage": "PDF field labeler",
                 "model": settings.pdf_labeler_model,
                 "provider": provider,
-                "purpose": "Captions each detected placement using pdfplumber-extracted OCR text and rect coordinates — no page image sent to the model.",
+                "purpose": "Captions each detected placement using pdfplumber-extracted OCR text and rect coordinates — no page image sent to the model.",  # noqa: E501
             })
             rows.insert(0, {
                 "stage": "PDF field detector (AI Draw)",
                 "model": "(deterministic geometry — no model call)",
                 "provider": "local",
-                "purpose": "Locates form-field regions on flat PDFs by scanning pdfplumber drawing primitives (lines, rects, curves).",
+                "purpose": "Locates form-field regions on flat PDFs by scanning pdfplumber drawing primitives (lines, rects, curves).",  # noqa: E501
             })
 
     return rows
@@ -4970,10 +4963,10 @@ async def inbox_pipeline_detail(
     # Hydrate rule text so citations can be shown as rule statements, not
     # opaque IDs. The loader reads YAML on every call — cheap at demo scale
     # and keeps the page in sync with any rule edits without a restart.
+    from docgen.inbox.agent import _pap_program_from_subject
     from pap_pipeline.rules import load_rules
     from pap_pipeline.schema_groups import bucket_slots
     from pap_pipeline.verdict_json import build_verdict
-    from docgen.inbox.agent import _pap_program_from_subject
 
     rules_by_id = {r.id: r for r in load_rules()}
 
@@ -5032,8 +5025,8 @@ async def inbox_verdict_json(
     `/ui/*`; downstream systems that need programmatic access should hit
     this behind their own API-key proxy or be given a signed variant.
     """
-    from pap_pipeline.verdict_json import build_verdict
     from docgen.inbox.agent import _pap_program_from_subject
+    from pap_pipeline.verdict_json import build_verdict
 
     ev = await _load_inbox_event(session, event_id)
     if ev.tenant_id is None:
@@ -5398,8 +5391,9 @@ async def inbox_pipeline_approve(
     # mirrors the pattern used elsewhere in this file — we grab a sync
     # Session bound to the same event row so the sender can commit reply
     # state without contending with the async request session.
-    from docgen.store.db import sync_session
     from fastapi.concurrency import run_in_threadpool
+
+    from docgen.store.db import sync_session
 
     settings = get_settings()
     actor = str(getattr(request.state, "admin_user", None) or "inbox-review")
@@ -5671,7 +5665,7 @@ async def programs_create(
         await session.rollback()
         return _redirect("/ui/programs", flash=f"Create failed: {e}", flash_kind="error")
     log.info("program_created", tenant_id=str(tenant_id), slug=slug_clean)
-    return _redirect(f"/ui/programs/{prog.id}", flash=f"Created program '{name_clean}'.", flash_kind="success")
+    return _redirect(f"/ui/programs/{prog.id}", flash=f"Created program '{name_clean}'.", flash_kind="success")  # noqa: E501
 
 
 @router.get("/programs/{program_id}", response_class=HTMLResponse)
@@ -6396,7 +6390,7 @@ async def rule_version_view(
 # program outcome bindings). Split into its own module because this
 # feature landed as a self-contained slice — see ADR-0003.
 # ------------------------------------------------------------------
-from docgen.ui.routes_doc_packages import register as _register_doc_packages
+from docgen.ui.routes_doc_packages import register as _register_doc_packages  # noqa: E402
 
 _register_doc_packages(
     router,

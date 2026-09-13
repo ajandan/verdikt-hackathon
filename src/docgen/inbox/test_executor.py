@@ -282,7 +282,7 @@ def execute_test_matrix(
             # Refresh so the auto-generated ids are visible to the caller.
             for row in rows:
                 session.refresh(row)
-            for trial, row in zip(executed, rows):
+            for trial, row in zip(executed, rows, strict=True):
                 trial.test_result_id = row.id
         except Exception as e:
             session.rollback()

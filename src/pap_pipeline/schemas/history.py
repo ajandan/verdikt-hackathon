@@ -102,10 +102,10 @@ def canonical_snapshot_hash(
 
 
 __all__ = [
-    "EventType",
     "EventOutcome",
+    "EventType",
     "HistoryEvent",
-    "HistorySlot",
     "HistorySlice",
+    "HistorySlot",
     "canonical_snapshot_hash",
 ]

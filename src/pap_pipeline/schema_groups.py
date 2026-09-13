@@ -11,7 +11,7 @@ within each group.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 GROUP_ORDER: list[str] = [
     "Patient",

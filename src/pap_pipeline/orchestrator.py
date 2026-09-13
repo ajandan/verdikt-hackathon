@@ -310,8 +310,8 @@ def _extras_from_extraction(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 __all__ = [
-    "PipelineConfig",
     "Citation",
+    "PipelineConfig",
     "run",
     "run_from_intake",
     "run_with_intake",

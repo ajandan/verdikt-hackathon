@@ -874,6 +874,74 @@
     background: rgba(47,143,118,0.06);
   }
 
+  /* Reply package: fanned stack of three paper docs so Artifact 01 reads
+     as a bundle (decision letter + guidelines + pre-populated form),
+     not a single letter. Back-layer papers are muted so the decision
+     letter with the stamp reads as the front sheet. */
+  .doc-stack {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 1 / 1.05;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .doc-stack .doc {
+    position: absolute;
+    width: 78%;
+    max-width: 220px;
+    padding: 16px 14px 18px;
+    box-shadow: 0 10px 22px -14px rgba(20,20,16,0.22);
+  }
+  .doc-stack .doc-h { font-size: 11px; }
+  .doc-stack .doc-sub { font-size: 6.5px; margin-bottom: 10px; }
+  .doc-stack .doc-l { height: 4px; margin: 5px 0; }
+  .doc-stack .doc-stamp {
+    right: 10px; bottom: 10px; font-size: 8px; padding: 3px 6px;
+  }
+  .doc-back {
+    transform: rotate(-7deg) translate(-16%, -6%);
+    background: linear-gradient(180deg, #f6f1e1, #ede6cf);
+    z-index: 1;
+  }
+  .doc-middle {
+    transform: rotate(5deg) translate(14%, 3%);
+    background: linear-gradient(180deg, #fdfcf6, #f5efdf);
+    z-index: 2;
+  }
+  .doc-front {
+    transform: rotate(-1.5deg);
+    z-index: 3;
+  }
+  .doc-field {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 6px;
+    margin: 5px 0;
+    font-size: 8px;
+    border-bottom: 1px dotted rgba(20,20,16,0.18);
+    padding-bottom: 3px;
+  }
+  .doc-field span {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--ink-500); letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .doc-field b {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    color: var(--ink-900); font-weight: 400; font-size: 10px;
+  }
+  .doc-field.mute b {
+    color: var(--ink-500); font-style: italic;
+  }
+  .doc-tag {
+    position: absolute; top: 10px; right: 10px;
+    padding: 2px 5px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 6.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-500);
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.6);
+  }
+
   /* Verdict JSON code block: dark, downstream-flavored. */
   .verdict-json {
     margin: 0;
@@ -2127,24 +2195,46 @@
     <div class="outcome-grid">
       <figure class="outcome-card">
         <div class="out-eyebrow">Artifact 01 · for the applicant</div>
-        <div class="out-title">Decision letter</div>
+        <div class="out-title">Reply package</div>
         <div class="out-preview">
-          <div class="doc" aria-hidden="true">
-            <div class="doc-h">Alderwood Specialty Pharmacy</div>
-            <div class="doc-sub">re: cardiovita-pap-2026 · case asp-201</div>
-            <div class="doc-l"></div>
-            <div class="doc-l mid"></div>
-            <div class="doc-l"></div>
-            <div class="doc-l short"></div>
-            <div class="doc-l"></div>
-            <div class="doc-l mid"></div>
-            <div class="doc-l short"></div>
-            <div class="doc-stamp">approve</div>
+          <div class="doc-stack" aria-hidden="true">
+            <div class="doc doc-back">
+              <div class="doc-tag">static ref</div>
+              <div class="doc-h">Cardiovita PAP</div>
+              <div class="doc-sub">program guidelines · v2026.1</div>
+              <div class="doc-l"></div>
+              <div class="doc-l mid"></div>
+              <div class="doc-l short"></div>
+              <div class="doc-l"></div>
+              <div class="doc-l mid"></div>
+            </div>
+            <div class="doc doc-middle">
+              <div class="doc-tag">pre-filled</div>
+              <div class="doc-h">Rx request form</div>
+              <div class="doc-sub">case asp-201 · needs signature</div>
+              <div class="doc-field"><span>patient</span><b>M. Alvarez</b></div>
+              <div class="doc-field"><span>npi</span><b>1487…3902</b></div>
+              <div class="doc-field"><span>drug</span><b>Cardiovita 40 mg</b></div>
+              <div class="doc-field mute"><span>signature</span><b>pending</b></div>
+            </div>
+            <div class="doc doc-front">
+              <div class="doc-h">Alderwood Specialty Pharmacy</div>
+              <div class="doc-sub">re: cardiovita-pap-2026 · case asp-201</div>
+              <div class="doc-l"></div>
+              <div class="doc-l mid"></div>
+              <div class="doc-l"></div>
+              <div class="doc-l short"></div>
+              <div class="doc-l"></div>
+              <div class="doc-l mid"></div>
+              <div class="doc-stamp">approve</div>
+            </div>
           </div>
         </div>
         <figcaption>
-          Byte-identical merge of a frozen, human-approved template with the verdict.
-          <span class="mono-inline">.pdf</span> or <span class="mono-inline">.docx</span>, content-addressed by
+          A bundle, not a single letter. The decision letter, the program guidelines the applicant needs
+          on file, and any form we can pre-populate (e.g. a partially-filled Rx request on
+          <span class="mono-inline">missing_info</span>). Each doc is a byte-identical merge of a frozen,
+          human-approved template with data from the verdict, content-addressed by
           <span class="mono-inline">version_hash</span>. No model in the render path.
         </figcaption>
       </figure>

@@ -477,16 +477,16 @@ async def fetch_render_result(job_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 async def fetch_case_reply(event_id: str) -> dict[str, Any]:
-    """Fetch the drafted reply artifact for a case by inbox event_id.
+    """Return a short-lived signed download URL for a case's drafted reply.
 
-    Returns the PDF the reviewer will preview — the assembler's output
-    (or the legacy single-template render, if the program has no package
-    bindings). Inline base64 when ≤256 KB, otherwise metadata + a signed
-    REST fetch URL.
+    The artifact is the assembler's merged PDF (or the legacy single-template
+    render for programs without package bindings). The URL bypasses Bearer
+    auth so a remote client can open it directly — it's bound to the
+    event_id and expires per `DOWNLOAD_TOKEN_MAX_AGE_SECONDS`.
 
-    This is a *preview*: the case may still be pending review. Fetching
-    does not approve, send, or otherwise advance the case — it only
-    reads the already-drafted artifact.
+    This is a *preview*: fetching does not approve, send, or otherwise
+    advance the case. If no artifact exists yet (case still processing,
+    or a draft failure), the tool raises a ValueError.
     """
     tenant_id = _current_tenant_uuid()
     eid = uuid.UUID(event_id)
@@ -499,27 +499,56 @@ async def fetch_case_reply(event_id: str) -> dict[str, Any]:
                 f"Case event {event_id} has no drafted reply yet "
                 f"(status={event.status!r})"
             )
-        blob_key = event.reply_attachment_blob_key
         case_number = event.case_number
+        outcome = (event.pap_decision or {}).get("outcome")
 
-    settings = get_settings()
-    data = get_object(settings.s3_bucket_documents, blob_key)
-    size = len(data)
-    response: dict[str, Any] = {
+    base = get_settings().public_base_url.rstrip("/")
+    token = sign_download_token(str(eid), str(tenant_id))
+    path = f"/downloads/case-reply/{eid}?token={token}"
+    download_url = f"{base}{path}" if base else path
+    return {
         "event_id": event_id,
         "case_number": case_number,
-        "blob_key": blob_key,
-        "bytes": size,
+        "outcome": outcome,
+        "download_url": download_url,
         "output_format": "pdf",
     }
-    if size > _MCP_INLINE_MAX_BYTES:
-        response["inline_omitted"] = (
-            f"artifact is {size} bytes, above the "
-            f"{_MCP_INLINE_MAX_BYTES}-byte MCP inline cap; download via reviewer UI"
+
+
+@mcp.tool()
+async def list_pending_reviews(limit: int = 25) -> list[dict[str, Any]]:
+    """List cases currently waiting on a human reviewer.
+
+    Returns the most recently received `pending_review` cases for the
+    caller's tenant with enough surface for a chat client to summarize
+    the queue: case number, event_id, verdict outcome, subject/from,
+    and receive time. Pair with `fetch_case_reply` to preview any row.
+    """
+    tenant_id = _current_tenant_uuid()
+    limit = max(1, min(int(limit), 200))
+    async with async_session() as session:
+        result = await session.execute(
+            select(InboxEvent)
+            .where(
+                InboxEvent.tenant_id == tenant_id,
+                InboxEvent.review_state == "pending_review",
+            )
+            .order_by(InboxEvent.received_at.desc())
+            .limit(limit)
         )
-        return response
-    response["pdf_base64"] = base64.b64encode(data).decode("ascii")
-    return response
+        rows = result.scalars().all()
+        return [
+            {
+                "event_id": str(ev.id),
+                "case_number": ev.case_number,
+                "outcome": (ev.pap_decision or {}).get("outcome"),
+                "subject": ev.subject,
+                "from_addr": ev.from_addr,
+                "received_at": ev.received_at.isoformat() if ev.received_at else None,
+                "has_reply_draft": bool(ev.reply_attachment_blob_key),
+            }
+            for ev in rows
+        ]
 
 
 @mcp.tool()

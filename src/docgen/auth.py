@@ -337,20 +337,31 @@ _JOB_RESULT_PATH = re.compile(r"^/jobs/([^/]+)/result$")
 _INBOX_TEST_DOWNLOAD_PATH = re.compile(
     r"^/downloads/inbox-test/([^/]+)$"
 )
+_CASE_REPLY_DOWNLOAD_PATH = re.compile(
+    r"^/downloads/case-reply/([^/]+)$"
+)
 
 
 def _download_token_tenant(request: Request) -> str | None:
-    """If the request is `GET /jobs/<id>/result?token=<...>` with a valid
-    token, return the tenant_id from the token; otherwise None."""
+    """If the request is a signed artifact-download URL with a valid token,
+    return the tenant_id from the token; otherwise None.
+
+    Covers both job-result URLs (`/jobs/<id>/result`) and case-reply URLs
+    (`/downloads/case-reply/<event_id>`) — both share the same short-lived
+    serializer, so the caller can treat any successful signature as an
+    authenticated request against the payload's tenant scope.
+    """
     if request.method != "GET":
         return None
-    m = _JOB_RESULT_PATH.fullmatch(request.url.path)
-    if m is None:
-        return None
-    token = request.query_params.get("token")
-    if not token:
-        return None
-    return verify_download_token(token, m.group(1))
+    for pattern in (_JOB_RESULT_PATH, _CASE_REPLY_DOWNLOAD_PATH):
+        m = pattern.fullmatch(request.url.path)
+        if m is None:
+            continue
+        token = request.query_params.get("token")
+        if not token:
+            return None
+        return verify_download_token(token, m.group(1))
+    return None
 
 
 def _inbox_test_token_valid(request: Request) -> bool:

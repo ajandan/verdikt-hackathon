@@ -683,6 +683,143 @@
   .rail-step .d { font-size: 11.5px; color: var(--ink-500); margin-top: 4px; line-height: 1.4; }
   .rail-step.hot { background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.02)); }
   .rail-step.hot .n { color: var(--seal-700); }
+  /* Two-zone header row above the 8 step cells. The green→neutral seam is
+     the product thesis: AI stops, deterministic starts. Header + seam bar
+     make the seam the most prominent visual event in the diagram. */
+  .rail-zones {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr;
+    border-bottom: 1px solid var(--hair-soft);
+  }
+  @media (min-width: 1024px) { .rail-zones { grid-template-columns: 1fr 1fr; } }
+  .rail-zone { padding: 20px 22px; }
+  .rail-zone.ai { background: rgba(47,143,118,0.14); }
+  .rail-zone.det { background: rgba(20,20,16,0.04); }
+  @media (min-width: 1024px) {
+    .rail-zone.det { border-left: 3px solid var(--seal-700); }
+  }
+  .rail-zone .zone-eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 15px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--seal-700); font-weight: 700;
+    line-height: 1;
+  }
+  .rail-zone.det .zone-eyebrow { color: var(--ink-900); }
+  .rail-zone .zone-title {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; color: var(--ink-500);
+    margin-top: 8px; letter-spacing: 0.04em;
+  }
+  /* The seam: continuous 3px seal-700 bar between AI and deterministic
+     zones, sitting on the left edge of step 05. Only at the wide-desktop
+     breakpoint where the 8 steps line up in one row; at narrower widths
+     the header row alone tells the story. */
+  @media (min-width: 1024px) {
+    .rail-step.seam { border-left: 3px solid var(--seal-700); }
+    .macro-card.seam { border-left: 3px solid var(--seal-700); }
+  }
+
+  /* Macro-card variant: 4 grouped stages (Ingest / Decide / Deliver /
+     Remember) instead of 8 raw steps. Each card leads with a Serif
+     stage name and lists its underlying steps inside. */
+  .rail.macro { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  @media (min-width: 640px) { .rail.macro { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { .rail.macro { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .macro-card {
+    padding: 22px 20px;
+    border-right: 1px solid var(--hair-soft);
+    border-bottom: 1px solid var(--hair-soft);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .macro-card:last-child { border-right: 0; }
+  .macro-card.ai { background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.02)); }
+  .macro-card.det { background: rgba(20,20,16,0.02); }
+  /* Stage eyebrow: small mono "STAGE" label sitting next to a large
+     italic serif Roman numeral (I–IV) so each macro card feels
+     editorial and the four-stage rhythm is obvious at a glance. */
+  .mc-eyebrow {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.18em; color: var(--ink-500);
+    text-transform: uppercase;
+  }
+  .mc-eyebrow b {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-style: italic; font-weight: 400;
+    font-size: 22px; letter-spacing: 0;
+    text-transform: none;
+    color: var(--seal-700);
+    line-height: 0.9;
+  }
+  .macro-card.det .mc-eyebrow b { color: var(--ink-700); }
+  .mc-title {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 26px; line-height: 1; color: var(--ink-900);
+    letter-spacing: -0.01em;
+  }
+  .mc-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  /* Each step's number (01–08) is rendered as a small mono chip via
+     ::before + data-step, so the eight-step credibility signal is
+     preserved even inside the four macro cards. */
+  .mc-steps > li { display: flex; flex-direction: column; gap: 4px; padding-left: 34px; position: relative; }
+  .mc-steps > li::before {
+    content: attr(data-step);
+    position: absolute; left: 0; top: 1px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5px; letter-spacing: 0.08em;
+    color: var(--seal-700); font-weight: 700;
+    background: rgba(47,143,118,0.12);
+    padding: 2px 6px; border-radius: 3px;
+    line-height: 1.2;
+  }
+  .macro-card.det .mc-steps > li::before {
+    color: var(--ink-700);
+    background: rgba(20,20,16,0.06);
+  }
+  .mc-steps > li > b {
+    color: var(--ink-900); font-weight: 600;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.06em;
+  }
+  .mc-steps > li > p {
+    margin: 0; font-size: 11.5px; color: var(--ink-500); line-height: 1.5;
+  }
+  .mc-branch {
+    display: grid; grid-template-columns: 1fr; gap: 4px; margin-top: 4px;
+  }
+  .mc-branch > div {
+    padding: 6px 8px; border: 1px solid var(--hair-soft); border-radius: 4px;
+    background: rgba(47,143,118,0.06);
+  }
+  .mc-branch > div.skip { background: rgba(20,20,16,0.03); border-style: dashed; }
+  .mc-branch > div > b {
+    display: block; font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--seal-700); font-weight: 600; margin-bottom: 2px;
+  }
+  .mc-branch > div.skip > b { color: var(--ink-500); }
+  .mc-branch > div > span {
+    font-size: 10.5px; color: var(--ink-500); line-height: 1.4; display: block;
+  }
+  /* Step 02 branch: vision path (bytes → slots) vs JSON skip. Two mini-boxes
+     stacked inside the rail cell so the diagram matches the intake split. */
+  .rail-step .rs-branch { display: grid; grid-template-columns: 1fr; gap: 4px; margin-top: 6px; }
+  .rail-step .rs-lane {
+    padding: 6px 8px;
+    border: 1px solid var(--hair-soft);
+    border-radius: 4px;
+    background: rgba(47,143,118,0.06);
+  }
+  .rail-step .rs-lane b {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--seal-700); font-weight: 600;
+    display: block; margin-bottom: 2px;
+  }
+  .rail-step .rs-lane span { font-size: 10.5px; color: var(--ink-500); line-height: 1.4; display: block; }
+  .rail-step .rs-lane.skip { background: rgba(20,20,16,0.03); border-style: dashed; }
+  .rail-step .rs-lane.skip b { color: var(--ink-500); }
   .rail-channels {
     display: flex; flex-wrap: wrap; align-items: center;
     gap: 10px 14px;
@@ -718,6 +855,17 @@
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 12px; fill: var(--ink-700);
   }
+  .intake-diagram .ch-icon {
+    fill: none;
+    stroke: var(--seal-700);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .intake-diagram .ch-icon .fill {
+    fill: var(--seal-700);
+    stroke: none;
+  }
   .intake-diagram .link { fill: none; stroke: var(--seal-500); stroke-width: 1.5; opacity: 0.55; }
   .intake-diagram .link.out { opacity: 0.9; stroke-width: 2; }
   .intake-diagram .hub rect { fill: var(--ink-900); }
@@ -736,8 +884,8 @@
     letter-spacing: 0.14em; text-transform: uppercase;
   }
   .intake-diagram figcaption {
-    max-width: 720px; margin: 20px auto 0;
-    font-size: 15px; line-height: 1.6; color: var(--ink-700); text-align: center;
+    max-width: none; margin: 24px 0 0;
+    font-size: 15px; line-height: 1.65; color: var(--ink-700); text-align: left;
   }
   .intake-diagram figcaption .mono-inline {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -2104,29 +2252,78 @@
       <span>arrived via email</span>
     </div>
 
-    <figure class="intake-diagram" aria-label="Four intake channels converge into a single intake bus, then flow into the verdict pipeline">
+    <figure class="intake-diagram" aria-label="Six intake channels converge into a single intake bus, then flow into the verdict pipeline">
       <svg viewBox="0 0 580 240" role="img" xmlns="http://www.w3.org/2000/svg">
         <g class="channel">
-          <rect x="20" y="18" width="130" height="34" rx="17"/>
-          <text x="85" y="40" text-anchor="middle">Fax</text>
+          <rect x="20" y="15" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 22)">
+            <rect x="2" y="5" width="12" height="9" rx="1"/>
+            <rect x="4" y="1.5" width="8" height="3.5" rx="0.6"/>
+            <circle class="fill" cx="5" cy="8.5" r="0.55"/>
+            <circle class="fill" cx="8" cy="8.5" r="0.55"/>
+            <circle class="fill" cx="11" cy="8.5" r="0.55"/>
+            <line x1="4" y1="11" x2="12" y2="11"/>
+          </g>
+          <text x="98" y="34" text-anchor="middle">Fax</text>
         </g>
         <g class="channel">
-          <rect x="20" y="70" width="130" height="34" rx="17"/>
-          <text x="85" y="92" text-anchor="middle">Postal mail</text>
+          <rect x="20" y="51" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 58)">
+            <rect x="1" y="3" width="14" height="10" rx="1"/>
+            <path d="M1.5 3.5 L8 9 L14.5 3.5"/>
+          </g>
+          <text x="98" y="70" text-anchor="middle">Postal mail</text>
         </g>
         <g class="channel">
-          <rect x="20" y="122" width="130" height="34" rx="17"/>
-          <text x="85" y="144" text-anchor="middle">Web form</text>
+          <rect x="20" y="87" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 94)">
+            <rect x="1" y="1.5" width="14" height="13" rx="1"/>
+            <line x1="1" y1="4.8" x2="15" y2="4.8"/>
+            <circle class="fill" cx="3" cy="3.2" r="0.5"/>
+            <line x1="3" y1="7.8" x2="13" y2="7.8"/>
+            <line x1="3" y1="10.8" x2="10" y2="10.8"/>
+          </g>
+          <text x="98" y="106" text-anchor="middle">Web form</text>
         </g>
         <g class="channel">
-          <rect x="20" y="174" width="130" height="34" rx="17"/>
-          <text x="85" y="196" text-anchor="middle">Email</text>
+          <rect x="20" y="123" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 130)">
+            <circle cx="8" cy="8" r="6.5"/>
+            <circle cx="8" cy="8" r="2.4"/>
+            <path d="M10.4 8 L10.4 10 A 1.3 1.3 0 0 0 12.7 9.6"/>
+          </g>
+          <text x="98" y="142" text-anchor="middle">Email</text>
+        </g>
+        <g class="channel">
+          <rect x="20" y="159" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 166)">
+            <path d="M6 3 Q4 3 4 6 Q4 8 2.5 8 Q4 8 4 10 Q4 13 6 13"/>
+            <path d="M10 3 Q12 3 12 6 Q12 8 13.5 8 Q12 8 12 10 Q12 13 10 13"/>
+            <circle class="fill" cx="6.5" cy="8" r="0.4"/>
+            <circle class="fill" cx="8" cy="8" r="0.4"/>
+            <circle class="fill" cx="9.5" cy="8" r="0.4"/>
+          </g>
+          <text x="98" y="178" text-anchor="middle">REST</text>
+        </g>
+        <g class="channel">
+          <rect x="20" y="195" width="130" height="30" rx="15"/>
+          <g class="ch-icon" transform="translate(32 202)">
+            <circle cx="3" cy="4" r="1.6"/>
+            <circle cx="13" cy="4" r="1.6"/>
+            <circle cx="8" cy="12" r="1.6"/>
+            <line x1="4.3" y1="4.8" x2="7" y2="10.8"/>
+            <line x1="11.7" y1="4.8" x2="9" y2="10.8"/>
+            <line x1="4.6" y1="4" x2="11.4" y2="4"/>
+          </g>
+          <text x="98" y="214" text-anchor="middle">MCP</text>
         </g>
 
-        <path class="link" d="M150 35 C 260 35, 260 120, 380 120"/>
-        <path class="link" d="M150 87 C 260 87, 260 120, 380 120"/>
-        <path class="link" d="M150 139 C 260 139, 260 120, 380 120"/>
-        <path class="link" d="M150 191 C 260 191, 260 120, 380 120"/>
+        <path class="link" d="M150 30 C 260 30, 260 120, 380 120"/>
+        <path class="link" d="M150 66 C 260 66, 260 120, 380 120"/>
+        <path class="link" d="M150 102 C 260 102, 260 120, 380 120"/>
+        <path class="link" d="M150 138 C 260 138, 260 120, 380 120"/>
+        <path class="link" d="M150 174 C 260 174, 260 120, 380 120"/>
+        <path class="link" d="M150 210 C 260 210, 260 120, 380 120"/>
 
         <g class="hub">
           <rect x="380" y="94" width="170" height="52" rx="10"/>
@@ -2135,10 +2332,13 @@
         </g>
       </svg>
       <figcaption>
-        Fax pages, scanned mail, web-form JSON, and email attachments all become the same shape:
-        an <span class="mono-inline">inbox event</span> with a resolved tenant, program, and normalized attachments.
-        Extract, retrieve, and reason don't know which channel a case came from, so one code path
-        adjudicates all four.
+        Fax pages, scanned mail, web-form submissions, email attachments, REST payloads, and MCP tool calls
+        all become the same shape: an <span class="mono-inline">inbox event</span> with a resolved tenant,
+        program, and normalized attachments. Web forms are just a REST client, so their submissions land on
+        the same <span class="mono-inline">/inbox</span> endpoint that partners hit directly; MCP tool
+        invocations are JSON by construction. Fax, postal mail, and email attachments arrive as bytes, so
+        a vision model reads them into structured intake slots first. Extract, retrieve, and reason don't
+        know which channel a case came from, so one code path adjudicates all six.
       </figcaption>
     </figure>
 
@@ -2159,18 +2359,75 @@
       <span>3 rules fired</span>
     </div>
 
-    <div class="rail">
-      <div class="rail-step hot"><div class="n">01</div><div class="k">Intake</div><div class="d">Fax, mail, web, or email. Every channel normalizes into one inbox and routes to tenant + program.</div></div>
-      <div class="rail-step hot"><div class="n">02</div><div class="k">Extract</div><div class="d">Vision reads attachments into structured intake slots.</div></div>
-      <div class="rail-step hot"><div class="n">03</div><div class="k">Retrieve</div><div class="d">Rules matched by embedding + rerank against a versioned pack.</div></div>
-      <div class="rail-step hot"><div class="n">04</div><div class="k">Reason</div><div class="d">Structured verdict: approve, deny, or missing_info. Citations attached.</div></div>
-      <div class="rail-step"><div class="n">05</div><div class="k">Merge</div><div class="d">Verdict + frozen template → deterministic bytes.</div></div>
-      <div class="rail-step"><div class="n">06</div><div class="k">Deliver</div><div class="d">Two artifacts out: byte-identical reply letter, plus JSON verdict for downstream systems.</div></div>
-      <div class="rail-step"><div class="n">07</div><div class="k">Audit</div><div class="d">Every stage preserved: intake, rules, decision, letter, downstream handoff.</div></div>
-      <div class="rail-step"><div class="n">08</div><div class="k">Rollback</div><div class="d">Repin an earlier template version. No re-decision. No drift.</div></div>
-      <div class="rail-split">
-        <div>◄ AI zone · pipeline · human-authored rules & templates</div>
-        <div>Deterministic zone · reply time · no model, ever ►</div>
+    <div class="rail macro">
+      <div class="rail-zones">
+        <div class="rail-zone ai">
+          <div class="zone-eyebrow">◄ AI zone</div>
+          <div class="zone-title">pipeline · human-authored rules &amp; templates</div>
+        </div>
+        <div class="rail-zone det">
+          <div class="zone-eyebrow">Deterministic zone ►</div>
+          <div class="zone-title">reply time · no model, ever</div>
+        </div>
+      </div>
+      <div class="macro-card ai">
+        <div class="mc-eyebrow">Stage <b>I</b></div>
+        <div class="mc-title">Ingest</div>
+        <ul class="mc-steps">
+          <li data-step="01">
+            <b>Intake</b>
+            <p>Every channel normalizes into one inbox and routes to tenant + program.</p>
+          </li>
+          <li data-step="02">
+            <b>Extract</b>
+            <div class="mc-branch">
+              <div><b>Vision</b><span>A VLM reads fax, postal mail, and email PDFs into intake slots.</span></div>
+              <div class="skip"><b>Skipped</b><span>Web forms, REST, and MCP arrive as JSON. Straight to retrieve.</span></div>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="macro-card ai">
+        <div class="mc-eyebrow">Stage <b>II</b></div>
+        <div class="mc-title">Decide</div>
+        <ul class="mc-steps">
+          <li data-step="03">
+            <b>Retrieve</b>
+            <p>Rules matched by embedding + rerank against a versioned pack.</p>
+          </li>
+          <li data-step="04">
+            <b>Reason</b>
+            <p>Structured verdict: approve, deny, or missing_info. Citations attached.</p>
+          </li>
+        </ul>
+      </div>
+      <div class="macro-card det seam">
+        <div class="mc-eyebrow">Stage <b>III</b></div>
+        <div class="mc-title">Deliver</div>
+        <ul class="mc-steps">
+          <li data-step="05">
+            <b>Merge</b>
+            <p>Verdict + frozen template → deterministic bytes.</p>
+          </li>
+          <li data-step="06">
+            <b>Deliver</b>
+            <p>Two artifacts: byte-identical reply letter, plus JSON verdict for downstream systems.</p>
+          </li>
+        </ul>
+      </div>
+      <div class="macro-card det">
+        <div class="mc-eyebrow">Stage <b>IV</b></div>
+        <div class="mc-title">Remember</div>
+        <ul class="mc-steps">
+          <li data-step="07">
+            <b>Audit</b>
+            <p>Every stage preserved: intake, rules, decision, letter, downstream handoff.</p>
+          </li>
+          <li data-step="08">
+            <b>Rollback</b>
+            <p>Repin an earlier template version. No re-decision. No drift.</p>
+          </li>
+        </ul>
       </div>
     </div>
 

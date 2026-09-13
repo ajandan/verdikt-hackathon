@@ -516,6 +516,58 @@ async def fetch_case_reply(event_id: str) -> dict[str, Any]:
 
 
 @mcp.tool()
+async def get_case_details(event_id: str) -> dict[str, Any]:
+    """Return the full record for one case: verdict, intake, audit, reply link.
+
+    The dict mirrors what the reviewer detail page renders — decision
+    citations and missing fields, the extracted slot values (including
+    any MDM-sourced history slots the pipeline merged in), the audit
+    trail, and a signed URL for the drafted reply artifact when one
+    exists. Read-only: fetching does not advance the case.
+    """
+    tenant_id = _current_tenant_uuid()
+    eid = uuid.UUID(event_id)
+    async with async_session() as session:
+        ev = await session.get(InboxEvent, eid)
+        if ev is None or ev.tenant_id != tenant_id:
+            raise ValueError(f"Case event {event_id} not found")
+
+        template_name = None
+        if ev.template_id is not None:
+            tmpl = await session.get(Template, ev.template_id)
+            if tmpl is not None:
+                template_name = tmpl.name
+
+    reply: dict[str, Any] = {"drafted": bool(ev.reply_attachment_blob_key)}
+    if ev.reply_attachment_blob_key:
+        base = get_settings().public_base_url.rstrip("/")
+        token = sign_download_token(str(eid), str(tenant_id))
+        path = f"/downloads/case-reply/{eid}?token={token}"
+        reply["download_url"] = f"{base}{path}" if base else path
+        reply["blob_key"] = ev.reply_attachment_blob_key
+
+    return {
+        "event_id": event_id,
+        "case_number": ev.case_number,
+        "tenant_id": str(ev.tenant_id) if ev.tenant_id else None,
+        "message_id": ev.message_id,
+        "from_addr": ev.from_addr,
+        "subject": ev.subject,
+        "received_at": ev.received_at.isoformat() if ev.received_at else None,
+        "status": ev.status,
+        "review_state": ev.review_state,
+        "reply_sent": ev.reply_message_id is not None,
+        "template_name": template_name,
+        "score": ev.score,
+        "error": ev.error,
+        "decision": ev.pap_decision,
+        "intake": ev.pap_extraction or ev.pap_intake,
+        "audit_trail": ev.review_history or [],
+        "reply": reply,
+    }
+
+
+@mcp.tool()
 async def list_pending_reviews(limit: int = 25) -> list[dict[str, Any]]:
     """List cases currently waiting on a human reviewer.
 

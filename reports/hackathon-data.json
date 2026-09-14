@@ -124,20 +124,48 @@
   },
   "judging_criteria": [
     {
-      "criterion": "Technical implementation",
-      "note": "Three NVIDIA models composed at their strongest task shapes on one Nebius key, with per-call routing instrumentation. Deterministic render boundary enforced in tests. One-way dependency prevents substrate contamination. Every inter-stage artifact is a structured pydantic model, independently testable at each seam."
+      "criterion": "Technological Implementation",
+      "prompt": "How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?",
+      "points": [
+        "Three NVIDIA OSS models composed on Nebius Token Factory at their strongest task shapes: Nemotron for policy reasoning and letter drafting, NeMo Retriever NIMs for citation-quality retrieval, nv-ingest for structured parsing of scanned intake.",
+        "One Nebius key, one router, per-call instrumentation. Latency, cost, and cache-hit rate are visible on the admin routing page.",
+        "Nemotron stops at a hard boundary. Every artifact that leaves the pipeline (reply letter, JSON verdict) is written by deterministic Python from typed pydantic models.",
+        "A boundary test fails the build if an LLM ever leaks into the render path.",
+        "Audit-defensibility of a rules engine with the language quality of Nemotron."
+      ]
     },
     {
-      "criterion": "Design (complete product)",
-      "note": "Observable end-to-end. Every stage's output is a structured artifact a human reviewer can read: intake, retrieved rules with rerank scores, decision with citations, rendered letter. Admin routing-table page surfaces model-selection decisions as live data. Prometheus exposition at /metrics carries per-tenant render counters, latency histograms, queue-depth gauges, and preflight-rejection counters — an ops on-call can answer 'who is this load coming from, is anything stuck, what's the P99' from a scrape."
+      "criterion": "Design",
+      "prompt": "Does the project deliver a complete, coherent product experience not just a technical proof of concept?",
+      "points": [
+        "Verdikt is a working product, not a notebook.",
+        "Fax, scanned paper, and portal submissions fan into a single email-normalized intake bus.",
+        "The pipeline emits a signed reply letter and a structured JSON verdict a downstream call-center system can act on immediately.",
+        "Eight live dashboards (Overview, About, Features, Tests, Code, Security, Production, Hackathon) mirror what an operator actually needs, not just what a judge wants to see.",
+        "Prometheus /metrics ships per-tenant counters, latency histograms, queue-depth gauges, and preflight-rejection counters. An on-call can answer 'who is this load from, what's stuck, what's the P99' from one scrape."
+      ]
     },
     {
-      "criterion": "Potential impact",
-      "note": "Patient Assistance Programs are one instance of a class: regulated document workflows where the letter that leaves the building is the audit artifact. Prior authorization, benefit verification, informed consent, MedWatch reporting all share the same shape. Onboarding a second program is a data change, not a build."
+      "criterion": "Potential Impact",
+      "prompt": "Does the project make a credible, specific case for solving a real problem for a real audience and does the solution actually address it based on what's demonstrated?",
+      "points": [
+        "Patient Assistance Programs are one instance of a class: regulated document workflows where the letter that leaves the building is the audit artifact.",
+        "Prior authorization, benefit verification, informed consent, and MedWatch reporting all share the same shape and the same failure mode: humans transcribing forms all day, one keystroke from a denial.",
+        "The demo shows one program end-to-end, from a faxed application to a decisioned reply.",
+        "Onboarding a second program is a data change (rulebook plus templates), not a build.",
+        "The second use case costs a week, not a quarter."
+      ]
     },
     {
-      "criterion": "Quality of idea",
-      "note": "Most 2026 doc-gen submissions put a language model on the artifact-generation code path. Verdikt refuses. The EU AI Act categorizes healthcare eligibility decisions as high-risk and demands the exact reproducibility guarantees Verdikt provides mechanically. Building audit-defensible in 2026 is ahead of the regulatory curve, not behind the capability curve."
+      "criterion": "Quality of the Idea",
+      "prompt": "Is this a creative, non-obvious use of Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron and does the team show genuine understanding of the problem space?",
+      "points": [
+        "Most 2026 document-generation submissions put a language model directly on the artifact-generation code path. Verdikt refuses.",
+        "Nemotron reads, ranks, extracts, and reasons on Nebius Token Factory; deterministic code writes.",
+        "The EU AI Act classifies healthcare eligibility decisions as high-risk and demands exactly the reproducibility guarantees Verdikt provides mechanically.",
+        "Using Nemotron for what it is uniquely good at (reasoning over messy healthcare policy) while keeping it off the artifact path is the non-obvious call.",
+        "The difference between a demo that impresses judges and a system that can be deployed on Monday."
+      ]
     }
   ],
   "checklist": [

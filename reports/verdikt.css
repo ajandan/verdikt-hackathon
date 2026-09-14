@@ -263,10 +263,92 @@ section.block .subhead {
   padding: 14px 18px; border: 1px solid var(--hair); background: #fff; border-radius: 8px;
 }
 .row-item .r-title { font-weight: 500; font-size: 14px; }
-.row-item .r-desc { color: var(--ink-500); font-size: 12.5px; margin-top: 4px; line-height: 1.45; }
+.row-item .r-prompt {
+  font-family: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  font-style: italic; font-size: 15px; line-height: 1.5;
+  color: var(--ink-700); margin-top: 6px;
+  padding-left: 12px; border-left: 2px solid var(--seal-500);
+}
+.row-item .r-desc { color: var(--ink-500); font-size: 12.5px; margin-top: 8px; line-height: 1.55; }
 .row-item .r-evidence {
   font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
   color: var(--ink-300); margin-top: 6px;
+}
+
+/* Judging showcase — four Devpost criteria, aligned with .inspect-card pattern */
+.judging-showcase .kicker { color: var(--seal-700); }
+.judging-grid {
+  display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 20px;
+}
+.judging-card {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  padding: 22px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.judging-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--seal-500);
+}
+.judging-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--seal-500);
+  box-shadow: 0 12px 32px -18px rgba(47,143,118,0.28);
+}
+.judging-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.judging-ord {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--seal-700);
+}
+.judging-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400;
+  font-size: 22px; line-height: 1.15;
+  color: var(--ink-900);
+  margin: 0;
+}
+.judging-prompt {
+  font-family: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  font-style: italic;
+  font-size: 15px; line-height: 1.5;
+  color: var(--ink-700);
+  margin: 0; padding: 4px 0 4px 12px;
+  border-left: 2px solid var(--seal-500);
+}
+.judging-points {
+  list-style: none;
+  margin: 4px 0 0; padding: 0;
+  display: grid; gap: 8px;
+}
+.judging-points li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--ink-700);
+}
+.judging-points li::before {
+  content: "";
+  position: absolute;
+  left: 4px; top: 8px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--seal-500);
+}
+.judging-answer {
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--ink-700);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .judging-card { padding: 18px 18px; gap: 10px; }
+  .judging-title { font-size: 20px; }
+  .judging-prompt { font-size: 14px; }
 }
 
 /* Two-column tables */

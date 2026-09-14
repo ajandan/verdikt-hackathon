@@ -83,10 +83,17 @@
       </div>
     </section>
 
+    <section class="block judging-showcase">
+      <span class="kicker">The main point</span>
+      <h2>Against the four criteria</h2>
+      <p class="subhead">The Devpost rubric, verbatim, with Verdikt's answer under each. This is the page the judges came here to read.</p>
+      <div class="judging-grid" id="judging-showcase-grid"></div>
+    </section>
+
     <section class="block">
       <span class="kicker">Explore</span>
       <h2>Every topic, one click away</h2>
-      <p class="subhead">Rules, architecture, reuse split, judging fit, checklist, timeline, open items: each behind its own tab. Pick one to inspect.</p>
+      <p class="subhead">Rules, architecture, reuse split, checklist, timeline, open items: each behind its own tab. Pick one to inspect.</p>
 
       <div class="tabs" id="tabs" role="tablist"></div>
 
@@ -113,14 +120,6 @@
           <p class="subhead">The hackathon rules allow reuse. They require honesty about the split. Verdikt's is mechanical: two packages, one-way dependency, boundary tests enforce direction.</p>
         </div>
         <div class="split-grid" id="split-grid"></div>
-      </div>
-
-      <div class="tab-panel" data-panel="judging">
-        <div class="tab-panel-head">
-          <h2>Against the four criteria</h2>
-          <p class="subhead">How Verdikt reads against Devpost's judging criteria: technical implementation, design, potential impact, quality of idea.</p>
-        </div>
-        <div class="row-list" id="judging-list"></div>
       </div>
 
       <div class="tab-panel" data-panel="checklist">
@@ -231,7 +230,6 @@
     { id: 'rules',        label: 'Rules',        count: data.rules.length },
     { id: 'architecture', label: 'Architecture', count: data.architecture.stages.length },
     { id: 'reuse',        label: 'Reuse',        count: 2 },
-    { id: 'judging',      label: 'Judging',      count: data.judging_criteria.length },
     { id: 'checklist',    label: 'Checklist',    count: data.checklist.length },
     { id: 'timeline',     label: 'Timeline',     count: data.timeline.length },
     { id: 'open',         label: 'Open items',   count: data.open_items.length },
@@ -367,15 +365,25 @@
       '</ul>' +
     '</div>';
 
-  document.getElementById('judging-list').innerHTML = data.judging_criteria.map(j =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(j.criterion) + '</div>' +
-        '<div class="r-desc">' + escapeHtml(j.note) + '</div>' +
-      '</div>' +
-      '<span class="pill pass">covered</span>' +
-    '</div>'
-  ).join('');
+  document.getElementById('judging-showcase-grid').innerHTML = data.judging_criteria.map((j, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    const total = String(data.judging_criteria.length).padStart(2, '0');
+    return (
+      '<article class="judging-card">' +
+        '<div class="judging-meta">' +
+          '<span class="judging-ord">Criterion ' + num + ' / ' + total + '</span>' +
+          '<span class="pill pass">covered</span>' +
+        '</div>' +
+        '<h3 class="judging-title">' + escapeHtml(j.criterion) + '</h3>' +
+        (j.prompt ? '<blockquote class="judging-prompt">' + escapeHtml(j.prompt) + '</blockquote>' : '') +
+        (Array.isArray(j.points) && j.points.length
+          ? '<ul class="judging-points">' +
+              j.points.map(p => '<li>' + escapeHtml(p) + '</li>').join('') +
+            '</ul>'
+          : '<p class="judging-answer">' + escapeHtml(j.note || '') + '</p>') +
+      '</article>'
+    );
+  }).join('');
 
   document.getElementById('checklist-table').innerHTML =
     '<thead><tr><th>Item</th><th>Status</th><th>Notes</th></tr></thead>' +

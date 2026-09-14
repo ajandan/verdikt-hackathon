@@ -59,6 +59,9 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_pap_demo_data",
             "test_pap_history_rules_yaml",
             "test_pap_history_slot_flatten",
+            "test_pap_history_citations",
+            "test_pap_json_intake_aliases",
+            "test_pap_slot_compile",
             "test_pap_inbox_hook",
         ],
     ),
@@ -103,18 +106,21 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_diff",
             "test_golden",
             "test_sample_eob",
+            "test_publish_gate_slot_refs",
         ],
     ),
     (
         "boundaries",
         "Boundaries & policy",
-        "Multi-tenancy isolation, SSRF/IDOR, network safety, rate limiting.",
+        "Multi-tenancy isolation, SSRF/IDOR, network safety, rate limiting, "
+        "per-tenant quotas.",
         [
             "test_boundaries",
             "test_tenancy",
             "test_ssrf_and_idor",
             "test_net_safety",
             "test_rate_limit",
+            "test_quotas",
         ],
     ),
     (
@@ -143,7 +149,8 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
     (
         "infra",
         "Workers & providers",
-        "Idempotency, watchdog reaper, webhooks, provider config, E2E pipeline.",
+        "Idempotency, watchdog reaper, webhooks, provider config, "
+        "metrics endpoint, E2E pipeline.",
         [
             "test_worker_idempotency",
             "test_watchdog",
@@ -152,6 +159,7 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_provider_config",
             "test_provider_nebius",
             "test_stub_provider",
+            "test_metrics",
             "test_e2e_pipeline",
             "test_ui_smoke",
         ],

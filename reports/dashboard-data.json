@@ -1,21 +1,21 @@
 {
   "product": "Verdikt",
   "run": {
-    "junit_timestamp": "2026-09-13T22:37:27.245952+00:00",
-    "generated_at": "2026-09-14T01:50:29.194074+00:00",
-    "duration_seconds": 397.2,
-    "commit": "e26b370",
+    "junit_timestamp": "2026-09-14T20:43:13.378574+00:00",
+    "generated_at": "2026-09-14T20:51:05.311475+00:00",
+    "duration_seconds": 415.8,
+    "commit": "f6783d7",
     "framework": "pytest --forked",
     "python": "3.12",
     "environment": "docker (quire-hackathon-web-1)"
   },
   "totals": {
-    "tests": 529,
-    "failed": 0,
+    "tests": 576,
+    "failed": 4,
     "errored": 0,
     "skipped": 0,
-    "duration_seconds": 397.2,
-    "passed": 529
+    "duration_seconds": 415.8,
+    "passed": 572
   },
   "suites": [
     {
@@ -28,7 +28,7 @@
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 174.28
+        "duration": 127.42
       },
       "files": [
         {
@@ -38,7 +38,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 49.74
+          "duration": 27.3
         },
         {
           "file": "test_auth",
@@ -47,7 +47,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 5.03
+          "duration": 4.68
         },
         {
           "file": "test_csrf",
@@ -56,7 +56,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 11.52
+          "duration": 6.3
         },
         {
           "file": "test_login_ratelimit",
@@ -65,7 +65,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 70.64
+          "duration": 57.03
         },
         {
           "file": "test_rbac",
@@ -74,7 +74,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 17.71
+          "duration": 11.67
         },
         {
           "file": "test_security_headers",
@@ -83,7 +83,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 19.63
+          "duration": 20.44
         }
       ]
     },
@@ -92,12 +92,12 @@
       "name": "PAP pipeline",
       "description": "Intake, extraction, MDM lookup, retrieval, reasoning, orchestration.",
       "totals": {
-        "tests": 84,
-        "passed": 84,
+        "tests": 109,
+        "passed": 109,
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 12.57
+        "duration": 9.44
       },
       "files": [
         {
@@ -107,7 +107,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.99
+          "duration": 0.47
         },
         {
           "file": "test_pap_reason",
@@ -116,7 +116,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.39
+          "duration": 1.14
         },
         {
           "file": "test_pap_retrieve",
@@ -125,7 +125,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.15
+          "duration": 1.88
         },
         {
           "file": "test_pap_orchestrator",
@@ -134,7 +134,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.29
+          "duration": 0.89
         },
         {
           "file": "test_pap_rules",
@@ -143,7 +143,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.28
+          "duration": 1.04
         },
         {
           "file": "test_pap_mdm_lookup",
@@ -152,7 +152,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.32
+          "duration": 1.14
         },
         {
           "file": "test_pap_mdm_tenant_config",
@@ -161,7 +161,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.75
+          "duration": 0.4
         },
         {
           "file": "test_pap_demo_data",
@@ -170,7 +170,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.21
+          "duration": 0.17
         },
         {
           "file": "test_pap_history_rules_yaml",
@@ -179,7 +179,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.74
+          "duration": 0.52
         },
         {
           "file": "test_pap_history_slot_flatten",
@@ -188,7 +188,34 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.37
+          "duration": 0.21
+        },
+        {
+          "file": "test_pap_history_citations",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.31
+        },
+        {
+          "file": "test_pap_json_intake_aliases",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.25
+        },
+        {
+          "file": "test_pap_slot_compile",
+          "tests": 13,
+          "passed": 13,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.59
         },
         {
           "file": "test_pap_inbox_hook",
@@ -197,7 +224,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.09
+          "duration": 0.43
         }
       ]
     },
@@ -211,7 +238,7 @@
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 7.65
+        "duration": 80.63
       },
       "files": [
         {
@@ -221,7 +248,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.61
+          "duration": 9.61
         },
         {
           "file": "test_inbox_imap_parse",
@@ -230,7 +257,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.26
+          "duration": 7.44
         },
         {
           "file": "test_inbox_mailer",
@@ -239,7 +266,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.67
+          "duration": 6.01
         },
         {
           "file": "test_inbox_pap_route",
@@ -248,7 +275,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.65
+          "duration": 7.49
         },
         {
           "file": "test_inbox_replies",
@@ -257,7 +284,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.94
+          "duration": 14.27
         },
         {
           "file": "test_inbox_resolver",
@@ -266,7 +293,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.22
+          "duration": 30.9
         },
         {
           "file": "test_inbox_score",
@@ -275,7 +302,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.35
+          "duration": 2.36
         },
         {
           "file": "test_inbox_synth",
@@ -284,7 +311,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.44
+          "duration": 1.1
         },
         {
           "file": "test_inbox_test_executor",
@@ -293,7 +320,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.42
+          "duration": 0.71
         },
         {
           "file": "test_inbox_test_planner",
@@ -302,7 +329,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.63
+          "duration": 0.39
         },
         {
           "file": "test_inbox_test_verdict",
@@ -311,7 +338,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.45
+          "duration": 0.34
         }
       ]
     },
@@ -320,12 +347,12 @@
       "name": "Templates & rendering",
       "description": "DOCX/PDF preflight, publish/rollback, locale variants, supersede, realign.",
       "totals": {
-        "tests": 146,
-        "passed": 146,
-        "failed": 0,
+        "tests": 155,
+        "passed": 154,
+        "failed": 1,
         "errored": 0,
         "skipped": 0,
-        "duration": 93.59
+        "duration": 78.06
       },
       "files": [
         {
@@ -335,16 +362,16 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 4.36
+          "duration": 1.92
         },
         {
           "file": "test_pdf_template",
-          "tests": 27,
-          "passed": 27,
+          "tests": 32,
+          "passed": 32,
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 23.44
+          "duration": 18.15
         },
         {
           "file": "test_preflight",
@@ -353,7 +380,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 3.13
+          "duration": 1.96
         },
         {
           "file": "test_preflight_dispatch",
@@ -362,7 +389,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.52
+          "duration": 2.19
         },
         {
           "file": "test_preflight_job",
@@ -371,16 +398,16 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.57
+          "duration": 2.56
         },
         {
           "file": "test_publish",
           "tests": 12,
-          "passed": 12,
-          "failed": 0,
+          "passed": 11,
+          "failed": 1,
           "errored": 0,
           "skipped": 0,
-          "duration": 20.91
+          "duration": 20.94
         },
         {
           "file": "test_supersede",
@@ -389,7 +416,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 7.67
+          "duration": 7.91
         },
         {
           "file": "test_locale_variant",
@@ -398,7 +425,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 10.06
+          "duration": 7.33
         },
         {
           "file": "test_realign_pdf",
@@ -407,7 +434,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.48
+          "duration": 0.94
         },
         {
           "file": "test_render_enqueue_failure",
@@ -416,7 +443,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 3.51
+          "duration": 2.79
         },
         {
           "file": "test_render_mapped",
@@ -425,7 +452,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 8.55
+          "duration": 6.55
         },
         {
           "file": "test_render_stack",
@@ -434,7 +461,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.27
+          "duration": 1.63
         },
         {
           "file": "test_docx_sanitize",
@@ -443,7 +470,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.41
+          "duration": 0.21
         },
         {
           "file": "test_merge",
@@ -452,7 +479,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.8
+          "duration": 0.35
         },
         {
           "file": "test_freeze",
@@ -461,7 +488,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.27
+          "duration": 0.13
         },
         {
           "file": "test_diff",
@@ -470,7 +497,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.14
+          "duration": 0.85
         },
         {
           "file": "test_golden",
@@ -479,7 +506,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.3
+          "duration": 0.16
         },
         {
           "file": "test_sample_eob",
@@ -488,21 +515,30 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.19
+          "duration": 0.74
+        },
+        {
+          "file": "test_publish_gate_slot_refs",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.74
         }
       ]
     },
     {
       "id": "boundaries",
       "name": "Boundaries & policy",
-      "description": "Multi-tenancy isolation, SSRF/IDOR, network safety, rate limiting.",
+      "description": "Multi-tenancy isolation, SSRF/IDOR, network safety, rate limiting, per-tenant quotas.",
       "totals": {
-        "tests": 31,
-        "passed": 31,
-        "failed": 0,
+        "tests": 37,
+        "passed": 34,
+        "failed": 3,
         "errored": 0,
         "skipped": 0,
-        "duration": 15.4
+        "duration": 19.39
       },
       "files": [
         {
@@ -512,7 +548,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.09
+          "duration": 0.86
         },
         {
           "file": "test_tenancy",
@@ -521,7 +557,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.74
+          "duration": 3.01
         },
         {
           "file": "test_ssrf_and_idor",
@@ -530,7 +566,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 7.43
+          "duration": 8.75
         },
         {
           "file": "test_net_safety",
@@ -539,7 +575,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.93
+          "duration": 0.75
         },
         {
           "file": "test_rate_limit",
@@ -548,7 +584,16 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.2
+          "duration": 1.01
+        },
+        {
+          "file": "test_quotas",
+          "tests": 6,
+          "passed": 3,
+          "failed": 3,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 5.01
         }
       ]
     },
@@ -562,7 +607,7 @@
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 7.26
+        "duration": 4.25
       },
       "files": [
         {
@@ -572,7 +617,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.18
+          "duration": 0.53
         },
         {
           "file": "test_mcp_idempotent",
@@ -581,7 +626,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 6.08
+          "duration": 3.73
         }
       ]
     },
@@ -595,7 +640,7 @@
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 19.51
+        "duration": 11.84
       },
       "files": [
         {
@@ -605,7 +650,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.73
+          "duration": 1.91
         },
         {
           "file": "test_mapper_backfill",
@@ -614,7 +659,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.78
+          "duration": 2.31
         },
         {
           "file": "test_coerce_payload",
@@ -623,7 +668,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.35
+          "duration": 0.14
         },
         {
           "file": "test_schema",
@@ -632,7 +677,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.11
+          "duration": 0.19
         },
         {
           "file": "test_schema_groups",
@@ -641,7 +686,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 4.24
+          "duration": 0.75
         },
         {
           "file": "test_pagination",
@@ -650,7 +695,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 11.9
+          "duration": 6.35
         },
         {
           "file": "test_geometry",
@@ -659,21 +704,21 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.4
+          "duration": 0.18
         }
       ]
     },
     {
       "id": "infra",
       "name": "Workers & providers",
-      "description": "Idempotency, watchdog reaper, webhooks, provider config, E2E pipeline.",
+      "description": "Idempotency, watchdog reaper, webhooks, provider config, metrics endpoint, E2E pipeline.",
       "totals": {
-        "tests": 37,
-        "passed": 37,
+        "tests": 44,
+        "passed": 44,
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 39.16
+        "duration": 49.14
       },
       "files": [
         {
@@ -683,7 +728,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 2.42
+          "duration": 2.89
         },
         {
           "file": "test_watchdog",
@@ -692,7 +737,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.04
+          "duration": 1.01
         },
         {
           "file": "test_webhooks",
@@ -701,7 +746,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 1.26
+          "duration": 1.25
         },
         {
           "file": "test_idempotency",
@@ -710,7 +755,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 13.83
+          "duration": 8.49
         },
         {
           "file": "test_provider_config",
@@ -719,7 +764,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.22
+          "duration": 0.2
         },
         {
           "file": "test_provider_nebius",
@@ -728,7 +773,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.26
+          "duration": 0.21
         },
         {
           "file": "test_stub_provider",
@@ -737,7 +782,16 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 0.29
+          "duration": 0.17
+        },
+        {
+          "file": "test_metrics",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.66
         },
         {
           "file": "test_e2e_pipeline",
@@ -746,7 +800,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 10.5
+          "duration": 23.89
         },
         {
           "file": "test_ui_smoke",
@@ -755,7 +809,7 @@
           "failed": 0,
           "errored": 0,
           "skipped": 0,
-          "duration": 9.34
+          "duration": 10.37
         }
       ]
     }

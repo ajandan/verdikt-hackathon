@@ -189,7 +189,58 @@ Before recording the video or handing out the URL:
   console. The design-time LLM is called once per template mapping, but a
   compromised key without a cap is still a bad time.
 
-## 11. Troubleshooting quick reference
+## 11. Scraping /metrics from Prometheus
+
+The app exposes Prometheus-format metrics at `GET /metrics`. Auth-bypassed
+so scrapers don't need bearer tokens — restrict access at the network
+edge instead (allowlist your Prometheus IP in the security group, or bind
+the app on an internal port that Caddy doesn't route to the public
+Internet).
+
+What ships out of the box:
+
+| Metric | Type | Labels | Answers |
+| --- | --- | --- | --- |
+| `docgen_renders_total` | counter | `tenant_id`, `format`, `state` | "renders/hr by tenant, by outcome" |
+| `docgen_render_latency_seconds` | histogram | `tenant_id`, `format`, `state` | "P99 latency by tenant + format" |
+| `docgen_render_queue_depth` | gauge | `state` | "how deep is the queue right now" |
+| `docgen_preflight_rejections_total` | counter | `tenant_id`, `reason` | "which tenants are uploading bad PDFs, and why" |
+
+Minimal `prometheus.yml` scrape stanza:
+
+```yaml
+scrape_configs:
+  - job_name: verdikt
+    scrape_interval: 30s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["quire.<yourdomain>:443"]
+    scheme: https
+```
+
+Suggested alerts (Prometheus expression, thresholds are starting points —
+tune from your first week of scrape data):
+
+```promql
+# Sustained render failures for any tenant (>5%/5min).
+sum by (tenant_id) (rate(docgen_renders_total{state="failed"}[5m]))
+  / sum by (tenant_id) (rate(docgen_renders_total[5m])) > 0.05
+
+# Queue backing up (>50 queued for >2min = worker starving or crashed).
+docgen_render_queue_depth{state="queued"} > 50
+
+# P99 render latency drift (docx should never take >10s in normal load).
+histogram_quantile(0.99,
+  sum by (le, format) (rate(docgen_render_latency_seconds_bucket{format="docx"}[10m]))
+) > 10
+```
+
+The queue-depth gauge is sampled from the DB on each scrape, not
+incremented at enqueue/dequeue, so a worker crash that leaves a job
+stuck in `running` is visible on the next scrape rather than requiring
+you to trust a counter that got out of sync with the truth in Postgres.
+
+## 12. Troubleshooting quick reference
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
@@ -200,7 +251,7 @@ Before recording the video or handing out the URL:
 | Mapping wizard shows the stub trace ("Placeholder '…' had no type signal") | `DOCGEN_AI_PROVIDER` isn't `nebius`, or `DOCGEN_AI_API_KEY` is empty | Re-check `.env`, restart web |
 | Nebius provider request fails with 401 | Token Factory key is wrong or revoked | Rotate the key at studio.nebius.com, update `.env`, restart web |
 
-## 12. Pre-flighting locally before the remote deploy
+## 13. Pre-flighting locally before the remote deploy
 
 The exact prod compose file works on any Docker host. To smoke-test on your
 laptop before pushing to the Nebius VM:

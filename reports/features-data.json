@@ -184,7 +184,7 @@
     {"category": "Observability", "item": "OpenTelemetry end-to-end tracing", "priority": "medium", "notes": "FastAPI → SQLAlchemy → boto3 → render span."},
     {"category": "Observability", "item": "Per-tenant metrics + DLQ alerts", "priority": "medium", "notes": "renders/hr, P99 latency, queue depth."},
     {"category": "Multi-tenancy", "item": "Per-tenant quotas", "priority": "medium", "notes": "renders/day, storage MB, active templates."},
-    {"category": "Docs", "item": "OG image + Scalar/Redoc API reference", "priority": "low", "notes": "Social share + worked examples per endpoint."},
+    {"category": "Docs", "item": "Scalar/Redoc API reference", "priority": "low", "notes": "Richer worked examples per endpoint. OG image + social-share tags already shipped across all report dashboards and app pages."},
     {"category": "Deploy", "item": "Nebius VM deploy execution", "priority": "high", "notes": "Deferred to mid-Nov 2026 per memory."},
     {"category": "DX", "item": "mypy --strict ratchet", "priority": "low", "notes": "New modules first, expand from there."}
   ],

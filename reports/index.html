@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Engineering dashboard</title>
-<meta name="description" content="Executive overview for Verdikt — every review's verdict at a glance, with drill-down links to the underlying dashboards." />
+<meta name="description" content="Executive overview for Verdikt: every review's verdict at a glance, with drill-down links to the underlying dashboards." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Engineering dashboard" />
-<meta property="og:description" content="Executive overview for Verdikt — every review's verdict at a glance, with drill-down links to the underlying dashboards." />
+<meta property="og:description" content="Executive overview for Verdikt: every review's verdict at a glance, with drill-down links to the underlying dashboards." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Engineering dashboard" />
-<meta name="twitter:description" content="Executive overview for Verdikt — every review's verdict at a glance, with drill-down links to the underlying dashboards." />
+<meta name="twitter:description" content="Executive overview for Verdikt: every review's verdict at a glance, with drill-down links to the underlying dashboards." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,10 @@
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -57,8 +58,8 @@
 
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Executive overview</span>
-    <h1 class="display">Four reviews. <em>One verdict.</em></h1>
-    <p class="lede">The load-bearing scores for Verdikt at HEAD — features shipped, tests passing, code gated, security cleared. Each card is a live drill-down. Green across the board is the ship signal.</p>
+    <h1 class="display">Five surfaces. <em>One verdict.</em></h1>
+    <p class="lede">The load-bearing scores for Verdikt at HEAD: features shipped, tests passing, code gated, security cleared, production deploy-ready. Each card is a live drill-down. Green across the board is the ship signal.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -69,18 +70,18 @@
     <section class="block">
       <span class="kicker">Scoreboard</span>
       <h2>Every review, at a glance</h2>
-      <p class="subhead">Prominent verdicts from the four downstream dashboards. Colour stripe on top signals health — green for pass, amber for watch, red for block. Click any card to drill in.</p>
-      <div class="score-grid" id="score-grid"></div>
+      <p class="subhead">Prominent verdicts from the five downstream dashboards. Colour stripe on top signals health: green for pass, amber for watch, red for block. Click any card to drill in.</p>
+      <div class="score-grid five" id="score-grid"></div>
     </section>
 
     <section class="block">
       <span class="kicker">Aggregate</span>
       <h2>Ship signal</h2>
-      <p class="subhead">The four dashboards below all render a paper-stamp verdict. This card is the aggregate — approved only when every downstream verdict is green.</p>
+      <p class="subhead">The dashboards below all render a paper-stamp verdict. This card is the aggregate: approved only when every downstream verdict is green. Production readiness is tracked separately since it's an operational status, not a ship-review gate.</p>
       <div class="verdict-wrap">
         <div>
           <p class="subhead" style="max-width:none">The stamp mirrors Verdikt's real product output. Same shape for every case Verdikt decides: verdict word, four meta fields, paper texture, wax-stamp accent. Consistency is the point.</p>
-          <p class="subhead" style="max-width:none;margin-top:16px">Sources: <a href="./dashboard-data.json" style="color:var(--seal-700)">dashboard-data.json</a>, <a href="./features-data.json" style="color:var(--seal-700)">features-data.json</a>, <a href="./code-review-data.json" style="color:var(--seal-700)">code-review-data.json</a>, <a href="./security-review-data.json" style="color:var(--seal-700)">security-review-data.json</a>.</p>
+          <p class="subhead" style="max-width:none;margin-top:16px">Sources: <a href="./dashboard-data.json" style="color:var(--seal-700)">dashboard-data.json</a>, <a href="./features-data.json" style="color:var(--seal-700)">features-data.json</a>, <a href="./code-review-data.json" style="color:var(--seal-700)">code-review-data.json</a>, <a href="./security-review-data.json" style="color:var(--seal-700)">security-review-data.json</a>, <a href="./production-data.json" style="color:var(--seal-700)">production-data.json</a>.</p>
         </div>
         <div class="verdict-stage">
           <div class="verdict-card" id="verdict-card"></div>
@@ -91,8 +92,8 @@
     <section class="block">
       <span class="kicker">Portfolio numbers</span>
       <h2>By the count</h2>
-      <p class="subhead">Raw totals across the four reviews — the numbers behind the verdicts.</p>
-      <div class="kpi-row four" id="kpi-row"></div>
+      <p class="subhead">Raw totals across the five surfaces: the numbers behind the verdicts.</p>
+      <div class="kpi-row" id="kpi-row"></div>
     </section>
 
     <section class="block">
@@ -102,9 +103,9 @@
       <div class="callout">
         <div class="callout-head">Local server</div>
         <ul>
-          <li><b>python -m http.server 8765 --directory reports</b> — then visit <code>http://localhost:8765/</code></li>
+          <li><b>python -m http.server 8765 --directory reports</b> (then visit <code>http://localhost:8765/</code>)</li>
           <li>Rebuild test JSON: <b>python reports/_gen_dashboard.py</b> after a fresh pytest run</li>
-          <li>Rebuild feature/code/security JSON: hand-edit — they're grounded in <code>docs/roadmap.md</code> and the ADRs, not scraped</li>
+          <li>Rebuild feature/code/security JSON: hand-edit. They're grounded in <code>docs/roadmap.md</code> and the ADRs, not scraped</li>
         </ul>
       </div>
     </section>
@@ -133,14 +134,15 @@
     }
   }
 
-  const [tests, features, code, security] = await Promise.all([
+  const [tests, features, code, security, production] = await Promise.all([
     loadJson('./dashboard-data.json'),
     loadJson('./features-data.json'),
     loadJson('./code-review-data.json'),
     loadJson('./security-review-data.json'),
+    loadJson('./production-data.json'),
   ]);
 
-  const anyMissing = !tests || !features || !code || !security;
+  const anyMissing = !tests || !features || !code || !security || !production;
   if (anyMissing) {
     stateEl.className = 'state err';
     const missing = [];
@@ -148,6 +150,7 @@
     if (!features) missing.push('features-data.json');
     if (!code) missing.push('code-review-data.json');
     if (!security) missing.push('security-review-data.json');
+    if (!production) missing.push('production-data.json');
     stateEl.innerHTML =
       "Couldn't load: <b>" + missing.join(', ') + "</b>.<br>" +
       "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
@@ -167,6 +170,10 @@
   const featPct = Math.round(features.summary.shipped / features.summary.features_total * 100);
   const featGreen = featPct >= 70;
   const featWarn = featPct >= 40 && featPct < 70;
+  const prodPct = production.summary.readiness_pct;
+  const prodLive = production.summary.live === 'LIVE';
+  const prodGreen = prodLive || prodPct >= 70;
+  const prodWarn = !prodLive && prodPct >= 40 && prodPct < 70;
   const overallGreen = testsGreen && codeGreen && secGreen;
 
   const chips = [
@@ -174,7 +181,7 @@
     ['Features', features.summary.shipped + ' / ' + features.summary.features_total + ' shipped'],
     ['Code', code.summary.verdict],
     ['Security', security.summary.verdict + ' · ' + security.summary.risk_level + ' risk'],
-    ['License', security.summary.license],
+    ['Production', production.summary.live + ' · ' + prodPct + '% ready'],
   ];
   document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
     '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
@@ -199,7 +206,7 @@
       verdict: tests.totals.passed + '/' + tests.totals.tests,
       tag: testsGreen
         ? '<b>All green.</b> Full pytest suite passing on this commit.'
-        : '<b>' + tests.totals.failed + ' failing</b> — see the test dashboard.',
+        : '<b>' + tests.totals.failed + ' failing</b>. See the test dashboard.',
       meta: [
         ['suites', tests.suites.length],
         ['sec', tests.run.duration_seconds],
@@ -211,7 +218,7 @@
       href: './code-review.html',
       kicker: 'Code review',
       verdict: codeGreen ? 'APPROVED' : 'BLOCK',
-      tag: '<b>' + code.gates.length + ' CI gates</b>, <b>' + code.summary.boundary_tests_passing + '</b> boundary tests, <b>' + code.summary.audits_passing + '</b> static audits — all clean.',
+      tag: '<b>' + code.gates.length + ' CI gates</b>, <b>' + code.summary.boundary_tests_passing + '</b> boundary tests, <b>' + code.summary.audits_passing + '</b> static audits. All clean.',
       meta: [
         ['gates', code.gates.length],
         ['boundaries', code.summary.boundary_tests_passing],
@@ -231,6 +238,20 @@
       ],
       cls: secGreen ? 'pass' : 'fail',
     },
+    {
+      href: './production.html',
+      kicker: 'Production',
+      verdict: prodLive ? 'LIVE' : (prodPct + '%'),
+      tag: prodLive
+        ? '<b>Deployed on Nebius.</b> Last-known live and serving traffic.'
+        : '<b>' + production.summary.verdict + '.</b> ' + production.summary.readiness_ready + ' of ' + production.summary.readiness_total + ' items ready; deploy targeted <b>' + production.summary.target_deploy + '</b>.',
+      meta: [
+        ['ready', production.summary.readiness_ready],
+        ['pending', production.summary.readiness_pending],
+        ['live', production.summary.live === 'LIVE' ? 'yes' : 'no'],
+      ],
+      cls: prodGreen ? 'pass' : (prodWarn ? 'warn' : 'fail'),
+    },
   ];
   document.getElementById('score-grid').innerHTML = scoreCards.map(c =>
     '<a class="score-card ' + c.cls + '" href="' + c.href + '" style="text-decoration:none">' +
@@ -245,10 +266,11 @@
   ).join('');
 
   const kpis = [
-    { k: 'Tests',    v: tests.totals.tests,             d: tests.totals.passed + ' passed, ' + tests.totals.failed + ' failed', cls: testsGreen ? 'pass' : 'fail' },
-    { k: 'Features', v: features.summary.shipped,       d: 'of ' + features.summary.features_total + ' tracked shipped',        cls: 'pass' },
-    { k: 'Gates',    v: code.gates.length,              d: 'all ' + (codeGreen ? 'passing' : 'triaging'),                       cls: codeGreen ? 'pass' : 'fail' },
-    { k: 'Controls', v: security.summary.controls_shipped, d: 'OWASP-mapped, shipped',                                          cls: 'pass' },
+    { k: 'Tests',      v: tests.totals.tests,                d: tests.totals.passed + ' passed, ' + tests.totals.failed + ' failed', cls: testsGreen ? 'pass' : 'fail' },
+    { k: 'Features',   v: features.summary.shipped,          d: 'of ' + features.summary.features_total + ' tracked shipped',        cls: 'pass' },
+    { k: 'Gates',      v: code.gates.length,                 d: 'all ' + (codeGreen ? 'passing' : 'triaging'),                       cls: codeGreen ? 'pass' : 'fail' },
+    { k: 'Controls',   v: security.summary.controls_shipped, d: 'OWASP-mapped, shipped',                                             cls: 'pass' },
+    { k: 'Deploy',     v: prodPct + '%',                     d: prodLive ? 'live on Nebius' : 'ready · target ' + production.summary.target_deploy, cls: prodGreen ? 'pass' : (prodWarn ? 'err' : 'fail') },
   ];
   document.getElementById('kpi-row').innerHTML = kpis.map(x =>
     '<div class="kpi ' + x.cls + '">' +

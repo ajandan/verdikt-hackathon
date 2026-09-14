@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Code review</title>
-<meta name="description" content="Code-review dashboard for Verdikt — CI gates, boundary tests, audits, conventions." />
+<meta name="description" content="Code-review dashboard for Verdikt: CI gates, boundary tests, audits, conventions." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Code review" />
-<meta property="og:description" content="Code-review dashboard for Verdikt — CI gates, boundary tests, audits, conventions." />
+<meta property="og:description" content="Code-review dashboard for Verdikt: CI gates, boundary tests, audits, conventions." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Code review" />
-<meta name="twitter:description" content="Code-review dashboard for Verdikt — CI gates, boundary tests, audits, conventions." />
+<meta name="twitter:description" content="Code-review dashboard for Verdikt: CI gates, boundary tests, audits, conventions." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,10 @@
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html" class="active">Code</a>
       <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -58,7 +59,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> How we know the code is good</span>
     <h1 class="display">Reviewed, <em>gated, boundaried</em>.</h1>
-    <p class="lede">The claim isn't "we ran the tests" — it's "the substrate can't drift". CI gates, boundary tests, and static audits keep the architecture honest. Pick a card below to drill in.</p>
+    <p class="lede">The claim isn't "we ran the tests". It's "the substrate can't drift". CI gates, boundary tests, and static audits keep the architecture honest. Pick a card below to drill in.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -69,11 +70,11 @@
     <section class="block">
       <span class="kicker">Rollup</span>
       <h2>Verdict at HEAD</h2>
-      <p class="subhead">Every CI gate is passing on <code style="font-family:JetBrains Mono,monospace" id="commit-tag">—</code>. The verdict card mirrors the same paper stamp Verdikt produces for real decisions.</p>
+      <p class="subhead">Every CI gate is passing on <code style="font-family:JetBrains Mono,monospace" id="commit-tag"></code>. The verdict card mirrors the same paper stamp Verdikt produces for real decisions.</p>
       <div class="kpi-row four" id="kpi-row"></div>
       <div class="verdict-wrap">
         <div>
-          <p class="subhead" style="max-width:none">The four boundary tests below aren't hygiene — they're the load-bearing invariants that make "AI-in, deterministic-out" a mechanical claim rather than marketing.</p>
+          <p class="subhead" style="max-width:none">The four boundary tests below aren't hygiene. They're the load-bearing invariants that make "AI-in, deterministic-out" a mechanical claim rather than marketing.</p>
         </div>
         <div class="verdict-stage">
           <div class="verdict-card" id="verdict-card"></div>
@@ -84,7 +85,7 @@
     <section class="block">
       <span class="kicker">Explore</span>
       <h2>Five review lenses</h2>
-      <p class="subhead">Each card is a coherent slice of the review. Click one to see the individual items — gates, boundaries, audits, conventions, ongoing notes.</p>
+      <p class="subhead">Each card is a coherent slice of the review. Click one to see the individual items: gates, boundaries, audits, conventions, ongoing notes.</p>
       <div class="inspect-grid" id="inspect-grid"></div>
       <div class="inspect-detail" id="inspect-detail" hidden></div>
     </section>
@@ -116,7 +117,7 @@
     data = await res.json();
   } catch (e) {
     stateEl.className = 'state err';
-    stateEl.innerHTML = "Couldn't load <b>code-review-data.json</b> — " + (e.message || e) +
+    stateEl.innerHTML = "Couldn't load <b>code-review-data.json</b> (" + (e.message || e) + ")" +
       ".<br><code>python -m http.server 8765 --directory reports</code>";
     return;
   }
@@ -193,7 +194,7 @@
       title: 'Boundary tests',
       count: data.boundary_tests.length,
       countLabel: data.boundary_tests.length + ' tests',
-      desc: 'Not unit tests — structural invariants. Each one fails the build if the architecture drifts.',
+      desc: 'Not unit tests: structural invariants. Each one fails the build if the architecture drifts.',
       summary: [ ['enforced', data.boundary_tests.length], ['drift', 'blocked'] ],
       status: 'pass',
       renderItems: () => data.boundary_tests.map(b =>
@@ -213,7 +214,7 @@
       count: data.audits.length,
       countLabel: data.audits.length + ' audits',
       desc: 'One-shot audits re-run under CI. Suppressions require inline justification.',
-      summary: [ ['clean', data.audits.length], ['recent', data.audits[0] ? data.audits[0].shipped : '—'] ],
+      summary: [ ['clean', data.audits.length], ['recent', data.audits[0] ? data.audits[0].shipped : 'n/a'] ],
       status: 'pass',
       renderItems: () => data.audits.map(a =>
         '<div class="row-item">' +
@@ -255,7 +256,7 @@
       renderItems: () => data.review_notes.map(n =>
         '<div class="row-item">' +
           '<div>' +
-            '<div class="r-title">' + escapeHtml(n.area) + ' — ' + escapeHtml(n.note) + '</div>' +
+            '<div class="r-title">' + escapeHtml(n.area) + ': ' + escapeHtml(n.note) + '</div>' +
             '<div class="r-evidence">action: ' + escapeHtml(n.action) + '</div>' +
           '</div>' +
           '<span class="pill info">watch</span>' +

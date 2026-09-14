@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Production readiness</title>
+<meta name="description" content="Production readiness checklist and last-known live status for Verdikt on Nebius AI Cloud. Sourced from production-data.json." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">Production <em>readiness.</em></span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html" class="active">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta"></div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> Deploy status</span>
+    <h1 class="display">Pre-flighted. <em>Not yet flying.</em></h1>
+    <p class="lede">Readiness is what the deploy runbook needs before we touch the Nebius console (drafted, smoke-tested, or verified in tests). Live status is what the running system reports back. Today, readiness is largely green and live status is deliberately empty. The production Verdikt deploy is scheduled for mid-Nov 2026; a hackathon-scoped cut is planned for 2026-10-25.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading production data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Where the deploy stands</h2>
+      <p class="subhead">Readiness is a rolling <b>%</b> of items marked ready. Live status is <b>last-known and manually attested</b>. The automated health probe is not yet wired up. The stamp on the right mirrors Verdikt's product output shape.</p>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="verdict-wrap">
+        <div>
+          <p class="subhead" style="max-width:none" id="attestation-note"></p>
+          <p class="subhead" style="max-width:none;margin-top:16px">Source: <a href="./production-data.json" style="color:var(--seal-700)">production-data.json</a>. Runbook: <a href="https://github.com/ajandan/quire-hackathon/blob/main/docs/deploy-nebius.md" style="color:var(--seal-700)">docs/deploy-nebius.md</a>.</p>
+        </div>
+        <div class="verdict-stage">
+          <div class="verdict-card" id="verdict-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Explore</span>
+      <h2>Readiness, live status, timeline</h2>
+      <p class="subhead">Three tabs. Readiness is the checklist; Live status is what's running; Timeline dates the deploy plan.</p>
+
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <div class="tab-panel active" data-panel="readiness">
+        <div class="tab-panel-head">
+          <h2>What the runbook needs before we deploy</h2>
+          <p class="subhead" id="readiness-oneliner"></p>
+        </div>
+        <div id="readiness-groups"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="live">
+        <div class="tab-panel-head">
+          <h2>Last-known operational state</h2>
+          <p class="subhead" id="live-oneliner"></p>
+        </div>
+        <div class="tab-panel-head" style="margin-top:8px;margin-bottom:8px">
+          <h2 style="font-size:18px">Services</h2>
+        </div>
+        <div class="inspect-grid" id="services-grid"></div>
+        <div class="tab-panel-head" style="margin-top:24px;margin-bottom:8px">
+          <h2 style="font-size:18px">Public endpoints</h2>
+          <p class="subhead">What a healthy remote probe will look like once live.</p>
+        </div>
+        <table class="data" id="endpoints-table"></table>
+      </div>
+
+      <div class="tab-panel" data-panel="timeline">
+        <div class="tab-panel-head">
+          <h2>Deploy timeline</h2>
+          <p class="subhead">Dated milestones. Everything at or after 2026-10-25 is planned. The mid-Nov row is the production Verdikt deploy; the earlier row is the hackathon-scoped cut from the same runbook.</p>
+        </div>
+        <table class="data" id="timeline-table"></table>
+      </div>
+
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · production readiness</span>
+    <span>Source: <a href="./production-data.json">production-data.json</a> · Runbook: <a href="https://github.com/ajandan/quire-hackathon/blob/main/docs/deploy-nebius.md">docs/deploy-nebius.md</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+
+  let data;
+  try {
+    const res = await fetch('./production-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.innerHTML =
+      "Couldn't load <b>production-data.json</b> (" + (e.message || e) + ").<br>" +
+      "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
+      "<code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at ? data.generated_at.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (data.commit ? '  ·  ' + data.commit : '');
+
+  const chips = [
+    ['Readiness', data.summary.readiness_pct + '%'],
+    ['Ready', data.summary.readiness_ready + ' / ' + data.summary.readiness_total],
+    ['Live', data.summary.live],
+    ['Hackathon cut', data.summary.hackathon_deploy],
+    ['Production', data.summary.target_deploy],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const readinessCls =
+    data.summary.readiness_pct >= 70 ? 'pass' :
+    data.summary.readiness_pct >= 40 ? 'warn' : 'fail';
+  const liveCls = data.summary.live === 'LIVE' ? 'pass' :
+                  data.summary.live === 'DEGRADED' ? 'warn' : 'info';
+
+  const kpis = [
+    { k: 'Readiness',        v: data.summary.readiness_pct + '%',                              d: data.summary.readiness_ready + ' of ' + data.summary.readiness_total + ' items ready',      cls: readinessCls },
+    { k: 'Pending',          v: data.summary.readiness_pending,                                d: 'deploy-time actions',                                                                     cls: 'info' },
+    { k: 'Live services',    v: data.live.services.filter(s => s.status === 'live').length,   d: 'of ' + data.live.services.length + ' · ' + data.summary.live.toLowerCase(),                cls: liveCls },
+    { k: 'Hackathon cut',    v: data.summary.hackathon_deploy,                                 d: 'demo-URL target',                                                                         cls: 'info' },
+    { k: 'Production',       v: data.summary.target_deploy,                                    d: 'Nebius Verdikt deploy',                                                                   cls: 'info' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + escapeHtml(x.v) + '</div>' +
+      '<div class="d">' + escapeHtml(x.d) + '</div>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('attestation-note').innerHTML =
+    '<b>Attestation:</b> ' + escapeHtml(data.attestation.note) +
+    ' Last attested <span class="mono">' +
+    (data.attestation.last_manually_attested_at || '').replace('T', ' ').split('.')[0].replace(/Z?$/, 'Z') +
+    '</span> · <span class="mono">' + escapeHtml(data.attestation.attested_by) + '</span>.';
+
+  const isLive = data.summary.live === 'LIVE';
+  const stampText = isLive ? 'LIVE / ON / AIR' : 'PRE / FLIGHT / ✓';
+  document.getElementById('verdict-card').innerHTML =
+    '<div class="vc-head">' +
+      '<span class="title">Verdikt / Production</span>' +
+      '<span class="seq">' + escapeHtml(data.commit || 'HEAD') + '</span>' +
+    '</div>' +
+    '<div class="vc-verdict-row">' +
+      '<span class="vc-verdict ' + (isLive ? '' : 'red') + '">' + escapeHtml(data.summary.verdict) + '</span>' +
+      '<span class="vc-stamp ' + (isLive ? '' : 'red') + '"><span>' + stampText.split(' / ').join('<br>') + '</span></span>' +
+    '</div>' +
+    '<div class="vc-meta">' +
+      '<div><span class="k">Ready</span><span class="v">' + data.summary.readiness_ready + ' / ' + data.summary.readiness_total + '</span></div>' +
+      '<div><span class="k">Live</span><span class="v">' + escapeHtml(data.summary.live) + '</span></div>' +
+      '<div><span class="k">Cut</span><span class="v">' + escapeHtml(data.summary.hackathon_deploy) + '</span></div>' +
+      '<div><span class="k">Prod</span><span class="v">' + escapeHtml(data.summary.target_deploy) + '</span></div>' +
+    '</div>';
+
+  const tabDefs = [
+    { id: 'readiness', label: 'Readiness',   count: data.readiness.categories.reduce((n, g) => n + g.items.length, 0) },
+    { id: 'live',      label: 'Live status', count: data.live.services.length + data.live.endpoints.length },
+    { id: 'timeline',  label: 'Timeline',    count: data.deploy_timeline.length },
+  ];
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = tabDefs.map((t, i) =>
+    '<button class="tab ' + (i === 0 ? 'active' : '') + '" role="tab" data-tab="' + t.id + '">' +
+      escapeHtml(t.label) +
+      '<span class="tab-count">' + t.count + '</span>' +
+    '</button>'
+  ).join('');
+  tabsEl.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('.tab');
+    if (!btn) return;
+    const target = btn.getAttribute('data-tab');
+    [].forEach.call(tabsEl.querySelectorAll('.tab'), function (b) {
+      b.classList.toggle('active', b === btn);
+    });
+    [].forEach.call(document.querySelectorAll('.tab-panel'), function (p) {
+      p.classList.toggle('active', p.getAttribute('data-panel') === target);
+    });
+  });
+
+  const statusClass = (st) =>
+    st === 'ready'        ? 'pass' :
+    st === 'live'         ? 'pass' :
+    st === 'reachable'    ? 'pass' :
+    st === 'pending'      ? 'warn' :
+    st === 'not-deployed' ? 'muted' :
+    st === 'degraded'     ? 'warn' :
+    st === 'down'         ? 'fail' : 'muted';
+  const statusLabel = (st) => st.replace('-', ' ');
+
+  document.getElementById('readiness-oneliner').textContent = data.readiness.one_liner;
+  document.getElementById('readiness-groups').innerHTML = data.readiness.categories.map(cat => {
+    const ready = cat.items.filter(i => i.status === 'ready').length;
+    const total = cat.items.length;
+    const pct = Math.round(ready / total * 100);
+    const barCls = pct >= 70 ? 'pass' : pct >= 40 ? 'warn' : 'fail';
+    return (
+      '<div class="callout" style="margin-bottom:16px">' +
+        '<div class="callout-head" style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">' +
+          '<span>' + escapeHtml(cat.name) + '</span>' +
+          '<span class="pill ' + barCls + '">' + ready + ' / ' + total + ' · ' + pct + '%</span>' +
+        '</div>' +
+        '<p class="subhead" style="margin:0 0 12px 0">' + escapeHtml(cat.description) + '</p>' +
+        '<div class="row-list">' +
+          cat.items.map(i =>
+            '<div class="row-item">' +
+              '<div>' +
+                '<div class="r-title">' + escapeHtml(i.name) + '</div>' +
+                '<div class="r-desc">' + escapeHtml(i.detail) + '</div>' +
+                (i.evidence ? '<div class="r-evidence mono"><b>Evidence:</b> ' + escapeHtml(i.evidence) + '</div>' : '') +
+              '</div>' +
+              '<span class="pill ' + statusClass(i.status) + '">' + statusLabel(i.status) + '</span>' +
+            '</div>'
+          ).join('') +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  document.getElementById('live-oneliner').textContent = data.live.one_liner;
+  document.getElementById('services-grid').innerHTML = data.live.services.map(s =>
+    '<div class="inspect-card ' + (s.status === 'live' || s.status === 'reachable' ? '' : s.status === 'down' ? 'fail' : 'warn') + '">' +
+      '<div class="inspect-head">' +
+        '<div class="inspect-title">' + escapeHtml(s.name) + '</div>' +
+        '<span class="pill ' + statusClass(s.status) + '">' + statusLabel(s.status) + '</span>' +
+      '</div>' +
+      '<div class="inspect-desc"><b>Role:</b> ' + escapeHtml(s.role) + '</div>' +
+      '<div class="inspect-desc">' + escapeHtml(s.detail) + '</div>' +
+      '<div class="inspect-summary">' +
+        '<span><span class="k">last seen</span><span class="mono">' + escapeHtml(s.last_seen) + '</span></span>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('endpoints-table').innerHTML =
+    '<thead><tr><th>Endpoint</th><th style="width:38%">URL</th><th>Expect</th><th>Last seen</th><th>Status</th></tr></thead>' +
+    '<tbody>' +
+      data.live.endpoints.map(e =>
+        '<tr>' +
+          '<td>' + escapeHtml(e.name) + '</td>' +
+          '<td class="mono" style="font-size:12.5px">' + escapeHtml(e.url) + '</td>' +
+          '<td style="color:var(--ink-500)">' + escapeHtml(e.expect) + '</td>' +
+          '<td class="mono">' + escapeHtml(e.last_seen) + '</td>' +
+          '<td><span class="pill ' + statusClass(e.status) + '">' + statusLabel(e.status) + '</span></td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  document.getElementById('timeline-table').innerHTML =
+    '<thead><tr><th style="width:120px">Date</th><th>Event</th></tr></thead>' +
+    '<tbody>' +
+      data.deploy_timeline.map(t =>
+        '<tr>' +
+          '<td class="mono">' + escapeHtml(t.date) + '</td>' +
+          '<td>' + escapeHtml(t.event) + '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

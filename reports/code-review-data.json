@@ -12,8 +12,8 @@
     "open_review_notes": 6
   },
   "gates": [
-    {"name": "Ruff lint", "status": "passing", "scope": "src tests scripts", "evidence": ".github/workflows/ci.yml — Lint step", "notes": "Ratcheted after adding pre-commit; 24 pre-existing violations fixed 2026-09-03."},
-    {"name": "Pytest suite", "status": "passing", "scope": "tests/ (529 tests)", "evidence": "reports/results.xml — 529/529 green", "notes": "pytest --forked isolates provider mocks per-test."},
+    {"name": "Ruff lint", "status": "passing", "scope": "src tests scripts", "evidence": ".github/workflows/ci.yml (Lint step)", "notes": "Ratcheted after adding pre-commit; 24 pre-existing violations fixed 2026-09-03."},
+    {"name": "Pytest suite", "status": "passing", "scope": "tests/ (529 tests)", "evidence": "reports/results.xml (529/529 green)", "notes": "pytest --forked isolates provider mocks per-test."},
     {"name": "License scan (§12)", "status": "passing", "scope": "All PyPI deps", "evidence": "scripts/license_check.py", "notes": "pip-licenses + allowlist + explicit LGPL/dual-license exceptions. pypdfium2 exception documents the atypical compound license string."},
     {"name": "Tenant-scope audit", "status": "passing", "scope": "src/docgen/**/*.py", "evidence": "scripts/tenant_scope_audit.py", "notes": "Direct tenant-scoped queries without a tenant_id filter within 40 lines are blocked. Suppression via inline # tenant-audit: allow."},
     {"name": "Alembic upgrade head (fresh DB)", "status": "passing", "scope": "alembic/versions/0001 → 0031", "evidence": "CI Apply DB migrations step", "notes": "Regression guarded by 0025 seed-filter (only kinds allowed by the migration's own CHECK constraint)."},
@@ -23,8 +23,8 @@
   "boundary_tests": [
     {"name": "docgen never imports pap_pipeline", "purpose": "Proves the substrate has no back-reference to the submission-window pipeline. Reviewers can strip pap_pipeline without breaking Quire.", "test": "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline"},
     {"name": "core never imports AI providers", "purpose": "Enforces 'no model at render time'. If the deterministic render path ever imports docgen.providers, the build fails.", "test": "tests/test_boundaries.py::test_core_never_imports_ai_layer"},
-    {"name": "No LLM in reply path", "purpose": "Reply-letter template must be merge-time fill only. No stage between decision and outbound bytes may call a model.", "test": "tests/test_pap_inbox_hook.py — merge-only invariant"},
-    {"name": "Nebius default targets NVIDIA Nemotron", "purpose": "Hackathon requirement — the default model name must start with nvidia/. Regression guard on the compliance claim.", "test": "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"}
+    {"name": "No LLM in reply path", "purpose": "Reply-letter template must be merge-time fill only. No stage between decision and outbound bytes may call a model.", "test": "tests/test_pap_inbox_hook.py (merge-only invariant)"},
+    {"name": "Nebius default targets NVIDIA Nemotron", "purpose": "Hackathon requirement: the default model name must start with nvidia/. Regression guard on the compliance claim.", "test": "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"}
   ],
   "audits": [
     {"name": "Multi-tenancy scope", "shipped": "2026-09-03", "outcome": "Passing on all in-scope models. 4 file-level suppressions justified (admin portal + 3 worker actors).", "script": "scripts/tenant_scope_audit.py"},
@@ -32,12 +32,12 @@
     {"name": "N+1 audit (dashboard + templates)", "shipped": "2026-09-03", "outcome": "No true N+1 found. Fixed one wasted tenant re-query in _base_ctx.", "reference": "roadmap Performance"}
   ],
   "review_notes": [
-    {"area": "Templates", "note": "PDF placement editor is the placement editor's hot path — page rasterisation is cached to blob storage keyed by version hash.", "action": "Monitor cache hit rate once telemetry ships."},
-    {"area": "Pipeline", "note": "Reason stage runs Nemotron in non-reasoning mode deliberately; reasoning variant burns output tokens on trace and returns empty content.", "action": "Documented in HACKATHON.md — regression-safe."},
+    {"area": "Templates", "note": "PDF placement editor is the placement editor's hot path. Page rasterisation is cached to blob storage keyed by version hash.", "action": "Monitor cache hit rate once telemetry ships."},
+    {"area": "Pipeline", "note": "Reason stage runs Nemotron in non-reasoning mode deliberately; reasoning variant burns output tokens on trace and returns empty content.", "action": "Documented in HACKATHON.md (regression-safe)."},
     {"area": "MDM", "note": "`_forbid_raw_history_events(extras)` runs on reason-stage entry. Rules pack, not the LLM, decides how history matters.", "action": "Keep boundary. CI test in ADR-0004 PR6 will enforce."},
-    {"area": "Migrations", "note": "0025 seeds only kinds allowed by its own CHECK constraint; later kinds (history) seeded by their own migration after the constraint widens.", "action": "Repeat pattern for any new kind — never widen 0025's seed."},
-    {"area": "CI", "note": "MinIO pulls from quay.io, not docker.io — shared runner IPs hit Docker Hub anonymous rate limits.", "action": "Keep quay mirror for the MinIO + mc images."},
-    {"area": "Docs", "note": "Public framing scrub — README/demo/video may not name specific competitors or libraries the submission is compared against.", "action": "Memory rule enforced during any README edit."}
+    {"area": "Migrations", "note": "0025 seeds only kinds allowed by its own CHECK constraint; later kinds (history) seeded by their own migration after the constraint widens.", "action": "Repeat pattern for any new kind. Never widen 0025's seed."},
+    {"area": "CI", "note": "MinIO pulls from quay.io, not docker.io. Shared runner IPs hit Docker Hub anonymous rate limits.", "action": "Keep quay mirror for the MinIO + mc images."},
+    {"area": "Docs", "note": "Public framing scrub: README/demo/video may not name specific competitors or libraries the submission is compared against.", "action": "Memory rule enforced during any README edit."}
   ],
   "conventions": [
     {"rule": "One-way import direction: pap_pipeline → docgen. Never reverse.", "enforced_by": "test_docgen_never_imports_pap_pipeline"},

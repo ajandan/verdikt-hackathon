@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Feature roadmap</title>
-<meta name="description" content="Feature roadmap for Verdikt — shipped, in flight, backlog, parked. Sourced from features-data.json." />
+<meta name="description" content="Feature roadmap for Verdikt: shipped, in flight, backlog, parked. Sourced from features-data.json." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Feature roadmap" />
-<meta property="og:description" content="Feature roadmap for Verdikt — shipped, in flight, backlog, parked. Sourced from features-data.json." />
+<meta property="og:description" content="Feature roadmap for Verdikt: shipped, in flight, backlog, parked. Sourced from features-data.json." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Feature roadmap" />
-<meta name="twitter:description" content="Feature roadmap for Verdikt — shipped, in flight, backlog, parked. Sourced from features-data.json." />
+<meta name="twitter:description" content="Feature roadmap for Verdikt: shipped, in flight, backlog, parked. Sourced from features-data.json." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,10 @@
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -58,7 +59,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Product roadmap</span>
     <h1 class="display">The <em>whole map</em>, on one page.</h1>
-    <p class="lede">A swim-lane view of every product surface. Each lane's progress bar shows shipped / in flight / backlog at a glance — click a lane to see the feature-by-feature breakdown. Grounded in <code>docs/roadmap.md</code>, <code>docs/HACKATHON.md</code>, and the four ADRs.</p>
+    <p class="lede">A swim-lane view of every product surface. Each lane's progress bar shows shipped / in flight / backlog at a glance. Click a lane to see the feature-by-feature breakdown. Grounded in <code>docs/roadmap.md</code>, <code>docs/HACKATHON.md</code>, and the four ADRs.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -90,7 +91,7 @@
     <section class="block">
       <span class="kicker">Parked</span>
       <h2>Deliberately not doing</h2>
-      <p class="subhead">Approaches we tried and rejected — recorded so we don't rediscover them.</p>
+      <p class="subhead">Approaches we tried and rejected. Recorded so we don't rediscover them.</p>
       <div id="parked"></div>
     </section>
 
@@ -115,7 +116,7 @@
   } catch (e) {
     stateEl.className = 'state err';
     stateEl.innerHTML =
-      "Couldn't load <b>features-data.json</b> — " + (e.message || e) + ".<br>" +
+      "Couldn't load <b>features-data.json</b> (" + (e.message || e) + ").<br>" +
       "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
       "<code>python -m http.server 8765 --directory reports</code>";
     return;
@@ -244,7 +245,7 @@
     '<div class="callout">' +
       '<ul>' +
         data.parked.map(p =>
-          '<li><b>' + escapeHtml(p.item) + '</b> — ' + escapeHtml(p.reason) +
+          '<li><b>' + escapeHtml(p.item) + '</b>: ' + escapeHtml(p.reason) +
           (p.date ? ' <span style="color:var(--ink-300)">(' + escapeHtml(p.date) + ')</span>' : '') + '</li>'
         ).join('') +
       '</ul>' +

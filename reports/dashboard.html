@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Test Suite</title>
-<meta name="description" content="Live test-suite dashboard for Verdikt — pytest results, per-suite rollups, and per-file breakdown." />
+<meta name="description" content="Live test-suite dashboard for Verdikt: pytest results, per-suite rollups, and per-file breakdown." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Test Suite" />
-<meta property="og:description" content="Live test-suite dashboard for Verdikt — pytest results, per-suite rollups, and per-file breakdown." />
+<meta property="og:description" content="Live test-suite dashboard for Verdikt: pytest results, per-suite rollups, and per-file breakdown." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Test Suite" />
-<meta name="twitter:description" content="Live test-suite dashboard for Verdikt — pytest results, per-suite rollups, and per-file breakdown." />
+<meta name="twitter:description" content="Live test-suite dashboard for Verdikt: pytest results, per-suite rollups, and per-file breakdown." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,9 +48,10 @@
       <a href="./dashboard.html" class="active">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -59,7 +60,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Continuous test verdict</span>
     <h1 class="display">Every commit, <em>rendered green</em>.</h1>
-    <p class="lede">A live snapshot of Verdikt's pytest suite — total pass rate, per-suite rollups, and per-file breakdown. Sourced from a single JSON file so the dashboard tracks whatever the runner produced.</p>
+    <p class="lede">A live snapshot of Verdikt's pytest suite: total pass rate, per-suite rollups, and per-file breakdown. Sourced from a single JSON file so the dashboard tracks whatever the runner produced.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -70,11 +71,11 @@
     <section class="block">
       <span class="kicker">Rollup</span>
       <h2>Latest run</h2>
-      <p class="subhead">Buckets are exclusive — every test counted exactly once. Total maps to the pytest summary line.</p>
+      <p class="subhead">Buckets are exclusive: every test counted exactly once. Total maps to the pytest summary line.</p>
       <div class="kpi-row" id="kpi-row"></div>
       <div class="verdict-wrap">
         <div>
-          <p class="subhead" style="max-width:none">The verdict card mirrors the same shape Verdikt produces for every real case decision — a paper artifact stamped with the outcome, meta below the line, no ambiguity about what the system decided.</p>
+          <p class="subhead" style="max-width:none">The verdict card mirrors the same shape Verdikt produces for every real case decision: a paper artifact stamped with the outcome, meta below the line, no ambiguity about what the system decided.</p>
         </div>
         <div class="verdict-stage">
           <div class="verdict-card" id="verdict-card"></div>
@@ -85,7 +86,7 @@
     <section class="block">
       <span class="kicker">Suites</span>
       <h2>By area of the codebase</h2>
-      <p class="subhead">Click a suite to see per-file counts and durations. Each suite is a coherent slice of the product — auth, pipeline, inbox, templates, boundaries, MCP, data, workers.</p>
+      <p class="subhead">Click a suite to see per-file counts and durations. Each suite is a coherent slice of the product: auth, pipeline, inbox, templates, boundaries, MCP, data, workers.</p>
       <div class="suite-grid" id="suite-grid"></div>
       <div class="detail" id="detail" hidden></div>
     </section>
@@ -112,7 +113,7 @@
   } catch (e) {
     stateEl.className = 'state err';
     stateEl.innerHTML =
-      "Couldn't load <b>dashboard-data.json</b> — " + (e.message || e) + ".<br>" +
+      "Couldn't load <b>dashboard-data.json</b> (" + (e.message || e) + ").<br>" +
       "If you opened this file directly (<code>file://</code>), browsers block same-origin fetch. Serve the folder:<br>" +
       "<code>python -m http.server 8000 --directory reports</code> then visit " +
       "<code>http://localhost:8000/dashboard.html</code>";
@@ -133,9 +134,9 @@
     : dur.toFixed(1) + 's';
   const chips = [
     ['Duration', durStr],
-    ['Framework', data.run.framework || '—'],
-    ['Python', data.run.python || '—'],
-    ['Env', data.run.environment || '—'],
+    ['Framework', data.run.framework || 'n/a'],
+    ['Python', data.run.python || 'n/a'],
+    ['Env', data.run.environment || 'n/a'],
   ];
   if (data.run.commit) chips.push(['Commit', data.run.commit]);
   metaRow.innerHTML = chips.map(([k, v]) =>

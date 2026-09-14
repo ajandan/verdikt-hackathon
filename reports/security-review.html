@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Security review</title>
-<meta name="description" content="Security-review dashboard for Verdikt — OWASP-mapped controls, audits, open items, threat notes." />
+<meta name="description" content="Security-review dashboard for Verdikt: OWASP-mapped controls, audits, open items, threat notes." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Security review" />
-<meta property="og:description" content="Security-review dashboard for Verdikt — OWASP-mapped controls, audits, open items, threat notes." />
+<meta property="og:description" content="Security-review dashboard for Verdikt: OWASP-mapped controls, audits, open items, threat notes." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Security review" />
-<meta name="twitter:description" content="Security-review dashboard for Verdikt — OWASP-mapped controls, audits, open items, threat notes." />
+<meta name="twitter:description" content="Security-review dashboard for Verdikt: OWASP-mapped controls, audits, open items, threat notes." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,10 @@
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html" class="active">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -58,7 +59,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Security posture</span>
     <h1 class="display">Regulated-<em>ready</em>.</h1>
-    <p class="lede">Verdikt sits on the audit-defensible side of "AI-in, deterministic-out". Each card below is a review lens — click to see the underlying controls, audits, or open items.</p>
+    <p class="lede">Verdikt sits on the audit-defensible side of "AI-in, deterministic-out". Each card below is a review lens. Click to see the underlying controls, audits, or open items.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -84,7 +85,7 @@
     <section class="block">
       <span class="kicker">Explore</span>
       <h2>Five review lenses</h2>
-      <p class="subhead">Each card is a coherent slice of the security review. Click one to see the underlying items — principles, OWASP-mapped controls, threat models, open gaps, attack-surface notes.</p>
+      <p class="subhead">Each card is a coherent slice of the security review. Click one to see the underlying items: principles, OWASP-mapped controls, threat models, open gaps, attack-surface notes.</p>
       <div class="inspect-grid" id="inspect-grid"></div>
       <div class="inspect-detail" id="inspect-detail" hidden></div>
     </section>
@@ -109,7 +110,7 @@
     data = await res.json();
   } catch (e) {
     stateEl.className = 'state err';
-    stateEl.innerHTML = "Couldn't load <b>security-review-data.json</b> — " + (e.message || e) +
+    stateEl.innerHTML = "Couldn't load <b>security-review-data.json</b> (" + (e.message || e) + ")" +
       ".<br><code>python -m http.server 8765 --directory reports</code>";
     return;
   }
@@ -214,7 +215,7 @@
       count: data.audits.length,
       countLabel: data.audits.length + ' audits',
       desc: 'Deep-dive reviews on high-blast-radius modules. Findings persisted for future review.',
-      summary: [ ['clean', data.audits.length], ['recent', data.audits[0] ? data.audits[0].shipped : '—'] ],
+      summary: [ ['clean', data.audits.length], ['recent', data.audits[0] ? data.audits[0].shipped : 'n/a'] ],
       status: 'pass',
       renderItems: () => data.audits.map(a =>
         '<div class="row-item">' +

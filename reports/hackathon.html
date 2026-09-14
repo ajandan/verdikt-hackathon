@@ -4,18 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Hackathon submission</title>
-<meta name="description" content="Hackathon compliance board for Verdikt — Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
+<meta name="description" content="Hackathon compliance board for Verdikt: Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Verdikt" />
 <meta property="og:title" content="Verdikt · Hackathon submission" />
-<meta property="og:description" content="Hackathon compliance board for Verdikt — Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
+<meta property="og:description" content="Hackathon compliance board for Verdikt: Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
 <meta property="og:image" content="./og-verdikt.png" />
 <meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
 <meta property="og:image:width" content="1024" />
 <meta property="og:image:height" content="1024" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Verdikt · Hackathon submission" />
-<meta name="twitter:description" content="Hackathon compliance board for Verdikt — Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
+<meta name="twitter:description" content="Hackathon compliance board for Verdikt: Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
 <meta name="twitter:image" content="./og-verdikt.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,9 +47,10 @@
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
       <a href="./hackathon.html" class="active">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta">—</div>
+    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -58,7 +59,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Nebius × NVIDIA submission</span>
     <h1 class="display">Five rules. <em>Four met, one on the runway.</em></h1>
-    <p class="lede">The hackathon rulebook, checked against the code. Each rule is a card — click one to see how Verdikt satisfies it and where the evidence lives. Grounded in <code>docs/HACKATHON.md</code> and the four ADRs.</p>
+    <p class="lede">The hackathon rulebook, checked against the code. Each rule is a card. Click one to see how Verdikt satisfies it and where the evidence lives. Grounded in <code>docs/HACKATHON.md</code> and the four ADRs.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -69,12 +70,12 @@
     <section class="block">
       <span class="kicker">Rollup</span>
       <h2>Where we stand</h2>
-      <p class="subhead">Compliance verdict against the <b>Best Apps &amp; Agents</b> track. The stamp mirrors Verdikt's real product output — one word, four meta fields, no ambiguity.</p>
+      <p class="subhead">Compliance verdict against the <b>Best Apps &amp; Agents</b> track. The stamp mirrors Verdikt's real product output: one word, four meta fields, no ambiguity.</p>
       <div class="kpi-row" id="kpi-row"></div>
       <div class="verdict-wrap">
         <div>
-          <p class="subhead" style="max-width:none">The submission window opened <b>2026-08-26</b>. Everything under <code>src/pap_pipeline/</code> lands after that date; everything under <code>src/docgen/</code> predates it. That split is mechanically provable — see the boundary tests on the Code board.</p>
-          <p class="subhead" style="max-width:none;margin-top:16px">The one partial rule is repo visibility — the repo is deliberately private during active submission-window work and flips public before the deadline.</p>
+          <p class="subhead" style="max-width:none">The submission window opened <b>2026-08-26</b>. Everything under <code>src/pap_pipeline/</code> lands after that date; everything under <code>src/docgen/</code> predates it. That split is mechanically provable (see the boundary tests on the Code board).</p>
+          <p class="subhead" style="max-width:none;margin-top:16px">The one partial rule is repo visibility: the repo is deliberately private during active submission-window work and flips public before the deadline.</p>
         </div>
         <div class="verdict-stage">
           <div class="verdict-card" id="verdict-card"></div>
@@ -85,14 +86,14 @@
     <section class="block">
       <span class="kicker">Explore</span>
       <h2>Every topic, one click away</h2>
-      <p class="subhead">Rules, architecture, reuse split, judging fit, checklist, timeline, open items — each behind its own tab. Pick one to inspect.</p>
+      <p class="subhead">Rules, architecture, reuse split, judging fit, checklist, timeline, open items: each behind its own tab. Pick one to inspect.</p>
 
       <div class="tabs" id="tabs" role="tablist"></div>
 
       <div class="tab-panel active" data-panel="rules">
         <div class="tab-panel-head">
           <h2>Five rules, one card each</h2>
-          <p class="subhead">Every rule from the Devpost brief mapped to a card. Click one to see the <b>how</b> and the <b>evidence</b> — file paths, tests, or docs that back the claim.</p>
+          <p class="subhead">Every rule from the Devpost brief mapped to a card. Click one to see the <b>how</b> and the <b>evidence</b> (file paths, tests, or docs that back the claim).</p>
         </div>
         <div class="inspect-grid" id="rules-grid"></div>
         <div class="inspect-detail" id="rules-detail" hidden></div>
@@ -101,7 +102,7 @@
       <div class="tab-panel" data-panel="architecture">
         <div class="tab-panel-head">
           <h2>AI-in, deterministic-out</h2>
-          <p class="subhead" id="arch-oneliner">—</p>
+          <p class="subhead" id="arch-oneliner"></p>
         </div>
         <div class="inspect-grid" id="arch-grid"></div>
       </div>
@@ -109,7 +110,7 @@
       <div class="tab-panel" data-panel="reuse">
         <div class="tab-panel-head">
           <h2>Prior work vs submission-window work</h2>
-          <p class="subhead">The hackathon rules allow reuse — they require honesty about the split. Verdikt's is mechanical: two packages, one-way dependency, boundary tests enforce direction.</p>
+          <p class="subhead">The hackathon rules allow reuse. They require honesty about the split. Verdikt's is mechanical: two packages, one-way dependency, boundary tests enforce direction.</p>
         </div>
         <div class="split-grid" id="split-grid"></div>
       </div>
@@ -117,7 +118,7 @@
       <div class="tab-panel" data-panel="judging">
         <div class="tab-panel-head">
           <h2>Against the four criteria</h2>
-          <p class="subhead">How Verdikt reads against Devpost's judging criteria — technical implementation, design, potential impact, quality of idea.</p>
+          <p class="subhead">How Verdikt reads against Devpost's judging criteria: technical implementation, design, potential impact, quality of idea.</p>
         </div>
         <div class="row-list" id="judging-list"></div>
       </div>
@@ -133,7 +134,7 @@
       <div class="tab-panel" data-panel="timeline">
         <div class="tab-panel-head">
           <h2>Submission-window log</h2>
-          <p class="subhead">Dated events from window-open to submission-close. The mid-Nov row is post-deadline on purpose — the production Nebius deploy runs on its own schedule; the hackathon-scoped deploy is cut earlier from the same runbook.</p>
+          <p class="subhead">Dated events from window-open to submission-close. The mid-Nov row is post-deadline on purpose: the production Nebius deploy runs on its own schedule; the hackathon-scoped deploy is cut earlier from the same runbook.</p>
         </div>
         <table class="data" id="timeline-table"></table>
       </div>
@@ -141,7 +142,7 @@
       <div class="tab-panel" data-panel="open">
         <div class="tab-panel-head">
           <h2>What's left before we submit</h2>
-          <p class="subhead">Four things to close between now and the deadline. Each has a why-blocked and a plan — no unknowns.</p>
+          <p class="subhead">Four things to close between now and the deadline. Each has a why-blocked and a plan. No unknowns.</p>
         </div>
         <div class="row-list" id="open-list"></div>
       </div>
@@ -170,7 +171,7 @@
   } catch (e) {
     stateEl.className = 'state err';
     stateEl.innerHTML =
-      "Couldn't load <b>hackathon-data.json</b> — " + (e.message || e) + ".<br>" +
+      "Couldn't load <b>hackathon-data.json</b> (" + (e.message || e) + ").<br>" +
       "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
       "<code>python -m http.server 8765 --directory reports</code>";
     return;

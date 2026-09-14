@@ -1,0 +1,274 @@
+{
+  "product": "Verdikt",
+  "generated_at": "2026-09-14T00:00:00Z",
+  "commit": "e869e09",
+  "attestation": {
+    "last_manually_attested_at": "2026-09-14T00:00:00Z",
+    "attested_by": "manual",
+    "note": "Live status is last-known and attested by hand. The health probe is not yet automated. Verdikt's production Nebius deploy is deferred to mid-Nov 2026 by design; a hackathon-scoped deploy is cut earlier from the same runbook."
+  },
+  "summary": {
+    "verdict": "PRE-FLIGHTED",
+    "readiness_ready": 12,
+    "readiness_pending": 10,
+    "readiness_total": 22,
+    "readiness_pct": 55,
+    "live": "NOT DEPLOYED",
+    "target_deploy": "2026-11-15",
+    "hackathon_deploy": "2026-10-25",
+    "public_url": ""
+  },
+  "readiness": {
+    "one_liner": "Everything the deploy runbook needs before we touch the Nebius console has been drafted, smoke-tested, or pre-flighted. Deploy-time items unlock when the VM comes up.",
+    "categories": [
+      {
+        "name": "Runbook & configuration",
+        "description": "Documented and pre-flighted before the VM comes up. Ready today.",
+        "items": [
+          {
+            "name": "Deploy runbook complete",
+            "status": "ready",
+            "detail": "12 sections including provisioning, TLS, verification, and rotation.",
+            "evidence": "docs/deploy-nebius.md"
+          },
+          {
+            "name": ".env template shipped",
+            "status": "ready",
+            "detail": "All production knobs represented: session/webhook/download secrets, admin hash, provider config, HSTS.",
+            "evidence": ".env.example"
+          },
+          {
+            "name": "Production compose file",
+            "status": "ready",
+            "detail": "web + worker + migrate sidecar + Postgres + Redis + MinIO. Migrations must exit 0 before web/worker start.",
+            "evidence": "deploy/docker-compose.prod.yml"
+          },
+          {
+            "name": "Caddy TLS reverse-proxy template",
+            "status": "ready",
+            "detail": "Caddyfile drafted for `quire.<domain>` on :443 with zstd/gzip encoding and query-token redaction.",
+            "evidence": "docs/deploy-nebius.md §8"
+          },
+          {
+            "name": "Local prod-mode smoke test",
+            "status": "ready",
+            "detail": "Full docker-compose.prod stack brought up on laptop against a stub provider; /health returns 200; mapping wizard works.",
+            "evidence": "docs/deploy-nebius.md §12"
+          }
+        ]
+      },
+      {
+        "name": "Application health",
+        "description": "Behavioural guarantees the deploy relies on. Verified in tests and locally.",
+        "items": [
+          {
+            "name": "/health endpoint",
+            "status": "ready",
+            "detail": "Liveness endpoint returns 200 with a JSON body once the migrate sidecar exits and the web process is up.",
+            "evidence": "src/docgen/main.py (/health handler)"
+          },
+          {
+            "name": "Version-freeze byte-identical",
+            "status": "ready",
+            "detail": "Two consecutive renders of the same input JSON must produce byte-identical version_hash. Enforced in tests.",
+            "evidence": "tests/test_version_freeze.py"
+          },
+          {
+            "name": "Admin auth (bcrypt)",
+            "status": "ready",
+            "detail": "DOCGEN_ADMIN_PASSWORD_HASH generated with hash_password(); no plaintext at rest.",
+            "evidence": "src/docgen/auth.py"
+          },
+          {
+            "name": "Nemotron reasoning path (contract)",
+            "status": "ready",
+            "detail": "Provider adapter tested against a Nebius Token Factory contract fixture; default model name must start with `nvidia/`.",
+            "evidence": "tests/test_provider_nebius.py"
+          },
+          {
+            "name": "Retriever + reranker warm-up",
+            "status": "ready",
+            "detail": "pgvector store seeded from rules/*.yaml at startup; NIM endpoints reachable check happens on first retrieve() call, not at boot.",
+            "evidence": "src/pap_pipeline/stages/retrieve.py"
+          },
+          {
+            "name": "Boundary tests (AI vs render)",
+            "status": "ready",
+            "detail": "docgen.core never imports docgen.providers; pap_pipeline never imports docgen. Enforced mechanically.",
+            "evidence": "tests/test_boundaries.py"
+          },
+          {
+            "name": "License audit gate",
+            "status": "ready",
+            "detail": "CI job fails the build if a non-permissive third-party licence lands.",
+            "evidence": "scripts/check_licenses.py"
+          }
+        ]
+      },
+      {
+        "name": "Infrastructure",
+        "description": "Deploy-time actions on the Nebius console and DNS. Blocked on the mid-Nov deploy date.",
+        "items": [
+          {
+            "name": "Nebius VM provisioned",
+            "status": "pending",
+            "detail": "Ubuntu 24.04, 4 vCPU / 8 GB / 40 GB disk. Region close to Token Factory endpoint. Public IPv4 enabled.",
+            "evidence": "docs/deploy-nebius.md §1"
+          },
+          {
+            "name": "DNS A-record pointing to VM",
+            "status": "pending",
+            "detail": "`quire.<domain>` → VM public IPv4. Must propagate before Caddy starts or ACME will retry hourly.",
+            "evidence": "docs/deploy-nebius.md §1"
+          },
+          {
+            "name": "Security group (:22 / :80 / :443)",
+            "status": "pending",
+            "detail": ":80 required for Let's Encrypt ACME HTTP-01 challenge; :443 for public HTTPS; :22 restricted to admin IPs.",
+            "evidence": "docs/deploy-nebius.md §1"
+          },
+          {
+            "name": "Docker Engine + Compose installed",
+            "status": "pending",
+            "detail": "One-line install from get.docker.com; deploy user added to docker group.",
+            "evidence": "docs/deploy-nebius.md §2"
+          },
+          {
+            "name": "Nebius Token Factory API key",
+            "status": "pending",
+            "detail": "Issued at studio.nebius.com. Copied once (not retrievable). Spend cap set in console.",
+            "evidence": "docs/deploy-nebius.md §4, §10"
+          },
+          {
+            "name": "TLS certificate (Let's Encrypt via Caddy)",
+            "status": "pending",
+            "detail": "90-day auto-renewing cert. First issuance triggered on first HTTPS request after DNS propagates.",
+            "evidence": "docs/deploy-nebius.md §8"
+          }
+        ]
+      },
+      {
+        "name": "Security & operations",
+        "description": "Hardening controls the runbook applies before rotating credentials and handing out the URL.",
+        "items": [
+          {
+            "name": "HSTS + secure-cookies flags",
+            "status": "ready",
+            "detail": "DOCGEN_SECURE_COOKIES=true, DOCGEN_HSTS_ENABLED=true in the .env template; enforced by the app when set.",
+            "evidence": ".env.example, src/docgen/main.py middleware config"
+          },
+          {
+            "name": "Trusted-proxies + public-base-url",
+            "status": "ready",
+            "detail": "DOCGEN_TRUSTED_PROXIES=127.0.0.1 (Caddy on the same host); DOCGEN_PUBLIC_BASE_URL set for absolute link building.",
+            "evidence": ".env.example"
+          },
+          {
+            "name": ".env file permissions 600",
+            "status": "pending",
+            "detail": "chmod 600 .env owned by deploy user only. Enforced on the VM at bring-up.",
+            "evidence": "docs/deploy-nebius.md §5, §10"
+          },
+          {
+            "name": "Credential rotation before demo",
+            "status": "pending",
+            "detail": "Session secret, admin password hash, and Token Factory key all rotated in the final 24-hour window before recording the video.",
+            "evidence": "docs/deploy-nebius.md §10"
+          }
+        ]
+      }
+    ]
+  },
+  "live": {
+    "one_liner": "Nothing is running in production yet. This section becomes the operational dashboard the moment the Nebius VM boots.",
+    "services": [
+      {
+        "name": "Web (docgen)",
+        "role": "FastAPI app: admin UI + inbox + pipeline",
+        "status": "not-deployed",
+        "detail": "Awaits Nebius VM provisioning (target 2026-10-25 hackathon-scoped, 2026-11-15 production).",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Worker",
+        "role": "Background jobs: mapping, freeze, publish",
+        "status": "not-deployed",
+        "detail": "Runs in the same docker-compose stack as web; scales independently.",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Postgres",
+        "role": "Primary datastore: programs, packages, decisions",
+        "status": "not-deployed",
+        "detail": "Migrations run by a sidecar container before web/worker start.",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Redis",
+        "role": "Cache + async task broker",
+        "status": "not-deployed",
+        "detail": "Ephemeral. No persistence required.",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "MinIO (object store)",
+        "role": "Rendered PDFs, source PDFs, extracted assets",
+        "status": "not-deployed",
+        "detail": "S3-compatible. MINIO_ROOT_* rotated at deploy time.",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Caddy (TLS reverse proxy)",
+        "role": "Public :443 → web :8200; Let's Encrypt cert",
+        "status": "not-deployed",
+        "detail": "Provisioned on the VM host (not in compose) so the ACME challenge can bind :80 directly.",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Nebius Token Factory",
+        "role": "External: hosts Nemotron for the reasoning stage",
+        "status": "reachable",
+        "detail": "External API; verified reachable from a laptop with a scratch key on 2026-09-14. No production key issued yet.",
+        "last_seen": "2026-09-14"
+      }
+    ],
+    "endpoints": [
+      {
+        "name": "/health",
+        "url": "https://quire.<domain>/health",
+        "expect": "200 OK",
+        "status": "not-deployed",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "/ui/ (admin sign-in)",
+        "url": "https://quire.<domain>/ui/",
+        "expect": "Admin sign-in page",
+        "status": "not-deployed",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "TLS certificate",
+        "url": "quire.<domain>",
+        "expect": "Let's Encrypt · 90-day auto-renew",
+        "status": "not-deployed",
+        "last_seen": "n/a"
+      },
+      {
+        "name": "Public demo URL",
+        "url": "https://quire.<domain>/",
+        "expect": "Marketing landing → engineering dashboard hub",
+        "status": "not-deployed",
+        "last_seen": "n/a"
+      }
+    ]
+  },
+  "deploy_timeline": [
+    { "date": "2026-09-13", "event": "docs/deploy-nebius.md rev 2: Caddy Cloudsmith repo + ACME failure modes documented" },
+    { "date": "2026-09-14", "event": "Pre-flight smoke test on laptop passed (docker-compose.prod, stub provider)" },
+    { "date": "2026-10-25", "event": "Hackathon-scoped Nebius VM cut, DNS points, TLS certificate issued (planned)" },
+    { "date": "2026-10-27", "event": "Video recorded against the live URL (planned)" },
+    { "date": "2026-10-30", "event": "Devpost submission: live URL, video URL, public repo (planned)" },
+    { "date": "2026-11-15", "event": "Production Verdikt deploy on Nebius (planned)" }
+  ]
+}

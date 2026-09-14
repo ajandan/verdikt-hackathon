@@ -460,6 +460,8 @@ table.data tr:hover td { background: rgba(47,143,118,0.03); }
 .score-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
 @media (min-width: 720px) { .score-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1050px) { .score-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 720px)  { .score-grid.five { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1050px) { .score-grid.five { grid-template-columns: repeat(5, 1fr); } }
 .score-card {
   border: 1px solid var(--hair); border-radius: 12px; background: #fff;
   padding: 24px 22px;

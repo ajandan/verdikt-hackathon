@@ -75,26 +75,29 @@ def _drop_tenant(tid: uuid.UUID) -> None:
         s.commit()
 
 
-def _seed_frozen_template(tid: uuid.UUID, docx_bytes: bytes) -> uuid.UUID:
-    async def _prep() -> uuid.UUID:
-        try:
-            async with AsyncSessionLocal() as s:
-                template, version, _report = await upload_template(
-                    s,
-                    name=f"quota-t-{uuid.uuid4().hex[:6]}",
-                    docx_bytes=docx_bytes,
-                    tenant_id=tid,
-                )
-                tv = await freeze_version(
-                    s, version_id=version.id, proposal=MappingProposal(suggestions=[])
-                )
-                template.current_version = tv.version
-                await s.commit()
-                return template.id
-        finally:
-            await async_engine.dispose()
+async def _seed_frozen_template_async(tid: uuid.UUID, docx_bytes: bytes) -> uuid.UUID:
+    async with AsyncSessionLocal() as s:
+        template, version, _report = await upload_template(
+            s,
+            name=f"quota-t-{uuid.uuid4().hex[:6]}",
+            docx_bytes=docx_bytes,
+            tenant_id=tid,
+        )
+        tv = await freeze_version(
+            s, version_id=version.id, proposal=MappingProposal(suggestions=[])
+        )
+        template.current_version = tv.version
+        await s.commit()
+        return template.id
 
-    return asyncio.run(_prep())
+
+def _seed_frozen_template(tid: uuid.UUID, docx_bytes: bytes) -> uuid.UUID:
+    """Sync wrapper. Async tests should call ``_seed_frozen_template_async``
+    directly — nesting ``asyncio.run`` inside an already-running loop raises."""
+    try:
+        return asyncio.run(_seed_frozen_template_async(tid, docx_bytes))
+    finally:
+        asyncio.run(async_engine.dispose())
 
 
 def _render_payload(template_id: uuid.UUID) -> dict:
@@ -131,11 +134,32 @@ async def test_render_quota_at_cap_raises() -> None:
     """Cap reached → QuotaExceeded with the stable ``renders_per_day`` kind."""
     tid, _ = _make_tenant_with_key(quota_renders_per_day=2)
     try:
+        # render_jobs.template_version_id is NOT NULL; seed a minimal stub row
+        # so we can insert RenderJob rows that satisfy the FK/NOT-NULL.
+        tmpl_id = uuid.uuid4()
+        tv_id = uuid.uuid4()
+        with sync_session() as s:
+            s.add(Template(id=tmpl_id, tenant_id=tid, name="q-stub"))
+            s.flush()
+            s.add(
+                TemplateVersion(
+                    id=tv_id, template_id=tmpl_id, version=1, locale="default",
+                    schema={"fields": []}, blob_key=f"seed/{tmpl_id}/v1.docx",
+                    version_hash="h" * 16, status="frozen", is_frozen=True,
+                )
+            )
+            s.commit()
+
         async with async_session() as s:
             # Two jobs already exist in the last 24h → we're AT the cap. The
             # third would tip us over, so check_render_quota must refuse.
             for _ in range(2):
-                s.add(RenderJob(tenant_id=tid, state="succeeded", payload={}))
+                s.add(
+                    RenderJob(
+                        tenant_id=tid, template_version_id=tv_id,
+                        state="succeeded", payload={},
+                    )
+                )
             await s.commit()
 
             with pytest.raises(QuotaExceeded) as exc_info:
@@ -151,7 +175,7 @@ async def test_render_quota_at_cap_raises() -> None:
 async def test_active_template_quota_null_cap_is_noop(sample_docx_bytes: bytes) -> None:
     tid, _ = _make_tenant_with_key(quota_active_templates=None)
     try:
-        _seed_frozen_template(tid, sample_docx_bytes)
+        await _seed_frozen_template_async(tid, sample_docx_bytes)
         async with async_session() as s:
             await check_active_template_quota(s, tid)
     finally:
@@ -162,7 +186,7 @@ async def test_active_template_quota_null_cap_is_noop(sample_docx_bytes: bytes) 
 async def test_active_template_quota_at_cap_raises(sample_docx_bytes: bytes) -> None:
     tid, _ = _make_tenant_with_key(quota_active_templates=1)
     try:
-        _seed_frozen_template(tid, sample_docx_bytes)
+        await _seed_frozen_template_async(tid, sample_docx_bytes)
         async with async_session() as s:
             with pytest.raises(QuotaExceeded) as exc_info:
                 await check_active_template_quota(s, tid)

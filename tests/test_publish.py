@@ -436,19 +436,20 @@ def test_publish_event_row_persisted_with_full_audit(
 def test_concurrent_publish_serializes_per_template(
     isolated_tenant, sample_docx_bytes
 ) -> None:
-    """Two threads publishing different versions of the same template must
-    serialize — the second publisher should see the first's committed
-    current_version when computing previous_version.
+    """Two publishes racing on the same template must serialize — the
+    second publisher should see the first's committed current_version
+    when computing previous_version. Without the FOR UPDATE lock both
+    workers would race past `template.current_version` read and both
+    would write previous_version=None, corrupting the audit chain.
 
-    Without the FOR UPDATE lock both threads would race past `template.current_version`
-    read and both would write previous_version=None, corrupting the audit chain.
+    Uses ``asyncio.gather`` on two independent sessions in the same loop.
+    Threads + asyncpg + fresh-event-loop-per-thread deadlocks in a way
+    that has nothing to do with the FOR UPDATE lock we want to prove.
     """
-    import threading
-
     from sqlalchemy import select as _select
 
-    # Seed: template with v1 and v2 both frozen. Use the sync session to avoid
-    # entangling with per-thread event loops.
+    # Seed: template with v1 and v2 both frozen. Use the sync session to
+    # avoid entangling with the async event loop we're about to run.
     with sync_session() as s:
         from docgen.store.models import TemplateVersion as _TV
 
@@ -466,30 +467,19 @@ def test_concurrent_publish_serializes_per_template(
         s.commit()
         template_id = tmpl.id
 
-    errors: list[BaseException] = []
-    barrier = threading.Barrier(2)
+    async def _publish_one(version_to_publish: int) -> None:
+        # Fresh session per coroutine — same shape as two racing HTTP
+        # requests would use.
+        async with AsyncSessionLocal() as s:
+            await publish_version(
+                s, template_id=template_id, tenant_id=isolated_tenant,
+                version=version_to_publish,
+            )
 
-    def _worker(version_to_publish: int) -> None:
-        async def _do():
-            async with AsyncSessionLocal() as s:
-                barrier.wait()
-                await publish_version(
-                    s, template_id=template_id, tenant_id=isolated_tenant,
-                    version=version_to_publish,
-                )
-        try:
-            asyncio.run(_do())
-        except BaseException as e:
-            errors.append(e)
+    async def _race():
+        await asyncio.gather(_publish_one(1), _publish_one(2))
 
-    t1 = threading.Thread(target=_worker, args=(1,))
-    t2 = threading.Thread(target=_worker, args=(2,))
-    t1.start()
-    t2.start()
-    t1.join(timeout=10)
-    t2.join(timeout=10)
-
-    assert not errors, f"worker failed: {errors!r}"
+    asyncio.run(_race())
 
     # Both publishes must have succeeded and the audit chain must be intact.
     # We order by created_at for readability, but PG's server-side `now()` is

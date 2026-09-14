@@ -47,6 +47,8 @@ Three NVIDIA-family models on one Nebius key, chosen by task shape at each stage
 
 Every model call is instrumented (`src/pap_pipeline/routing.py`) with model name, tokens in/out, wall-clock latency, and per-call cost. The routing-table admin page at `/ui/admin/routing` renders the resulting matrix — real numbers per call site, per stage, defensible as evidence rather than assertion.
 
+Operational health lands on the same principle: `GET /metrics` returns the Prometheus exposition (`src/docgen/metrics.py`) with per-tenant render counters (`docgen_renders_total{tenant_id,format,state}`), a render-latency histogram, queue-depth gauges sampled on scrape, and per-reason preflight-rejection counters. Cardinality is capped at the label set on purpose — tenant + format + outcome, no per-template or per-user labels that would blow the budget. An ops on-call gets "who is this load coming from, what's the P99, is anything stuck" from one scrape.
+
 ## Reviewer-facing pipeline evidence
 
 Every decision the pipeline produces is auditable end-to-end from the admin UI.

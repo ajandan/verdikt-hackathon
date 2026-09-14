@@ -14,9 +14,9 @@
   "summary": {
     "categories": 10,
     "features_total": 81,
-    "shipped": 76,
+    "shipped": 77,
     "in_progress": 0,
-    "backlog": 5,
+    "backlog": 4,
     "parked": 2
   },
   "categories": [
@@ -472,9 +472,9 @@
         },
         {
           "name": "Per-tenant metrics + queue-depth alerts",
-          "status": "backlog",
-          "description": "renders/hr, preflight-failure rate, P99 render latency, DLQ growth.",
-          "evidence": "roadmap Observability"
+          "status": "shipped",
+          "description": "Prometheus exposition at /metrics. Counters for renders (tenant × format × state) and preflight rejections (tenant × reason). Histogram for render latency. Queue-depth gauge sampled on scrape.",
+          "evidence": "src/docgen/metrics.py, /metrics endpoint in src/docgen/main.py"
         }
       ]
     },
@@ -625,12 +625,6 @@
       "item": "OpenTelemetry end-to-end tracing",
       "priority": "medium",
       "notes": "FastAPI → SQLAlchemy → boto3 → render span."
-    },
-    {
-      "category": "Observability",
-      "item": "Per-tenant metrics + DLQ alerts",
-      "priority": "medium",
-      "notes": "renders/hr, P99 latency, queue depth."
     },
     {
       "category": "Docs",

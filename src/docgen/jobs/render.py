@@ -23,8 +23,18 @@ from docgen.core.render_pipeline import execute_merge, persist_result
 from docgen.core.render_stack import render_stack_hash
 from docgen.core.schema_infer import validate_payload
 from docgen.jobs.broker import _broker  # noqa: F401 — ensure broker registered
+from docgen.metrics import observe_render
 from docgen.store.db import sync_session
 from docgen.store.models import Provenance, RenderJob, TemplateVersion
+
+
+def _duration_seconds(job: RenderJob) -> float:
+    """Wall-clock seconds from submit to now — used to feed the render
+    latency histogram. Falls back to 0.0 if `submitted_at` is missing so
+    we still record the terminal-state counter tick either way."""
+    if job.submitted_at is None:
+        return 0.0
+    return (datetime.now(UTC) - job.submitted_at).total_seconds()
 
 # States the actor treats as terminal — it must never overwrite them, even on
 # retry. Without this guard, a retry of a job that already succeeded would
@@ -112,6 +122,12 @@ def render_job(job_id: str) -> None:
                 result_bytes=job.result_bytes,
                 caller=job.caller,
             )
+            observe_render(
+                tenant_id=str(job.tenant_id) if job.tenant_id else None,
+                format=job.output_format,
+                state="succeeded",
+                duration_seconds=_duration_seconds(job),
+            )
             _maybe_enqueue_webhook(job.id, job.callback_url)
         except Exception as e:
             job.state = "failed"
@@ -127,6 +143,12 @@ def render_job(job_id: str) -> None:
                 mode="async",
                 format=job.output_format,
                 error=job.error,
+            )
+            observe_render(
+                tenant_id=str(job.tenant_id) if job.tenant_id else None,
+                format=job.output_format,
+                state="failed",
+                duration_seconds=_duration_seconds(job),
             )
             _maybe_enqueue_webhook(job.id, job.callback_url)
             raise

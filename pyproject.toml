@@ -48,6 +48,9 @@ dependencies = [
     # PyYAML powers pap_pipeline rule loading — declaring directly so we
     # don't rely on it being pulled in transitively by docxtpl et al.
     "pyyaml>=6.0",
+    # Prometheus metrics: counters/histograms with per-tenant labels
+    # exposed at /metrics. Pure-Python, MIT-licensed, no extension deps.
+    "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]

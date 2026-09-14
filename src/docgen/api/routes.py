@@ -52,8 +52,18 @@ from docgen.designtime.freeze import freeze_pdf_version, freeze_version
 from docgen.designtime.mapper import propose_mapping_for_version
 from docgen.designtime.publish import list_publish_events, publish_version
 from docgen.designtime.upload import PdfPreflightRejected, upload_pdf_template, upload_template
+from docgen.metrics import observe_preflight_rejection, observe_render
 from docgen.net_safety import UrlNotAllowed, validate_public_url
+from docgen.providers.base import MappingProposal
 from docgen.quotas import QuotaExceeded, check_render_quota
+from docgen.store.blob import get_object
+from docgen.store.models import (
+    CallerProfile,
+    Provenance,
+    RenderJob,
+    Template,
+    TemplateVersion,
+)
 
 
 async def _enforce_render_quota(session: AsyncSession, tenant_id: uuid.UUID) -> None:
@@ -69,15 +79,6 @@ async def _enforce_render_quota(session: AsyncSession, tenant_id: uuid.UUID) -> 
                 "current": e.current,
             },
         ) from e
-from docgen.providers.base import MappingProposal
-from docgen.store.blob import get_object
-from docgen.store.models import (
-    CallerProfile,
-    Provenance,
-    RenderJob,
-    Template,
-    TemplateVersion,
-)
 
 router = APIRouter()
 log = structlog.get_logger(__name__)
@@ -117,6 +118,13 @@ async def create_template(
         # Reject at the boundary — no rows or blobs were written. Return the
         # full preflight report so the client sees the finding message + hint
         # and can present them to the operator (Print-to-PDF, encrypted, etc.).
+        # Reason label is the first finding's code so ops can slice
+        # "encrypted" vs "scanned-image" vs "no-text-layer" without free-form
+        # message strings blowing the cardinality budget.
+        first_reason = (
+            e.report.findings[0].code if e.report.findings else "unknown"
+        )
+        observe_preflight_rejection(tenant_id=str(tenant_id), reason=first_reason)
         raise HTTPException(400, {"preflight": e.report.to_dict()}) from e
     return UploadResponse(
         template_id=template.id,
@@ -536,6 +544,7 @@ async def _execute_render(
     inline_eligible = (not async_) and (len(template_bytes) <= settings.sync_render_max_bytes)
 
     if inline_eligible:
+        started_at = datetime.now(UTC)
         try:
             output = execute_merge(tv, data, output_format, settings=settings)
         except PdfRenderError as e:
@@ -547,6 +556,12 @@ async def _execute_render(
                 "render_rejected", job_id=str(job.id), template_id=str(tv.template_id),
                 tenant_id=str(tenant_id),
                 version=tv.version, mode="inline", format=output_format, error=job.error,
+            )
+            observe_render(
+                tenant_id=str(tenant_id),
+                format=output_format,
+                state="failed",
+                duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
             )
             if callback_url:
                 _enqueue_webhook(str(job.id))
@@ -560,6 +575,12 @@ async def _execute_render(
                 "render_failed", job_id=str(job.id), template_id=str(tv.template_id),
                 tenant_id=str(tenant_id),
                 version=tv.version, mode="inline", format=output_format, error=job.error,
+            )
+            observe_render(
+                tenant_id=str(tenant_id),
+                format=output_format,
+                state="failed",
+                duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
             )
             if callback_url:
                 _enqueue_webhook(str(job.id))
@@ -585,6 +606,12 @@ async def _execute_render(
             version=tv.version, version_hash=tv.version_hash,
             mode="inline", format=output_format,
             result_bytes=job.result_bytes, caller=caller,
+        )
+        observe_render(
+            tenant_id=str(tenant_id),
+            format=output_format,
+            state="succeeded",
+            duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
         )
         if callback_url:
             _enqueue_webhook(str(job.id))

@@ -129,7 +129,7 @@
     },
     {
       "criterion": "Design (complete product)",
-      "note": "Observable end-to-end. Every stage's output is a structured artifact a human reviewer can read: intake, retrieved rules with rerank scores, decision with citations, rendered letter. Admin routing-table page surfaces model-selection decisions as live data."
+      "note": "Observable end-to-end. Every stage's output is a structured artifact a human reviewer can read: intake, retrieved rules with rerank scores, decision with citations, rendered letter. Admin routing-table page surfaces model-selection decisions as live data. Prometheus exposition at /metrics carries per-tenant render counters, latency histograms, queue-depth gauges, and preflight-rejection counters — an ops on-call can answer 'who is this load coming from, is anything stuck, what's the P99' from a scrape."
     },
     {
       "criterion": "Potential impact",
@@ -157,7 +157,7 @@
     { "date": "2026-09-07", "event": "Repo set PRIVATE for hackathon-window work" },
     { "date": "2026-09-09", "event": "Product name locked: Verdikt" },
     { "date": "2026-09-13", "event": "Code + security review dashboards shipped" },
-    { "date": "2026-09-14", "event": "Today: engineering dashboards public-ready" },
+    { "date": "2026-09-14", "event": "Prometheus /metrics endpoint (per-tenant counters + latency histograms + queue-depth gauges) shipped" },
     { "date": "mid-Nov",    "event": "Nebius deploy target (post-submission for demo continuity)" },
     { "date": "2026-10-30", "event": "Submission deadline: repo public, demo URL live, video posted" }
   ],

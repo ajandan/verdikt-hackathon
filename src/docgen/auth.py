@@ -4,7 +4,7 @@ Two middlewares share the auth surface:
 - `ApiKeyAuthMiddleware` reads `Authorization: Bearer <key>`, sets `request.state.tenant_id`.
 - `AdminSessionMiddleware` reads a signed cookie, sets `request.state.admin_user`.
 
-Bypass paths for API-key auth: /, /health, /docs, /openapi.json, /redoc, /ui/*.
+Bypass paths for API-key auth: /, /health, /metrics, /docs, /openapi.json, /redoc, /ui/*.
 (MCP is mounted at /mcp and manages its own auth.)
 The UI middleware only fires for /ui/* except /ui/login and /ui/logout.
 
@@ -320,7 +320,7 @@ def verify_inbox_test_token(token: str, test_result_id: str) -> bool:
 # ApiKey middleware
 # ---------------------------------------------------------------------------
 
-_BYPASS_EXACT = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
+_BYPASS_EXACT = {"/", "/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
 _BYPASS_PREFIXES = ("/ui", "/static", "/engineering")
 
 

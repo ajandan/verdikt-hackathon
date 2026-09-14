@@ -24,10 +24,11 @@ from docgen.auth import (
 from docgen.config import get_settings
 from docgen.downloads import router as downloads_router
 from docgen.mcp_server import build_mcp_app, mcp
+from docgen.metrics import render_metrics, sample_queue_depth_from_session
 from docgen.observability import RequestLoggingMiddleware, configure_logging
 from docgen.ratelimit import RateLimitMiddleware
 from docgen.security_headers import SecurityHeadersMiddleware
-from docgen.store.db import AsyncSessionLocal
+from docgen.store.db import AsyncSessionLocal, sync_session
 from docgen.store.models import AdminUser, ApiKey, Tenant
 from docgen.ui.routes import router as ui_router
 from docgen.ui.routes import templates as ui_templates
@@ -222,6 +223,25 @@ def create_app() -> FastAPI:
         )
     else:
         log.warning("engineering_reports_missing", path=str(_REPORTS_DIR))
+
+    @app.get("/metrics", include_in_schema=False)
+    async def _metrics() -> Response:
+        """Prometheus exposition endpoint.
+
+        Refreshes the queue-depth gauges from the DB on every scrape so the
+        gauge stays consistent even if a worker crash left a job stuck in
+        "running" (the counters would keep incrementing forever otherwise).
+        Bypasses API-key auth (see `docgen.auth._BYPASS_EXACT`) — Prometheus
+        scrapers don't carry bearer tokens; restrict access at the network
+        edge (allowlist the scraper IP or expose only on a private port).
+        """
+        try:
+            with sync_session() as session:
+                sample_queue_depth_from_session(session)
+        except Exception:
+            log.exception("metrics_queue_depth_sample_failed")
+        body, content_type = render_metrics()
+        return Response(content=body, media_type=content_type)
 
     @app.get("/", include_in_schema=False)
     async def _root(request: Request) -> Response:

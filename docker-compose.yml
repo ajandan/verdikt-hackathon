@@ -112,6 +112,9 @@ services:
       # on the host live-updates styles inside the container. Run the script once
       # before `docker compose up` to seed src/docgen/ui/static/app.css.
       - ./src/docgen/ui/static:/app/src/docgen/ui/static:ro
+      # Dev: bind-mount the engineering dashboards so the /engineering/ mount
+      # picks up new report snapshots without rebuilding the image.
+      - ./reports:/app/reports:ro
     ports:
       - "8100:8000"
 

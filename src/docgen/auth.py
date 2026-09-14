@@ -321,7 +321,7 @@ def verify_inbox_test_token(token: str, test_result_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _BYPASS_EXACT = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
-_BYPASS_PREFIXES = ("/ui", "/static")
+_BYPASS_PREFIXES = ("/ui", "/static", "/engineering")
 
 
 def _bypass_api_auth(path: str) -> bool:

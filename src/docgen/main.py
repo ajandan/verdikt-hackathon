@@ -37,6 +37,7 @@ log = structlog.get_logger(__name__)
 DEFAULT_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 _STATIC_DIR = Path(__file__).parent / "ui" / "static"
+_REPORTS_DIR = Path(__file__).parent.parent.parent / "reports"
 
 
 async def _startup_checks() -> None:
@@ -208,6 +209,19 @@ def create_app() -> FastAPI:
             ),
         )
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+    # Engineering dashboard — static HTML hub (index, features, tests, code,
+    # security) generated into reports/. Public because reviewers land here
+    # from the hackathon block on the marketing page. Bypasses api-key auth
+    # via the `/engineering` prefix in docgen.auth._BYPASS_PREFIXES.
+    if _REPORTS_DIR.exists():
+        app.mount(
+            "/engineering",
+            StaticFiles(directory=str(_REPORTS_DIR), html=True),
+            name="engineering",
+        )
+    else:
+        log.warning("engineering_reports_missing", path=str(_REPORTS_DIR))
 
     @app.get("/", include_in_schema=False)
     async def _root(request: Request) -> Response:

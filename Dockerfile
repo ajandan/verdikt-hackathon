@@ -46,6 +46,7 @@ COPY src ./src
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY sample_templates ./sample_templates
+COPY reports ./reports
 
 # Overlay the compiled Tailwind bundle produced in the css-builder stage.
 COPY --from=css-builder /build/src/docgen/ui/static/app.css ./src/docgen/ui/static/app.css

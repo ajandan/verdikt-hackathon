@@ -89,6 +89,7 @@ from docgen.ratelimit import (
     reset_login_attempts,
 )
 from docgen.security_headers import preview_csp, secure_cookie_flag
+from pap_pipeline.stages.slot_compile import SlotDef, SlotCompileError
 from docgen.store.blob import get_object, put_object
 from docgen.store.models import (
     ApiKey,
@@ -6022,6 +6023,7 @@ async def _snapshot_rule_version(
         criterion=rule.criterion,
         exception=rule.exception or "",
         fields=list(rule.fields or []),
+        references_slots=(list(rule.references_slots) if rule.references_slots else None),
         is_active=rule.is_active,
         actor_user_id=(ident.user_id if ident else None),
         actor_username=(ident.username if ident else "system"),
@@ -6142,6 +6144,53 @@ async def program_rule_detach(
     )
 
 
+async def _publish_gate_slot_refs(
+    session: AsyncSession, prog: Program
+) -> str | None:
+    """Publish-gate check for slot references.
+
+    Every slot name referenced by an active rule linked to ``prog`` must be
+    declared in ``prog.history_slots``. Returns a human-readable error
+    message when the gate refuses activation, or None when the pack is
+    consistent.
+
+    The gate lives here (rather than in the DB) because slot defs and rule
+    references land through two separate write paths — the program editor
+    and the rule editor. A cross-editor invariant belongs at the seam that
+    turns editing into production, which is the ``is_active`` flip.
+    """
+    try:
+        declared = {SlotDef.model_validate(d).name for d in (prog.history_slots or [])}
+    except SlotCompileError as e:
+        return f"Malformed slot definition: {e}."
+    except Exception as e:  # pydantic ValidationError caught broadly
+        return f"Malformed slot definition: {e}."
+
+    stmt = (
+        select(Rule.rule_id, Rule.references_slots)
+        .join(ProgramRuleLink, ProgramRuleLink.rule_id == Rule.id)
+        .where(
+            ProgramRuleLink.program_id == prog.id,
+            ProgramRuleLink.is_active.is_(True),
+            Rule.is_active.is_(True),
+        )
+    )
+    referenced: dict[str, list[str]] = {}
+    for public_rule_id, refs in (await session.execute(stmt)).all():
+        for name in (refs or []):
+            referenced.setdefault(name, []).append(public_rule_id)
+
+    missing = {n: rs for n, rs in referenced.items() if n not in declared}
+    if not missing:
+        return None
+    parts = [f"{name!r} (used by {', '.join(rules)})" for name, rules in sorted(missing.items())]
+    return (
+        "Can't activate: rule(s) reference undeclared history slot(s): "
+        + "; ".join(parts)
+        + ". Declare them under Program → history_slots first."
+    )
+
+
 @router.post("/programs/{program_id}")
 async def program_save(
     program_id: uuid.UUID,
@@ -6154,7 +6203,15 @@ async def program_save(
     form = await request.form()
 
     prog.name = (form.get("name") or prog.name).strip() or prog.name
-    prog.is_active = form.get("is_active") == "on"
+    wants_active = form.get("is_active") == "on"
+    if wants_active:
+        error = await _publish_gate_slot_refs(session, prog)
+        if error is not None:
+            return _redirect(
+                f"/ui/programs/{program_id}",
+                flash=error, flash_kind="error",
+            )
+    prog.is_active = wants_active
     prog.requires_review = form.get("requires_review") == "on"
     raw_tv = (form.get("enrollment_template_version_id") or "").strip()
     if raw_tv:

@@ -122,6 +122,12 @@ class Program(Base):
     package_bindings: Mapped[dict[str, str]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
+    # Declared history slots (ADR-0004). Each entry is a slot definition
+    # dict — see pap_pipeline.stages.slot_compile.SlotDef. Program activation
+    # refuses when a linked rule references a slot name not declared here.
+    history_slots: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -316,6 +322,12 @@ class Rule(Base):
     fields: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
+    # Slot names this rule reads (ADR-0004). Nullable because rules that
+    # don't touch history shouldn't be forced to carry an empty list — the
+    # publish gate uses NULL as "does not participate in slot mediation".
+    references_slots: Mapped[list[str] | None] = mapped_column(
+        JSONB, nullable=True
+    )
     # Library-level active flag. A rule with is_active=False is hidden from
     # the picker and skipped by the retriever even for programs that link it
     # — think "retired rule" rather than "temporarily off for this program".
@@ -367,6 +379,7 @@ class RuleVersion(Base):
     criterion: Mapped[str] = mapped_column(String(400), nullable=False)
     exception: Mapped[str] = mapped_column(String(400), nullable=False, default="")
     fields: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    references_slots: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
     # Actor context. `actor_user_id` is null when the write came from the

@@ -118,7 +118,7 @@ async def run_from_intake(
         intake, reranked_rules, config=config.reason, extras=merged_extras
     )
     decision = _attach_retrieval_scores(decision, retrieved)
-    return _attach_history_citations(decision, history)
+    return _attach_history_citations(decision, history, reranked_rules)
 
 
 def _merge_history_slots(
@@ -180,27 +180,87 @@ def _attach_retrieval_scores(decision: Decision, retrieved) -> Decision:
 
 
 def _attach_history_citations(
-    decision: Decision, history: HistorySlice
+    decision: Decision, history: HistorySlice, rules: list[Rule]
 ) -> Decision:
     """Append history-typed citations for slots that satisfied fired rules.
 
-    Predicate (ADR-0004): a rule citation whose rule declares a
-    `references_slots` set that overlaps the fired slots in the slice. For
-    each match, append one :class:`Citation` with ``type='history'`` naming
-    the event, slot, and snapshot hash.
+    Predicate (ADR-0004): for each rule citation whose rule declares
+    ``references_slots`` overlapping a *truthy* slot in the slice, append
+    one :class:`Citation` per (slot × source event) pair with
+    ``type='history'`` naming the event, slot, and snapshot hash.
 
-    Wiring is in place today; the closing predicate — a `references_slots`
-    field on :class:`Rule` — is a follow-up. Until then this pass returns
-    the decision unchanged even when slots are non-empty, so history
-    citations never leak into the ledger before the rules pack has
-    declared its dependency on them.
+    "Truthy" gates on the slot's value: a False/None/0 slot means "no
+    history event supports this fact" — citing an absent event would be
+    misleading. This mirrors how the reason stage treats the flattened
+    slot value in ``extras``.
+
+    Deduped by (rule, slot, event) so a rule referencing a slot that fired
+    on two events produces two distinct citations (one per event), and
+    two rules citing the same fired slot don't produce duplicates for the
+    same event.
     """
     if not history.slots or not decision.citations:
         return decision
-    # Follow-up (ADR-0004): once Rule gains `references_slots`, filter
-    # decision.citations by rule type + slot overlap here and append the
-    # matching history citations via Citation(type="history", ...).
-    return decision
+
+    fired_slots = {s.name: s for s in history.slots if _slot_is_truthy(s.value)}
+    if not fired_slots:
+        return decision
+
+    refs_by_rule: dict[str, set[str]] = {
+        r.id: set(r.references_slots or []) for r in rules
+    }
+
+    cited_rules = [
+        c for c in decision.citations
+        if c.type == "rule" and c.rule_id in refs_by_rule and c.matched
+    ]
+    if not cited_rules:
+        return decision
+
+    seen: set[tuple[str, str]] = set()
+    additions: list[Citation] = []
+    for cit in cited_rules:
+        for slot_name in refs_by_rule[cit.rule_id]:
+            slot = fired_slots.get(slot_name)
+            if slot is None:
+                continue
+            for event_id in slot.from_events or []:
+                key = (slot_name, event_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                additions.append(
+                    Citation(
+                        type="history",
+                        event_id=event_id,
+                        slot_name=slot_name,
+                        snapshot_hash=history.snapshot_hash,
+                    )
+                )
+
+    if not additions:
+        return decision
+    return decision.model_copy(
+        update={"citations": [*decision.citations, *additions]}
+    )
+
+
+def _slot_is_truthy(value: object) -> bool:
+    """A slot value that warrants a citation.
+
+    False / None / 0 / "" all mean "no supporting event"; only positive
+    values earn a history citation. Splitting this out (rather than
+    inlining `bool(value)`) keeps the "why" comment attached to the
+    predicate so a future kind (e.g., ``"last_reason_code"``) doesn't
+    have to relitigate it.
+    """
+    if value is None or value is False:
+        return False
+    if isinstance(value, int) and value == 0:
+        return False
+    if isinstance(value, str) and not value:
+        return False
+    return True
 
 
 async def run(

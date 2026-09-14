@@ -79,6 +79,7 @@ def _load_db_rules(session: Any, program: str, tenant_id: Any | None) -> list[Ru
             criterion=rule_row.criterion,
             exception=rule_row.exception or "",
             fields=list(rule_row.fields or []),
+            references_slots=list(rule_row.references_slots) if rule_row.references_slots else None,
         )
         for rule_row, _link in rows
     ]

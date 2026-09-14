@@ -41,6 +41,12 @@ class Rule(BaseModel):
     - `fields`    the intake field names this rule needs to be evaluable. Used
                   by the reason stage to compute `missing_fields` when a rule
                   can't be checked because a field is None.
+    - `references_slots` names of history slots this rule reads. Nullable
+                  because history-agnostic rules don't touch slots. Consumed
+                  by the program-pack publish gate (every referenced slot must
+                  be declared in `programs.history_slots`) and by the
+                  orchestrator's history-citation attacher (a rule only earns
+                  a history citation when a slot it references fired).
     """
 
     id: str
@@ -50,6 +56,7 @@ class Rule(BaseModel):
     criterion: str = Field(max_length=400)
     exception: str = Field(default="", max_length=400)
     fields: list[str] = Field(default_factory=list)
+    references_slots: list[str] | None = None
 
     def as_prompt_block(self) -> str:
         """Format the rule as the exact block the LLM sees.

@@ -14,8 +14,8 @@
   "summary": {
     "categories": 10,
     "features_total": 81,
-    "shipped": 73,
-    "in_progress": 2,
+    "shipped": 75,
+    "in_progress": 0,
     "backlog": 6,
     "parked": 2
   },
@@ -93,9 +93,9 @@
         },
         {
           "name": "MDM slot compiler (references_slots)",
-          "status": "in_progress",
-          "description": "PR2 pending. Compiles HistoryEvent list into named HistorySlots the rules pack references.",
-          "evidence": "ADR-0004 PR2"
+          "status": "shipped",
+          "description": "Pure fn (events, slot_defs) -> [HistorySlot]. Kinds: bool, latest_outcome, days_since_latest, count. Orchestrator appends history citations for fired slots.",
+          "evidence": "src/pap_pipeline/stages/slot_compile.py, tests/test_pap_slot_compile.py"
         }
       ]
     },
@@ -325,9 +325,9 @@
         },
         {
           "name": "Slot compiler + references_slots",
-          "status": "in_progress",
-          "description": "Publish gate validates every referenced slot name is declared in history_slots.",
-          "evidence": "ADR-0004 PR2"
+          "status": "shipped",
+          "description": "programs.history_slots + rules.references_slots (migration 0033). Publish gate refuses activation on undeclared slot refs.",
+          "evidence": "alembic 0033, src/docgen/ui/routes.py::_publish_gate_slot_refs"
         }
       ]
     },

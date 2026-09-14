@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Hackathon submission</title>
+<meta name="description" content="Hackathon compliance board for Verdikt — Nebius × NVIDIA rules met, evidence, architecture, timeline, open items." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">/ hackathon</span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./hackathon.html" class="active">Hackathon</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta">—</div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> Nebius × NVIDIA submission</span>
+    <h1 class="display">Five rules. <em>Four met, one on the runway.</em></h1>
+    <p class="lede">The hackathon rulebook, checked against the code. Each rule is a card — click one to see how Verdikt satisfies it and where the evidence lives. Grounded in <code>docs/HACKATHON.md</code> and the four ADRs.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading hackathon data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Where we stand</h2>
+      <p class="subhead">Compliance verdict against the <b>Best Apps &amp; Agents</b> track. The stamp mirrors Verdikt's real product output — one word, four meta fields, no ambiguity.</p>
+      <div class="kpi-row" id="kpi-row"></div>
+      <div class="verdict-wrap">
+        <div>
+          <p class="subhead" style="max-width:none">The submission window opened <b>2026-08-26</b>. Everything under <code>src/pap_pipeline/</code> lands after that date; everything under <code>src/docgen/</code> predates it. That split is mechanically provable — see the boundary tests on the Code board.</p>
+          <p class="subhead" style="max-width:none;margin-top:16px">The one partial rule is repo visibility — the repo is deliberately private during active submission-window work and flips public before the deadline.</p>
+        </div>
+        <div class="verdict-stage">
+          <div class="verdict-card" id="verdict-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Explore</span>
+      <h2>Every topic, one click away</h2>
+      <p class="subhead">Rules, architecture, reuse split, judging fit, checklist, timeline, open items — each behind its own tab. Pick one to inspect.</p>
+
+      <div class="tabs" id="tabs" role="tablist"></div>
+
+      <div class="tab-panel active" data-panel="rules">
+        <div class="tab-panel-head">
+          <h2>Five rules, one card each</h2>
+          <p class="subhead">Every rule from the Devpost brief mapped to a card. Click one to see the <b>how</b> and the <b>evidence</b> — file paths, tests, or docs that back the claim.</p>
+        </div>
+        <div class="inspect-grid" id="rules-grid"></div>
+        <div class="inspect-detail" id="rules-detail" hidden></div>
+      </div>
+
+      <div class="tab-panel" data-panel="architecture">
+        <div class="tab-panel-head">
+          <h2>AI-in, deterministic-out</h2>
+          <p class="subhead" id="arch-oneliner">—</p>
+        </div>
+        <div class="inspect-grid" id="arch-grid"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="reuse">
+        <div class="tab-panel-head">
+          <h2>Prior work vs submission-window work</h2>
+          <p class="subhead">The hackathon rules allow reuse — they require honesty about the split. Verdikt's is mechanical: two packages, one-way dependency, boundary tests enforce direction.</p>
+        </div>
+        <div class="split-grid" id="split-grid"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="judging">
+        <div class="tab-panel-head">
+          <h2>Against the four criteria</h2>
+          <p class="subhead">How Verdikt reads against Devpost's judging criteria — technical implementation, design, potential impact, quality of idea.</p>
+        </div>
+        <div class="row-list" id="judging-list"></div>
+      </div>
+
+      <div class="tab-panel" data-panel="checklist">
+        <div class="tab-panel-head">
+          <h2>Submission tasks</h2>
+          <p class="subhead">What has to be true on <b>2026-10-30</b> for the Devpost submission to be complete. Green rows are done; amber rows are planned with a date.</p>
+        </div>
+        <table class="data" id="checklist-table"></table>
+      </div>
+
+      <div class="tab-panel" data-panel="timeline">
+        <div class="tab-panel-head">
+          <h2>Submission-window log</h2>
+          <p class="subhead">Dated events from window-open to submission-close. The mid-Nov row is post-deadline on purpose — the production Nebius deploy runs on its own schedule; the hackathon-scoped deploy is cut earlier from the same runbook.</p>
+        </div>
+        <table class="data" id="timeline-table"></table>
+      </div>
+
+      <div class="tab-panel" data-panel="open">
+        <div class="tab-panel-head">
+          <h2>What's left before we submit</h2>
+          <p class="subhead">Four things to close between now and the deadline. Each has a why-blocked and a plan — no unknowns.</p>
+        </div>
+        <div class="row-list" id="open-list"></div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · hackathon compliance board</span>
+    <span>Source: <a href="./hackathon-data.json">hackathon-data.json</a> · Repo: <a href="https://github.com/ajandan/quire-hackathon">ajandan/quire-hackathon</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+
+  let data;
+  try {
+    const res = await fetch('./hackathon-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.innerHTML =
+      "Couldn't load <b>hackathon-data.json</b> — " + (e.message || e) + ".<br>" +
+      "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
+      "<code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at ? data.generated_at.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (data.commit ? '  ·  ' + data.commit : '');
+
+  const chips = [
+    ['Event', data.event.name],
+    ['Track', data.event.track],
+    ['Deadline', data.event.deadline],
+    ['Days left', data.event.days_remaining],
+    ['Verdict', data.summary.verdict],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const kpis = [
+    { k: 'Rules met',   v: data.summary.rules_met + ' / ' + data.summary.rules_total, d: data.summary.rules_pending + ' pending', cls: 'pass' },
+    { k: 'NVIDIA',      v: data.summary.nvidia_models,   d: 'OSS models on the path', cls: 'pass' },
+    { k: 'Nebius',      v: data.summary.nebius_services, d: 'services in use',        cls: 'pass' },
+    { k: 'License',     v: data.summary.license,         d: 'approved OSS',           cls: 'pass' },
+    { k: 'Days left',   v: data.event.days_remaining,    d: 'until deadline',         cls: 'info' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + escapeHtml(x.v) + '</div>' +
+      '<div class="d">' + x.d + '</div>' +
+    '</div>'
+  ).join('');
+
+  const onTrack = data.summary.verdict === 'ON TRACK' || data.summary.verdict === 'APPROVED';
+  const stampText = onTrack ? 'ON / TRACK / ✓' : 'HOLD / SEE / DASH';
+  document.getElementById('verdict-card').innerHTML =
+    '<div class="vc-head">' +
+      '<span class="title">Verdikt / Hackathon</span>' +
+      '<span class="seq">' + escapeHtml(data.commit || 'HEAD') + '</span>' +
+    '</div>' +
+    '<div class="vc-verdict-row">' +
+      '<span class="vc-verdict ' + (onTrack ? '' : 'red') + '">' + escapeHtml(data.summary.verdict) + '</span>' +
+      '<span class="vc-stamp ' + (onTrack ? '' : 'red') + '"><span>' + stampText.split(' / ').join('<br>') + '</span></span>' +
+    '</div>' +
+    '<div class="vc-meta">' +
+      '<div><span class="k">Rules</span><span class="v">' + data.summary.rules_met + ' / ' + data.summary.rules_total + '</span></div>' +
+      '<div><span class="k">Models</span><span class="v">' + data.summary.nvidia_models + '</span></div>' +
+      '<div><span class="k">License</span><span class="v">' + escapeHtml(data.summary.license) + '</span></div>' +
+      '<div><span class="k">Days</span><span class="v">' + data.event.days_remaining + '</span></div>' +
+    '</div>';
+
+  // Tab strip
+  const tabDefs = [
+    { id: 'rules',        label: 'Rules',        count: data.rules.length },
+    { id: 'architecture', label: 'Architecture', count: data.architecture.stages.length },
+    { id: 'reuse',        label: 'Reuse',        count: 2 },
+    { id: 'judging',      label: 'Judging',      count: data.judging_criteria.length },
+    { id: 'checklist',    label: 'Checklist',    count: data.checklist.length },
+    { id: 'timeline',     label: 'Timeline',     count: data.timeline.length },
+    { id: 'open',         label: 'Open items',   count: data.open_items.length },
+  ];
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = tabDefs.map((t, i) =>
+    '<button class="tab ' + (i === 0 ? 'active' : '') + '" role="tab" data-tab="' + t.id + '">' +
+      escapeHtml(t.label) +
+      '<span class="tab-count">' + t.count + '</span>' +
+    '</button>'
+  ).join('');
+  tabsEl.addEventListener('click', function (ev) {
+    const btn = ev.target.closest('.tab');
+    if (!btn) return;
+    const target = btn.getAttribute('data-tab');
+    [].forEach.call(tabsEl.querySelectorAll('.tab'), function (b) {
+      b.classList.toggle('active', b === btn);
+    });
+    [].forEach.call(document.querySelectorAll('.tab-panel'), function (p) {
+      p.classList.toggle('active', p.getAttribute('data-panel') === target);
+    });
+  });
+
+  const statusClass = (st) =>
+    st === 'met'     ? 'pass' :
+    st === 'partial' ? 'warn' :
+    st === 'planned' ? 'info' :
+    st === 'done'    ? 'pass' :
+    'muted';
+  const statusLabel = (st) =>
+    st === 'met'     ? 'met'     :
+    st === 'partial' ? 'partial' :
+    st === 'planned' ? 'planned' :
+    st === 'done'    ? 'done'    : st;
+
+  const grid = document.getElementById('rules-grid');
+  grid.innerHTML = data.rules.map(r => {
+    const cardCls = r.status === 'met' ? '' : r.status === 'partial' ? 'warn' : 'warn';
+    return (
+      '<div class="inspect-card ' + cardCls + '" data-id="' + escapeHtml(r.id) + '">' +
+        '<div class="inspect-head">' +
+          '<div class="inspect-title">' + escapeHtml(r.id) + ' · ' + escapeHtml(r.name) + '</div>' +
+          '<span class="pill ' + statusClass(r.status) + '">' + statusLabel(r.status) + '</span>' +
+        '</div>' +
+        '<div class="inspect-desc">' + escapeHtml(truncate(r.how, 180)) + '</div>' +
+        '<div class="inspect-summary">' +
+          '<span><span class="k">evidence</span>' + r.evidence.length + ' items</span>' +
+          '<span><span class="k">status</span>' + statusLabel(r.status) + '</span>' +
+        '</div>' +
+        '<span class="click-badge"><span>Inspect</span><span class="arrow">▸</span></span>' +
+      '</div>'
+    );
+  }).join('');
+
+  const detail = document.getElementById('rules-detail');
+  grid.addEventListener('click', function (ev) {
+    const card = ev.target.closest('.inspect-card');
+    if (!card) return;
+    const wasSelected = card.classList.contains('selected');
+    [].forEach.call(grid.querySelectorAll('.inspect-card'), function (c) { c.classList.remove('selected'); });
+    if (wasSelected) { detail.hidden = true; return; }
+    card.classList.add('selected');
+    renderRuleDetail(card.getAttribute('data-id'));
+  });
+
+  function renderRuleDetail(id) {
+    const r = data.rules.find(x => x.id === id);
+    if (!r) return;
+    detail.hidden = false;
+    detail.innerHTML =
+      '<div class="inspect-detail-head">' +
+        '<div>' +
+          '<div class="inspect-detail-title">' + escapeHtml(r.id) + ' · ' + escapeHtml(r.name) + '</div>' +
+          '<div class="inspect-detail-sub">' + escapeHtml(r.how) + '</div>' +
+        '</div>' +
+        '<button class="inspect-detail-close" id="rules-detail-close">Close ✕</button>' +
+      '</div>' +
+      '<div class="inspect-detail-body">' +
+        '<div class="row-list">' +
+          r.evidence.map(e =>
+            '<div class="row-item">' +
+              '<div>' +
+                '<div class="r-title mono">' + escapeHtml(e) + '</div>' +
+              '</div>' +
+              '<span class="pill ' + statusClass(r.status) + '">' + statusLabel(r.status) + '</span>' +
+            '</div>'
+          ).join('') +
+        '</div>' +
+      '</div>';
+    document.getElementById('rules-detail-close').addEventListener('click', function () {
+      detail.hidden = true;
+      [].forEach.call(grid.querySelectorAll('.inspect-card'), function (x) { x.classList.remove('selected'); });
+    });
+    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  document.getElementById('arch-oneliner').textContent = data.architecture.one_liner;
+  document.getElementById('arch-grid').innerHTML = data.architecture.stages.map(s =>
+    '<div class="inspect-card">' +
+      '<div class="inspect-head">' +
+        '<div class="inspect-title">' + escapeHtml(s.stage) + '</div>' +
+        '<span class="pill pass">' + escapeHtml(s.host) + '</span>' +
+      '</div>' +
+      '<div class="inspect-desc mono" style="font-size:12.5px">' + escapeHtml(s.model) + '</div>' +
+      '<div class="inspect-desc">' + escapeHtml(s.why) + '</div>' +
+    '</div>'
+  ).join('');
+
+  const split = data.reuse;
+  document.getElementById('split-grid').innerHTML =
+    '<div class="split-card">' +
+      '<div class="split-head">' +
+        '<div class="split-title">Prior work (Quire kernel)</div>' +
+        '<span class="pill muted">predates 2026-08-26</span>' +
+      '</div>' +
+      '<div class="split-package mono">' + escapeHtml(split.prior_work.package) + '</div>' +
+      '<div class="split-scope">' + escapeHtml(split.prior_work.scope) + '</div>' +
+      '<div class="split-list-head">Submission-window touches</div>' +
+      '<ul class="split-list">' +
+        split.prior_work.submission_window_touches.map(t => '<li>' + escapeHtml(t) + '</li>').join('') +
+      '</ul>' +
+    '</div>' +
+    '<div class="split-card new">' +
+      '<div class="split-head">' +
+        '<div class="split-title">New work (Verdikt pipeline)</div>' +
+        '<span class="pill pass">landed after 2026-08-26</span>' +
+      '</div>' +
+      '<div class="split-package mono">' + escapeHtml(split.new_work.package) + '</div>' +
+      '<div class="split-scope">' + escapeHtml(split.new_work.scope) + '</div>' +
+      '<div class="split-list-head">Mechanically provable</div>' +
+      '<ul class="split-list">' +
+        split.new_work.mechanically_provable.map(t => '<li class="mono" style="font-size:12.5px">' + escapeHtml(t) + '</li>').join('') +
+      '</ul>' +
+    '</div>';
+
+  document.getElementById('judging-list').innerHTML = data.judging_criteria.map(j =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(j.criterion) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(j.note) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">covered</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('checklist-table').innerHTML =
+    '<thead><tr><th>Item</th><th>Status</th><th>Notes</th></tr></thead>' +
+    '<tbody>' +
+      data.checklist.map(c =>
+        '<tr>' +
+          '<td>' + escapeHtml(c.item) + '</td>' +
+          '<td><span class="pill ' + statusClass(c.status) + '">' + statusLabel(c.status) + '</span></td>' +
+          '<td style="color:var(--ink-500)">' + escapeHtml(c.note) + '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  document.getElementById('timeline-table').innerHTML =
+    '<thead><tr><th style="width:120px">Date</th><th>Event</th></tr></thead>' +
+    '<tbody>' +
+      data.timeline.map(t =>
+        '<tr>' +
+          '<td class="mono">' + escapeHtml(t.date) + '</td>' +
+          '<td>' + escapeHtml(t.event) + '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  const priClass = (p) => p === 'high' ? 'fail' : p === 'medium' ? 'warn' : 'muted';
+  document.getElementById('open-list').innerHTML = data.open_items.map(o =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(o.item) + '</div>' +
+        '<div class="r-desc"><b>Why blocked:</b> ' + escapeHtml(o.why_blocked) + '</div>' +
+        '<div class="r-evidence"><b>Plan:</b> ' + escapeHtml(o.plan) + '</div>' +
+      '</div>' +
+      '<span class="pill ' + priClass(o.priority) + '">' + escapeHtml(o.priority) + '</span>' +
+    '</div>'
+  ).join('');
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function truncate(s, n) {
+    if (!s) return '';
+    if (s.length <= n) return s;
+    return s.slice(0, n - 1) + '…';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

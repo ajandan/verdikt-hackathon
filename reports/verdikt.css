@@ -76,6 +76,18 @@ header.hairline-b {
   color: var(--seal-700); border-color: rgba(47,143,118,0.35);
   background: rgba(47,143,118,0.06);
 }
+/* Persistent highlight on the Hackathon link — judges spot it at a glance */
+.crossnav a[href$="hackathon.html"] {
+  color: #fff; background: var(--seal-700); border-color: var(--seal-700);
+  font-weight: 600;
+}
+.crossnav a[href$="hackathon.html"]:hover {
+  color: #fff; background: var(--seal-500); border-color: var(--seal-500);
+}
+.crossnav a[href$="hackathon.html"].active {
+  color: #fff; background: var(--seal-700); border-color: var(--seal-700);
+  box-shadow: 0 0 0 3px rgba(47,143,118,0.18);
+}
 @media (max-width: 820px) { .crossnav { display: none; } }
 
 /* Hero */
@@ -598,6 +610,89 @@ table.files td.pass { color: var(--seal-700); font-weight: 500; }
 table.files td.fail { color: var(--red-500); font-weight: 500; }
 table.files tr:last-child td { border-bottom: 0; }
 table.files tr:hover td { background: rgba(47,143,118,0.03); }
+
+/* Tabs (hackathon board) */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 28px;
+  padding: 8px; background: var(--ink-50);
+  border: 1px solid var(--hair); border-radius: 12px;
+}
+.tab {
+  appearance: none; cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--ink-700);
+  background: #fff;
+  padding: 12px 20px;
+  border: 1px solid var(--hair); border-radius: 10px;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+.tab .tab-count {
+  display: inline-block; padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--seal-700); color: #fff;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px; font-weight: 600;
+  min-width: 22px; text-align: center;
+  box-shadow: 0 2px 6px -2px rgba(30,95,79,0.4);
+}
+.tab:hover {
+  color: var(--seal-700); border-color: var(--seal-500);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -12px rgba(47,143,118,0.35);
+}
+.tab.active {
+  color: #fff;
+  background: var(--seal-700);
+  border-color: var(--seal-700);
+  box-shadow: 0 8px 20px -10px rgba(30,95,79,0.5);
+}
+.tab.active .tab-count {
+  background: rgba(255,255,255,0.22); color: #fff;
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: tab-fade 180ms ease; }
+@keyframes tab-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tab-panel .tab-panel-head { margin-bottom: 18px; }
+.tab-panel .tab-panel-head h2 { margin: 0 0 6px; }
+
+/* Hackathon reuse split (prior work vs submission-window work) */
+.split-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 900px) { .split-grid { grid-template-columns: repeat(2, 1fr); } }
+.split-card {
+  position: relative;
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  padding: 22px 22px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.split-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--ink-300, #b8c3c1);
+}
+.split-card.new::before { background: var(--seal-500); }
+.split-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.split-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400;
+  font-size: 22px; line-height: 1.15;
+}
+.split-package {
+  font-size: 12.5px; color: var(--ink-500);
+  padding: 4px 8px; background: var(--ink-50); border-radius: 4px;
+  align-self: flex-start;
+}
+.split-scope { font-size: 14px; color: var(--ink-700); line-height: 1.55; }
+.split-list-head {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500);
+  margin-top: 6px;
+}
+.split-list { margin: 0; padding-left: 18px; }
+.split-list li { margin-bottom: 6px; font-size: 13.5px; color: var(--ink-700); line-height: 1.5; }
 
 /* Footer */
 footer {

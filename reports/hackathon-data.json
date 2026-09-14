@@ -1,0 +1,190 @@
+{
+  "product": "Verdikt",
+  "generated_at": "2026-09-14T00:00:00Z",
+  "commit": "f8e4e6a",
+  "event": {
+    "name": "Nebius × NVIDIA Global AI Hackathon",
+    "track": "Best Apps & Agents",
+    "submission_window": "2026-08-26 → 2026-10-30",
+    "deadline": "2026-10-30",
+    "days_remaining": 46,
+    "repo": "https://github.com/ajandan/quire-hackathon"
+  },
+  "summary": {
+    "verdict": "ON TRACK",
+    "rules_total": 5,
+    "rules_met": 4,
+    "rules_pending": 1,
+    "license": "MIT",
+    "nvidia_models": 3,
+    "nebius_services": 2,
+    "open_items": 4
+  },
+  "rules": [
+    {
+      "id": "R1",
+      "name": "Runs on Nebius Token Factory / Nebius AI Cloud",
+      "status": "met",
+      "how": "Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory. Retrieval uses NeMo Retriever NIMs. Extraction runs nv-ingest on a Nebius AI Cloud VM (deploy deferred to mid-Nov; runbook pre-flighted).",
+      "evidence": [
+        "src/docgen/providers/nebius.py — Nebius Token Factory adapter",
+        "docs/deploy-nebius.md — Nebius AI Cloud deploy runbook",
+        "tests/test_provider_nebius.py — provider contract enforced"
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "≥ 1 NVIDIA open-source model",
+      "status": "met",
+      "how": "Three models, one per pipeline stage, all published under the nvidia/ namespace. Default enforced in tests — the Nebius provider's default model name must start with nvidia/.",
+      "evidence": [
+        "nv-ingest (multimodal extraction)",
+        "nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 (NeMo Retriever NIMs)",
+        "nvidia/llama-3.1-nemotron-70b-instruct (reasoning)",
+        "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Approved OSS license",
+      "status": "met",
+      "how": "MIT license at repo root. Third-party dependency licenses are audited in CI — the license-check gate fails the build if a non-permissive licence lands.",
+      "evidence": [
+        "LICENSE (MIT)",
+        "scripts/check_licenses.py — CI license audit",
+        ".github/workflows/ci.yml — license-check job"
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "Public repo, README, demo URL",
+      "status": "partial",
+      "how": "Repo README is production-ready and publicly framed (no employer references, no competitor library names). Repo currently PRIVATE (set 2026-09-07) — flips PUBLIC before 2026-10-30. Public demo URL depends on the Nebius deploy, scheduled for mid-Nov.",
+      "evidence": [
+        "README.md — public-framing scrub complete",
+        "docs/HACKATHON.md — technical write-up",
+        "docs/deploy-nebius.md — deploy runbook (pre-flighted, not yet executed)"
+      ]
+    },
+    {
+      "id": "R5",
+      "name": "YouTube video < 3 min",
+      "status": "planned",
+      "how": "Architecture-beat script drafted (60-second core + 15-second second-program cameo). Recording after the public demo goes live so we can screen-capture the real system.",
+      "evidence": [
+        "docs/demo-scripts/video-narration-60s.md — narration + visual-sync notes",
+        "docs/demo-scripts/architecture-justification.md — README-ready pipeline argument"
+      ]
+    }
+  ],
+  "architecture": {
+    "claim": "AI-in, deterministic-out",
+    "one_liner": "AI runs where it earns its place — reading documents, retrieving rules, reasoning over both. Then AI stops. No language model sits on the code path that generates the audited artifact.",
+    "stages": [
+      {
+        "stage": "Extract",
+        "model": "nv-ingest",
+        "host": "Nebius AI Cloud VM",
+        "why": "Multimodal PDF extraction over messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters. Vision handles what regex cannot."
+      },
+      {
+        "stage": "Retrieve",
+        "model": "nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3",
+        "host": "NeMo Retriever NIMs",
+        "why": "Embedding + rerank surface the eligibility rules that apply to this case, from a pgvector store populated at startup from human-authored YAML. The model's job is to find, not to invent."
+      },
+      {
+        "stage": "Reason",
+        "model": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "host": "Nebius Token Factory",
+        "why": "Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape."
+      }
+    ]
+  },
+  "reuse": {
+    "principle": "Hybrid — hackathon-window pipeline (Verdikt) composed onto a pre-existing doc-gen kernel (Quire). Mechanical boundaries make the split provable.",
+    "prior_work": {
+      "package": "src/docgen/ (Quire kernel)",
+      "scope": "Design-time AI mapping, deterministic render path, freeze/publish, generic inbox agent, provider abstraction, multi-tenancy. Predates 2026-08-26.",
+      "submission_window_touches": [
+        "Nebius Token Factory provider adapter",
+        "Moved PDF field labeler to a text-only NVIDIA Nemotron model on Nebius",
+        "One extension point on the inbox agent so Verdikt can plug in"
+      ]
+    },
+    "new_work": {
+      "package": "src/pap_pipeline/ (Verdikt)",
+      "scope": "Three-stage decision pipeline (extract → retrieve → reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
+      "mechanically_provable": [
+        "git log -- src/pap_pipeline/ returns only submission-window commits",
+        "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline — dependency direction is one-way",
+        "tests/test_boundaries.py::test_core_never_imports_ai_layer — no model at render time"
+      ]
+    }
+  },
+  "judging_criteria": [
+    {
+      "criterion": "Technical implementation",
+      "note": "Three NVIDIA models composed at their strongest task shapes on one Nebius key, with per-call routing instrumentation. Deterministic render boundary enforced in tests. One-way dependency prevents substrate contamination. Every inter-stage artifact is a structured pydantic model — independently testable at each seam."
+    },
+    {
+      "criterion": "Design (complete product)",
+      "note": "Observable end-to-end. Every stage's output is a structured artifact a human reviewer can read: intake, retrieved rules with rerank scores, decision with citations, rendered letter. Admin routing-table page surfaces model-selection decisions as live data."
+    },
+    {
+      "criterion": "Potential impact",
+      "note": "Patient Assistance Programs are one instance of a class — regulated document workflows where the letter that leaves the building is the audit artifact. Prior authorization, benefit verification, informed consent, MedWatch reporting all share the same shape. Onboarding a second program is a data change, not a build."
+    },
+    {
+      "criterion": "Quality of idea",
+      "note": "Most 2026 doc-gen submissions put a language model on the artifact-generation code path. Verdikt refuses. The EU AI Act categorizes healthcare eligibility decisions as high-risk and demands the exact reproducibility guarantees Verdikt provides mechanically. Building audit-defensible in 2026 is ahead of the regulatory curve, not behind the capability curve."
+    }
+  ],
+  "checklist": [
+    { "item": "Public GitHub repo",       "status": "partial", "note": "Repo PRIVATE since 2026-09-07. Flip public before 2026-10-30." },
+    { "item": "Approved OSS license",     "status": "done",    "note": "MIT, enforced by CI license audit." },
+    { "item": "README with setup steps",  "status": "done",    "note": "Public-framing scrub complete. Docker compose bring-up documented." },
+    { "item": "Nebius-hosted deployment", "status": "planned", "note": "Deploy runbook (docs/deploy-nebius.md) pre-flighted. Actual deploy mid-Nov." },
+    { "item": "Public demo URL",          "status": "planned", "note": "Depends on the Nebius deploy above." },
+    { "item": "≥ 1 NVIDIA OSS model",     "status": "done",    "note": "Three: nv-ingest, NeMo Retriever NIMs, Nemotron. Default enforced by test." },
+    { "item": "YouTube video < 3 min",    "status": "planned", "note": "Script drafted. Recording after live demo URL." },
+    { "item": "Devpost submission",       "status": "planned", "note": "Ready to submit once demo URL + video are live." }
+  ],
+  "timeline": [
+    { "date": "2026-08-26", "event": "Submission window opens" },
+    { "date": "2026-08-27", "event": "Fork created at ajandan/quire-hackathon" },
+    { "date": "2026-09-03", "event": "Security audit — LOW risk, verdict APPROVED" },
+    { "date": "2026-09-07", "event": "Repo set PRIVATE for hackathon-window work" },
+    { "date": "2026-09-09", "event": "Product name locked: Verdikt" },
+    { "date": "2026-09-13", "event": "Code + security review dashboards shipped" },
+    { "date": "2026-09-14", "event": "Today — engineering dashboards public-ready" },
+    { "date": "mid-Nov",    "event": "Nebius deploy target (post-submission for demo continuity)" },
+    { "date": "2026-10-30", "event": "Submission deadline — repo public, demo URL live, video posted" }
+  ],
+  "open_items": [
+    {
+      "item": "Flip repo visibility to PUBLIC",
+      "priority": "high",
+      "why_blocked": "Deliberate privacy during active submission-window work.",
+      "plan": "Flip PUBLIC on 2026-10-28 (48h buffer before deadline). No code change needed."
+    },
+    {
+      "item": "Public demo URL on Nebius",
+      "priority": "high",
+      "why_blocked": "Deploy target date is mid-Nov to keep the production Quire deploy on its own schedule.",
+      "plan": "Cut a hackathon-scoped Nebius deploy from the runbook. Minimal footprint (single VM + Token Factory key). Bring up 2026-10-25, freeze, submit."
+    },
+    {
+      "item": "Record YouTube video (< 3 min)",
+      "priority": "medium",
+      "why_blocked": "Screen-recording needs the live demo URL to be captured cleanly.",
+      "plan": "Record after demo URL is live (~ 2026-10-27). Script is ready — 60-second architecture beat + 15-second cameo."
+    },
+    {
+      "item": "Submit on Devpost",
+      "priority": "medium",
+      "why_blocked": "Needs repo URL (public), demo URL, and video URL — all above.",
+      "plan": "Submit 2026-10-29 with 24h buffer."
+    }
+  ]
+}

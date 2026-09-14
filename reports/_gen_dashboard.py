@@ -328,8 +328,11 @@ def main() -> None:
     )
 
     # Append this run to the rolling history so the dashboard can show a
-    # trend. Dedupe by (commit, junit_timestamp) so re-running _gen against
-    # the same results.xml doesn't create a duplicate entry.
+    # trend. Dedupe by JUnit timestamp: a single pytest run has exactly one
+    # <testsuite timestamp="…">, so that's the natural identity of the run.
+    # The commit stamp is contextual metadata (HEAD at generation time),
+    # which can differ if the same results.xml is regenerated after a new
+    # commit — we want that to be an update, not a duplicate.
     entry = {
         "timestamp": suite_el.get("timestamp", ""),
         "generated_at": payload["run"]["generated_at"],
@@ -348,9 +351,9 @@ def main() -> None:
             history = existing.get("runs", [])
         except json.JSONDecodeError:
             history = []
-    dedupe_key = (entry["commit"], entry["timestamp"])
-    history = [r for r in history if (r.get("commit"), r.get("timestamp")) != dedupe_key]
+    history = [r for r in history if r.get("timestamp") != entry["timestamp"]]
     history.insert(0, entry)
+    history.sort(key=lambda r: r.get("timestamp") or "", reverse=True)
     history = history[:HISTORY_KEEP]
     HISTORY_OUT.write_text(
         json.dumps({"generated_at": entry["generated_at"], "runs": history}, indent=2),

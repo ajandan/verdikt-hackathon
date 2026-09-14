@@ -51,15 +51,28 @@ header.hairline-b {
 .nav { height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .brand {
   display: flex; align-items: center; gap: 10px;
-  font-family: 'Instrument Serif', ui-serif, Georgia, serif;
-  font-weight: 400; font-size: 24px; letter-spacing: -0.01em;
+  font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1;
+  color: var(--seal-700);
 }
 .brand .mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px;
 }
 .brand .mark svg { width: 26px; height: 26px; display: block; }
-.brand-tag { color: var(--ink-500); font-size: 12px; margin-left: 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+/* Brand-tag — masthead tagline next to the wordmark. Mirrors the landing
+   page: Instrument Serif, ink-500, with an italic seal-700 em phrase.
+   Vertical hair rule separates it from the wordmark. */
+.brand-tag {
+  display: none;
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+  font-size: 18px; line-height: 1; letter-spacing: 0.005em;
+  color: var(--ink-500);
+  margin-left: 12px; padding-left: 12px;
+  border-left: 1px solid var(--hair);
+}
+.brand-tag em { color: var(--seal-700); font-style: italic; }
+@media (min-width: 640px) { .brand-tag { display: inline-block; } }
 .nav-meta { color: var(--ink-500); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; }
 
 .crossnav {
@@ -75,6 +88,23 @@ header.hairline-b {
 .crossnav a.active {
   color: var(--seal-700); border-color: rgba(47,143,118,0.35);
   background: rgba(47,143,118,0.06);
+  position: relative;
+  display: inline-flex; align-items: center;
+}
+.crossnav a.active::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--seal-500); margin-right: 8px;
+  animation: crossnav-pulse 1.8s ease-in-out infinite;
+}
+@keyframes crossnav-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(60,179,113,0.55);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px rgba(60,179,113,0);
+  }
 }
 /* Persistent highlight on the Hackathon link — judges spot it at a glance */
 .crossnav a[href$="hackathon.html"] {
@@ -87,6 +117,16 @@ header.hairline-b {
 .crossnav a[href$="hackathon.html"].active {
   color: #fff; background: var(--seal-700); border-color: var(--seal-700);
   box-shadow: 0 0 0 3px rgba(47,143,118,0.18);
+}
+.crossnav a[href$="hackathon.html"].active::before {
+  background: #fff;
+}
+.crossnav a[href$="hackathon.html"].active {
+  animation: hackathon-active-pulse 2.2s ease-in-out infinite;
+}
+@keyframes hackathon-active-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(47,143,118,0.18); }
+  50%      { box-shadow: 0 0 0 6px rgba(47,143,118,0.05); }
 }
 @media (max-width: 820px) { .crossnav { display: none; } }
 

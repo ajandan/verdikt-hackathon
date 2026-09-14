@@ -527,6 +527,78 @@ table.data tr:hover td { background: rgba(47,143,118,0.03); }
 }
 .vc-stamp span { display: block; line-height: 1.5; }
 
+/* Suite cards (tests dashboard) — click-to-drill-down pattern */
+.suite-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 720px) { .suite-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1050px) { .suite-grid { grid-template-columns: repeat(3, 1fr); } }
+.suite-card {
+  position: relative;
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  padding: 20px 20px 54px; display: flex; flex-direction: column; gap: 10px;
+  cursor: pointer; transition: transform 120ms ease, border-color 120ms ease;
+}
+.suite-card:hover { transform: translateY(-1px); border-color: var(--seal-500); }
+.suite-card.selected { border-color: var(--seal-500); box-shadow: 0 6px 24px -14px rgba(47,143,118,0.35); }
+.suite-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.suite-name {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400;
+  font-size: 22px; line-height: 1.15;
+}
+.suite-badge {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid rgba(47,143,118,0.35);
+  color: var(--seal-700); background: rgba(47,143,118,0.06);
+}
+.suite-badge.fail { color: var(--red-500); border-color: rgba(182,72,58,0.35); background: rgba(182,72,58,0.08); }
+.suite-desc { color: var(--ink-500); font-size: 13px; line-height: 1.45; }
+.suite-stats {
+  display: flex; gap: 14px; margin-top: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  color: var(--ink-700);
+}
+.suite-stats .k { color: var(--ink-500); margin-right: 4px; }
+.bar { height: 6px; border-radius: 999px; background: var(--ink-100); overflow: hidden; }
+.bar-fill { height: 100%; background: var(--seal-500); transition: width 300ms ease; }
+.bar-fill.fail { background: var(--red-500); }
+
+/* Suite detail panel (tests dashboard) */
+.detail {
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  margin-top: 20px; overflow: hidden;
+}
+.detail-head {
+  padding: 18px 22px; border-bottom: 1px solid var(--hair);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--ink-50);
+}
+.detail-title { font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 24px; }
+.detail-close {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500);
+  background: transparent; border: 1px solid var(--hair); border-radius: 6px;
+  padding: 6px 12px; cursor: pointer;
+}
+.detail-close:hover { color: var(--seal-700); border-color: var(--seal-500); }
+.detail-body { padding: 4px 0 0; }
+table.files { width: 100%; border-collapse: collapse; }
+table.files th, table.files td {
+  padding: 10px 22px; text-align: left; font-size: 13px;
+  border-bottom: 1px solid var(--hair-soft);
+}
+table.files th {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-500);
+  font-weight: 500; background: var(--ink-50);
+}
+table.files td.mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--ink-700); }
+table.files td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.files td.pass { color: var(--seal-700); font-weight: 500; }
+table.files td.fail { color: var(--red-500); font-weight: 500; }
+table.files tr:last-child td { border-bottom: 0; }
+table.files tr:hover td { background: rgba(47,143,118,0.03); }
+
 /* Footer */
 footer {
   padding: 40px 0; border-top: 1px solid var(--hair);

@@ -237,6 +237,50 @@
             opacity: 1;
         }
 
+        /* Responsive tables — opt-in via `class="responsive"` on the <table>.
+           On narrow viewports the row collapses into a stacked card, each cell
+           labelled with its `data-label` attribute. Header row is hidden. */
+        @media (max-width: 720px) {
+            table.responsive { display: block; }
+            table.responsive thead { display: none; }
+            table.responsive tbody { display: block; }
+            table.responsive tr {
+                display: block;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-lg);
+                margin-bottom: 12px;
+                background: var(--surface);
+                overflow: hidden;
+            }
+            table.responsive tbody tr:hover { background: var(--surface); }
+            table.responsive td {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 16px;
+                padding: 10px 16px;
+                border-bottom: 1px solid var(--border);
+                font-size: 13px;
+                text-align: right;
+            }
+            table.responsive tr td:last-child { border-bottom: 0; }
+            table.responsive td::before {
+                content: attr(data-label);
+                color: var(--text-muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.07em;
+                font-weight: 600;
+                text-align: left;
+                flex: 0 0 auto;
+            }
+            /* Cells with no label (checkboxes, action arrows) collapse cleanly. */
+            table.responsive td[data-label=""],
+            table.responsive td:not([data-label]) { justify-content: flex-end; }
+            table.responsive td[data-label=""]::before,
+            table.responsive td:not([data-label])::before { content: none; }
+        }
+
         /* --- Forms --- */
         input[type=text], input[type=password], input[type=email],
         input[type=file], input[type=number], input[type=search],

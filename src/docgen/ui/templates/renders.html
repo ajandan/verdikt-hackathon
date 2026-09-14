@@ -52,6 +52,13 @@
         background: var(--surface-2); padding: 14px 24px 18px;
         border-bottom: 1px solid var(--border);
     }
+    @media (max-width: 720px) {
+        /* Detail row becomes a card that sits under its parent row. */
+        table.responsive tr.render-detail.open { display: block; }
+        table.responsive tr.render-detail td { display: block; }
+        /* Suppress caret column in card view — the whole row is tappable. */
+        table.responsive tr.render-row td.caret-col { display: none; }
+    }
     tr.render-detail pre {
         margin: 8px 0 0; max-height: 320px; overflow: auto;
         font-size: 12px; white-space: pre-wrap; word-break: break-word;
@@ -158,7 +165,7 @@
 
 <div class="card flush attached">
     {% if renders %}
-    <table id="renders-table">
+    <table id="renders-table" class="responsive">
         <thead>
             <tr>
                 <th style="width: 20px"></th>
@@ -176,8 +183,8 @@
             <tr class="render-row" tabindex="0" role="button"
                 aria-expanded="false" aria-controls="detail-{{ r.id }}"
                 data-render-row="{{ r.id }}">
-                <td><span class="caret">▸</span></td>
-                <td>
+                <td class="caret-col" data-label=""><span class="caret">▸</span></td>
+                <td data-label="State">
                     {% if r.state == 'succeeded' %}
                         <span class="badge accept">ok</span>
                     {% elif r.state == 'failed' %}
@@ -188,15 +195,15 @@
                         <span class="badge draft">{{ r.state }}</span>
                     {% endif %}
                 </td>
-                <td><a href="/ui/templates/{{ r.template_id }}">{{ r.template_name }}</a></td>
-                <td class="muted">{{ r.tenant_name }}</td>
-                <td class="muted">{{ r.caller or '—' }}</td>
-                <td class="muted">{{ r.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td class="muted">{% if r.completed_at %}{{ r.completed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
-                <td class="fail-cell" title="{{ r.error or '' }}">{{ r.error or '' }}</td>
+                <td data-label="Template"><a href="/ui/templates/{{ r.template_id }}">{{ r.template_name }}</a></td>
+                <td class="muted" data-label="Tenant">{{ r.tenant_name }}</td>
+                <td class="muted" data-label="Caller">{{ r.caller or '—' }}</td>
+                <td class="muted" data-label="Submitted">{{ r.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="muted" data-label="Completed">{% if r.completed_at %}{{ r.completed_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+                <td class="fail-cell" data-label="Error" title="{{ r.error or '' }}">{{ r.error or '' }}</td>
             </tr>
             <tr class="render-detail" id="detail-{{ r.id }}">
-                <td colspan="8">
+                <td colspan="8" data-label="">
                     <div class="detail-head">
                         <span>Job&nbsp;<strong style="font-family: ui-monospace, monospace">{{ r.id }}</strong></span>
                         <span>·</span>

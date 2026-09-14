@@ -4,8 +4,8 @@
   "commit": "ec422a8",
   "summary": {
     "verdict": "APPROVED",
-    "controls_shipped": 18,
-    "controls_pending": 4,
+    "controls_shipped": 24,
+    "controls_pending": 2,
     "open_items": 4,
     "risk_level": "LOW",
     "license": "MIT",

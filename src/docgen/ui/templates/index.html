@@ -332,7 +332,7 @@
     {{ csrf_input(request) }}
     <input type="hidden" name="action" id="bulk-action" value="">
 <div class="card flush attached" id="tpl-list-card">
-    <table class="sortable">
+    <table class="sortable responsive">
         <thead>
             <tr>
                 <th class="check-col" data-no-sort>
@@ -352,36 +352,36 @@
         <tbody>
         {% for t in templates %}
             <tr data-status="{% if t.current_version %}frozen{% else %}draft{% endif %}" data-name="{{ t.name|lower }}" data-active="{{ 'true' if t.is_active else 'false' }}"{% if not t.is_active %} class="inactive"{% endif %}>
-                <td class="check-col">
+                <td class="check-col" data-label="">
                     <input type="checkbox" name="ids" value="{{ t.id }}" class="bulk-check" aria-label="Select {{ t.name }}">
                 </td>
-                <td><strong>{{ t.name }}</strong></td>
-                <td data-sort="{{ '0' if t.is_active else '1' }}">
+                <td data-label="Name"><strong>{{ t.name }}</strong></td>
+                <td data-label="Status" data-sort="{{ '0' if t.is_active else '1' }}">
                     {% if t.is_active %}
                         <span class="badge accept" title="Visible and renderable">Active</span>
                     {% else %}
                         <span class="badge reject" title="Hidden from listings by default; renders are refused">Inactive</span>
                     {% endif %}
                 </td>
-                <td class="muted tpl-col-tenant">{{ t.tenant_name }}</td>
-                <td class="muted tpl-col-owner">{{ t.owner or '—' }}</td>
-                <td data-sort="{{ t.current_version or 0 }}">
+                <td class="muted tpl-col-tenant" data-label="Tenant">{{ t.tenant_name }}</td>
+                <td class="muted tpl-col-owner" data-label="Owner">{{ t.owner or '—' }}</td>
+                <td data-label="Version" data-sort="{{ t.current_version or 0 }}">
                     {% if t.current_version %}
                         <span class="badge frozen">v{{ t.current_version }} · frozen</span>
                     {% else %}
                         <span class="badge draft">No frozen version</span>
                     {% endif %}
                 </td>
-                <td class="muted tpl-col-versions">{{ t.version_count }}</td>
-                <td class="muted tpl-col-lastrun" data-sort="{{ t.last_rendered_at.isoformat() if t.last_rendered_at else '' }}">
+                <td class="muted tpl-col-versions" data-label="Versions">{{ t.version_count }}</td>
+                <td class="muted tpl-col-lastrun" data-label="Last rendered" data-sort="{{ t.last_rendered_at.isoformat() if t.last_rendered_at else '' }}">
                     {% if t.last_rendered_at %}
                         {{ t.last_rendered_at.strftime('%Y-%m-%d %H:%M') }}
                     {% else %}
                         <span class="subtle">Never</span>
                     {% endif %}
                 </td>
-                <td class="muted tpl-col-created" data-sort="{{ t.created_at.isoformat() }}">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td style="text-align: right">
+                <td class="muted tpl-col-created" data-label="Created" data-sort="{{ t.created_at.isoformat() }}">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td style="text-align: right" data-label="">
                     <a href="/ui/templates/{{ t.id }}" class="row-open" title="Open template" aria-label="Open {{ t.name }}">
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 3l5 5-5 5"/></svg>
                     </a>

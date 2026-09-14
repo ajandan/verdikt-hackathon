@@ -13,10 +13,10 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 78,
-    "shipped": 60,
-    "in_progress": 5,
-    "backlog": 11,
+    "features_total": 81,
+    "shipped": 71,
+    "in_progress": 2,
+    "backlog": 8,
     "parked": 2
   },
   "categories": [
@@ -58,7 +58,7 @@
         {"name": "Empty-state onboarding (sample template)", "status": "shipped", "description": "'Or try a sample →' button pushes bundled DOCX through the real preflight path.", "evidence": "/ui/upload/sample"},
         {"name": "Signature field render", "status": "backlog", "description": "Still coerced to text. Needs payload format decision (base64 PNG? blob key? URL?).", "evidence": "roadmap deferred"},
         {"name": "Command palette (⌘K)", "status": "backlog", "description": "Jump to template, upload, mapping wizard, tenant switch. Table view bottleneck past ~20 templates.", "evidence": "roadmap ship-first #7"},
-        {"name": "Responsive tables → mobile card view", "status": "backlog", "description": "UX polish for < 720 px viewports.", "evidence": "roadmap UX polish"}
+        {"name": "Responsive tables → mobile card view", "status": "shipped", "description": "Under 720px, table rows collapse into stacked cards labelled by data-label. Opt-in via class='responsive'. Templates + renders lists covered.", "evidence": "base.html @media (max-width: 720px) block; index.html + renders.html data-label attrs"}
       ]
     },
     {
@@ -112,6 +112,7 @@
         {"name": "Login rate limit (sliding window in Redis)", "status": "shipped", "description": "10 attempts / 15 min per (ip, username). Fail-open on Redis outage.", "evidence": "src/docgen/ratelimit.py"},
         {"name": "RBAC + role model", "status": "shipped", "description": "Roles constrain admin/tenant surfaces; enforced in middleware + template.", "evidence": "test_rbac.py"},
         {"name": "Multi-tenant scope audit (CI)", "status": "shipped", "description": "scripts/tenant_scope_audit.py flags any tenant-scoped query without a tenant_id filter within 40 lines.", "evidence": "CI step + script"},
+        {"name": "Public landing at /", "status": "shipped", "description": "Root URL renders a marketing landing; detects session cookie and swaps 'Sign in' for 'Open dashboard'.", "evidence": "src/docgen/ui/templates/landing.html + main.py"},
         {"name": "Per-tenant quotas", "status": "backlog", "description": "renders/day, storage MB, active templates. Not enforced today.", "evidence": "roadmap multi-tenancy"}
       ]
     },
@@ -174,7 +175,6 @@
   "backlog": [
     {"category": "Templates", "item": "Signature-field render", "priority": "medium", "notes": "Needs payload format decision."},
     {"category": "Templates", "item": "Command palette (⌘K)", "priority": "medium", "notes": "Bottleneck past 20 templates."},
-    {"category": "UX", "item": "Responsive table → card on mobile", "priority": "low", "notes": "< 720 px viewport."},
     {"category": "Pipeline", "item": "MDM PR2 — Slot compiler", "priority": "high", "notes": "Blocks history-citation UI."},
     {"category": "Pipeline", "item": "MDM PR3 — state-mdm-v1 adapter", "priority": "high", "notes": "Real REST+JWT connector against fake MDM in local/mdm-fake/."},
     {"category": "Pipeline", "item": "MDM PR4 — Ledger columns backfill", "priority": "medium", "notes": "mdm_snapshot_hash + provider on the case row."},
@@ -184,7 +184,6 @@
     {"category": "Observability", "item": "OpenTelemetry end-to-end tracing", "priority": "medium", "notes": "FastAPI → SQLAlchemy → boto3 → render span."},
     {"category": "Observability", "item": "Per-tenant metrics + DLQ alerts", "priority": "medium", "notes": "renders/hr, P99 latency, queue depth."},
     {"category": "Multi-tenancy", "item": "Per-tenant quotas", "priority": "medium", "notes": "renders/day, storage MB, active templates."},
-    {"category": "Docs", "item": "Marketing landing at /", "priority": "low", "notes": "Currently redirects to /ui/login."},
     {"category": "Docs", "item": "OG image + Scalar/Redoc API reference", "priority": "low", "notes": "Social share + worked examples per endpoint."},
     {"category": "Deploy", "item": "Nebius VM deploy execution", "priority": "high", "notes": "Deferred to mid-Nov 2026 per memory."},
     {"category": "DX", "item": "mypy --strict ratchet", "priority": "low", "notes": "New modules first, expand from there."}

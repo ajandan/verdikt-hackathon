@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Verdikt · Engineering dashboard</title>
-<meta name="description" content="Engineering dashboard for Verdikt — one-stop hub linking tests, features, code review, and security review." />
+<meta name="description" content="Executive overview for Verdikt — every review's verdict at a glance, with drill-down links to the underlying dashboards." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -15,14 +15,24 @@
 <header class="hairline-b">
   <div class="container nav">
     <div class="brand">
-      <span class="mark">V</span>
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
       Verdikt
       <span class="brand-tag">/ engineering</span>
     </div>
     <nav class="crossnav">
       <a href="./index.html" class="active">Overview</a>
-      <a href="./dashboard.html">Tests</a>
       <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
       <a href="./security-review.html">Security</a>
     </nav>
@@ -33,9 +43,9 @@
 <main class="container">
 
   <section class="hero">
-    <span class="eyebrow"><span class="dot"></span> Engineering dashboard</span>
-    <h1 class="display">Every claim, <em>with receipts</em>.</h1>
-    <p class="lede">Verdikt's engineering signal in one place — the test suite verdict, the feature portfolio, the code-review gates, the security posture. Each card is a live rollup; each dashboard is a JSON-backed drill-down.</p>
+    <span class="eyebrow"><span class="dot"></span> Executive overview</span>
+    <h1 class="display">Four reviews. <em>One verdict.</em></h1>
+    <p class="lede">The load-bearing scores for Verdikt at HEAD — features shipped, tests passing, code gated, security cleared. Each card is a live drill-down. Green across the board is the ship signal.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -44,14 +54,14 @@
   <div id="content" hidden>
 
     <section class="block">
-      <span class="kicker">Rollup</span>
-      <h2>Product health</h2>
-      <p class="subhead">Four numbers, one glance. The Total is the pytest count; the rest are the shipped counts from each domain.</p>
-      <div class="kpi-row four" id="kpi-row"></div>
+      <span class="kicker">Scoreboard</span>
+      <h2>Every review, at a glance</h2>
+      <p class="subhead">Prominent verdicts from the four downstream dashboards. Colour stripe on top signals health — green for pass, amber for watch, red for block. Click any card to drill in.</p>
+      <div class="score-grid" id="score-grid"></div>
     </section>
 
     <section class="block">
-      <span class="kicker">Verdict</span>
+      <span class="kicker">Aggregate</span>
       <h2>Ship signal</h2>
       <p class="subhead">The four dashboards below all render a paper-stamp verdict. This card is the aggregate — approved only when every downstream verdict is green.</p>
       <div class="verdict-wrap">
@@ -66,10 +76,10 @@
     </section>
 
     <section class="block">
-      <span class="kicker">Dashboards</span>
-      <h2>Four rollups, four verdicts</h2>
-      <p class="subhead">Every board is a live JSON file plus a static HTML view. Update the JSON, refresh the page.</p>
-      <div class="card-grid" id="dashboard-cards"></div>
+      <span class="kicker">Portfolio numbers</span>
+      <h2>By the count</h2>
+      <p class="subhead">Raw totals across the four reviews — the numbers behind the verdicts.</p>
+      <div class="kpi-row four" id="kpi-row"></div>
     </section>
 
     <section class="block">
@@ -141,6 +151,9 @@
   const testsGreen = tests.totals.failed === 0 && tests.totals.errored === 0;
   const codeGreen = code.summary.verdict === 'APPROVED';
   const secGreen = security.summary.verdict === 'APPROVED';
+  const featPct = Math.round(features.summary.shipped / features.summary.features_total * 100);
+  const featGreen = featPct >= 70;
+  const featWarn = featPct >= 40 && featPct < 70;
   const overallGreen = testsGreen && codeGreen && secGreen;
 
   const chips = [
@@ -152,6 +165,70 @@
   ];
   document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
     '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const scoreCards = [
+    {
+      href: './features.html',
+      kicker: 'Features',
+      verdict: featPct + '%',
+      tag: '<b>' + features.summary.shipped + '</b> of ' + features.summary.features_total + ' features shipped across ' + features.summary.categories + ' surfaces.',
+      meta: [
+        ['shipped', features.summary.shipped],
+        ['flight', features.summary.in_progress],
+        ['backlog', features.summary.backlog],
+      ],
+      cls: featGreen ? 'pass' : (featWarn ? 'warn' : 'fail'),
+    },
+    {
+      href: './dashboard.html',
+      kicker: 'Tests',
+      verdict: tests.totals.passed + '/' + tests.totals.tests,
+      tag: testsGreen
+        ? '<b>All green.</b> Full pytest suite passing on this commit.'
+        : '<b>' + tests.totals.failed + ' failing</b> — see the test dashboard.',
+      meta: [
+        ['suites', tests.suites.length],
+        ['sec', tests.run.duration_seconds],
+        ['fail', tests.totals.failed],
+      ],
+      cls: testsGreen ? 'pass' : 'fail',
+    },
+    {
+      href: './code-review.html',
+      kicker: 'Code review',
+      verdict: codeGreen ? 'APPROVED' : 'BLOCK',
+      tag: '<b>' + code.gates.length + ' CI gates</b>, <b>' + code.summary.boundary_tests_passing + '</b> boundary tests, <b>' + code.summary.audits_passing + '</b> static audits — all clean.',
+      meta: [
+        ['gates', code.gates.length],
+        ['boundaries', code.summary.boundary_tests_passing],
+        ['lint', code.summary.lint_clean ? 'clean' : 'dirty'],
+      ],
+      cls: codeGreen ? 'pass' : 'fail',
+    },
+    {
+      href: './security-review.html',
+      kicker: 'Security review',
+      verdict: secGreen ? 'APPROVED' : 'HOLD',
+      tag: '<b>' + security.summary.controls_shipped + ' OWASP-mapped controls</b> shipped; ' + security.summary.risk_level.toLowerCase() + ' risk; ' + security.summary.open_items + ' documented open items.',
+      meta: [
+        ['controls', security.summary.controls_shipped],
+        ['open', security.summary.open_items],
+        ['risk', security.summary.risk_level],
+      ],
+      cls: secGreen ? 'pass' : 'fail',
+    },
+  ];
+  document.getElementById('score-grid').innerHTML = scoreCards.map(c =>
+    '<a class="score-card ' + c.cls + '" href="' + c.href + '" style="text-decoration:none">' +
+      '<div class="score-kicker">' + escapeHtml(c.kicker) + '</div>' +
+      '<div class="score-verdict">' + escapeHtml(c.verdict) + '</div>' +
+      '<div class="score-tag">' + c.tag + '</div>' +
+      '<div class="score-meta">' +
+        c.meta.map(m => '<span><span class="k">' + escapeHtml(m[0]) + '</span> <span class="v">' + escapeHtml(m[1]) + '</span></span>').join('') +
+      '</div>' +
+      '<div class="score-link">Open dashboard →</div>' +
+    '</a>'
   ).join('');
 
   const kpis = [
@@ -184,66 +261,6 @@
       '<div><span class="k">Gates</span><span class="v">' + code.gates.length + '</span></div>' +
       '<div><span class="k">Controls</span><span class="v">' + security.summary.controls_shipped + '</span></div>' +
     '</div>';
-
-  const cards = [
-    {
-      href: './dashboard.html',
-      title: 'Test suite',
-      desc: 'pytest verdict — total pass rate, per-suite rollups, per-file breakdown, and the paper-stamp verdict for the run.',
-      meta: [
-        [tests.totals.passed + ' / ' + tests.totals.tests, 'tests passing'],
-        [tests.suites.length, 'suites'],
-        [tests.run.duration_seconds + 's', 'wall clock'],
-      ],
-      pill: testsGreen ? '<span class="pill pass">green</span>' : '<span class="pill fail">' + tests.totals.failed + ' failing</span>',
-    },
-    {
-      href: './features.html',
-      title: 'Feature board',
-      desc: 'What Verdikt actually does today — shipped, in-flight, backlog, parked. Grounded in the roadmap and the ADRs.',
-      meta: [
-        [features.summary.shipped, 'shipped'],
-        [features.summary.in_progress, 'in flight'],
-        [features.summary.backlog, 'backlog'],
-      ],
-      pill: '<span class="pill pass">' + Math.round(features.summary.shipped / features.summary.features_total * 100) + '% shipped</span>',
-    },
-    {
-      href: './code-review.html',
-      title: 'Code review',
-      desc: 'CI gates, boundary tests, static audits, and house conventions. The structural claim that the architecture can\'t silently drift.',
-      meta: [
-        [code.gates.length, 'gates'],
-        [code.summary.boundary_tests_passing, 'boundaries'],
-        [code.summary.audits_passing, 'audits'],
-      ],
-      pill: codeGreen ? '<span class="pill pass">approved</span>' : '<span class="pill fail">block</span>',
-    },
-    {
-      href: './security-review.html',
-      title: 'Security review',
-      desc: 'OWASP-mapped controls, threat models, and open items with unblock plans. EU-AI-Act-ready posture.',
-      meta: [
-        [security.summary.controls_shipped, 'controls'],
-        [security.summary.open_items, 'open items'],
-        [security.summary.risk_level, 'risk level'],
-      ],
-      pill: secGreen ? '<span class="pill pass">clear to ship</span>' : '<span class="pill fail">hold</span>',
-    },
-  ];
-  document.getElementById('dashboard-cards').innerHTML = cards.map(c =>
-    '<a class="card" href="' + c.href + '" style="text-decoration:none">' +
-      '<div class="card-head">' +
-        '<div class="card-title">' + escapeHtml(c.title) + '</div>' +
-        c.pill +
-      '</div>' +
-      '<div class="card-desc">' + escapeHtml(c.desc) + '</div>' +
-      '<div style="display:flex;gap:14px;margin-top:6px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-700)">' +
-        c.meta.map(m => '<span><b style="color:var(--ink-900)">' + escapeHtml(m[0]) + '</b> <span style="color:var(--ink-500)">' + escapeHtml(m[1]) + '</span></span>').join('') +
-      '</div>' +
-      '<div class="card-link">Open dashboard →</div>' +
-    '</a>'
-  ).join('');
 
   stateEl.hidden = true;
   contentEl.hidden = false;

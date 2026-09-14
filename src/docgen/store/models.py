@@ -55,6 +55,12 @@ class Tenant(Base):
     mdm_config: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"
     )
+    # Per-tenant usage caps (nullable = no cap). Enforced by docgen.quotas at
+    # render-submit and template-upload time; storage_bytes is reserved but
+    # not enforced yet — see migration 0032 note.
+    quota_renders_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_active_templates: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quota_storage_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

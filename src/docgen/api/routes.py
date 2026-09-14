@@ -53,6 +53,22 @@ from docgen.designtime.mapper import propose_mapping_for_version
 from docgen.designtime.publish import list_publish_events, publish_version
 from docgen.designtime.upload import PdfPreflightRejected, upload_pdf_template, upload_template
 from docgen.net_safety import UrlNotAllowed, validate_public_url
+from docgen.quotas import QuotaExceeded, check_render_quota
+
+
+async def _enforce_render_quota(session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    try:
+        await check_render_quota(session, tenant_id)
+    except QuotaExceeded as e:
+        raise HTTPException(
+            429,
+            {
+                "detail": "tenant quota exceeded",
+                "quota": e.kind,
+                "limit": e.limit,
+                "current": e.current,
+            },
+        ) from e
 from docgen.providers.base import MappingProposal
 from docgen.store.blob import get_object
 from docgen.store.models import (
@@ -284,6 +300,8 @@ async def render(
         if replay is not None:
             return replay
 
+    await _enforce_render_quota(session, tenant_id)
+
     result = await _execute_render(
         session=session,
         tv=tv,
@@ -408,6 +426,8 @@ async def render_mapped(
         )
         if replay is not None:
             return replay
+
+    await _enforce_render_quota(session, tenant_id)
 
     result = await _execute_render(
         session=session,

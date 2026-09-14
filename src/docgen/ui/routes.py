@@ -80,6 +80,7 @@ from docgen.pagination import (
     keyset_where,
 )
 from docgen.providers.base import FieldSpec, MappingProposal, Suggestion
+from docgen.quotas import QuotaExceeded, check_active_template_quota, check_render_quota
 from docgen.ratelimit import (
     LOGIN_MAX_ATTEMPTS,
     LOGIN_WINDOW_SECONDS,
@@ -1071,6 +1072,14 @@ async def upload_submit(
         return await _rerender("Upload must be a .docx or .pdf file.")
     file_bytes = await file.read()
     tid = await _get_or_default_tenant_id(session, tenant_id, request=request)
+    try:
+        await check_active_template_quota(session, tid)
+    except QuotaExceeded as e:
+        return await _rerender(
+            f"Active-template quota exceeded ({e.current}/{e.limit}). "
+            "Deactivate or delete an existing template, or ask an admin to raise the cap.",
+            status_code=429,
+        )
     try:
         if is_pdf:
             template, _version, report = await upload_pdf_template(
@@ -2764,6 +2773,16 @@ async def render_submit(
     if tv.pdf_flavor is not None:
         output_format = "pdf"
 
+    try:
+        await check_render_quota(session, template.tenant_id)
+    except QuotaExceeded as e:
+        return await _render_page_with(
+            request, template, tv, ts, payload, session=session,
+            flash=f"Render quota exceeded ({e.current}/{e.limit} per day). "
+                  "Wait for the 24h window to roll off or ask an admin to raise the cap.",
+            flash_kind="error",
+        )
+
     settings = get_settings()
     job = RenderJob(
         tenant_id=template.tenant_id,
@@ -3832,6 +3851,115 @@ async def admin_save_mdm_settings(
         f"/ui/admin/tenants/{tenant_id}/mdm",
         flash="MDM connector settings saved.",
         flash_kind="success",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin: per-tenant quotas (super_admin-only)
+#
+# Quotas are a platform-level knob — a tenant_admin should not be able to
+# raise their own cap, so both routes are guarded by _require_super_admin.
+# Blank field → NULL → unlimited (matches the `docgen.quotas` semantics).
+# ---------------------------------------------------------------------------
+
+
+@router.get("/admin/tenants/{tenant_id}/quotas", response_class=HTMLResponse)
+async def admin_tenant_quotas(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    _require_super_admin(request)
+    from datetime import datetime, timedelta, timezone
+
+    from docgen.store.models import RenderJob, Tenant, Template
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    since = datetime.now(tz=timezone.utc) - timedelta(hours=24)
+    renders_24h = (
+        await session.execute(
+            select(func.count())
+            .select_from(RenderJob)
+            .where(RenderJob.tenant_id == tenant_id)
+            .where(RenderJob.submitted_at >= since)
+        )
+    ).scalar_one()
+    active_templates = (
+        await session.execute(
+            select(func.count())
+            .select_from(Template)
+            .where(Template.tenant_id == tenant_id)
+            .where(Template.is_active.is_(True))
+        )
+    ).scalar_one()
+
+    return templates.TemplateResponse(
+        request,
+        "admin_tenant_quotas.html",
+        await _base_ctx(
+            request, session, active="admin",
+            tenant=tenant,
+            usage_renders_24h=renders_24h,
+            usage_active_templates=active_templates,
+        ),
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/quotas", response_model=None)
+async def admin_save_tenant_quotas(
+    tenant_id: uuid.UUID,
+    request: Request,
+    quota_renders_per_day: str = Form(""),
+    quota_active_templates: str = Form(""),
+    quota_storage_bytes: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    _require_super_admin(request)
+    from docgen.store.models import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    def _parse(raw: str, field: str) -> int | None:
+        s = raw.strip()
+        if not s:
+            return None
+        try:
+            v = int(s)
+        except ValueError as e:
+            raise ValueError(f"{field} must be a whole number or blank.") from e
+        if v < 0:
+            raise ValueError(f"{field} must be zero or positive.")
+        return v
+
+    try:
+        renders_cap = _parse(quota_renders_per_day, "Renders per day")
+        active_cap = _parse(quota_active_templates, "Active templates")
+        storage_cap = _parse(quota_storage_bytes, "Storage bytes")
+    except ValueError as e:
+        return _redirect(
+            f"/ui/admin/tenants/{tenant_id}/quotas",
+            flash=str(e), flash_kind="error",
+        )
+
+    tenant.quota_renders_per_day = renders_cap
+    tenant.quota_active_templates = active_cap
+    tenant.quota_storage_bytes = storage_cap
+    await session.commit()
+    log.info(
+        "tenant_quotas_saved",
+        tenant_id=str(tenant_id),
+        renders_per_day=renders_cap,
+        active_templates=active_cap,
+        storage_bytes=storage_cap,
+    )
+    return _redirect(
+        f"/ui/admin/tenants/{tenant_id}/quotas",
+        flash="Quotas saved.", flash_kind="success",
     )
 
 

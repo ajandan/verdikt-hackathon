@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Quotas — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .quota-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 300px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .quota-grid { grid-template-columns: 1fr; } }
+    .form-row { margin-bottom: 20px; }
+    .form-row label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: var(--text); margin-bottom: 4px;
+    }
+    .form-row .hint {
+        display: block; font-size: 12px; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .form-row input {
+        width: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+    }
+    .usage-line { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; }
+    .usage-line strong { color: var(--text); font-family: ui-monospace, monospace; }
+    .side-card h3 {
+        margin: 0 0 6px; font-size: 13px; color: var(--text);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .side-card p { font-size: 12.5px; color: var(--text-muted); margin: 6px 0; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a> ›
+    <span>{{ tenant.name }}</span> ›
+    Quotas
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">Quotas</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Per-tenant usage caps for <strong>{{ tenant.name }}</strong>. Leave a field blank for
+    <em>no limit</em>. Caps apply immediately on save.
+</p>
+
+<div class="quota-grid">
+    <form method="post" action="/ui/admin/tenants/{{ tenant.id }}/quotas" class="card">
+        {{ csrf_input(request) }}
+
+        <div class="form-row">
+            <label for="quota_renders_per_day">Renders per day</label>
+            <span class="hint">Rolling 24h count of render jobs. Retries and failed renders both consume quota. Blank = unlimited.</span>
+            <input type="number" id="quota_renders_per_day" name="quota_renders_per_day"
+                   value="{{ '' if tenant.quota_renders_per_day is none else tenant.quota_renders_per_day }}"
+                   min="0" step="1" placeholder="unlimited">
+            <div class="usage-line">Current 24h usage: <strong>{{ usage_renders_24h }}</strong></div>
+        </div>
+
+        <div class="form-row">
+            <label for="quota_active_templates">Active templates</label>
+            <span class="hint">Cap on templates with <code>is_active=true</code>. New uploads default to active. Blank = unlimited.</span>
+            <input type="number" id="quota_active_templates" name="quota_active_templates"
+                   value="{{ '' if tenant.quota_active_templates is none else tenant.quota_active_templates }}"
+                   min="0" step="1" placeholder="unlimited">
+            <div class="usage-line">Currently active: <strong>{{ usage_active_templates }}</strong></div>
+        </div>
+
+        <div class="form-row">
+            <label for="quota_storage_bytes">Storage bytes</label>
+            <span class="hint">Reserved. The column is stored but no enforcement path is wired yet (needs an ADR on how doc-package storage is attributed across template versions and render results).</span>
+            <input type="number" id="quota_storage_bytes" name="quota_storage_bytes"
+                   value="{{ '' if tenant.quota_storage_bytes is none else tenant.quota_storage_bytes }}"
+                   min="0" step="1" placeholder="unlimited">
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button type="submit" class="btn primary">Save quotas</button>
+            <a href="/ui/admin/tenants" class="btn">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-card">
+        <h3>How enforcement works</h3>
+        <p>The <code>/render</code> and <code>/render/mapped</code> API endpoints and the UI render form check <em>renders per day</em> before enqueueing a job. Over-cap requests return <code>429</code> with a body naming the tripped quota and its current usage.</p>
+        <p>Idempotent replays (an <code>Idempotency-Key</code> matching an earlier request) return the cached response and do <em>not</em> re-consume quota.</p>
+        <h3 style="margin-top: 14px">Active templates</h3>
+        <p>Checked when a template is uploaded via the UI. To free capacity without deleting, deactivate an existing template on its detail page.</p>
+    </aside>
+</div>
+{% endblock %}

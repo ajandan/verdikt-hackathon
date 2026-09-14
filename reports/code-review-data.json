@@ -1,0 +1,57 @@
+{
+  "product": "Verdikt",
+  "generated_at": "2026-09-13T00:00:00Z",
+  "commit": "ec422a8",
+  "summary": {
+    "verdict": "APPROVED",
+    "tests_total": 529,
+    "tests_passing": 529,
+    "lint_clean": true,
+    "boundary_tests_passing": 4,
+    "audits_passing": 3,
+    "open_review_notes": 6
+  },
+  "gates": [
+    {"name": "Ruff lint", "status": "passing", "scope": "src tests scripts", "evidence": ".github/workflows/ci.yml — Lint step", "notes": "Ratcheted after adding pre-commit; 24 pre-existing violations fixed 2026-09-03."},
+    {"name": "Pytest suite", "status": "passing", "scope": "tests/ (529 tests)", "evidence": "reports/results.xml — 529/529 green", "notes": "pytest --forked isolates provider mocks per-test."},
+    {"name": "License scan (§12)", "status": "passing", "scope": "All PyPI deps", "evidence": "scripts/license_check.py", "notes": "pip-licenses + allowlist + explicit LGPL/dual-license exceptions. pypdfium2 exception documents the atypical compound license string."},
+    {"name": "Tenant-scope audit", "status": "passing", "scope": "src/docgen/**/*.py", "evidence": "scripts/tenant_scope_audit.py", "notes": "Direct tenant-scoped queries without a tenant_id filter within 40 lines are blocked. Suppression via inline # tenant-audit: allow."},
+    {"name": "Alembic upgrade head (fresh DB)", "status": "passing", "scope": "alembic/versions/0001 → 0031", "evidence": "CI Apply DB migrations step", "notes": "Regression guarded by 0025 seed-filter (only kinds allowed by the migration's own CHECK constraint)."},
+    {"name": "Boundary tests", "status": "passing", "scope": "tests/test_boundaries.py", "evidence": "4 boundary invariants", "notes": "See boundary_tests section below."},
+    {"name": "Pre-commit hooks", "status": "passing", "scope": "Local dev", "evidence": ".pre-commit-config.yaml", "notes": "Ruff + hygiene + tenant-scope audit run on every commit. License scan CI-only (pip-licenses false-fails in shared venvs)."}
+  ],
+  "boundary_tests": [
+    {"name": "docgen never imports pap_pipeline", "purpose": "Proves the substrate has no back-reference to the submission-window pipeline. Reviewers can strip pap_pipeline without breaking Quire.", "test": "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline"},
+    {"name": "core never imports AI providers", "purpose": "Enforces 'no model at render time'. If the deterministic render path ever imports docgen.providers, the build fails.", "test": "tests/test_boundaries.py::test_core_never_imports_ai_layer"},
+    {"name": "No LLM in reply path", "purpose": "Reply-letter template must be merge-time fill only. No stage between decision and outbound bytes may call a model.", "test": "tests/test_pap_inbox_hook.py — merge-only invariant"},
+    {"name": "Nebius default targets NVIDIA Nemotron", "purpose": "Hackathon requirement — the default model name must start with nvidia/. Regression guard on the compliance claim.", "test": "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"}
+  ],
+  "audits": [
+    {"name": "Multi-tenancy scope", "shipped": "2026-09-03", "outcome": "Passing on all in-scope models. 4 file-level suppressions justified (admin portal + 3 worker actors).", "script": "scripts/tenant_scope_audit.py"},
+    {"name": "Caller-profile mapping engine threat model", "shipped": "2026-09-03", "outcome": "No eval / injection path. Closed grammar via strict regex; explicit-dispatch transforms; no dynamic attribute access.", "reference": "roadmap Security"},
+    {"name": "N+1 audit (dashboard + templates)", "shipped": "2026-09-03", "outcome": "No true N+1 found. Fixed one wasted tenant re-query in _base_ctx.", "reference": "roadmap Performance"}
+  ],
+  "review_notes": [
+    {"area": "Templates", "note": "PDF placement editor is the placement editor's hot path — page rasterisation is cached to blob storage keyed by version hash.", "action": "Monitor cache hit rate once telemetry ships."},
+    {"area": "Pipeline", "note": "Reason stage runs Nemotron in non-reasoning mode deliberately; reasoning variant burns output tokens on trace and returns empty content.", "action": "Documented in HACKATHON.md — regression-safe."},
+    {"area": "MDM", "note": "`_forbid_raw_history_events(extras)` runs on reason-stage entry. Rules pack, not the LLM, decides how history matters.", "action": "Keep boundary. CI test in ADR-0004 PR6 will enforce."},
+    {"area": "Migrations", "note": "0025 seeds only kinds allowed by its own CHECK constraint; later kinds (history) seeded by their own migration after the constraint widens.", "action": "Repeat pattern for any new kind — never widen 0025's seed."},
+    {"area": "CI", "note": "MinIO pulls from quay.io, not docker.io — shared runner IPs hit Docker Hub anonymous rate limits.", "action": "Keep quay mirror for the MinIO + mc images."},
+    {"area": "Docs", "note": "Public framing scrub — README/demo/video may not name specific competitors or libraries the submission is compared against.", "action": "Memory rule enforced during any README edit."}
+  ],
+  "conventions": [
+    {"rule": "One-way import direction: pap_pipeline → docgen. Never reverse.", "enforced_by": "test_docgen_never_imports_pap_pipeline"},
+    {"rule": "No model at render time.", "enforced_by": "test_core_never_imports_ai_layer"},
+    {"rule": "Tenant-scoped queries carry a tenant_id filter within 40 lines.", "enforced_by": "tenant_scope_audit.py"},
+    {"rule": "LGPL/dual-license deps enter EXPLICIT_EXCEPTIONS with justification, never the general allowlist.", "enforced_by": "scripts/license_check.py"},
+    {"rule": "Migrations seed only kinds allowed by their own CHECK constraint; kinds added later are seeded by their own migration.", "enforced_by": "0025 comment + 0031 seed"},
+    {"rule": "Public-facing framing (README, demo, video) scrubs specific competitors and prior-employer libraries.", "enforced_by": "Manual review pre-submission"}
+  ],
+  "recent_commits": [
+    {"sha": "0b3819c", "subject": "MCP: list_pending_reviews + signed-URL case reply downloads"},
+    {"sha": "1bbbceb", "subject": "MCP: fetch_case_reply tool for previewing drafted reply artifacts"},
+    {"sha": "97d6eb2", "subject": "License check: allowlist pypdfium2's compound license string"},
+    {"sha": "fc5b029", "subject": "Migration 0025: only seed kinds allowed by its own CHECK constraint"},
+    {"sha": "a9cf133", "subject": "CI: pull MinIO from quay.io to sidestep Docker Hub rate limit"}
+  ]
+}

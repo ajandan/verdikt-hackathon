@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Engineering dashboard</title>
+<meta name="description" content="Engineering dashboard for Verdikt — one-stop hub linking tests, features, code review, and security review." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">V</span>
+      Verdikt
+      <span class="brand-tag">/ engineering</span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html" class="active">Overview</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./features.html">Features</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta">—</div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> Engineering dashboard</span>
+    <h1 class="display">Every claim, <em>with receipts</em>.</h1>
+    <p class="lede">Verdikt's engineering signal in one place — the test suite verdict, the feature portfolio, the code-review gates, the security posture. Each card is a live rollup; each dashboard is a JSON-backed drill-down.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading dashboards…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Product health</h2>
+      <p class="subhead">Four numbers, one glance. The Total is the pytest count; the rest are the shipped counts from each domain.</p>
+      <div class="kpi-row four" id="kpi-row"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Verdict</span>
+      <h2>Ship signal</h2>
+      <p class="subhead">The four dashboards below all render a paper-stamp verdict. This card is the aggregate — approved only when every downstream verdict is green.</p>
+      <div class="verdict-wrap">
+        <div>
+          <p class="subhead" style="max-width:none">The stamp mirrors Verdikt's real product output. Same shape for every case Verdikt decides: verdict word, four meta fields, paper texture, wax-stamp accent. Consistency is the point.</p>
+          <p class="subhead" style="max-width:none;margin-top:16px">Sources: <a href="./dashboard-data.json" style="color:var(--seal-700)">dashboard-data.json</a>, <a href="./features-data.json" style="color:var(--seal-700)">features-data.json</a>, <a href="./code-review-data.json" style="color:var(--seal-700)">code-review-data.json</a>, <a href="./security-review-data.json" style="color:var(--seal-700)">security-review-data.json</a>.</p>
+        </div>
+        <div class="verdict-stage">
+          <div class="verdict-card" id="verdict-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Dashboards</span>
+      <h2>Four rollups, four verdicts</h2>
+      <p class="subhead">Every board is a live JSON file plus a static HTML view. Update the JSON, refresh the page.</p>
+      <div class="card-grid" id="dashboard-cards"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">How to run this locally</span>
+      <h2>Serve the folder</h2>
+      <p class="subhead">These pages fetch JSON with <code>fetch()</code>, which browsers block over <code>file://</code>. Serve <code>reports/</code> over HTTP.</p>
+      <div class="callout">
+        <div class="callout-head">Local server</div>
+        <ul>
+          <li><b>python -m http.server 8765 --directory reports</b> — then visit <code>http://localhost:8765/</code></li>
+          <li>Rebuild test JSON: <b>python reports/_gen_dashboard.py</b> after a fresh pytest run</li>
+          <li>Rebuild feature/code/security JSON: hand-edit — they're grounded in <code>docs/roadmap.md</code> and the ADRs, not scraped</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · engineering dashboard</span>
+    <span>Repo: <a href="https://github.com/ajandan/quire-hackathon">ajandan/quire-hackathon</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+
+  async function loadJson(url) {
+    try {
+      const res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const [tests, features, code, security] = await Promise.all([
+    loadJson('./dashboard-data.json'),
+    loadJson('./features-data.json'),
+    loadJson('./code-review-data.json'),
+    loadJson('./security-review-data.json'),
+  ]);
+
+  const anyMissing = !tests || !features || !code || !security;
+  if (anyMissing) {
+    stateEl.className = 'state err';
+    const missing = [];
+    if (!tests) missing.push('dashboard-data.json');
+    if (!features) missing.push('features-data.json');
+    if (!code) missing.push('code-review-data.json');
+    if (!security) missing.push('security-review-data.json');
+    stateEl.innerHTML =
+      "Couldn't load: <b>" + missing.join(', ') + "</b>.<br>" +
+      "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
+      "<code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  const commit = tests.run && tests.run.commit ? tests.run.commit : (code.commit || '');
+  const generatedAt = tests.run && tests.run.generated_at ? tests.run.generated_at : (code.generated_at || '');
+  document.getElementById('nav-meta').textContent =
+    (generatedAt ? generatedAt.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (commit ? '  ·  ' + commit : '');
+
+  const testsGreen = tests.totals.failed === 0 && tests.totals.errored === 0;
+  const codeGreen = code.summary.verdict === 'APPROVED';
+  const secGreen = security.summary.verdict === 'APPROVED';
+  const overallGreen = testsGreen && codeGreen && secGreen;
+
+  const chips = [
+    ['Tests', tests.totals.passed + ' / ' + tests.totals.tests],
+    ['Features', features.summary.shipped + ' / ' + features.summary.features_total + ' shipped'],
+    ['Code', code.summary.verdict],
+    ['Security', security.summary.verdict + ' · ' + security.summary.risk_level + ' risk'],
+    ['License', security.summary.license],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const kpis = [
+    { k: 'Tests',    v: tests.totals.tests,             d: tests.totals.passed + ' passed, ' + tests.totals.failed + ' failed', cls: testsGreen ? 'pass' : 'fail' },
+    { k: 'Features', v: features.summary.shipped,       d: 'of ' + features.summary.features_total + ' tracked shipped',        cls: 'pass' },
+    { k: 'Gates',    v: code.gates.length,              d: 'all ' + (codeGreen ? 'passing' : 'triaging'),                       cls: codeGreen ? 'pass' : 'fail' },
+    { k: 'Controls', v: security.summary.controls_shipped, d: 'OWASP-mapped, shipped',                                          cls: 'pass' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + escapeHtml(x.v) + '</div>' +
+      '<div class="d">' + x.d + '</div>' +
+    '</div>'
+  ).join('');
+
+  const stampText = overallGreen ? 'ALL / GREEN / ✓' : 'MIXED / SEE / DASH';
+  document.getElementById('verdict-card').innerHTML =
+    '<div class="vc-head">' +
+      '<span class="title">Verdikt / Engineering</span>' +
+      '<span class="seq">' + escapeHtml(commit || 'HEAD') + '</span>' +
+    '</div>' +
+    '<div class="vc-verdict-row">' +
+      '<span class="vc-verdict ' + (overallGreen ? '' : 'red') + '">' + (overallGreen ? 'APPROVED' : 'REVIEW') + '</span>' +
+      '<span class="vc-stamp ' + (overallGreen ? '' : 'red') + '"><span>' + stampText.split(' / ').join('<br>') + '</span></span>' +
+    '</div>' +
+    '<div class="vc-meta">' +
+      '<div><span class="k">Tests</span><span class="v">' + tests.totals.passed + '/' + tests.totals.tests + '</span></div>' +
+      '<div><span class="k">Features</span><span class="v">' + features.summary.shipped + '/' + features.summary.features_total + '</span></div>' +
+      '<div><span class="k">Gates</span><span class="v">' + code.gates.length + '</span></div>' +
+      '<div><span class="k">Controls</span><span class="v">' + security.summary.controls_shipped + '</span></div>' +
+    '</div>';
+
+  const cards = [
+    {
+      href: './dashboard.html',
+      title: 'Test suite',
+      desc: 'pytest verdict — total pass rate, per-suite rollups, per-file breakdown, and the paper-stamp verdict for the run.',
+      meta: [
+        [tests.totals.passed + ' / ' + tests.totals.tests, 'tests passing'],
+        [tests.suites.length, 'suites'],
+        [tests.run.duration_seconds + 's', 'wall clock'],
+      ],
+      pill: testsGreen ? '<span class="pill pass">green</span>' : '<span class="pill fail">' + tests.totals.failed + ' failing</span>',
+    },
+    {
+      href: './features.html',
+      title: 'Feature board',
+      desc: 'What Verdikt actually does today — shipped, in-flight, backlog, parked. Grounded in the roadmap and the ADRs.',
+      meta: [
+        [features.summary.shipped, 'shipped'],
+        [features.summary.in_progress, 'in flight'],
+        [features.summary.backlog, 'backlog'],
+      ],
+      pill: '<span class="pill pass">' + Math.round(features.summary.shipped / features.summary.features_total * 100) + '% shipped</span>',
+    },
+    {
+      href: './code-review.html',
+      title: 'Code review',
+      desc: 'CI gates, boundary tests, static audits, and house conventions. The structural claim that the architecture can\'t silently drift.',
+      meta: [
+        [code.gates.length, 'gates'],
+        [code.summary.boundary_tests_passing, 'boundaries'],
+        [code.summary.audits_passing, 'audits'],
+      ],
+      pill: codeGreen ? '<span class="pill pass">approved</span>' : '<span class="pill fail">block</span>',
+    },
+    {
+      href: './security-review.html',
+      title: 'Security review',
+      desc: 'OWASP-mapped controls, threat models, and open items with unblock plans. EU-AI-Act-ready posture.',
+      meta: [
+        [security.summary.controls_shipped, 'controls'],
+        [security.summary.open_items, 'open items'],
+        [security.summary.risk_level, 'risk level'],
+      ],
+      pill: secGreen ? '<span class="pill pass">clear to ship</span>' : '<span class="pill fail">hold</span>',
+    },
+  ];
+  document.getElementById('dashboard-cards').innerHTML = cards.map(c =>
+    '<a class="card" href="' + c.href + '" style="text-decoration:none">' +
+      '<div class="card-head">' +
+        '<div class="card-title">' + escapeHtml(c.title) + '</div>' +
+        c.pill +
+      '</div>' +
+      '<div class="card-desc">' + escapeHtml(c.desc) + '</div>' +
+      '<div style="display:flex;gap:14px;margin-top:6px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-700)">' +
+        c.meta.map(m => '<span><b style="color:var(--ink-900)">' + escapeHtml(m[0]) + '</b> <span style="color:var(--ink-500)">' + escapeHtml(m[1]) + '</span></span>').join('') +
+      '</div>' +
+      '<div class="card-link">Open dashboard →</div>' +
+    '</a>'
+  ).join('');
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

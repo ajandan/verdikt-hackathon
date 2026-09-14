@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Security review</title>
+<meta name="description" content="Security-review dashboard for Verdikt — OWASP-mapped controls, audits, open items, threat notes." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">V</span>
+      Verdikt
+      <span class="brand-tag">/ security review</span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./features.html">Features</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html" class="active">Security</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta">—</div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> Security posture</span>
+    <h1 class="display">Regulated-<em>ready</em>.</h1>
+    <p class="lede">Verdikt sits on the audit-defensible side of "AI-in, deterministic-out". Every control below is either shipped and enforced in CI, or on the open-items list with a concrete unblock plan.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading security data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Verdict at HEAD</h2>
+      <p class="subhead">EU AI Act categorises healthcare eligibility decisions as high-risk and demands reproducibility guarantees Verdikt provides mechanically.</p>
+      <div class="kpi-row four" id="kpi-row"></div>
+      <div class="verdict-wrap">
+        <div>
+          <p class="subhead" style="max-width:none">The four load-bearing principles below are enforced in tests, not comments. Compromise any one and the build fails before the code lands.</p>
+        </div>
+        <div class="verdict-stage">
+          <div class="verdict-card" id="verdict-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Core posture</span>
+      <h2>Load-bearing principles</h2>
+      <p class="subhead">Structural claims backed by mechanical enforcement. Each one has a named test.</p>
+      <div class="row-list" id="posture"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Controls</span>
+      <h2>OWASP-mapped inventory</h2>
+      <p class="subhead">Every control tagged to the OWASP Top 10 category it addresses. Filter by column header.</p>
+      <table class="data" id="controls-table"></table>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Audits</span>
+      <h2>Threat models performed</h2>
+      <p class="subhead">Deep-dive reviews on high-blast-radius modules. Findings persisted here for future review.</p>
+      <div class="row-list" id="audits"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Open items</span>
+      <h2>Known gaps + unblock plans</h2>
+      <p class="subhead">These are on the roadmap. Each has a why-blocked and a concrete plan; none are silently ignored.</p>
+      <div class="row-list" id="open-items"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Threat notes</span>
+      <h2>Attack-surface briefing</h2>
+      <p class="subhead">The five-bullet threat model for a reviewer landing cold on the codebase.</p>
+      <div class="callout" id="threat-notes"></div>
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · security-review board</span>
+    <span>Source: <a href="./security-review-data.json">security-review-data.json</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let data;
+  try {
+    const res = await fetch('./security-review-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.innerHTML = "Couldn't load <b>security-review-data.json</b> — " + (e.message || e) +
+      ".<br><code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at ? data.generated_at.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (data.commit ? '  ·  ' + data.commit : '');
+
+  const chips = [
+    ['License', data.summary.license],
+    ['Risk', data.summary.risk_level],
+    ['Controls shipped', data.summary.controls_shipped],
+    ['Open items', data.summary.open_items],
+    ['Last audit', data.summary.last_audit],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const kpis = [
+    { k: 'Verdict',   v: data.summary.verdict,         d: 'HEAD at ' + (data.commit || ''),           cls: 'pass' },
+    { k: 'Controls',  v: data.summary.controls_shipped, d: 'OWASP-mapped, shipped',                    cls: 'pass' },
+    { k: 'Open items', v: data.summary.open_items,      d: 'plans documented, none silent',            cls: data.summary.open_items > 0 ? 'err' : 'pass' },
+    { k: 'Risk',      v: data.summary.risk_level,       d: 'per current audit',                        cls: 'pass' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + escapeHtml(x.v) + '</div>' +
+      '<div class="d">' + x.d + '</div>' +
+    '</div>'
+  ).join('');
+
+  const green = data.summary.verdict === 'APPROVED';
+  const stampText = green ? 'CLEAR / SHIP / ✓' : 'HOLD / FIX / !';
+  document.getElementById('verdict-card').innerHTML =
+    '<div class="vc-head">' +
+      '<span class="title">Verdikt / Security</span>' +
+      '<span class="seq">' + escapeHtml(data.commit || 'HEAD') + '</span>' +
+    '</div>' +
+    '<div class="vc-verdict-row">' +
+      '<span class="vc-verdict ' + (green ? '' : 'red') + '">' + (green ? 'APPROVED' : 'DENIED') + '</span>' +
+      '<span class="vc-stamp ' + (green ? '' : 'red') + '"><span>' + stampText.split(' / ').join('<br>') + '</span></span>' +
+    '</div>' +
+    '<div class="vc-meta">' +
+      '<div><span class="k">License</span><span class="v">' + escapeHtml(data.summary.license) + '</span></div>' +
+      '<div><span class="k">Risk</span><span class="v">' + escapeHtml(data.summary.risk_level) + '</span></div>' +
+      '<div><span class="k">Controls</span><span class="v">' + data.summary.controls_shipped + '</span></div>' +
+      '<div><span class="k">Open</span><span class="v">' + data.summary.open_items + '</span></div>' +
+    '</div>';
+
+  document.getElementById('posture').innerHTML = data.posture.map(p =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(p.principle) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(p.why_it_matters) + '</div>' +
+        '<div class="r-evidence">enforced by ' + escapeHtml(p.enforced_by) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">enforced</span>' +
+    '</div>'
+  ).join('');
+
+  const statusPill = (s) => {
+    if (s === 'shipped') return '<span class="pill pass">shipped</span>';
+    if (s === 'backlog') return '<span class="pill warn">backlog</span>';
+    if (s === 'pending') return '<span class="pill info">pending</span>';
+    return '<span class="pill muted">' + escapeHtml(s) + '</span>';
+  };
+
+  document.getElementById('controls-table').innerHTML =
+    '<thead><tr><th>OWASP</th><th>Control</th><th>Status</th><th>Evidence</th></tr></thead>' +
+    '<tbody>' +
+      data.controls.map(c =>
+        '<tr>' +
+          '<td class="mono" style="white-space:nowrap">' + escapeHtml(c.owasp) + '</td>' +
+          '<td>' + escapeHtml(c.control) + '</td>' +
+          '<td>' + statusPill(c.status) + '</td>' +
+          '<td style="color:var(--ink-500);font-size:12.5px">' + escapeHtml(c.evidence) + '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  document.getElementById('audits').innerHTML = data.audits.map(a =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(a.name) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(a.outcome) + '</div>' +
+        (a.findings && a.findings.length
+          ? '<div class="r-evidence" style="margin-top:8px">' +
+              '<b style="color:var(--ink-700)">Findings:</b>' +
+              '<ul style="margin:4px 0 0;padding-left:18px;color:var(--ink-500);font-family:Inter,sans-serif;font-size:12.5px">' +
+                a.findings.map(f => '<li style="margin-bottom:3px">' + escapeHtml(f) + '</li>').join('') +
+              '</ul>' +
+            '</div>'
+          : '') +
+        '<div class="r-evidence" style="margin-top:8px">shipped ' + escapeHtml(a.shipped) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">clean</span>' +
+    '</div>'
+  ).join('');
+
+  const priClass = (p) => p === 'high' ? 'fail' : p === 'medium' ? 'warn' : 'muted';
+  document.getElementById('open-items').innerHTML = data.open_items.map(o =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(o.item) + '</div>' +
+        '<div class="r-desc"><b>Why blocked:</b> ' + escapeHtml(o.why_blocked) + '</div>' +
+        '<div class="r-desc" style="margin-top:6px"><b>Plan:</b> ' + escapeHtml(o.plan) + '</div>' +
+      '</div>' +
+      '<span class="pill ' + priClass(o.priority) + '">' + escapeHtml(o.priority) + '</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('threat-notes').innerHTML =
+    '<ul>' +
+      data.threat_notes.map(t =>
+        '<li><b>' + escapeHtml(t.category) + '.</b> ' + escapeHtml(t.note) + '</li>'
+      ).join('') +
+    '</ul>';
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

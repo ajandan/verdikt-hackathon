@@ -1,0 +1,196 @@
+{
+  "product": "Verdikt",
+  "generated_at": "2026-09-13T00:00:00Z",
+  "commit": "ec422a8",
+  "sources": [
+    "docs/roadmap.md",
+    "docs/HACKATHON.md",
+    "docs/adr/0001-adopt-agpl-for-pymupdf.md",
+    "docs/adr/0002-pipeline-inbox-view.md",
+    "docs/adr/0003-doc-packages.md",
+    "docs/adr/0004-mdm-lookup-history-retrieval.md",
+    "docs/doc-generation-service-design.md"
+  ],
+  "summary": {
+    "categories": 10,
+    "features_total": 78,
+    "shipped": 60,
+    "in_progress": 5,
+    "backlog": 11,
+    "parked": 2
+  },
+  "categories": [
+    {
+      "id": "pipeline",
+      "name": "PAP Pipeline (Verdikt)",
+      "description": "Three-stage decision pipeline — extract, retrieve, reason — from raw enrollment packet to structured JSON verdict with rule citations.",
+      "features": [
+        {"name": "Intake extraction (nv-ingest, multimodal)", "status": "shipped", "description": "Vision-language extraction over mixed PDFs, images, and OCR'd faxes. Runs on Nebius AI Cloud VM.", "evidence": "src/pap_pipeline/stages/extract.py"},
+        {"name": "Program-configurable extraction schema", "status": "shipped", "description": "Each Program row carries a JSONB extraction_schema; adding a program is a data change, not a build.", "evidence": "alembic 0023 / 0024, /ui/programs"},
+        {"name": "Rule retrieval (NeMo Retriever NIMs)", "status": "shipped", "description": "pgvector store seeded from rules/*.yaml. nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 rerank.", "evidence": "src/pap_pipeline/stages/retrieve.py"},
+        {"name": "Structured reason stage (Nemotron)", "status": "shipped", "description": "Non-reasoning Nemotron on Nebius Token Factory emits a strict pydantic Decision. Non-reasoning mode is deliberate.", "evidence": "src/pap_pipeline/stages/reason.py"},
+        {"name": "Decisions with rule + history citations", "status": "shipped", "description": "Every fired rule attached with rerank score. Citation type discriminates rule vs history.", "evidence": "Decision.citations"},
+        {"name": "Missing-info handling", "status": "shipped", "description": "Missing_fields list surfaces required slots not present in the extracted intake.", "evidence": "Decision.missing_fields"},
+        {"name": "Orchestrator (async gather)", "status": "shipped", "description": "retrieve() + source.lookup() fire under a single asyncio.gather; extras merge without polluting Intake.", "evidence": "src/pap_pipeline/orchestrator.py"},
+        {"name": "Routing-table instrumentation", "status": "shipped", "description": "Every model call stamped with model name, tokens in/out, latency, per-call cost. Rendered at /ui/admin/routing.", "evidence": "src/pap_pipeline/routing.py"},
+        {"name": "Second-program cameo (OncoBridge)", "status": "shipped", "description": "Different rules pack, opposite verdict, same code — proof the pipeline generalises.", "evidence": "rules/oncobridge.yaml"},
+        {"name": "Deterministic render boundary", "status": "shipped", "description": "docgen.core never imports docgen.providers. AI-in, deterministic-out. Enforced in tests, not comments.", "evidence": "tests/test_boundaries.py"},
+        {"name": "MDM lookup — parallel retrieval seam", "status": "shipped", "description": "PR1 landed 2026-09-13. NullMdmSource + protocol + history schema wired into orchestrator.", "evidence": "ADR-0004, PR1"},
+        {"name": "MDM slot compiler (references_slots)", "status": "in_progress", "description": "PR2 pending. Compiles HistoryEvent list into named HistorySlots the rules pack references.", "evidence": "ADR-0004 PR2"}
+      ]
+    },
+    {
+      "id": "templates",
+      "name": "Templates & Rendering",
+      "description": "Bytes-in-bytes-out engine. DOCX + PDF templates share preflight, freeze, publish, and rollback.",
+      "features": [
+        {"name": "DOCX template upload + preflight", "status": "shipped", "description": "Magic-byte check, macro strip, docxtpl tag audit. First-class kind.", "evidence": "src/docgen/designtime/preflight.py"},
+        {"name": "PDF templates — AcroForm flavor", "status": "shipped", "description": "Widget rects harvested to placements; template renderable at upload.", "evidence": "roadmap PR1, src/docgen/designtime/preflight_pdf.py"},
+        {"name": "PDF templates — flat flavor + placement editor", "status": "shipped", "description": "Click-to-place, drag, keyboard nudge, per-page canvas. reportlab overlay + pypdf merge.", "evidence": "roadmap PR2, ui/templates/placement_editor.html"},
+        {"name": "Freeze + publish lifecycle", "status": "shipped", "description": "Frozen version hash immutable; publish gates on outcome bindings.", "evidence": "src/docgen/designtime/freeze.py, publish.py"},
+        {"name": "Locale variants", "status": "shipped", "description": "One template, N locale variants. Variant selection via caller-profile locale key.", "evidence": "tests/test_locale_variant.py"},
+        {"name": "AI re-alignment on PDF re-upload", "status": "shipped", "description": "Heuristic → diff review UI → AI fallback via Nemotron label match.", "evidence": "roadmap PR3 A/B/C"},
+        {"name": "Print-to-PDF reject at router boundary", "status": "shipped", "description": "Text-less flat PDFs rejected before persist; producer-aware hint.", "evidence": "roadmap PR4"},
+        {"name": "Non-text widget types (checkbox, radio)", "status": "shipped", "description": "Explicit type field on placements; render dispatches by type. Signature fields deferred.", "evidence": "roadmap deferred → shipped"},
+        {"name": "Caller profile mapping engine", "status": "shipped", "description": "Closed-parser (no eval) for source paths. Version-pinned per profile.", "evidence": "src/docgen/core/mapping.py"},
+        {"name": "Golden fixture render diffs", "status": "shipped", "description": "Snapshot-test rendered DOCX vs known-good bytes per sample.", "evidence": "tests/test_golden.py"},
+        {"name": "Pagination on templates + renders lists", "status": "shipped", "description": "Opaque keyset cursors; constant DB cost at any page depth.", "evidence": "src/docgen/pagination.py"},
+        {"name": "Empty-state onboarding (sample template)", "status": "shipped", "description": "'Or try a sample →' button pushes bundled DOCX through the real preflight path.", "evidence": "/ui/upload/sample"},
+        {"name": "Signature field render", "status": "backlog", "description": "Still coerced to text. Needs payload format decision (base64 PNG? blob key? URL?).", "evidence": "roadmap deferred"},
+        {"name": "Command palette (⌘K)", "status": "backlog", "description": "Jump to template, upload, mapping wizard, tenant switch. Table view bottleneck past ~20 templates.", "evidence": "roadmap ship-first #7"},
+        {"name": "Responsive tables → mobile card view", "status": "backlog", "description": "UX polish for < 720 px viewports.", "evidence": "roadmap UX polish"}
+      ]
+    },
+    {
+      "id": "packages",
+      "name": "Static Docs & Doc Packages",
+      "description": "Outbound artifact is an ordered PDF bundle, not a single letter. Reply differs by outcome. (ADR-0003)",
+      "features": [
+        {"name": "static_documents schema + admin CRUD", "status": "shipped", "description": "Tenant-scoped versioned PDF library. Bytes-in, bytes-out — never rendered.", "evidence": "PR-A, alembic 0029"},
+        {"name": "doc_packages composer", "status": "shipped", "description": "Ordered list of {kind, ref_id} items. Drag-to-reorder in the admin composer.", "evidence": "PR-B, /ui/admin/packages"},
+        {"name": "Program outcome bindings", "status": "shipped", "description": "programs.outcomes[] + package_bindings{outcome → package_id}. Publish gate refuses unbound outcomes.", "evidence": "PR-C"},
+        {"name": "Assembler pipeline stage", "status": "shipped", "description": "Post-verdict assembler renders each template item, concatenates static PDFs in order.", "evidence": "PR-D, pap_pipeline.assembler"},
+        {"name": "doc_package_assemblies audit log", "status": "shipped", "description": "Append-only assembly log stamps resolved template + static versions per case.", "evidence": "alembic 0029"},
+        {"name": "Preview merged package (dry-run)", "status": "shipped", "description": "Admin composer 'Preview' runs assembler against a sample intake, returns merged PDF inline.", "evidence": "PR-E"}
+      ]
+    },
+    {
+      "id": "inbox",
+      "name": "Inbox Agent",
+      "description": "IMAP-backed intake bus. Email is a normaliser — fax→email, scan→email, web→JSON all fan into this one loop.",
+      "features": [
+        {"name": "IMAP polling + allowlist", "status": "shipped", "description": "Single system mailbox (quire.template.agent@gmail.com). Per-tenant routing via tenants.inbound_config.", "evidence": "src/docgen/inbox/agent.py"},
+        {"name": "Auto-approve scoring", "status": "shipped", "description": "Sender/subject rules gate whether a message becomes a reviewable event vs auto-approved artifact.", "evidence": "test_inbox_score.py"},
+        {"name": "Sender/domain resolver", "status": "shipped", "description": "Resolves inbound sender → tenant + program via inbound_config.", "evidence": "src/docgen/inbox/resolver.py"},
+        {"name": "Reviewer UI + audit trail", "status": "shipped", "description": "Pending queue, approve/reject actions, per-event history.", "evidence": "/ui/inbox"},
+        {"name": "Dedicated pipeline detail view", "status": "shipped", "description": "PAP events get /ui/inbox/{id}/pipeline — extract slots, citations, missing info, assembled reply.", "evidence": "ADR-0002"},
+        {"name": "Reply mailer + attachment persistence", "status": "shipped", "description": "Rendered PDF uploaded to blob store keyed by event_id, then handed to mailer byte-identical.", "evidence": "alembic 0019"},
+        {"name": "use_pipeline_backend extension flag", "status": "shipped", "description": "Single boundary Verdikt uses to plug into the generic inbox agent without touching substrate.", "evidence": "docgen.inbox.agent"},
+        {"name": "Webhook callbacks on state change", "status": "shipped", "description": "HMAC-signed webhooks fire on approve/reject/auto-approved.", "evidence": "test_webhooks.py"}
+      ]
+    },
+    {
+      "id": "programs",
+      "name": "Programs & Rules Library",
+      "description": "Rules live in tenant-scoped library, linked many-to-many to programs. YAML is the seed; DB is authoritative.",
+      "features": [
+        {"name": "programs table (tenant × PAP program)", "status": "shipped", "description": "One row per tenant × program with extraction_schema, outcomes, package_bindings.", "evidence": "alembic 0023"},
+        {"name": "rules + program_rule_links tables", "status": "shipped", "description": "Tenant-scoped master library; per-program position + is_active links.", "evidence": "alembic 0025"},
+        {"name": "Rules pack YAML seeding (idempotent)", "status": "shipped", "description": "Every tenant gets a private copy of every YAML rule as their starting library.", "evidence": "0025 upgrade()"},
+        {"name": "History-kind rule seeding (0031)", "status": "shipped", "description": "'history' kind widens the CHECK constraint in a later migration, then seeds CV-HIS-01/02.", "evidence": "alembic 0031"},
+        {"name": "Slot compiler + references_slots", "status": "in_progress", "description": "Publish gate validates every referenced slot name is declared in history_slots.", "evidence": "ADR-0004 PR2"}
+      ]
+    },
+    {
+      "id": "auth",
+      "name": "Auth, Tenancy & Session",
+      "description": "DB-backed admins, session cookies, CSRF, per-tenant scope. RBAC via role model.",
+      "features": [
+        {"name": "DB-backed admin login", "status": "shipped", "description": "Password hashing (argon2). Argon2id verifier. Superadmin fallback for bootstrap.", "evidence": "src/docgen/auth.py"},
+        {"name": "Session cookies (HttpOnly, SameSite=Lax, Secure)", "status": "shipped", "description": "Secure flag computed from request scheme + XFF hop. Env override for local dev.", "evidence": "secure_cookie_flag()"},
+        {"name": "CSRF middleware", "status": "shipped", "description": "Per-session token; POST paths refuse mismatched tokens.", "evidence": "test_csrf.py"},
+        {"name": "Login rate limit (sliding window in Redis)", "status": "shipped", "description": "10 attempts / 15 min per (ip, username). Fail-open on Redis outage.", "evidence": "src/docgen/ratelimit.py"},
+        {"name": "RBAC + role model", "status": "shipped", "description": "Roles constrain admin/tenant surfaces; enforced in middleware + template.", "evidence": "test_rbac.py"},
+        {"name": "Multi-tenant scope audit (CI)", "status": "shipped", "description": "scripts/tenant_scope_audit.py flags any tenant-scoped query without a tenant_id filter within 40 lines.", "evidence": "CI step + script"},
+        {"name": "Per-tenant quotas", "status": "backlog", "description": "renders/day, storage MB, active templates. Not enforced today.", "evidence": "roadmap multi-tenancy"}
+      ]
+    },
+    {
+      "id": "mcp",
+      "name": "MCP Surface",
+      "description": "Model Context Protocol server — 12 tools exposing template CRUD, render, and the reviewer queue.",
+      "features": [
+        {"name": "MCP auth (per-tenant API keys, SHA-256)", "status": "shipped", "description": "MCP surface reuses the same auth path as REST; tokens hashed at rest, return-once on creation.", "evidence": "test_mcp_auth.py"},
+        {"name": "Idempotent tool calls", "status": "shipped", "description": "Idempotency-Key replay-safe for the write tools; 409 on fingerprint mismatch.", "evidence": "test_mcp_idempotent.py"},
+        {"name": "submit_pap_intake", "status": "shipped", "description": "Fire an intake directly through the PAP pipeline. Bypasses IMAP for programmatic callers.", "evidence": "mcp/tools.py"},
+        {"name": "list_pending_reviews", "status": "shipped", "description": "Reviewer queue for external agents.", "evidence": "commit 0b3819c"},
+        {"name": "fetch_case_reply (signed URL)", "status": "shipped", "description": "Preview the drafted reply artifact via short-lived signed URL.", "evidence": "commit 1bbbceb + 0b3819c"},
+        {"name": "approve_case / reject_case", "status": "shipped", "description": "External-agent path for approve/reject with audit trail.", "evidence": "mcp/tools.py"}
+      ]
+    },
+    {
+      "id": "observability",
+      "name": "Admin Dashboard & Observability",
+      "description": "Operator surfaces for state, failures, provenance. First-run path from empty inbox → rendered letter.",
+      "features": [
+        {"name": "/ui/dashboard rollup", "status": "shipped", "description": "Recent renders, recent publishes, failing jobs, top templates. Single-query aggregations.", "evidence": "routes.dashboard"},
+        {"name": "Failing-jobs triage (last 7d)", "status": "shipped", "description": "Superseded old DLQ page — dashboard widget + /ui/renders?state=failed.", "evidence": "roadmap Reliability"},
+        {"name": "Watchdog reaper", "status": "shipped", "description": "Orphaned state='running' rows reaped into 'failed' on worker boot.", "evidence": "src/docgen/jobs/watchdog.py"},
+        {"name": "Provenance / audit log per render", "status": "shipped", "description": "Every render stamps template version, caller profile, mapping engine version.", "evidence": "provenance model"},
+        {"name": "Skip-to-content + focus-visible ring", "status": "shipped", "description": "A11y hygiene — Tab-first users get a focus ring; visible skip link on the first tab.", "evidence": "base.html"},
+        {"name": "OpenTelemetry end-to-end tracing", "status": "backlog", "description": "FastAPI → SQLAlchemy → boto3 → render span. Not wired yet.", "evidence": "roadmap Observability"},
+        {"name": "Per-tenant metrics + queue-depth alerts", "status": "backlog", "description": "renders/hr, preflight-failure rate, P99 render latency, DLQ growth.", "evidence": "roadmap Observability"}
+      ]
+    },
+    {
+      "id": "reliability",
+      "name": "Reliability & Security Boundaries",
+      "description": "Idempotency, sanitisation, boundaries enforced in tests. AI-in, deterministic-out is a mechanical claim.",
+      "features": [
+        {"name": "Idempotency-Key on /render + /render/mapped", "status": "shipped", "description": "Replay-safe for 24h. Fingerprint mismatch → 409.", "evidence": "src/docgen/core/idempotency.py"},
+        {"name": "DOCX magic-byte + macro sanitiser", "status": "shipped", "description": "Rejects non-ZIP payloads; strips word/vbaProject.bin before persist.", "evidence": "src/docgen/core/docx_sanitize.py"},
+        {"name": "API keys hashed at rest (SHA-256)", "status": "shipped", "description": "Raw key returned once at creation via copy-once banner. Look-up by digest.", "evidence": "src/docgen/auth.py"},
+        {"name": "Security headers (CSP, HSTS, X-Frame-Options)", "status": "shipped", "description": "SecurityHeadersMiddleware stamps CSP + HSTS + Referrer-Policy + Permissions-Policy on every response.", "evidence": "test_security_headers.py"},
+        {"name": "boundary tests (docgen ↮ pap_pipeline)", "status": "shipped", "description": "tests/test_boundaries.py fails the build on one-way violation or AI in the render path.", "evidence": "test_boundaries.py"},
+        {"name": "SSRF + IDOR net-safety", "status": "shipped", "description": "Outbound HTTP goes through a URL allowlist; IDOR-shaped tenant-hop returns 404.", "evidence": "test_ssrf_and_idor.py"},
+        {"name": "License scan (§12)", "status": "shipped", "description": "MIT-compat allowlist + explicit LGPL/dual-license exceptions with justification.", "evidence": "scripts/license_check.py"},
+        {"name": "CVE scan (pip-audit) in CI", "status": "backlog", "description": "Blocked on dep cleanup — 231 CVEs today across 41 packages. Sequenced fix plan in roadmap.", "evidence": "roadmap Security"}
+      ]
+    },
+    {
+      "id": "deploy",
+      "name": "Deployment & Ops",
+      "description": "Compose stack for dev; Nebius AI Cloud VM for prod. Deploy deferred to mid-Nov 2026.",
+      "features": [
+        {"name": "Docker compose stack (Postgres, Redis, MinIO, web, worker)", "status": "shipped", "description": "One-shot local dev. Migrations run via `docker compose run --rm web alembic upgrade head`.", "evidence": "docker-compose.yml"},
+        {"name": "GitHub Actions CI (lint → tests → license → tenant-audit)", "status": "shipped", "description": "6 gates. quay.io mirror for MinIO to sidestep Docker Hub rate limits.", "evidence": ".github/workflows/ci.yml"},
+        {"name": "Alembic migrations (0001 → 0031)", "status": "shipped", "description": "Fresh DB reaches head cleanly. Kinds-CHECK widened in 0031, seed filter added in 0025.", "evidence": "alembic/versions/"},
+        {"name": "Tailwind precompile (17 KB minified)", "status": "shipped", "description": "Standalone binary compiles CSS at build time; no CDN dependency.", "evidence": "scripts/build-css.sh"},
+        {"name": "Nebius AI Cloud VM deploy", "status": "backlog", "description": "Runbook + checklist pre-flighted; execution deferred to mid-Nov 2026.", "evidence": "docs/deploy-nebius.md"},
+        {"name": "Public docker image release cadence", "status": "backlog", "description": "Self-hosted release cadence + upgrade guide.", "evidence": "roadmap Later"}
+      ]
+    }
+  ],
+  "backlog": [
+    {"category": "Templates", "item": "Signature-field render", "priority": "medium", "notes": "Needs payload format decision."},
+    {"category": "Templates", "item": "Command palette (⌘K)", "priority": "medium", "notes": "Bottleneck past 20 templates."},
+    {"category": "UX", "item": "Responsive table → card on mobile", "priority": "low", "notes": "< 720 px viewport."},
+    {"category": "Pipeline", "item": "MDM PR2 — Slot compiler", "priority": "high", "notes": "Blocks history-citation UI."},
+    {"category": "Pipeline", "item": "MDM PR3 — state-mdm-v1 adapter", "priority": "high", "notes": "Real REST+JWT connector against fake MDM in local/mdm-fake/."},
+    {"category": "Pipeline", "item": "MDM PR4 — Ledger columns backfill", "priority": "medium", "notes": "mdm_snapshot_hash + provider on the case row."},
+    {"category": "Pipeline", "item": "MDM PR5 — History citation UI", "priority": "medium", "notes": "Reply-letter conditional block with prior-determination reference."},
+    {"category": "Pipeline", "item": "MDM PR6 — CI boundary test", "priority": "medium", "notes": "Sweep every rules pack; enforce slot mediation."},
+    {"category": "Security", "item": "Dependency CVE scan (pip-audit)", "priority": "high", "notes": "Blocked on dep cleanup — 231 CVEs, sequenced fix plan in roadmap."},
+    {"category": "Observability", "item": "OpenTelemetry end-to-end tracing", "priority": "medium", "notes": "FastAPI → SQLAlchemy → boto3 → render span."},
+    {"category": "Observability", "item": "Per-tenant metrics + DLQ alerts", "priority": "medium", "notes": "renders/hr, P99 latency, queue depth."},
+    {"category": "Multi-tenancy", "item": "Per-tenant quotas", "priority": "medium", "notes": "renders/day, storage MB, active templates."},
+    {"category": "Docs", "item": "Marketing landing at /", "priority": "low", "notes": "Currently redirects to /ui/login."},
+    {"category": "Docs", "item": "OG image + Scalar/Redoc API reference", "priority": "low", "notes": "Social share + worked examples per endpoint."},
+    {"category": "Deploy", "item": "Nebius VM deploy execution", "priority": "high", "notes": "Deferred to mid-Nov 2026 per memory."},
+    {"category": "DX", "item": "mypy --strict ratchet", "priority": "low", "notes": "New modules first, expand from there."}
+  ],
+  "parked": [
+    {"item": "VLM label mismatch on flat PDFs", "reason": "MiniCPM-V labelled dense forms with wrong widget indices; resume with batch-and-crop approach.", "date": "2026-09-09"},
+    {"item": "DOCX → PDF conversion path", "reason": "Reverted 2026-08-31; PDF is now a first-class kind. No conversion layer.", "date": "2026-08-31"}
+  ]
+}

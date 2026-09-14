@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Code review</title>
+<meta name="description" content="Code-review dashboard for Verdikt — CI gates, boundary tests, audits, conventions." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">V</span>
+      Verdikt
+      <span class="brand-tag">/ code review</span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./features.html">Features</a>
+      <a href="./code-review.html" class="active">Code</a>
+      <a href="./security-review.html">Security</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta">—</div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> How we know the code is good</span>
+    <h1 class="display">Reviewed, <em>gated, boundaried</em>.</h1>
+    <p class="lede">The claim isn't "we ran the tests" — it's "the substrate can't drift". CI gates, boundary tests, and static audits keep the architecture honest.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading code-review data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Verdict at HEAD</h2>
+      <p class="subhead">Every CI gate is passing on <code style="font-family:JetBrains Mono,monospace" id="commit-tag">—</code>. The verdict card mirrors the same paper stamp Verdikt produces for real decisions.</p>
+      <div class="kpi-row four" id="kpi-row"></div>
+      <div class="verdict-wrap">
+        <div>
+          <p class="subhead" style="max-width:none">The four boundary tests below aren't hygiene — they're the load-bearing invariants that make "AI-in, deterministic-out" a mechanical claim rather than marketing.</p>
+        </div>
+        <div class="verdict-stage">
+          <div class="verdict-card" id="verdict-card"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">CI gates</span>
+      <h2>Every merge, checked</h2>
+      <p class="subhead">Seven gates. All passing. Details in <code>.github/workflows/ci.yml</code>.</p>
+      <div class="row-list" id="gates"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Boundary tests</span>
+      <h2>Load-bearing invariants</h2>
+      <p class="subhead">These aren't unit tests — they're structural claims. Each one fails the build if the architecture drifts.</p>
+      <div class="row-list" id="boundaries"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Audits</span>
+      <h2>Static analysis passes</h2>
+      <p class="subhead">One-shot audits performed against the codebase and re-run under CI. Suppressions require inline justification.</p>
+      <div class="row-list" id="audits"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Conventions</span>
+      <h2>House rules</h2>
+      <p class="subhead">Explicit conventions the review pass leans on. Broken rules fail loud, not silently.</p>
+      <div class="row-list" id="conventions"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Review notes</span>
+      <h2>Currently on watch</h2>
+      <p class="subhead">Observations from recent review passes worth carrying forward. Not blockers — signal for the next iteration.</p>
+      <div class="row-list" id="notes"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Recent commits</span>
+      <h2>Last five landings</h2>
+      <p class="subhead">Straight from <code>git log --oneline -5</code>.</p>
+      <table class="data" id="commits-table"></table>
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · code-review board</span>
+    <span>Source: <a href="./code-review-data.json">code-review-data.json</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let data;
+  try {
+    const res = await fetch('./code-review-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.innerHTML = "Couldn't load <b>code-review-data.json</b> — " + (e.message || e) +
+      ".<br><code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at ? data.generated_at.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (data.commit ? '  ·  ' + data.commit : '');
+  document.getElementById('commit-tag').textContent = data.commit || 'HEAD';
+
+  const chips = [
+    ['Verdict', data.summary.verdict],
+    ['Tests', data.summary.tests_passing + ' / ' + data.summary.tests_total],
+    ['Boundaries', data.summary.boundary_tests_passing + ' passing'],
+    ['Audits', data.summary.audits_passing + ' passing'],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
+  ).join('');
+
+  const kpis = [
+    { k: 'Tests',      v: data.summary.tests_passing, d: 'of ' + data.summary.tests_total + ' passing',  cls: 'pass' },
+    { k: 'Boundaries', v: data.summary.boundary_tests_passing, d: 'structural invariants',                cls: 'pass' },
+    { k: 'Audits',     v: data.summary.audits_passing, d: 'static analyses passing',                       cls: 'pass' },
+    { k: 'Lint',       v: data.summary.lint_clean ? 'clean' : 'dirty', d: 'ruff over src, tests, scripts', cls: data.summary.lint_clean ? 'pass' : 'fail' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + escapeHtml(x.v) + '</div>' +
+      '<div class="d">' + x.d + '</div>' +
+    '</div>'
+  ).join('');
+
+  const green = data.summary.verdict === 'APPROVED';
+  const stampText = green ? 'CLEAN / MERGE / ✓' : 'BLOCK / ATTN / !';
+  document.getElementById('verdict-card').innerHTML =
+    '<div class="vc-head">' +
+      '<span class="title">Verdikt / Code review</span>' +
+      '<span class="seq">' + escapeHtml(data.commit || 'HEAD') + '</span>' +
+    '</div>' +
+    '<div class="vc-verdict-row">' +
+      '<span class="vc-verdict ' + (green ? '' : 'red') + '">' + (green ? 'APPROVED' : 'DENIED') + '</span>' +
+      '<span class="vc-stamp ' + (green ? '' : 'red') + '"><span>' + stampText.split(' / ').join('<br>') + '</span></span>' +
+    '</div>' +
+    '<div class="vc-meta">' +
+      '<div><span class="k">Tests</span><span class="v">' + data.summary.tests_passing + ' / ' + data.summary.tests_total + '</span></div>' +
+      '<div><span class="k">Gates</span><span class="v">' + data.gates.length + ' passing</span></div>' +
+      '<div><span class="k">Boundaries</span><span class="v">' + data.summary.boundary_tests_passing + '</span></div>' +
+      '<div><span class="k">Lint</span><span class="v">' + (data.summary.lint_clean ? 'clean' : 'dirty') + '</span></div>' +
+    '</div>';
+
+  const statusPill = (st) => {
+    if (st === 'passing') return '<span class="pill pass">passing</span>';
+    if (st === 'failing') return '<span class="pill fail">failing</span>';
+    return '<span class="pill muted">' + escapeHtml(st) + '</span>';
+  };
+
+  document.getElementById('gates').innerHTML = data.gates.map(g =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(g.name) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(g.notes || '') + '</div>' +
+        '<div class="r-evidence">scope: ' + escapeHtml(g.scope) + ' · ' + escapeHtml(g.evidence) + '</div>' +
+      '</div>' +
+      statusPill(g.status) +
+    '</div>'
+  ).join('');
+
+  document.getElementById('boundaries').innerHTML = data.boundary_tests.map(b =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(b.name) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(b.purpose) + '</div>' +
+        '<div class="r-evidence">' + escapeHtml(b.test) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">enforced</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('audits').innerHTML = data.audits.map(a =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(a.name) + '</div>' +
+        '<div class="r-desc">' + escapeHtml(a.outcome) + '</div>' +
+        '<div class="r-evidence">' + escapeHtml(a.script || a.reference || '') + ' · shipped ' + escapeHtml(a.shipped) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">clean</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('conventions').innerHTML = data.conventions.map(c =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(c.rule) + '</div>' +
+        '<div class="r-evidence">enforced by ' + escapeHtml(c.enforced_by) + '</div>' +
+      '</div>' +
+      '<span class="pill pass">enforced</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('notes').innerHTML = data.review_notes.map(n =>
+    '<div class="row-item">' +
+      '<div>' +
+        '<div class="r-title">' + escapeHtml(n.area) + ' — ' + escapeHtml(n.note) + '</div>' +
+        '<div class="r-evidence">action: ' + escapeHtml(n.action) + '</div>' +
+      '</div>' +
+      '<span class="pill info">watch</span>' +
+    '</div>'
+  ).join('');
+
+  document.getElementById('commits-table').innerHTML =
+    '<thead><tr><th>Commit</th><th>Subject</th></tr></thead>' +
+    '<tbody>' +
+      data.recent_commits.map(c =>
+        '<tr>' +
+          '<td class="mono">' + escapeHtml(c.sha) + '</td>' +
+          '<td>' + escapeHtml(c.subject) + '</td>' +
+        '</tr>'
+      ).join('') +
+    '</tbody>';
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

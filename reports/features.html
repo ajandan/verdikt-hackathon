@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Feature board</title>
+<meta name="description" content="Feature dashboard for Verdikt — shipped, in-progress, backlog, parked. Sourced from features-data.json." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">V</span>
+      Verdikt
+      <span class="brand-tag">/ feature board</span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./features.html" class="active">Features</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+    </nav>
+    <div class="nav-meta" id="nav-meta">—</div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <span class="eyebrow"><span class="dot"></span> What Verdikt does today</span>
+    <h1 class="display">Every feature, <em>on record</em>.</h1>
+    <p class="lede">A category-by-category view of the product surface — what shipped, what's in flight, what's on the backlog, and what got parked. Grounded in <code>docs/roadmap.md</code>, <code>docs/HACKATHON.md</code>, and the four ADRs.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading feature data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Feature portfolio</h2>
+      <p class="subhead">Ten product surfaces, ~78 features. Backlog and parked lists sit below the fold.</p>
+      <div class="kpi-row" id="kpi-row"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Categories</span>
+      <h2>By product surface</h2>
+      <p class="subhead">Each category is a coherent slice of Verdikt. Sub-features carry status pills so scope of "done" is unambiguous.</p>
+      <div id="categories"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Backlog</span>
+      <h2>What's next</h2>
+      <p class="subhead">Prioritised items pulled from the roadmap. High-priority items block a hackathon-ready state; medium/low are post-submission.</p>
+      <div id="backlog"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Parked</span>
+      <h2>Deliberately not doing</h2>
+      <p class="subhead">Approaches we tried and rejected — recorded so we don't rediscover them.</p>
+      <div id="parked"></div>
+    </section>
+
+  </div>
+
+  <footer>
+    <span>Verdikt · feature board</span>
+    <span>Source: <a href="./features-data.json">features-data.json</a></span>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let data;
+  try {
+    const res = await fetch('./features-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.innerHTML =
+      "Couldn't load <b>features-data.json</b> — " + (e.message || e) + ".<br>" +
+      "If you opened this file directly (<code>file://</code>), serve the folder:<br>" +
+      "<code>python -m http.server 8765 --directory reports</code>";
+    return;
+  }
+
+  const runAt = data.generated_at || '';
+  document.getElementById('nav-meta').textContent =
+    (runAt ? runAt.replace('T', ' ').split('.')[0] + 'Z' : '') +
+    (data.commit ? '  ·  ' + data.commit : '');
+
+  const chips = [
+    ['Categories', data.summary.categories],
+    ['Shipped', data.summary.shipped],
+    ['In progress', data.summary.in_progress],
+    ['Backlog', data.summary.backlog],
+    ['Parked', data.summary.parked],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + v + '</span>'
+  ).join('');
+
+  const s = data.summary;
+  const kpis = [
+    { k: 'Total',       v: s.features_total, d: 'features tracked',        cls: '' },
+    { k: 'Shipped',     v: s.shipped,        d: 'on the code path today',  cls: 'pass' },
+    { k: 'In progress', v: s.in_progress,    d: 'landing during submission window', cls: 'info' },
+    { k: 'Backlog',     v: s.backlog,        d: 'prioritised, unstarted',  cls: 'err' },
+    { k: 'Parked',      v: s.parked,         d: 'deliberately not doing',  cls: '' },
+  ];
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '">' +
+      '<div class="k">' + x.k + '</div>' +
+      '<div class="v">' + x.v + '</div>' +
+      '<div class="d">' + x.d + '</div>' +
+    '</div>'
+  ).join('');
+
+  const statusClass = (st) =>
+    st === 'shipped' ? 'pass' :
+    st === 'in_progress' ? 'info' :
+    st === 'backlog' ? 'warn' :
+    'muted';
+  const statusLabel = (st) =>
+    st === 'shipped' ? 'shipped' :
+    st === 'in_progress' ? 'in flight' :
+    st === 'backlog' ? 'backlog' : st;
+
+  document.getElementById('categories').innerHTML = data.categories.map(cat => {
+    const shipped = cat.features.filter(f => f.status === 'shipped').length;
+    const total = cat.features.length;
+    const rows = cat.features.map(f =>
+      '<div class="feature-row">' +
+        '<div>' +
+          '<div class="feature-name">' + escapeHtml(f.name) + '</div>' +
+          '<div class="feature-desc">' + escapeHtml(f.description || '') + '</div>' +
+          (f.evidence ? '<div class="feature-evidence">' + escapeHtml(f.evidence) + '</div>' : '') +
+        '</div>' +
+        '<span class="pill ' + statusClass(f.status) + '">' + statusLabel(f.status) + '</span>' +
+      '</div>'
+    ).join('');
+    return (
+      '<div class="callout" style="margin-bottom:16px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
+          '<div>' +
+            '<div style="font-family:Instrument Serif,serif;font-size:24px;line-height:1.1">' + escapeHtml(cat.name) + '</div>' +
+            '<div style="color:var(--ink-500);font-size:13px;margin-top:4px;max-width:640px">' + escapeHtml(cat.description) + '</div>' +
+          '</div>' +
+          '<span class="pill muted">' + shipped + ' / ' + total + '</span>' +
+        '</div>' +
+        '<div class="feature-list">' + rows + '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  const priClass = (p) => p === 'high' ? 'fail' : p === 'medium' ? 'warn' : 'muted';
+  document.getElementById('backlog').innerHTML =
+    '<table class="data">' +
+      '<thead><tr><th>Category</th><th>Item</th><th>Priority</th><th>Notes</th></tr></thead>' +
+      '<tbody>' +
+        data.backlog.map(b =>
+          '<tr>' +
+            '<td class="mono">' + escapeHtml(b.category) + '</td>' +
+            '<td>' + escapeHtml(b.item) + '</td>' +
+            '<td><span class="pill ' + priClass(b.priority) + '">' + escapeHtml(b.priority) + '</span></td>' +
+            '<td style="color:var(--ink-500)">' + escapeHtml(b.notes || '') + '</td>' +
+          '</tr>'
+        ).join('') +
+      '</tbody>' +
+    '</table>';
+
+  document.getElementById('parked').innerHTML =
+    '<div class="callout">' +
+      '<ul>' +
+        data.parked.map(p =>
+          '<li><b>' + escapeHtml(p.item) + '</b> — ' + escapeHtml(p.reason) +
+          (p.date ? ' <span style="color:var(--ink-300)">(' + escapeHtml(p.date) + ')</span>' : '') + '</li>'
+        ).join('') +
+      '</ul>' +
+    '</div>';
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+
+</body>
+</html>

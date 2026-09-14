@@ -298,7 +298,132 @@ table.data tr:hover td { background: rgba(47,143,118,0.03); }
 .callout li { margin-bottom: 8px; font-size: 13.5px; color: var(--ink-700); line-height: 1.5; }
 .callout li b { color: var(--ink-900); }
 
-/* Roadmap swim lanes (features board) */
+/* Inline text-color helpers (CSP-safe alternatives to inline style attrs) */
+.ink-ship   { color: var(--seal-700); }
+.ink-flight { color: var(--blue-500); }
+.ink-back   { color: var(--amber-700); }
+
+/* Roadmap journey (features board) — cards along a winding path between
+   start and finish flags. Rail sits left on mobile, centered on desktop
+   with stops alternating on either side. */
+.journey { position: relative; padding: 8px 0; }
+.journey::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 16px; width: 4px;
+  background-image: linear-gradient(to bottom, var(--seal-500) 0 8px, transparent 8px 18px);
+  background-size: 4px 18px;
+  border-radius: 4px;
+}
+@media (min-width: 900px) {
+  .journey::before { left: 50%; transform: translateX(-2px); }
+}
+
+.journey-flag {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px 12px 12px;
+  border: 1px solid var(--hair); border-radius: 12px;
+  background: #fff;
+  margin: 4px 0 20px 0;
+  max-width: 340px;
+}
+.journey-flag.end { margin: 20px 0 4px 0; }
+@media (min-width: 900px) {
+  .journey-flag { margin-left: auto; margin-right: auto; }
+}
+.journey-flag .flag-icon {
+  width: 44px; height: 60px; flex: 0 0 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.journey-flag .flag-caption { display: flex; flex-direction: column; gap: 4px; }
+.journey-flag .flag-meta {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-500);
+}
+.journey-flag .flag-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+  font-size: 22px; line-height: 1.1;
+}
+.journey-flag .flag-title em { font-style: italic; }
+.journey-flag.start .flag-title em { color: var(--seal-700); }
+.journey-flag.end .flag-title em { color: var(--amber-700); }
+.journey-flag .flag-sub {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  color: var(--ink-500);
+}
+
+.journey-stop { position: relative; padding: 0 0 20px 52px; scroll-margin-top: 76px; }
+@media (min-width: 900px) {
+  .journey { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0; }
+  .journey-flag { grid-column: 1 / -1; justify-self: center; }
+  .journey-stop { padding: 0 0 28px; width: auto; }
+  .journey-stop.left  { grid-column: 1; padding-right: 44px; }
+  .journey-stop.right { grid-column: 2; padding-left: 44px;  }
+}
+
+.journey-node {
+  position: absolute; top: 14px; left: 3px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--seal-500);
+  z-index: 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px; font-weight: 600;
+  color: var(--seal-700);
+  box-shadow: 0 1px 3px rgba(30,95,79,0.14);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+@media (min-width: 900px) {
+  .journey-stop.left  .journey-node { left: auto; right: -15px; }
+  .journey-stop.right .journey-node { left: -15px; right: auto; }
+}
+.journey-stop.expanded .journey-node {
+  background: var(--seal-700); border-color: var(--seal-700); color: #fff;
+  transform: scale(1.08);
+}
+
+.journey-card {
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  padding: 18px 20px; cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.journey-card:hover {
+  transform: translateY(-1px); border-color: var(--seal-500);
+  box-shadow: 0 6px 24px -14px rgba(47,143,118,0.35);
+}
+.journey-stop.expanded .journey-card {
+  border-color: var(--seal-500);
+  box-shadow: 0 8px 24px -16px rgba(47,143,118,0.35);
+}
+.journey-stop.expanded .journey-node { border-color: var(--seal-700); }
+.journey-stop.expanded .journey-node::after { transform: scale(1); }
+
+.journey-stop-kicker {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--seal-700);
+  margin-bottom: 6px;
+}
+.journey-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400;
+  font-size: 22px; line-height: 1.15; margin: 0 0 4px;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.journey-count {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  color: var(--ink-500); letter-spacing: 0.08em; white-space: nowrap;
+}
+.journey-desc {
+  color: var(--ink-500); font-size: 13px; line-height: 1.45; margin: 0 0 12px;
+}
+.journey-progress {
+  display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+}
+.journey-detail {
+  display: none;
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--hair);
+}
+.journey-stop.expanded .journey-detail { display: block; }
+
+/* Legacy swim lanes — retained for compatibility */
 .roadmap { display: flex; flex-direction: column; gap: 10px; }
 .lane {
   position: relative;

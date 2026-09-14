@@ -43,6 +43,7 @@
     </div>
     <nav class="crossnav">
       <a href="./index.html">Overview</a>
+      <a href="./about.html">About</a>
       <a href="./features.html" class="active">Features</a>
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
@@ -50,7 +51,6 @@
       <a href="./production.html">Production</a>
       <a href="./hackathon.html">Hackathon</a>
     </nav>
-    <div class="nav-meta" id="nav-meta"></div>
   </div>
 </header>
 
@@ -59,7 +59,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> Product roadmap</span>
     <h1 class="display">The <em>whole map</em>, on one page.</h1>
-    <p class="lede">A swim-lane view of every product surface. Each lane's progress bar shows shipped / in flight / backlog at a glance. Click a lane to see the feature-by-feature breakdown. Grounded in <code>docs/roadmap.md</code>, <code>docs/HACKATHON.md</code>, and the four ADRs.</p>
+    <p class="lede">A journey view of every product surface: start flag at empty repo, finish flag at the hackathon cut, and every category as a stop along the path. Click a stop to see the features shipped there. Grounded in <code>docs/roadmap.md</code>, <code>docs/HACKATHON.md</code>, and the four ADRs.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -76,9 +76,9 @@
 
     <section class="block">
       <span class="kicker">Roadmap</span>
-      <h2>By product surface</h2>
-      <p class="subhead">Each row is a category. Bar segments read left-to-right: <b style="color:var(--seal-700)">shipped</b>, <b style="color:var(--blue-500)">in flight</b>, <b style="color:var(--amber-700)">backlog</b>. Click to drill in.</p>
-      <div class="roadmap" id="roadmap"></div>
+      <h2>The route we took</h2>
+      <p class="subhead">Ten stops along the path from empty repo to hackathon cut. Each stop is a product surface: click to see the features shipped there. Progress bars read left-to-right: <b class="ink-ship">shipped</b>, <b class="ink-flight">in flight</b>, <b class="ink-back">backlog</b>.</p>
+      <div class="journey" id="roadmap"></div>
     </section>
 
     <section class="block">
@@ -100,6 +100,7 @@
   <footer>
     <span>Verdikt · feature roadmap</span>
     <span>Source: <a href="./features-data.json">features-data.json</a></span>
+    <span class="nav-meta" id="nav-meta"></span>
   </footer>
 
 </main>
@@ -165,7 +166,31 @@
     st === 'backlog' ? 'backlog' : st;
 
   const roadmap = document.getElementById('roadmap');
-  roadmap.innerHTML = data.categories.map((cat, idx) => {
+  const catCount = data.categories.length;
+
+  const startFlagSvg =
+    '<svg viewBox="0 0 44 60" width="44" height="60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<line x1="10" y1="4" x2="10" y2="58" stroke="#3a382f" stroke-width="2" stroke-linecap="round"/>' +
+      '<path d="M10 6 L40 12 L14 20 Z" fill="#2f8f76" stroke="#1e5f4f" stroke-width="1.2" stroke-linejoin="round"/>' +
+      '<circle cx="10" cy="4" r="2.6" fill="#3a382f"/>' +
+    '</svg>';
+
+  const endFlagSvg =
+    '<svg viewBox="0 0 44 60" width="44" height="60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<line x1="10" y1="4" x2="10" y2="58" stroke="#3a382f" stroke-width="2" stroke-linecap="round"/>' +
+      '<rect x="10" y="6"  width="28" height="16" fill="#fff" stroke="#3a382f" stroke-width="1"/>' +
+      '<rect x="10" y="6"  width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="24" y="6"  width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="17" y="10" width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="31" y="10" width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="10" y="14" width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="24" y="14" width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="17" y="18" width="7" height="4" fill="#3a382f"/>' +
+      '<rect x="31" y="18" width="7" height="4" fill="#3a382f"/>' +
+      '<circle cx="10" cy="4" r="2.6" fill="#3a382f"/>' +
+    '</svg>';
+
+  const stopsHtml = data.categories.map((cat, idx) => {
     const ship = cat.features.filter(f => f.status === 'shipped').length;
     const flight = cat.features.filter(f => f.status === 'in_progress').length;
     const back = cat.features.filter(f => f.status === 'backlog').length;
@@ -183,46 +208,67 @@
         '<span class="pill ' + statusClass(f.status) + '">' + statusLabel(f.status) + '</span>' +
       '</div>'
     ).join('');
+    const side = idx % 2 === 0 ? 'left' : 'right';
+    const gridRow = idx + 2;
     return (
-      '<div class="lane" data-idx="' + idx + '">' +
-        '<div class="lane-head">' +
-          '<div>' +
-            '<div class="lane-title-row">' +
-              '<span class="lane-name">' + escapeHtml(cat.name) + '</span>' +
-              '<span class="lane-count">' + ship + ' / ' + total + ' shipped</span>' +
+      '<div class="journey-stop ' + side + '" data-idx="' + idx + '" style="grid-row:' + gridRow + '">' +
+        '<div class="journey-node" aria-label="Stop ' + (idx + 1) + ' of ' + catCount + '">' + (idx + 1) + '</div>' +
+        '<div class="journey-card">' +
+          '<div class="journey-stop-kicker">Stop ' + (idx + 1) + ' of ' + catCount + '</div>' +
+          '<h3 class="journey-title">' + escapeHtml(cat.name) +
+            '<span class="journey-count">' + ship + ' / ' + total + ' shipped</span>' +
+          '</h3>' +
+          '<p class="journey-desc">' + escapeHtml(cat.description) + '</p>' +
+          '<div class="journey-progress">' +
+            '<div class="progress-bar" title="' + ship + ' shipped · ' + flight + ' in flight · ' + back + ' backlog">' +
+              (ship > 0 ? '<div class="seg seg-ship" style="width:' + shipPct + '%"></div>' : '') +
+              (flight > 0 ? '<div class="seg seg-flight" style="width:' + flightPct + '%"></div>' : '') +
+              (back > 0 ? '<div class="seg seg-back" style="width:' + backPct + '%"></div>' : '') +
             '</div>' +
-            '<div class="lane-desc">' + escapeHtml(cat.description) + '</div>' +
+            '<div class="progress-legend">' +
+              '<span class="lg ship">' + ship + '</span>' +
+              (flight ? '<span class="lg flight">' + flight + '</span>' : '') +
+              (back ? '<span class="lg back">' + back + '</span>' : '') +
+            '</div>' +
           '</div>' +
-          '<span class="click-badge inline lane-toggle"><span>Inspect</span><span class="arrow">▸</span></span>' +
-        '</div>' +
-        '<div class="lane-progress">' +
-          '<div class="progress-bar" title="' + ship + ' shipped · ' + flight + ' in flight · ' + back + ' backlog">' +
-            (ship > 0 ? '<div class="seg seg-ship" style="width:' + shipPct + '%"></div>' : '') +
-            (flight > 0 ? '<div class="seg seg-flight" style="width:' + flightPct + '%"></div>' : '') +
-            (back > 0 ? '<div class="seg seg-back" style="width:' + backPct + '%"></div>' : '') +
+          '<div class="journey-detail">' +
+            '<div class="feature-list">' + rows + '</div>' +
           '</div>' +
-          '<div class="progress-legend">' +
-            '<span class="lg ship">' + ship + '</span>' +
-            (flight ? '<span class="lg flight">' + flight + '</span>' : '') +
-            (back ? '<span class="lg back">' + back + '</span>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div class="lane-detail">' +
-          '<div class="feature-list">' + rows + '</div>' +
         '</div>' +
       '</div>'
     );
   }).join('');
 
+  const sum = data.summary;
+  const endRow = catCount + 2;
+  roadmap.innerHTML =
+    '<div class="journey-flag start" style="grid-row:1">' +
+      '<span class="flag-icon">' + startFlagSvg + '</span>' +
+      '<div class="flag-caption">' +
+        '<div class="flag-meta">Where we <em>started</em></div>' +
+        '<div class="flag-title">Empty repo</div>' +
+        '<div class="flag-sub">' + sum.categories + ' surfaces · ' + sum.features_total + ' features to ship</div>' +
+      '</div>' +
+    '</div>' +
+    stopsHtml +
+    '<div class="journey-flag end" style="grid-row:' + endRow + '">' +
+      '<span class="flag-icon">' + endFlagSvg + '</span>' +
+      '<div class="flag-caption">' +
+        '<div class="flag-meta">Where we <em>land</em></div>' +
+        '<div class="flag-title">Hackathon cut</div>' +
+        '<div class="flag-sub">' + sum.shipped + ' of ' + sum.features_total + ' shipped · 25 Oct 2026</div>' +
+      '</div>' +
+    '</div>';
+
   roadmap.addEventListener('click', function (ev) {
-    const lane = ev.target.closest('.lane');
-    if (!lane) return;
-    const wasOpen = lane.classList.contains('expanded');
-    lane.classList.toggle('expanded');
-    const toggle = lane.querySelector('.lane-toggle');
-    if (toggle) toggle.innerHTML = wasOpen
-      ? '<span>Inspect</span><span class="arrow">▸</span>'
-      : '<span>Close</span><span class="arrow">▴</span>';
+    const stop = ev.target.closest('.journey-stop');
+    if (!stop) return;
+    const wasOpen = stop.classList.contains('expanded');
+    roadmap.querySelectorAll('.journey-stop.expanded').forEach(s => s.classList.remove('expanded'));
+    if (!wasOpen) {
+      stop.classList.add('expanded');
+      stop.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   });
 
   const priClass = (p) => p === 'high' ? 'fail' : p === 'medium' ? 'warn' : 'muted';

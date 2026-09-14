@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · About</title>
+<meta name="description" content="How Verdikt came to be: a ten-year loop from a 2020 document-generation idea to an AI pipeline that takes the humans out of the middle." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · About" />
+<meta property="og:description" content="How Verdikt came to be: a ten-year loop from a 2020 document-generation idea to an AI pipeline that takes the humans out of the middle." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · About" />
+<meta name="twitter:description" content="How Verdikt came to be: a ten-year loop from a 2020 document-generation idea to an AI pipeline that takes the humans out of the middle." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+<style>
+  /* Softly patterned paper backdrop for the whole page */
+  body {
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(47,143,118,0.06), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 40%, rgba(201,138,43,0.05), transparent 60%),
+      var(--ink-50);
+  }
+
+  /* Hero: decorative wax-stamp mark in the corner + slightly heavier lede */
+  .hero-about {
+    position: relative;
+    padding: 72px 0 44px;
+  }
+  .hero-about .stamp-glyph {
+    position: absolute;
+    right: -12px; top: 40px;
+    width: 130px; height: 130px;
+    opacity: 0.14;
+    pointer-events: none;
+  }
+  @media (max-width: 820px) { .hero-about .stamp-glyph { display: none; } }
+  .hero-about .lede-strong {
+    max-width: 720px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 22px; line-height: 1.5;
+    color: var(--ink-700);
+    margin: 16px 0 0;
+    font-style: normal;
+  }
+  .hero-about .lede-strong em {
+    font-style: italic;
+    color: var(--seal-700);
+  }
+
+  /* Pull quote: proper blockquote with giant serif open-quote */
+  .pullquote {
+    position: relative;
+    max-width: 840px;
+    margin: 12px auto 8px;
+    padding: 44px 40px 36px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid var(--hair-soft);
+    border-radius: 14px;
+    box-shadow: 0 1px 0 rgba(20,20,16,0.02), 0 24px 60px -30px rgba(20,20,16,0.12);
+  }
+  .pullquote::before {
+    content: "\201C";
+    position: absolute;
+    top: -18px; left: 24px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 120px; line-height: 1;
+    color: var(--seal-500);
+    opacity: 0.28;
+  }
+  .pullquote-body {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: clamp(22px, 3vw, 32px);
+    line-height: 1.28;
+    color: var(--ink-900);
+    margin: 0;
+  }
+  .pullquote-body em { color: var(--seal-700); font-style: italic; }
+  .pullquote-attr {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 22px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .pullquote-attr::before,
+  .pullquote-attr::after {
+    content: "";
+    width: 22px; height: 1px; background: var(--hair);
+  }
+
+  /* Timeline — the real visual arc */
+  .timeline {
+    position: relative;
+    margin: 12px 0 4px;
+    padding-left: 8px;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 8px; bottom: 8px;
+    left: 27px;
+    width: 2px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--seal-500) 0 6px,
+      transparent 6px 14px
+    );
+  }
+  .tl-stop {
+    position: relative;
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 20px;
+    padding: 18px 0;
+  }
+  .tl-stop + .tl-stop { border-top: 1px solid var(--hair-soft); }
+  .tl-badge {
+    position: relative;
+    width: 56px; height: 56px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--seal-500);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--seal-700);
+    letter-spacing: 0.02em;
+    box-shadow: 0 6px 16px -8px rgba(30,95,79,0.35);
+    z-index: 2;
+    text-align: center;
+    line-height: 1.1;
+  }
+  .tl-badge.filled {
+    background: var(--seal-700);
+    border-color: var(--seal-700);
+    color: #fff;
+  }
+  .tl-card {
+    padding-top: 4px;
+    padding-right: 8px;
+  }
+  .tl-card h3 {
+    margin: 0 0 6px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-weight: 400;
+    font-size: 24px; line-height: 1.2;
+    color: var(--ink-900);
+  }
+  .tl-card h3 em { font-style: italic; color: var(--seal-700); }
+  .tl-card p {
+    margin: 0;
+    font-size: 15px; line-height: 1.55;
+    color: var(--ink-700);
+  }
+  .tl-tag {
+    display: inline-block;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+
+  /* Why-PAP: statement-style */
+  .statement {
+    max-width: 820px;
+    margin: 12px 0 4px;
+    padding: 32px 36px;
+    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.75) 100%);
+    border: 1px solid var(--hair-soft);
+    border-left: 4px solid var(--seal-500);
+    border-radius: 0 12px 12px 0;
+  }
+  .statement p {
+    margin: 0;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: clamp(19px, 2.2vw, 24px); line-height: 1.45;
+    color: var(--ink-800, var(--ink-700));
+  }
+  .statement p + p { margin-top: 10px; }
+  .statement em { font-style: italic; color: var(--seal-700); }
+  .statement strong { font-weight: 400; color: var(--ink-900); border-bottom: 2px solid var(--seal-300); padding-bottom: 1px; }
+
+  /* Principles — numbered cards */
+  .p-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: 1fr;
+    margin-top: 4px;
+  }
+  @media (min-width: 720px) { .p-grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1050px) { .p-grid { grid-template-columns: repeat(4, 1fr); } }
+  .p-card {
+    position: relative;
+    padding: 24px 22px 22px;
+    background: #fff;
+    border: 1px solid var(--hair-soft);
+    border-radius: 12px;
+    box-shadow: 0 1px 0 rgba(20,20,16,0.02);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  .p-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px -18px rgba(20,20,16,0.18);
+  }
+  .p-card .p-num {
+    display: inline-block;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 34px; line-height: 1;
+    color: var(--seal-500);
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .p-card .p-num::after {
+    content: "";
+    display: block;
+    width: 26px; height: 2px;
+    background: var(--seal-500);
+    margin-top: 8px;
+    opacity: 0.55;
+  }
+  .p-card h3 {
+    margin: 0 0 8px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-weight: 400;
+    font-size: 20px; line-height: 1.2;
+    color: var(--ink-900);
+  }
+  .p-card p {
+    margin: 0;
+    font-size: 13.5px; line-height: 1.55;
+    color: var(--ink-700);
+  }
+
+  /* Section spacing tuned tighter than the default */
+  .about-body section.block { padding: 44px 0; }
+  .about-body section.block:first-of-type { border-top: none; }
+
+  /* Footer restraint */
+  footer .brand-mini {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--ink-500);
+  }
+</style>
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">The <em>story.</em></span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./about.html" class="active">About</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container about-body">
+
+  <section class="hero hero-about">
+    <svg class="stamp-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="60" cy="60" r="52" fill="none" stroke="#1e5f4f" stroke-width="2"/>
+      <circle cx="60" cy="60" r="44" fill="none" stroke="#1e5f4f" stroke-width="1" stroke-dasharray="2 4"/>
+      <path d="M40 60 L54 74 L82 46" fill="none" stroke="#1e5f4f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="eyebrow"><span class="dot"></span> About</span>
+    <h1 class="display">A ten-year loop, <em>closing.</em></h1>
+    <p class="lede-strong">I built the first version of this in 2020. It took a decade of platform work and a new generation of tools before I could finally take the <em>humans out of the middle.</em></p>
+  </section>
+
+  <section class="block" style="border-top:none; padding-top:0">
+    <figure class="pullquote">
+      <p class="pullquote-body">Think like a <em>solution designer + builder,</em> not a typical developer.</p>
+      <span class="pullquote-attr">The habit that carried every stop</span>
+    </figure>
+  </section>
+
+  <section class="block">
+    <span class="kicker">The arc</span>
+    <h2>Five stops, one idea</h2>
+    <p class="subhead">Same idea, resurfaced with better tools. Through-line: <em>AI reads, deterministic code writes, humans decide.</em></p>
+
+    <div class="timeline">
+      <div class="tl-stop">
+        <div class="tl-badge">2020</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 01 · The seed</span>
+          <h3>Won a <em>platform hackathon</em></h3>
+          <p>A REST API for document generation. One endpoint. One document. No rendering logic in the caller. The interesting problem was <em>content assembly</em>, not delivery.</p>
+        </div>
+      </div>
+
+      <div class="tl-stop">
+        <div class="tl-badge">Then</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 02 · In the wild</span>
+          <h3>Productionised inside a <em>real engagement</em></h3>
+          <p>Same idea, real business users touching it daily. Every mapping, every content branch was still defined by hand. Humans in the loop everywhere.</p>
+        </div>
+      </div>
+
+      <div class="tl-stop">
+        <div class="tl-badge">AI era</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 03 · The rebrush</span>
+          <h3>Back to <em>hands-on</em></h3>
+          <p>Brushed up React on the front. Got fluent with LLMs, agents, RAG, retrieval, rerankers. Earned the right to <em>design AI in,</em> not bolt it on.</p>
+        </div>
+      </div>
+
+      <div class="tl-stop">
+        <div class="tl-badge">Quire</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 04 · Off-platform</span>
+          <h3>The <em>advanced</em> version of 2020</h3>
+          <p>Rebuilt outside any single platform. AI now carries the upstream human steps (mapping, extraction, verdicting). Deterministic code still owns the artifact.</p>
+        </div>
+      </div>
+
+      <div class="tl-stop">
+        <div class="tl-badge filled">2026</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 05 · This build</span>
+          <h3>Verdikt, <em>shaped for the rulebook</em></h3>
+          <p>Nemotron on Nebius Token Factory for reasoning. Mistral OCR for the read. Deterministic Python for the render. A paper-stamp verdict as the artifact.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <span class="kicker">Why this domain</span>
+    <h2>Why PAP</h2>
+    <div class="statement">
+      <p>Real letters. Real deadlines. Real humans stuck between a payer, a physician, and a patient, waiting on a decision a case-management team has to justify <em>line by line.</em></p>
+      <p>Chat is not the product. A signed, auditable <strong>verdict</strong> is.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <span class="kicker">What carried over</span>
+    <h2>Four habits from workflow-platform work</h2>
+    <div class="p-grid">
+      <div class="p-card">
+        <span class="p-num">01</span>
+        <h3>Case flow first</h3>
+        <p>Every screen, every endpoint, every prompt has to move a real case toward a decision. If it doesn't, it doesn't ship.</p>
+      </div>
+      <div class="p-card">
+        <span class="p-num">02</span>
+        <h3>Audit, not demo</h3>
+        <p>Deterministic renders. Version-frozen artifacts. Byte-identical replays months later. Anything less isn't done.</p>
+      </div>
+      <div class="p-card">
+        <span class="p-num">03</span>
+        <h3>AI on the read path</h3>
+        <p>Extracts, classifies, retrieves, reasons. Never composes the final artifact. The separation is enforced by tests.</p>
+      </div>
+      <div class="p-card">
+        <span class="p-num">04</span>
+        <h3>Ship the seam</h3>
+        <p>The caller sees one clean endpoint. Whatever's underneath is my problem, not theirs.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Verdikt · about</span>
+    <span>Repo: <a href="https://github.com/ajandan/quire-hackathon">ajandan/quire-hackathon</a></span>
+  </footer>
+
+</main>
+
+</body>
+</html>

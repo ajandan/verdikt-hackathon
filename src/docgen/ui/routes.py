@@ -799,8 +799,10 @@ async def palette_json(
 ) -> JSONResponse:
     """Backing data for the Cmd/Ctrl+K command palette.
 
-    Loaded lazily on first open; kept tiny by capping to 200 templates and
-    50 tenants — the palette is a quick-jump, not a full browser.
+    Loaded lazily on first open. Templates + tenants are the headline jumps;
+    profiles and programs get the same treatment so operators can hop
+    straight to a caller-mapping or a program without walking the template.
+    Each list is capped so the palette stays a quick-jump, not a browser.
     """
     from docgen.store.models import Tenant
 
@@ -824,7 +826,53 @@ async def palette_json(
         tenants_stmt = tenants_stmt.where(Tenant.id == ident.tenant_id)
     tenant_rows = (await session.execute(tenants_stmt)).all()
     tenants = [{"id": str(r.id), "name": r.name} for r in tenant_rows]
-    return JSONResponse({"templates": tmpls, "tenants": tenants})
+
+    # Caller profiles — tenant-scoped mapping wizards. Cap at 200 recent.
+    prof_q = (
+        select(
+            CallerProfile.id,
+            CallerProfile.name,
+            CallerProfile.caller,
+            Template.name.label("template_name"),
+        )
+        .join(Template, Template.id == CallerProfile.template_id)
+        .order_by(CallerProfile.updated_at.desc())
+        .limit(200)
+    )
+    if scope is not None:
+        prof_q = prof_q.where(CallerProfile.tenant_id == scope)
+    profiles = [
+        {
+            "id": str(r.id),
+            "name": r.name,
+            "caller": r.caller,
+            "template": r.template_name,
+        }
+        for r in (await session.execute(prof_q)).all()
+    ]
+
+    # Programs — one row per PAP program. Slug is what appears in URLs.
+    prog_q = (
+        select(Program.id, Program.name, Program.slug, Tenant.name.label("tenant_name"))
+        .join(Tenant, Tenant.id == Program.tenant_id)
+        .order_by(Program.name.asc())
+        .limit(100)
+    )
+    if scope is not None:
+        prog_q = prog_q.where(Program.tenant_id == scope)
+    programs = [
+        {"id": str(r.id), "name": r.name, "slug": r.slug, "tenant": r.tenant_name}
+        for r in (await session.execute(prog_q)).all()
+    ]
+
+    return JSONResponse(
+        {
+            "templates": tmpls,
+            "tenants": tenants,
+            "profiles": profiles,
+            "programs": programs,
+        }
+    )
 
 
 _RENDER_STATE_FILTERS = frozenset({"queued", "running", "succeeded", "failed", "cancelled"})

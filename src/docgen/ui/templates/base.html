@@ -1395,6 +1395,12 @@
             { kind: 'nav', label: 'Templates', hint: 'browse templates', href: '/ui/' },
             { kind: 'nav', label: 'Renders', hint: 'render history', href: '/ui/renders' },
             { kind: 'nav', label: 'Upload template', hint: 'add a new .docx or .pdf', href: '/ui/upload' },
+            { kind: 'nav', label: 'Inbox', hint: 'pipeline intake events', href: '/ui/inbox' },
+            { kind: 'nav', label: 'Human loop', hint: 'drafts pending approval', href: '/ui/inbox/humanloop' },
+            { kind: 'nav', label: 'Programs', hint: 'PAP programs', href: '/ui/programs' },
+            { kind: 'nav', label: 'Rules', hint: 'rules library', href: '/ui/rules' },
+            { kind: 'nav', label: 'Admin · Tenants', hint: 'tenant admin', href: '/ui/admin/tenants' },
+            { kind: 'nav', label: 'Admin · Users', hint: 'user admin', href: '/ui/admin/users' },
             { kind: 'nav', label: 'API docs', hint: 'swagger UI', href: '/docs' },
             { kind: 'action', label: 'Toggle theme', hint: 'switch light/dark', run: toggleTheme },
         ];
@@ -1421,6 +1427,13 @@
                 });
                 (_paletteData.tenants || []).forEach(function (t) {
                     out.push({ kind: 'tenant', label: t.name, hint: 'switch workspace', href: '/ui/dashboard?tenant=' + t.id });
+                });
+                (_paletteData.profiles || []).forEach(function (p) {
+                    var hint = p.caller + (p.template ? ' · ' + p.template : '');
+                    out.push({ kind: 'profile', label: p.name, hint: hint, href: '/ui/profiles/' + p.id });
+                });
+                (_paletteData.programs || []).forEach(function (p) {
+                    out.push({ kind: 'program', label: p.name, hint: p.tenant || '', href: '/ui/programs/' + p.id });
                 });
             }
             return out;

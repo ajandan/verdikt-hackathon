@@ -14,9 +14,9 @@
   "summary": {
     "categories": 10,
     "features_total": 81,
-    "shipped": 71,
+    "shipped": 72,
     "in_progress": 2,
-    "backlog": 8,
+    "backlog": 7,
     "parked": 2
   },
   "categories": [
@@ -57,7 +57,7 @@
         {"name": "Pagination on templates + renders lists", "status": "shipped", "description": "Opaque keyset cursors; constant DB cost at any page depth.", "evidence": "src/docgen/pagination.py"},
         {"name": "Empty-state onboarding (sample template)", "status": "shipped", "description": "'Or try a sample →' button pushes bundled DOCX through the real preflight path.", "evidence": "/ui/upload/sample"},
         {"name": "Signature field render", "status": "backlog", "description": "Still coerced to text. Needs payload format decision (base64 PNG? blob key? URL?).", "evidence": "roadmap deferred"},
-        {"name": "Command palette (⌘K)", "status": "backlog", "description": "Jump to template, upload, mapping wizard, tenant switch. Table view bottleneck past ~20 templates.", "evidence": "roadmap ship-first #7"},
+        {"name": "Command palette (⌘K)", "status": "shipped", "description": "Jump to any template, tenant, caller profile, program, or nav route. Lazy /_palette.json load on first open; fuzzy score + arrow-key selection.", "evidence": "src/docgen/ui/templates/base.html cmdk-* + routes.py /_palette.json"},
         {"name": "Responsive tables → mobile card view", "status": "shipped", "description": "Under 720px, table rows collapse into stacked cards labelled by data-label. Opt-in via class='responsive'. Templates + renders lists covered.", "evidence": "base.html @media (max-width: 720px) block; index.html + renders.html data-label attrs"}
       ]
     },
@@ -174,7 +174,6 @@
   ],
   "backlog": [
     {"category": "Templates", "item": "Signature-field render", "priority": "medium", "notes": "Needs payload format decision."},
-    {"category": "Templates", "item": "Command palette (⌘K)", "priority": "medium", "notes": "Bottleneck past 20 templates."},
     {"category": "Pipeline", "item": "MDM PR2 — Slot compiler", "priority": "high", "notes": "Blocks history-citation UI."},
     {"category": "Pipeline", "item": "MDM PR3 — state-mdm-v1 adapter", "priority": "high", "notes": "Real REST+JWT connector against fake MDM in local/mdm-fake/."},
     {"category": "Pipeline", "item": "MDM PR4 — Ledger columns backfill", "priority": "medium", "notes": "mdm_snapshot_hash + provider on the case row."},

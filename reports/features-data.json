@@ -14,9 +14,9 @@
   "summary": {
     "categories": 10,
     "features_total": 81,
-    "shipped": 75,
+    "shipped": 76,
     "in_progress": 0,
-    "backlog": 6,
+    "backlog": 5,
     "parked": 2
   },
   "categories": [
@@ -178,9 +178,9 @@
         },
         {
           "name": "Signature field render",
-          "status": "backlog",
-          "description": "Still coerced to text. Needs payload format decision (base64 PNG? blob key? URL?).",
-          "evidence": "roadmap deferred"
+          "status": "shipped",
+          "description": "PDF placement type 'signature'; payload is base64 PNG data URL. Empty payload draws a signature line placeholder.",
+          "evidence": "src/docgen/core/render_pipeline_pdf.py::_draw_signature"
         },
         {
           "name": "Command palette (⌘K)",

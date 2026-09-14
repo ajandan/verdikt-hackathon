@@ -402,6 +402,128 @@ def test_render_pdf_radio_reuses_checkbox_truthy_rules() -> None:
         assert not _curve_drawing_present(out, filled=True), f"{falsy!r} should not select radio"
 
 
+def _tiny_png() -> bytes:
+    """A minimal valid PNG built with Pillow (already in the render dep tree).
+
+    Building the bytes at runtime beats hand-rolling a hex literal: the CRC
+    and IDAT compression have to match exactly for ImageReader to accept
+    the file, and a wrong CRC in a fixture is an unpleasant thing to
+    debug. Pillow ships with reportlab, so this doesn't grow the test
+    dep list."""
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (4, 4), color=(0, 0, 0)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _flat_pdf_with_signature_placement(*, value: object) -> bytes:
+    """Render one signature placement on a flat page. Wide + short like
+    the printed-form signature line the placement is meant to overlay."""
+    placement = {
+        "name": "signature",
+        "type": "signature",
+        "page": 1,
+        "x_pct": 0.2,
+        "y_pct": 0.7,
+        "w_pct": 0.4,
+        "h_pct": 0.06,
+        "font_size": 12.0,
+        "anchor": None,
+    }
+    return render_pdf_template(_make_flat_pdf(), [placement], {"signature": value})
+
+
+def _stroke_line_present(pdf_bytes: bytes) -> bool:
+    """True when the doc contains at least one stroked straight line.
+
+    pdfplumber surfaces reportlab's ``canv.line()`` calls as ``page.lines``
+    entries (as opposed to ``page.curves`` for circles). Distinct from the
+    checkbox helper so the signature-placeholder assertion can fail
+    fast on a stray checkbox frame."""
+    import io
+
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            for line in page.lines:
+                if line.get("stroke"):
+                    return True
+    return False
+
+
+def _image_present(pdf_bytes: bytes) -> bool:
+    """True when the doc has at least one raster image on any page.
+
+    pdfplumber's ``page.images`` covers the XObject-image case reportlab
+    emits from ``drawImage``. Presence alone is enough — we don't need to
+    round-trip the pixels because the render-side contract is "the PNG
+    reached the canvas", not "the PNG is bit-exact after PDF encoding"."""
+    import io
+
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for page in pdf.pages:
+            if page.images:
+                return True
+    return False
+
+
+def test_render_pdf_signature_draws_line_when_empty() -> None:
+    """No signature payload → a thin baseline in the placement box, no image.
+
+    Empty signature fields must stay visible on the printed output so a
+    reviewer can hand-sign the flow when the case route bypassed the
+    signature pad. Regressions here would ship blank space where a
+    signer expects a line."""
+    output = _flat_pdf_with_signature_placement(value="")
+    assert _stroke_line_present(output), "empty signature drew no baseline"
+    assert not _image_present(output), "empty signature accidentally rasterized"
+
+
+def test_render_pdf_signature_draws_image_when_data_url_provided() -> None:
+    """A ``data:image/png;base64,...`` payload → the image renders. This is
+    the base case: browser signature pads emit exactly this shape when
+    they serialize their canvas to a data URL."""
+    import base64
+    data_url = "data:image/png;base64," + base64.b64encode(_tiny_png()).decode()
+    output = _flat_pdf_with_signature_placement(value=data_url)
+    assert _image_present(output), "signature PNG did not reach the canvas"
+
+
+def test_render_pdf_signature_accepts_bare_base64() -> None:
+    """Callers that stripped the data-URL prefix must still work — the
+    contract is "PNG bytes we can decode", not "prefix present". Rejecting
+    bare base64 would surprise anyone reading the payload contract."""
+    import base64
+    bare = base64.b64encode(_tiny_png()).decode()
+    output = _flat_pdf_with_signature_placement(value=bare)
+    assert _image_present(output)
+
+
+def test_render_pdf_signature_falls_back_to_line_on_bad_payload() -> None:
+    """A malformed / non-PNG payload → line placeholder, no crash. The
+    render path must degrade rather than 500 the whole document over one
+    bogus signature — the reviewer can still print + sign the fallback."""
+    output = _flat_pdf_with_signature_placement(value="not-base64-at-all")
+    assert _stroke_line_present(output), "bad payload should still draw the line"
+    assert not _image_present(output)
+
+
+def test_render_pdf_signature_rejects_non_png_data_url() -> None:
+    """A ``data:image/jpeg;base64,...`` payload is out of contract today.
+    Silently rendering it would set a precedent that any image type is
+    accepted, and downstream (SVG, remote-URL fetching) has security
+    consequences we haven't opted into."""
+    import base64
+    jpeg_url = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff\xe0").decode()
+    output = _flat_pdf_with_signature_placement(value=jpeg_url)
+    assert not _image_present(output), "jpeg data URL rendered — contract violation"
+    assert _stroke_line_present(output)
+
+
 def test_render_pdf_text_placement_draws_no_frame() -> None:
     """Text placements should not accidentally get boxed by the new dispatch."""
     placement = {

@@ -17,12 +17,25 @@ Placement schema (stored in TemplateVersion.pdf_field_placements['placements']):
                          # collect h explicitly).
     "font_size":  float, # points
     "anchor":     str | None,  # PR2/PR3: nearest-label text for re-align
-    "type":       str | None,  # "text" | "checkbox" | "radio"; when absent,
-                               # derived from legacy field_type / payload_type.
+    "type":       str | None,  # "text" | "checkbox" | "radio" | "signature";
+                               # when absent, derived from legacy field_type /
+                               # payload_type.
   }
+
+Signature payload contract
+--------------------------
+Signature placements accept the payload as a base64-encoded PNG data URL
+(``"data:image/png;base64,iVBORw0K..."``) or a bare base64 PNG string.
+Chosen over blob-key / URL forms because it keeps the render path fully
+offline (no S3 fetch inside the render step), matches how browser-side
+signature pads emit their canvas, and doesn't require a second storage
+tier for signature blobs. Empty / missing values render a signature line
+placeholder — a visible cue that a signature field exists but wasn't
+provided, mirroring how the checkbox path stays visible-when-empty.
 """
 from __future__ import annotations
 
+import base64
 import io
 import uuid
 from typing import Any
@@ -30,6 +43,7 @@ from typing import Any
 import pypdf
 from pypdf.generic import ArrayObject
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 from docgen.config import Settings
@@ -66,10 +80,11 @@ def _placement_type(p: dict[str, Any]) -> str:
     New placements carry an explicit "type" field. Legacy placements (frozen
     before the field was introduced) are inferred from the older signals:
     an AcroForm-harvested /Btn sets field_type="checkbox", and the editor's
-    checkbox tool sets payload_type="boolean".
+    checkbox tool sets payload_type="boolean". Signature is explicit-only:
+    the legacy /Sig widget kind never survived preflight into a placement.
     """
     explicit = p.get("type")
-    if explicit in ("text", "checkbox", "radio"):
+    if explicit in ("text", "checkbox", "radio", "signature"):
         return explicit
     if p.get("field_type") == "radio":
         return "radio"
@@ -146,6 +161,109 @@ def _is_truthy(value: Any) -> bool:
     return bool(_stringify(value, render_as_checkbox=True))
 
 
+_SIG_DATA_URL_PREFIX = "data:image/png;base64,"
+
+
+def _decode_signature_png(value: Any) -> bytes | None:
+    """Extract PNG bytes from a placement's payload, or None if unusable.
+
+    Accepts three shapes so callers don't have to normalize upstream:
+
+    - ``"data:image/png;base64,<b64>"`` — the shape a browser signature
+      pad emits when the canvas is serialized to a data URL.
+    - ``"<b64>"`` — a bare base64 PNG string, in case a caller strips the
+      URL prefix before hitting the API.
+    - Anything else — returns None so the caller falls back to the empty
+      signature-line placeholder rather than crashing the render.
+
+    Non-strict base64 (padding-optional, whitespace-tolerant) matches how
+    real signature pads emit; ``validate=False`` on ``b64decode`` lets a
+    few odd characters through, and we defer format-checking to the
+    PNG magic-byte guard below.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    payload = value.strip()
+    if payload.startswith(_SIG_DATA_URL_PREFIX):
+        payload = payload[len(_SIG_DATA_URL_PREFIX):]
+    elif payload.startswith("data:image/"):
+        # Unsupported mime — only PNG is on the contract today. Any other
+        # image type (jpeg / svg) needs a spec discussion before we render
+        # it, so treat as "no signature" rather than silently blitting.
+        return None
+    payload = "".join(payload.split())
+    try:
+        raw = base64.b64decode(payload + "==", validate=False)
+    except Exception:
+        return None
+    # PNG magic — reject anything else so a mis-typed jpg doesn't slip
+    # through as a signature.
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    return raw
+
+
+def _draw_signature(
+    canv: canvas.Canvas,
+    x_left: float,
+    y_top: float,
+    w: float,
+    h: float,
+    page_h: float,
+    value: Any,
+) -> None:
+    """Draw a signature PNG when the payload decodes; otherwise draw a line.
+
+    Rendering strategy is "fit inside the placement box, preserve aspect".
+    A signature that overflows its declared box looks worse than one that
+    sits centered with margins, and the reader's mental model is "the
+    signature belongs in the box the reviewer drew," not "the signature
+    consumes exactly the box."
+
+    Empty payload → a thin horizontal line at the box's bottom, spanning
+    the box width. That's what a printed-and-signed workflow leaves for
+    the signer, and it's what the reader expects to see before a
+    signature lands. No frame around the line — the editor already drew
+    the placement outline in the source PDF.
+    """
+    box_h = h if h > 0 else 24.0
+    box_w = w if w > 0 else box_h * 4.0  # sig boxes are typically wide
+    box_bottom = page_h - y_top - box_h
+
+    png_bytes = _decode_signature_png(value)
+    if png_bytes is None:
+        canv.setLineWidth(0.75)
+        canv.setStrokeColorRGB(0, 0, 0)
+        canv.line(x_left, box_bottom, x_left + box_w, box_bottom)
+        return
+
+    try:
+        img = ImageReader(io.BytesIO(png_bytes))
+        iw, ih = img.getSize()
+    except Exception:
+        # Malformed PNG past the magic check — degrade to line placeholder.
+        # Falling through to `drawImage` would raise inside reportlab's C
+        # code and abort the whole render.
+        canv.setLineWidth(0.75)
+        canv.line(x_left, box_bottom, x_left + box_w, box_bottom)
+        return
+
+    # Scale to fit the box while preserving aspect. If the source has zero
+    # dimensions (broken PNG), treat as no-image.
+    if iw <= 0 or ih <= 0:
+        canv.line(x_left, box_bottom, x_left + box_w, box_bottom)
+        return
+    scale = min(box_w / iw, box_h / ih)
+    draw_w = iw * scale
+    draw_h = ih * scale
+    draw_x = x_left + (box_w - draw_w) / 2.0
+    draw_y = box_bottom + (box_h - draw_h) / 2.0
+    canv.drawImage(
+        img, draw_x, draw_y, width=draw_w, height=draw_h,
+        preserveAspectRatio=True, mask="auto",
+    )
+
+
 def _draw_text(
     canv: canvas.Canvas,
     x_left: float,
@@ -193,6 +311,11 @@ def _draw_overlay_page(
             _draw_radio(
                 canv, x_left, y_top, w, h, page_h, widget_font_size,
                 is_selected=_is_truthy(data.get(p["name"], "")),
+            )
+        elif ptype == "signature":
+            _draw_signature(
+                canv, x_left, y_top, w, h, page_h,
+                data.get(p["name"], ""),
             )
         else:
             if not value:

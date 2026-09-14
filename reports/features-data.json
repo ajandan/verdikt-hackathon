@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T17:59:13.416706Z",
-  "commit": "ec422a8",
+  "generated_at": "2026-09-14T20:01:45.000000Z",
+  "commit": "aa5bb34",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -578,18 +578,6 @@
     }
   ],
   "backlog": [
-    {
-      "category": "Templates",
-      "item": "Signature-field render",
-      "priority": "medium",
-      "notes": "Needs payload format decision."
-    },
-    {
-      "category": "Pipeline",
-      "item": "MDM PR2 · Slot compiler",
-      "priority": "high",
-      "notes": "Blocks history-citation UI."
-    },
     {
       "category": "Pipeline",
       "item": "MDM PR3 · state-mdm-v1 adapter",

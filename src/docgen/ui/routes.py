@@ -73,6 +73,7 @@ from docgen.designtime.upload import (
     upload_pdf_template,
     upload_template,
 )
+from docgen.metrics import observe_render
 from docgen.pagination import (
     Cursor,
     Page,
@@ -89,7 +90,6 @@ from docgen.ratelimit import (
     reset_login_attempts,
 )
 from docgen.security_headers import preview_csp, secure_cookie_flag
-from pap_pipeline.stages.slot_compile import SlotDef, SlotCompileError
 from docgen.store.blob import get_object, put_object
 from docgen.store.models import (
     ApiKey,
@@ -109,6 +109,7 @@ from docgen.store.models import (
     TemplateVersion,
     Tenant,
 )
+from pap_pipeline.stages.slot_compile import SlotCompileError, SlotDef
 
 router = APIRouter(
     prefix="/ui", tags=["ui"], include_in_schema=False,
@@ -2794,6 +2795,7 @@ async def render_submit(
     await session.commit()
     await session.refresh(job)
 
+    started_at = datetime.now(UTC)
     try:
         output = execute_merge(tv, data, output_format, settings=settings)
     except Exception as e:
@@ -2803,6 +2805,12 @@ async def render_submit(
         log.error(
             "ui_render_failed", job_id=str(job.id), template_id=str(template_id),
             version=version, error=job.error,
+        )
+        observe_render(
+            tenant_id=str(template.tenant_id) if template.tenant_id else None,
+            format=output_format,
+            state="failed",
+            duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
         )
         return await _render_page_with(
             request, template, tv, ts, payload, session=session,
@@ -2825,6 +2833,12 @@ async def render_submit(
     log.info(
         "ui_render_succeeded", job_id=str(job.id), template_id=str(template_id),
         version=version, format=output_format, result_bytes=job.result_bytes,
+    )
+    observe_render(
+        tenant_id=str(template.tenant_id) if template.tenant_id else None,
+        format=output_format,
+        state="succeeded",
+        duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
     )
     return await _render_page_with(
         request, template, tv, ts, payload, session=session,
@@ -3871,15 +3885,15 @@ async def admin_tenant_quotas(
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
     _require_super_admin(request)
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    from docgen.store.models import RenderJob, Tenant, Template
+    from docgen.store.models import RenderJob, Template, Tenant
 
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(404, "Tenant not found")
 
-    since = datetime.now(tz=timezone.utc) - timedelta(hours=24)
+    since = datetime.now(tz=UTC) - timedelta(hours=24)
     renders_24h = (
         await session.execute(
             select(func.count())

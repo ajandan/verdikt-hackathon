@@ -1,0 +1,763 @@
+{
+  "product": "Verdikt",
+  "run": {
+    "junit_timestamp": "2026-09-13T22:37:27.245952+00:00",
+    "generated_at": "2026-09-14T01:50:29.194074+00:00",
+    "duration_seconds": 397.2,
+    "commit": "e26b370",
+    "framework": "pytest --forked",
+    "python": "3.12",
+    "environment": "docker (quire-hackathon-web-1)"
+  },
+  "totals": {
+    "tests": 529,
+    "failed": 0,
+    "errored": 0,
+    "skipped": 0,
+    "duration_seconds": 397.2,
+    "passed": 529
+  },
+  "suites": [
+    {
+      "id": "auth",
+      "name": "Auth & session",
+      "description": "Login, CSRF, session cookies, rate limits, DB-backed admins.",
+      "totals": {
+        "tests": 66,
+        "passed": 66,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 174.28
+      },
+      "files": [
+        {
+          "file": "test_admin_login",
+          "tests": 22,
+          "passed": 22,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 49.74
+        },
+        {
+          "file": "test_auth",
+          "tests": 10,
+          "passed": 10,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 5.03
+        },
+        {
+          "file": "test_csrf",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 11.52
+        },
+        {
+          "file": "test_login_ratelimit",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 70.64
+        },
+        {
+          "file": "test_rbac",
+          "tests": 9,
+          "passed": 9,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 17.71
+        },
+        {
+          "file": "test_security_headers",
+          "tests": 12,
+          "passed": 12,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 19.63
+        }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "name": "PAP pipeline",
+      "description": "Intake, extraction, MDM lookup, retrieval, reasoning, orchestration.",
+      "totals": {
+        "tests": 84,
+        "passed": 84,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 12.57
+      },
+      "files": [
+        {
+          "file": "test_pap_extract",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.99
+        },
+        {
+          "file": "test_pap_reason",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.39
+        },
+        {
+          "file": "test_pap_retrieve",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.15
+        },
+        {
+          "file": "test_pap_orchestrator",
+          "tests": 8,
+          "passed": 8,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.29
+        },
+        {
+          "file": "test_pap_rules",
+          "tests": 13,
+          "passed": 13,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.28
+        },
+        {
+          "file": "test_pap_mdm_lookup",
+          "tests": 19,
+          "passed": 19,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.32
+        },
+        {
+          "file": "test_pap_mdm_tenant_config",
+          "tests": 9,
+          "passed": 9,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.75
+        },
+        {
+          "file": "test_pap_demo_data",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.21
+        },
+        {
+          "file": "test_pap_history_rules_yaml",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.74
+        },
+        {
+          "file": "test_pap_history_slot_flatten",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.37
+        },
+        {
+          "file": "test_pap_inbox_hook",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.09
+        }
+      ]
+    },
+    {
+      "id": "inbox",
+      "name": "Inbox agent",
+      "description": "IMAP parsing, resolver, reply mailer, replies, audit, review executor.",
+      "totals": {
+        "tests": 79,
+        "passed": 79,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 7.65
+      },
+      "files": [
+        {
+          "file": "test_inbox_audit",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.61
+        },
+        {
+          "file": "test_inbox_imap_parse",
+          "tests": 8,
+          "passed": 8,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.26
+        },
+        {
+          "file": "test_inbox_mailer",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.67
+        },
+        {
+          "file": "test_inbox_pap_route",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.65
+        },
+        {
+          "file": "test_inbox_replies",
+          "tests": 13,
+          "passed": 13,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.94
+        },
+        {
+          "file": "test_inbox_resolver",
+          "tests": 11,
+          "passed": 11,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.22
+        },
+        {
+          "file": "test_inbox_score",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.35
+        },
+        {
+          "file": "test_inbox_synth",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.44
+        },
+        {
+          "file": "test_inbox_test_executor",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.42
+        },
+        {
+          "file": "test_inbox_test_planner",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.63
+        },
+        {
+          "file": "test_inbox_test_verdict",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.45
+        }
+      ]
+    },
+    {
+      "id": "templates",
+      "name": "Templates & rendering",
+      "description": "DOCX/PDF preflight, publish/rollback, locale variants, supersede, realign.",
+      "totals": {
+        "tests": 146,
+        "passed": 146,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 93.59
+      },
+      "files": [
+        {
+          "file": "test_pdf",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 4.36
+        },
+        {
+          "file": "test_pdf_template",
+          "tests": 27,
+          "passed": 27,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 23.44
+        },
+        {
+          "file": "test_preflight",
+          "tests": 15,
+          "passed": 15,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 3.13
+        },
+        {
+          "file": "test_preflight_dispatch",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.52
+        },
+        {
+          "file": "test_preflight_job",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.57
+        },
+        {
+          "file": "test_publish",
+          "tests": 12,
+          "passed": 12,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 20.91
+        },
+        {
+          "file": "test_supersede",
+          "tests": 10,
+          "passed": 10,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 7.67
+        },
+        {
+          "file": "test_locale_variant",
+          "tests": 12,
+          "passed": 12,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 10.06
+        },
+        {
+          "file": "test_realign_pdf",
+          "tests": 19,
+          "passed": 19,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.48
+        },
+        {
+          "file": "test_render_enqueue_failure",
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 3.51
+        },
+        {
+          "file": "test_render_mapped",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 8.55
+        },
+        {
+          "file": "test_render_stack",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.27
+        },
+        {
+          "file": "test_docx_sanitize",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.41
+        },
+        {
+          "file": "test_merge",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.8
+        },
+        {
+          "file": "test_freeze",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.27
+        },
+        {
+          "file": "test_diff",
+          "tests": 13,
+          "passed": 13,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.14
+        },
+        {
+          "file": "test_golden",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.3
+        },
+        {
+          "file": "test_sample_eob",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.19
+        }
+      ]
+    },
+    {
+      "id": "boundaries",
+      "name": "Boundaries & policy",
+      "description": "Multi-tenancy isolation, SSRF/IDOR, network safety, rate limiting.",
+      "totals": {
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 15.4
+      },
+      "files": [
+        {
+          "file": "test_boundaries",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.09
+        },
+        {
+          "file": "test_tenancy",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.74
+        },
+        {
+          "file": "test_ssrf_and_idor",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 7.43
+        },
+        {
+          "file": "test_net_safety",
+          "tests": 17,
+          "passed": 17,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.93
+        },
+        {
+          "file": "test_rate_limit",
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.2
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "name": "MCP surface",
+      "description": "Model Context Protocol auth + idempotent tool calls.",
+      "totals": {
+        "tests": 5,
+        "passed": 5,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 7.26
+      },
+      "files": [
+        {
+          "file": "test_mcp_auth",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.18
+        },
+        {
+          "file": "test_mcp_idempotent",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 6.08
+        }
+      ]
+    },
+    {
+      "id": "data",
+      "name": "Mapping & schema",
+      "description": "Payload coercion, mapping transforms, schema/pagination invariants.",
+      "totals": {
+        "tests": 81,
+        "passed": 81,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 19.51
+      },
+      "files": [
+        {
+          "file": "test_mapping",
+          "tests": 33,
+          "passed": 33,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.73
+        },
+        {
+          "file": "test_mapper_backfill",
+          "tests": 10,
+          "passed": 10,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.78
+        },
+        {
+          "file": "test_coerce_payload",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.35
+        },
+        {
+          "file": "test_schema",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.11
+        },
+        {
+          "file": "test_schema_groups",
+          "tests": 10,
+          "passed": 10,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 4.24
+        },
+        {
+          "file": "test_pagination",
+          "tests": 14,
+          "passed": 14,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 11.9
+        },
+        {
+          "file": "test_geometry",
+          "tests": 7,
+          "passed": 7,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.4
+        }
+      ]
+    },
+    {
+      "id": "infra",
+      "name": "Workers & providers",
+      "description": "Idempotency, watchdog reaper, webhooks, provider config, E2E pipeline.",
+      "totals": {
+        "tests": 37,
+        "passed": 37,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 39.16
+      },
+      "files": [
+        {
+          "file": "test_worker_idempotency",
+          "tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.42
+        },
+        {
+          "file": "test_watchdog",
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.04
+        },
+        {
+          "file": "test_webhooks",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 1.26
+        },
+        {
+          "file": "test_idempotency",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 13.83
+        },
+        {
+          "file": "test_provider_config",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.22
+        },
+        {
+          "file": "test_provider_nebius",
+          "tests": 4,
+          "passed": 4,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.26
+        },
+        {
+          "file": "test_stub_provider",
+          "tests": 3,
+          "passed": 3,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.29
+        },
+        {
+          "file": "test_e2e_pipeline",
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 10.5
+        },
+        {
+          "file": "test_ui_smoke",
+          "tests": 13,
+          "passed": 13,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 9.34
+        }
+      ]
+    }
+  ]
+}

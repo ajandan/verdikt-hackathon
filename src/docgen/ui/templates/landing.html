@@ -1644,10 +1644,74 @@
   }
   .powered-badge svg { flex-shrink: 0; }
 
+  /* Live-dashboard CTA inside the hackathon block. Judges land on the
+     landing page — this is the button that gets them into the actual
+     running app in one click. Sized big, seal-tinted, with a pulsing
+     "live" dot so it reads as an obvious call-to-action. */
+  .powered-cta {
+    margin: 36px auto 4px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px;
+  }
+  .powered-cta-eyebrow {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--seal-700);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .powered-cta-eyebrow .live-dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--seal-500);
+    box-shadow: 0 0 0 4px rgba(47,143,118,0.20);
+    animation: powered-cta-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes powered-cta-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(47,143,118,0.20); }
+    50% { box-shadow: 0 0 0 8px rgba(47,143,118,0.05); }
+  }
+  .powered-cta-btn {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 18px 32px;
+    background: var(--seal-700);
+    color: #fff;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.005em;
+    border: 0; border-radius: 12px;
+    text-decoration: none;
+    box-shadow:
+      0 20px 44px -20px rgba(30,95,79,0.60),
+      0 6px 14px -8px rgba(20,20,16,0.20),
+      inset 0 1px 0 rgba(255,255,255,0.12);
+    transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  }
+  .powered-cta-btn:hover {
+    transform: translateY(-2px);
+    background: #1a5647;
+    box-shadow:
+      0 28px 56px -22px rgba(30,95,79,0.72),
+      0 10px 18px -8px rgba(20,20,16,0.24),
+      inset 0 1px 0 rgba(255,255,255,0.14);
+  }
+  .powered-cta-btn:focus-visible {
+    outline: 2px solid var(--seal-500);
+    outline-offset: 3px;
+  }
+  .powered-cta-btn svg { flex-shrink: 0; }
+  .powered-cta-note {
+    font-size: 13px; color: var(--ink-500);
+    letter-spacing: -0.005em;
+    text-align: center;
+    max-width: 480px;
+    margin: 0;
+  }
+
   @media (max-width: 767px) {
     .powered { padding: 48px 20px 44px; }
     .powered-head h2 { font-size: 26px; }
     .powered-head p { font-size: 15px; }
+    .powered-cta { margin: 28px auto 0; }
+    .powered-cta-btn { padding: 15px 24px; font-size: 15px; width: 100%; justify-content: center; }
+    .powered-cta-note { font-size: 12.5px; }
   }
 
   /* ============ Case trace chip ============ */
@@ -2180,6 +2244,23 @@
         <div class="name">Nebius AI Cloud</div>
         <div class="note">Models on Nebius Token Factory today; app deploys to Nebius AI Cloud VMs (runbook complete).</div>
       </div>
+    </div>
+
+    <div class="powered-cta">
+      <span class="powered-cta-eyebrow">
+        <span class="live-dot" aria-hidden="true"></span>
+        Reviewers · try it live
+      </span>
+      <a href="/ui/" class="powered-cta-btn">
+        Open the engineering dashboard
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14"/>
+          <path d="M13 5l7 7-7 7"/>
+        </svg>
+      </a>
+      <p class="powered-cta-note">
+        Programs, rules, templates, cases, and the decision ledger — all live in the running app.
+      </p>
     </div>
 
     <div class="powered-foot">

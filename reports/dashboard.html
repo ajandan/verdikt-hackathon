@@ -91,6 +91,27 @@
       <div class="detail" id="detail" hidden></div>
     </section>
 
+    <section class="block" id="history-block" hidden>
+      <span class="kicker">History</span>
+      <h2>Recent runs</h2>
+      <p class="subhead">Rolling history of the last 50 pytest runs, newest first. Each row is one <code style="font-family:inherit">python reports/_gen_dashboard.py</code> invocation; a run is uniquely keyed by commit and JUnit timestamp so re-generating from the same <code style="font-family:inherit">results.xml</code> does not create a duplicate.</p>
+      <table class="files" id="history-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Commit</th>
+            <th>Tests</th>
+            <th>Passed</th>
+            <th>Failed</th>
+            <th>Errored</th>
+            <th>Skipped</th>
+            <th>Duration</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </section>
+
   </div>
 
   <footer>
@@ -257,6 +278,44 @@
     });
     detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  // History — silent-fail if the file is missing (older checkouts).
+  try {
+    const hres = await fetch('./dashboard-history.json', { cache: 'no-cache' });
+    if (hres.ok) {
+      const hdata = await hres.json();
+      const runs = (hdata.runs || []);
+      if (runs.length) {
+        const rows = runs.map(function (r) {
+          const isFail = (r.failed || 0) + (r.errored || 0) > 0;
+          const ts = (r.timestamp || r.generated_at || '').replace('T', ' ').split('.')[0];
+          const dur = (r.duration || 0);
+          const durStr = dur >= 60
+            ? Math.floor(dur / 60) + 'm ' + Math.round(dur % 60) + 's'
+            : dur.toFixed(1) + 's';
+          const commit = (r.commit || '') || '—';
+          return (
+            '<tr>' +
+              '<td class="mono">' + escapeHtml(ts) + '</td>' +
+              '<td class="mono">' + escapeHtml(commit) + '</td>' +
+              '<td class="num">' + (r.tests || 0) + '</td>' +
+              '<td class="num pass">' + (r.passed || 0) + '</td>' +
+              (isFail && (r.failed || 0)
+                ? '<td class="num fail">' + r.failed + '</td>'
+                : '<td class="num" style="color:var(--ink-300)">' + (r.failed || 0) + '</td>') +
+              (isFail && (r.errored || 0)
+                ? '<td class="num fail">' + r.errored + '</td>'
+                : '<td class="num" style="color:var(--ink-300)">' + (r.errored || 0) + '</td>') +
+              '<td class="num" style="color:var(--ink-300)">' + (r.skipped || 0) + '</td>' +
+              '<td class="num">' + durStr + '</td>' +
+            '</tr>'
+          );
+        }).join('');
+        document.getElementById('history-body').innerHTML = rows;
+        document.getElementById('history-block').hidden = false;
+      }
+    }
+  } catch (e) { /* older checkout — no history file, skip silently */ }
 
   stateEl.hidden = true;
   contentEl.hidden = false;

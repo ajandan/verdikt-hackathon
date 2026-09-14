@@ -24,6 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 XML_IN = ROOT / "results.xml"
 JSON_OUT = ROOT / "dashboard-data.json"
+HISTORY_OUT = ROOT / "dashboard-history.json"
+HISTORY_KEEP = 50  # keep the last N runs on the dashboard
 
 
 # Suite mapping — order here is the order shown in the dashboard.
@@ -324,6 +326,37 @@ def main() -> None:
         f"({totals['tests']} tests, {totals['passed']} passed, "
         f"{totals['failed']} failed, {len(suites_out)} suites)"
     )
+
+    # Append this run to the rolling history so the dashboard can show a
+    # trend. Dedupe by (commit, junit_timestamp) so re-running _gen against
+    # the same results.xml doesn't create a duplicate entry.
+    entry = {
+        "timestamp": suite_el.get("timestamp", ""),
+        "generated_at": payload["run"]["generated_at"],
+        "commit": payload["run"]["commit"],
+        "tests": totals["tests"],
+        "passed": totals["passed"],
+        "failed": totals["failed"],
+        "errored": totals["errored"],
+        "skipped": totals["skipped"],
+        "duration": totals["duration_seconds"],
+    }
+    history: list[dict] = []
+    if HISTORY_OUT.exists():
+        try:
+            existing = json.loads(HISTORY_OUT.read_text(encoding="utf-8"))
+            history = existing.get("runs", [])
+        except json.JSONDecodeError:
+            history = []
+    dedupe_key = (entry["commit"], entry["timestamp"])
+    history = [r for r in history if (r.get("commit"), r.get("timestamp")) != dedupe_key]
+    history.insert(0, entry)
+    history = history[:HISTORY_KEEP]
+    HISTORY_OUT.write_text(
+        json.dumps({"generated_at": entry["generated_at"], "runs": history}, indent=2),
+        encoding="utf-8",
+    )
+    print(f"wrote {HISTORY_OUT.name}  ({len(history)} runs)")
 
 
 if __name__ == "__main__":

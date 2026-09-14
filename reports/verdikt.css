@@ -245,6 +245,7 @@ table.data tr:hover td { background: rgba(47,143,118,0.03); }
 /* Roadmap swim lanes (features board) */
 .roadmap { display: flex; flex-direction: column; gap: 10px; }
 .lane {
+  position: relative;
   border: 1px solid var(--hair); border-radius: 10px; background: #fff;
   padding: 16px 20px; cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
@@ -303,6 +304,101 @@ table.data tr:hover td { background: rgba(47,143,118,0.03); }
   display: none;
 }
 .lane.expanded .lane-detail { display: block; }
+
+/* Inspect cards — clickable summary + drill-down (code + security boards) */
+.inspect-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 720px) { .inspect-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1050px) { .inspect-grid { grid-template-columns: repeat(3, 1fr); } }
+.inspect-card {
+  position: relative; overflow: hidden;
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  padding: 22px 22px 58px;
+  display: flex; flex-direction: column; gap: 10px;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.inspect-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--seal-500);
+}
+.inspect-card.warn::before { background: var(--amber-500); }
+.inspect-card.fail::before { background: var(--red-500); }
+.inspect-card:hover { transform: translateY(-2px); border-color: var(--seal-500); box-shadow: 0 12px 32px -18px rgba(47,143,118,0.28); }
+.inspect-card.selected { border-color: var(--seal-500); box-shadow: 0 10px 28px -14px rgba(47,143,118,0.35); }
+.inspect-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.inspect-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-weight: 400;
+  font-size: 22px; line-height: 1.15;
+}
+.inspect-count {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.16em; color: var(--ink-500); text-transform: uppercase;
+  white-space: nowrap;
+}
+.inspect-desc { color: var(--ink-500); font-size: 13px; line-height: 1.5; }
+.inspect-summary {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  color: var(--ink-700);
+}
+.inspect-summary .k { color: var(--ink-500); margin-right: 4px; }
+
+/* Click badge — stylized "click to inspect" indicator, bottom-right of card */
+.click-badge {
+  position: absolute; bottom: 14px; right: 16px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 12px; border-radius: 999px;
+  border: 1px dashed rgba(47,143,118,0.45);
+  background: rgba(47,143,118,0.05);
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--seal-700);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+.click-badge.inline { position: static; }
+.click-badge .arrow { display: inline-block; transition: transform 160ms ease; font-family: inherit; }
+.inspect-card:hover .click-badge,
+.suite-card:hover .click-badge,
+.lane:hover .click-badge {
+  border-style: solid; border-color: var(--seal-500);
+  background: rgba(47,143,118,0.12);
+}
+.inspect-card:hover .click-badge .arrow,
+.suite-card:hover .click-badge .arrow,
+.lane:hover .click-badge .arrow { transform: translateX(3px); }
+.inspect-card.selected .click-badge,
+.suite-card.selected .click-badge,
+.lane.expanded .click-badge {
+  border-style: solid; border-color: var(--seal-500);
+  background: rgba(47,143,118,0.15);
+}
+
+/* Inspect detail panel — appears below the grid when a card is clicked */
+.inspect-detail {
+  border: 1px solid var(--hair); border-radius: 10px; background: #fff;
+  margin-top: 20px; overflow: hidden;
+}
+.inspect-detail-head {
+  padding: 18px 22px; border-bottom: 1px solid var(--hair);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  background: var(--ink-50);
+}
+.inspect-detail-title {
+  font-family: 'Instrument Serif', ui-serif, Georgia, serif; font-size: 24px;
+  line-height: 1.15;
+}
+.inspect-detail-sub {
+  color: var(--ink-500); font-size: 13px; margin-top: 4px; max-width: 640px;
+}
+.inspect-detail-close {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-500);
+  background: transparent; border: 1px solid var(--hair); border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; white-space: nowrap;
+}
+.inspect-detail-close:hover { color: var(--seal-700); border-color: var(--seal-500); }
+.inspect-detail-body { padding: 20px 22px 22px; }
+.inspect-detail-body .row-item:first-child { margin-top: 0; }
 
 /* Executive score cards (index overview) */
 .score-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }

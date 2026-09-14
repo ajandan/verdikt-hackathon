@@ -179,7 +179,7 @@
             '</div>' +
             '<div class="lane-desc">' + escapeHtml(cat.description) + '</div>' +
           '</div>' +
-          '<span class="lane-toggle">Open ▾</span>' +
+          '<span class="click-badge inline lane-toggle"><span>Inspect</span><span class="arrow">▸</span></span>' +
         '</div>' +
         '<div class="lane-progress">' +
           '<div class="progress-bar" title="' + ship + ' shipped · ' + flight + ' in flight · ' + back + ' backlog">' +
@@ -206,7 +206,9 @@
     const wasOpen = lane.classList.contains('expanded');
     lane.classList.toggle('expanded');
     const toggle = lane.querySelector('.lane-toggle');
-    if (toggle) toggle.textContent = wasOpen ? 'Open ▾' : 'Close ▴';
+    if (toggle) toggle.innerHTML = wasOpen
+      ? '<span>Inspect</span><span class="arrow">▸</span>'
+      : '<span>Close</span><span class="arrow">▴</span>';
   });
 
   const priClass = (p) => p === 'high' ? 'fail' : p === 'medium' ? 'warn' : 'muted';

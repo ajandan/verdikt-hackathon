@@ -45,7 +45,7 @@
   <section class="hero">
     <span class="eyebrow"><span class="dot"></span> How we know the code is good</span>
     <h1 class="display">Reviewed, <em>gated, boundaried</em>.</h1>
-    <p class="lede">The claim isn't "we ran the tests" — it's "the substrate can't drift". CI gates, boundary tests, and static audits keep the architecture honest.</p>
+    <p class="lede">The claim isn't "we ran the tests" — it's "the substrate can't drift". CI gates, boundary tests, and static audits keep the architecture honest. Pick a card below to drill in.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -69,38 +69,11 @@
     </section>
 
     <section class="block">
-      <span class="kicker">CI gates</span>
-      <h2>Every merge, checked</h2>
-      <p class="subhead">Seven gates. All passing. Details in <code>.github/workflows/ci.yml</code>.</p>
-      <div class="row-list" id="gates"></div>
-    </section>
-
-    <section class="block">
-      <span class="kicker">Boundary tests</span>
-      <h2>Load-bearing invariants</h2>
-      <p class="subhead">These aren't unit tests — they're structural claims. Each one fails the build if the architecture drifts.</p>
-      <div class="row-list" id="boundaries"></div>
-    </section>
-
-    <section class="block">
-      <span class="kicker">Audits</span>
-      <h2>Static analysis passes</h2>
-      <p class="subhead">One-shot audits performed against the codebase and re-run under CI. Suppressions require inline justification.</p>
-      <div class="row-list" id="audits"></div>
-    </section>
-
-    <section class="block">
-      <span class="kicker">Conventions</span>
-      <h2>House rules</h2>
-      <p class="subhead">Explicit conventions the review pass leans on. Broken rules fail loud, not silently.</p>
-      <div class="row-list" id="conventions"></div>
-    </section>
-
-    <section class="block">
-      <span class="kicker">Review notes</span>
-      <h2>Currently on watch</h2>
-      <p class="subhead">Observations from recent review passes worth carrying forward. Not blockers — signal for the next iteration.</p>
-      <div class="row-list" id="notes"></div>
+      <span class="kicker">Explore</span>
+      <h2>Five review lenses</h2>
+      <p class="subhead">Each card is a coherent slice of the review. Click one to see the individual items — gates, boundaries, audits, conventions, ongoing notes.</p>
+      <div class="inspect-grid" id="inspect-grid"></div>
+      <div class="inspect-detail" id="inspect-detail" hidden></div>
     </section>
 
     <section class="block">
@@ -182,64 +155,155 @@
       '<div><span class="k">Lint</span><span class="v">' + (data.summary.lint_clean ? 'clean' : 'dirty') + '</span></div>' +
     '</div>';
 
-  const statusPill = (st) => {
+  const cards = [
+    {
+      id: 'gates',
+      title: 'CI gates',
+      count: data.gates.length,
+      countLabel: data.gates.length + ' gates',
+      desc: 'Every merge to main has to clear these checks. Details in .github/workflows/ci.yml.',
+      summary: [ ['passing', data.gates.filter(g => g.status === 'passing').length], ['scope', 'src + tests + docs'] ],
+      status: data.gates.every(g => g.status === 'passing') ? 'pass' : 'fail',
+      renderItems: () => data.gates.map(g =>
+        '<div class="row-item">' +
+          '<div>' +
+            '<div class="r-title">' + escapeHtml(g.name) + '</div>' +
+            '<div class="r-desc">' + escapeHtml(g.notes || '') + '</div>' +
+            '<div class="r-evidence">scope: ' + escapeHtml(g.scope) + ' · ' + escapeHtml(g.evidence) + '</div>' +
+          '</div>' +
+          statusPill(g.status) +
+        '</div>'
+      ).join(''),
+    },
+    {
+      id: 'boundaries',
+      title: 'Boundary tests',
+      count: data.boundary_tests.length,
+      countLabel: data.boundary_tests.length + ' tests',
+      desc: 'Not unit tests — structural invariants. Each one fails the build if the architecture drifts.',
+      summary: [ ['enforced', data.boundary_tests.length], ['drift', 'blocked'] ],
+      status: 'pass',
+      renderItems: () => data.boundary_tests.map(b =>
+        '<div class="row-item">' +
+          '<div>' +
+            '<div class="r-title">' + escapeHtml(b.name) + '</div>' +
+            '<div class="r-desc">' + escapeHtml(b.purpose) + '</div>' +
+            '<div class="r-evidence">' + escapeHtml(b.test) + '</div>' +
+          '</div>' +
+          '<span class="pill pass">enforced</span>' +
+        '</div>'
+      ).join(''),
+    },
+    {
+      id: 'audits',
+      title: 'Static audits',
+      count: data.audits.length,
+      countLabel: data.audits.length + ' audits',
+      desc: 'One-shot audits re-run under CI. Suppressions require inline justification.',
+      summary: [ ['clean', data.audits.length], ['recent', data.audits[0] ? data.audits[0].shipped : '—'] ],
+      status: 'pass',
+      renderItems: () => data.audits.map(a =>
+        '<div class="row-item">' +
+          '<div>' +
+            '<div class="r-title">' + escapeHtml(a.name) + '</div>' +
+            '<div class="r-desc">' + escapeHtml(a.outcome) + '</div>' +
+            '<div class="r-evidence">' + escapeHtml(a.script || a.reference || '') + ' · shipped ' + escapeHtml(a.shipped) + '</div>' +
+          '</div>' +
+          '<span class="pill pass">clean</span>' +
+        '</div>'
+      ).join(''),
+    },
+    {
+      id: 'conventions',
+      title: 'House rules',
+      count: data.conventions.length,
+      countLabel: data.conventions.length + ' rules',
+      desc: 'Explicit conventions the review pass leans on. Broken rules fail loud, not silently.',
+      summary: [ ['enforced', data.conventions.length] ],
+      status: 'pass',
+      renderItems: () => data.conventions.map(c =>
+        '<div class="row-item">' +
+          '<div>' +
+            '<div class="r-title">' + escapeHtml(c.rule) + '</div>' +
+            '<div class="r-evidence">enforced by ' + escapeHtml(c.enforced_by) + '</div>' +
+          '</div>' +
+          '<span class="pill pass">enforced</span>' +
+        '</div>'
+      ).join(''),
+    },
+    {
+      id: 'notes',
+      title: 'Review notes',
+      count: data.review_notes.length,
+      countLabel: data.review_notes.length + ' items on watch',
+      desc: 'Observations from recent review passes worth carrying forward. Signal, not blockers.',
+      summary: [ ['on watch', data.review_notes.length] ],
+      status: 'warn',
+      renderItems: () => data.review_notes.map(n =>
+        '<div class="row-item">' +
+          '<div>' +
+            '<div class="r-title">' + escapeHtml(n.area) + ' — ' + escapeHtml(n.note) + '</div>' +
+            '<div class="r-evidence">action: ' + escapeHtml(n.action) + '</div>' +
+          '</div>' +
+          '<span class="pill info">watch</span>' +
+        '</div>'
+      ).join(''),
+    },
+  ];
+
+  const grid = document.getElementById('inspect-grid');
+  grid.innerHTML = cards.map(c =>
+    '<div class="inspect-card ' + (c.status === 'fail' ? 'fail' : c.status === 'warn' ? 'warn' : '') + '" data-id="' + c.id + '">' +
+      '<div class="inspect-head">' +
+        '<div class="inspect-title">' + escapeHtml(c.title) + '</div>' +
+        '<span class="inspect-count">' + escapeHtml(c.countLabel) + '</span>' +
+      '</div>' +
+      '<div class="inspect-desc">' + escapeHtml(c.desc) + '</div>' +
+      '<div class="inspect-summary">' +
+        c.summary.map(s => '<span><span class="k">' + escapeHtml(s[0]) + '</span>' + escapeHtml(s[1]) + '</span>').join('') +
+      '</div>' +
+      '<span class="click-badge"><span>Inspect</span><span class="arrow">▸</span></span>' +
+    '</div>'
+  ).join('');
+
+  const detail = document.getElementById('inspect-detail');
+  grid.addEventListener('click', function (ev) {
+    const card = ev.target.closest('.inspect-card');
+    if (!card) return;
+    const wasSelected = card.classList.contains('selected');
+    [].forEach.call(grid.querySelectorAll('.inspect-card'), function (c) { c.classList.remove('selected'); });
+    if (wasSelected) { detail.hidden = true; return; }
+    card.classList.add('selected');
+    renderDetail(card.getAttribute('data-id'));
+  });
+
+  function renderDetail(id) {
+    const c = cards.find(x => x.id === id);
+    if (!c) return;
+    detail.hidden = false;
+    detail.innerHTML =
+      '<div class="inspect-detail-head">' +
+        '<div>' +
+          '<div class="inspect-detail-title">' + escapeHtml(c.title) + '</div>' +
+          '<div class="inspect-detail-sub">' + escapeHtml(c.desc) + '</div>' +
+        '</div>' +
+        '<button class="inspect-detail-close" id="inspect-detail-close">Close ✕</button>' +
+      '</div>' +
+      '<div class="inspect-detail-body">' +
+        '<div class="row-list">' + c.renderItems() + '</div>' +
+      '</div>';
+    document.getElementById('inspect-detail-close').addEventListener('click', function () {
+      detail.hidden = true;
+      [].forEach.call(grid.querySelectorAll('.inspect-card'), function (x) { x.classList.remove('selected'); });
+    });
+    detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function statusPill(st) {
     if (st === 'passing') return '<span class="pill pass">passing</span>';
     if (st === 'failing') return '<span class="pill fail">failing</span>';
     return '<span class="pill muted">' + escapeHtml(st) + '</span>';
-  };
-
-  document.getElementById('gates').innerHTML = data.gates.map(g =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(g.name) + '</div>' +
-        '<div class="r-desc">' + escapeHtml(g.notes || '') + '</div>' +
-        '<div class="r-evidence">scope: ' + escapeHtml(g.scope) + ' · ' + escapeHtml(g.evidence) + '</div>' +
-      '</div>' +
-      statusPill(g.status) +
-    '</div>'
-  ).join('');
-
-  document.getElementById('boundaries').innerHTML = data.boundary_tests.map(b =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(b.name) + '</div>' +
-        '<div class="r-desc">' + escapeHtml(b.purpose) + '</div>' +
-        '<div class="r-evidence">' + escapeHtml(b.test) + '</div>' +
-      '</div>' +
-      '<span class="pill pass">enforced</span>' +
-    '</div>'
-  ).join('');
-
-  document.getElementById('audits').innerHTML = data.audits.map(a =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(a.name) + '</div>' +
-        '<div class="r-desc">' + escapeHtml(a.outcome) + '</div>' +
-        '<div class="r-evidence">' + escapeHtml(a.script || a.reference || '') + ' · shipped ' + escapeHtml(a.shipped) + '</div>' +
-      '</div>' +
-      '<span class="pill pass">clean</span>' +
-    '</div>'
-  ).join('');
-
-  document.getElementById('conventions').innerHTML = data.conventions.map(c =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(c.rule) + '</div>' +
-        '<div class="r-evidence">enforced by ' + escapeHtml(c.enforced_by) + '</div>' +
-      '</div>' +
-      '<span class="pill pass">enforced</span>' +
-    '</div>'
-  ).join('');
-
-  document.getElementById('notes').innerHTML = data.review_notes.map(n =>
-    '<div class="row-item">' +
-      '<div>' +
-        '<div class="r-title">' + escapeHtml(n.area) + ' — ' + escapeHtml(n.note) + '</div>' +
-        '<div class="r-evidence">action: ' + escapeHtml(n.action) + '</div>' +
-      '</div>' +
-      '<span class="pill info">watch</span>' +
-    '</div>'
-  ).join('');
+  }
 
   document.getElementById('commits-table').innerHTML =
     '<thead><tr><th>Commit</th><th>Subject</th></tr></thead>' +

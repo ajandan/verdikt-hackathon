@@ -201,8 +201,9 @@
   @media (min-width: 720px) { .suite-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (min-width: 1050px) { .suite-grid { grid-template-columns: repeat(3, 1fr); } }
   .suite-card {
+    position: relative;
     border: 1px solid var(--hair); border-radius: 10px; background: #fff;
-    padding: 20px; display: flex; flex-direction: column; gap: 10px;
+    padding: 20px 20px 54px; display: flex; flex-direction: column; gap: 10px;
     cursor: pointer; transition: transform 120ms ease, border-color 120ms ease;
   }
   .suite-card:hover { transform: translateY(-1px); border-color: var(--seal-500); }
@@ -476,6 +477,7 @@
           '<span><span class="k">passed</span>' + st.passed + '</span>' +
           '<span><span class="k">time</span>' + st.duration.toFixed(1) + 's</span>' +
         '</div>' +
+        '<span class="click-badge"><span>Inspect</span><span class="arrow">▸</span></span>' +
       '</div>'
     );
   }).join('');

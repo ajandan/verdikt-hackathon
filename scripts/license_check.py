@@ -41,6 +41,7 @@ ALLOWED_LICENSES: set[str] = {
     "Zope Public License",
     "Apache Software License; MIT License",
     "Apache-2.0 OR BSD-2-Clause",
+    "Apache-2.0 AND BSD-2-Clause",
     "BSD-3-Clause OR Apache-2.0",
     "Apache-2.0 OR MIT",
     "MIT AND Python-2.0",

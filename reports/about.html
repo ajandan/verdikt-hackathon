@@ -33,16 +33,17 @@
   /* Hero: decorative wax-stamp mark in the corner + slightly heavier lede */
   .hero-about {
     position: relative;
-    padding: 72px 0 44px;
+    padding: 56px 0 32px;
   }
   .hero-about .stamp-glyph {
     position: absolute;
-    right: -12px; top: 40px;
-    width: 130px; height: 130px;
-    opacity: 0.14;
+    right: 24px; top: 16px;
+    width: 260px; height: 260px;
+    opacity: 0.16;
     pointer-events: none;
   }
-  @media (max-width: 820px) { .hero-about .stamp-glyph { display: none; } }
+  @media (max-width: 1100px) { .hero-about .stamp-glyph { right: 12px; width: 200px; height: 200px; } }
+  @media (max-width: 820px)  { .hero-about .stamp-glyph { display: none; } }
   .hero-about .lede-strong {
     max-width: 720px;
     font-family: 'Instrument Serif', ui-serif, Georgia, serif;
@@ -287,8 +288,6 @@
 
   <section class="hero hero-about">
     <svg class="stamp-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="60" cy="60" r="52" fill="none" stroke="#1e5f4f" stroke-width="2"/>
-      <circle cx="60" cy="60" r="44" fill="none" stroke="#1e5f4f" stroke-width="1" stroke-dasharray="2 4"/>
       <path d="M40 60 L54 74 L82 46" fill="none" stroke="#1e5f4f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     <span class="eyebrow"><span class="dot"></span> About</span>

@@ -8,14 +8,20 @@ license-files = ["LICENSE"]
 dependencies = [
     # Lower bounds picked to exclude known CVE ranges:
     #   fastapi <0.115.8         → CVE-2026-2978 (Starlette BadHost / RCE chain)
-    #   python-multipart <0.0.18 → CVE-2024-53981 (multipart boundary DoS)
+    #   python-multipart <0.0.31 → CVE-2024-53981 + follow-on DoS fixes
     #   jinja2 <3.1.5            → CVE-2024-56201 / 56326 (sandbox escapes)
+    #   urllib3 <2.5             → CVE-2025-50181 / 50182 (redirect handling)
+    #   pyjwt <2.10              → CVE-2024-53861 (aud claim validation)
+    #   cryptography <44         → several 2024-2025 OpenSSL fan-out CVEs
+    # PyJWT, urllib3, cryptography are transitive today (mcp, botocore,
+    # pdfminer.six) but declared explicitly so pip resolves at or above
+    # the safe floor even if the parent loosens its pin.
     "fastapi>=0.115.8",
     "uvicorn[standard]>=0.32",
     "gunicorn>=23.0",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
-    "python-multipart>=0.0.18",
+    "python-multipart>=0.0.31",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "psycopg[binary]>=3.2",
@@ -51,6 +57,11 @@ dependencies = [
     # Prometheus metrics: counters/histograms with per-tenant labels
     # exposed at /metrics. Pure-Python, MIT-licensed, no extension deps.
     "prometheus-client>=0.20",
+    # Transitive-but-declared: floors enforced so a parent loosening its
+    # pin can't pull in a known-vulnerable version. See the CVE table above.
+    "urllib3>=2.5",
+    "pyjwt>=2.10",
+    "cryptography>=44",
 ]
 
 [project.optional-dependencies]

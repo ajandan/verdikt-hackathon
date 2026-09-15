@@ -492,9 +492,14 @@ Shape:
   surfaces 231 CVEs across 41 packages (pypdf, aiohttp, pyjwt,
   cryptography, starlette, sqlparse, urllib3, weasyprint, and the
   full `mcp` transitive fan-out). Landing `pip-audit --strict` in CI
-  today would wedge every PR. Sequence: (1) upgrade in-place fixes
+  today would wedge every PR. Sequence: ~~(1) upgrade in-place fixes
   (sqlparse 0.6, urllib3 2.7, pyjwt 2.13, python-multipart 0.0.31,
-  cryptography 46.0.7) — no breaking changes; (2) evaluate
+  cryptography 46.0.7) — no breaking changes;~~ **step 1 done
+  2026-09-14**: floors codified in `pyproject.toml` — `urllib3>=2.5`,
+  `pyjwt>=2.10`, `cryptography>=44`, `python-multipart>=0.0.31`.
+  Container was already resolving at safe versions (2.7.0 / 2.14.0 /
+  50.0.1 / 0.0.32); the floors formalize that so a fresh install can't
+  regress. `sqlparse` is not installed (not pulled in). (2) evaluate
   `starlette 1.x` bump against FastAPI compatibility (this is the
   breaking one); (3) evaluate whether `mcp` fat-transitives
   (chromadb, aiohttp, authlib) can be pinned or the `mcp` dep swapped

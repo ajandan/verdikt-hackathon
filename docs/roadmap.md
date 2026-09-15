@@ -487,26 +487,23 @@ Shape:
   Coverage in `tests/test_docx_sanitize.py` (7 tests: non-zip, missing
   manifest, corrupt zip, no-op pass-through, single-part strip, both
   macro parts stripped, unrelated parts untouched).
-- Dependency CVE scan in CI (`pip-audit` or Trivy). **Blocked on dep
+- ~~Dependency CVE scan in CI (`pip-audit` or Trivy). **Blocked on dep
   cleanup** — dry-run `pip-audit --skip-editable` in the current env
-  surfaces 231 CVEs across 41 packages (pypdf, aiohttp, pyjwt,
-  cryptography, starlette, sqlparse, urllib3, weasyprint, and the
-  full `mcp` transitive fan-out). Landing `pip-audit --strict` in CI
-  today would wedge every PR. Sequence: ~~(1) upgrade in-place fixes
-  (sqlparse 0.6, urllib3 2.7, pyjwt 2.13, python-multipart 0.0.31,
-  cryptography 46.0.7) — no breaking changes;~~ **step 1 done
-  2026-09-14**: floors codified in `pyproject.toml` — `urllib3>=2.5`,
-  `pyjwt>=2.10`, `cryptography>=44`, `python-multipart>=0.0.31`.
-  Container was already resolving at safe versions (2.7.0 / 2.14.0 /
-  50.0.1 / 0.0.32); the floors formalize that so a fresh install can't
-  regress. `sqlparse` is not installed (not pulled in). (2) evaluate
-  `starlette 1.x` bump against FastAPI compatibility (this is the
-  breaking one); (3) evaluate whether `mcp` fat-transitives
-  (chromadb, aiohttp, authlib) can be pinned or the `mcp` dep swapped
-  for a slimmer client; (4) land the CI step with `--skip-editable`
-  (editable installs of `docgen`, `agent-blueprint-spec`, etc. are
-  legit — not on PyPI). We deliberately don't ship an `--ignore-vuln`
-  allowlist as a stopgap; that hides real security debt and rots.
+  surfaces 231 CVEs across 41 packages…~~ **Done 2026-09-14.** All
+  four planned steps landed:
+  - **(1)** floors codified in `pyproject.toml` — `urllib3>=2.5`,
+    `pyjwt>=2.10`, `cryptography>=44`, `python-multipart>=0.0.31`.
+    `sqlparse` is not installed (dropped).
+  - **(2)** starlette 1.x compat — non-issue: container already runs
+    `starlette 1.6.0` under `fastapi 0.141.1`. Modern FastAPI ships
+    with starlette 1.x support out of the box.
+  - **(3)** `mcp` fat-transitives — non-issue: `chromadb`, `aiohttp`,
+    `authlib` are not installed. `mcp 2.x` shed the fat fan-out
+    the 1.x line dragged in.
+  - **(4)** CI gate landed as `Dependency CVE scan (pip-audit)`
+    step, `--skip-editable --strict`, no allowlist. `pip-audit` at
+    HEAD reports zero known vulnerabilities. The 231-CVE headline
+    was against a stale dep tree.
 - ~~Threat-model the caller-profile mapping engine — source paths are
   user-supplied strings; confirm there is no eval / injection path.~~
   **Reviewed 2026-09-03; no injection path.** `docgen/core/mapping.py`

@@ -70,6 +70,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.7",
     "pip-licenses>=5.0",
+    "pip-audit>=2.7",
     "pre-commit>=4.0",
 ]
 

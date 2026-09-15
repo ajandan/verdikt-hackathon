@@ -119,6 +119,16 @@ jobs:
       - name: License scan (§12)
         run: python scripts/license_check.py
 
+      - name: Dependency CVE scan (pip-audit)
+        # Fails if any resolved dependency has a known CVE in the PyPI
+        # advisory DB. `--skip-editable` skips our own in-tree editable
+        # installs (docgen) — they're never published to PyPI so the
+        # advisory DB has nothing to say about them. We deliberately
+        # don't ship an `--ignore-vuln` allowlist: it hides real debt
+        # and rots. If a vuln lands, either bump the dep or open a
+        # roadmap entry with an explicit sunset date.
+        run: python -m pip_audit --skip-editable --progress-spinner off --strict
+
       - name: Tenant-scope audit (multi-tenancy hygiene)
         # Fails if any query against a direct tenant-scoped model
         # (Template, RenderJob, CallerProfile, ApiKey, IdempotencyKey) lands

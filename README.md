@@ -25,10 +25,10 @@ audited artifact.**
 ## Architecture at a glance
 
 Verdikt is the submission-window pipeline (`src/pap_pipeline/`) composed onto a
-pre-existing deterministic-render doc-gen kernel (`src/docgen/`, historically
-"Quire"). The split is enforced mechanically:
+pre-existing deterministic-render doc-gen kernel (`src/docgen/`). The split is
+enforced mechanically:
 
-- `tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline` fails the build if the kernel ever reaches back into Verdikt.
+- `tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline` fails the build if the kernel ever reaches back into the pipeline layer.
 - `tests/test_boundaries.py::test_core_never_imports_ai_layer` fails the build if the deterministic render path ever imports an AI provider.
 
 The reuse declaration lives in [`docs/HACKATHON.md`](docs/HACKATHON.md) with a
@@ -41,7 +41,7 @@ mechanical proof (git log + boundary tests).
 
 ## Quickstart (< 5 minutes, local)
 
-You need: **Docker Desktop** (or a Docker Engine + `docker compose` CLI). No Python required on the host.
+You need: a container runtime with the `docker compose` CLI. No Python required on the host.
 
 ```bash
 git clone https://github.com/ajandan/quire-hackathon.git
@@ -86,9 +86,9 @@ walk through [`docs/HACKATHON.md`](docs/HACKATHON.md).
 
 - **Hackathon submission notes**: [`docs/HACKATHON.md`](docs/HACKATHON.md) — architecture, reuse declaration, judging-criteria mapping
 - **Deploy on Nebius AI Cloud**: [`docs/deploy-nebius.md`](docs/deploy-nebius.md) — VM-to-public-URL runbook
-- **REST reference**: <http://localhost:8000/docs> (Swagger, worked examples)
+- **REST reference**: <http://localhost:8000/docs> (OpenAPI, worked examples)
 - **MCP endpoint**: `http://localhost:8000/mcp/` (streamable-http)
-- **MinIO console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)
+- **Object-store console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)
 - **Roadmap + design notes**: [`docs/roadmap.md`](docs/roadmap.md)
 - **Design system reference**: [`docs/design-system.html`](docs/design-system.html) (open directly — self-contained, no server needed)
 
@@ -103,21 +103,21 @@ ruff check src tests scripts                    # linter (CI runs this too)
 python scripts/tenant_scope_audit.py            # multi-tenancy hygiene
 ```
 
-CI runs lint, tests, license scan, and the tenant-scope audit on every push —
-see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+CI runs lint, tests, license scan, CVE scan, and the tenant-scope audit on
+every push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Repo layout
 
 ```
 src/
-  docgen/           deterministic-render doc-gen kernel (the "Quire" layer)
-    api/            FastAPI REST routes
+  docgen/           deterministic-render doc-gen kernel
+    api/            REST routes
     core/           render pipeline (docx + pdf), preflight, mapping, sanitize
     designtime/     upload / freeze / publish / audit / caller-profile mapping
-    jobs/           Dramatiq workers (render, webhooks, watchdog)
-    providers/      design-time AI adapters (stub, openai-compat, Nebius / Nemotron)
-    store/          SQLAlchemy models + S3-compat blob helpers
-    ui/             admin portal (server-rendered, Tailwind precompiled)
+    jobs/           background job workers (render, webhooks, watchdog)
+    providers/      design-time AI adapters (stub, OpenAI-compatible, Nebius / Nemotron)
+    store/          ORM models + S3-compatible blob helpers
+    ui/             admin portal (server-rendered, pre-compiled CSS)
   pap_pipeline/     Verdikt — the three-stage decision pipeline (extract → retrieve → reason)
     stages/         extract / retrieve / reason
     schemas/        Intake / Decision / Rule pydantic contracts
@@ -126,7 +126,7 @@ src/
 alembic/            DB migrations
 scripts/            CI + local ops helpers (license_check, tenant_scope_audit, …)
 sample_templates/   first-run demo document(s)
-deploy/             production compose (Traefik / Caddy + Postgres + Redis + object store)
+deploy/             production compose (reverse proxy + database + queue + object store)
 ```
 
 ## License

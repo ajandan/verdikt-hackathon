@@ -10,11 +10,11 @@ The Python package stays `pap_pipeline` — Verdikt is the product brand; the pa
 
 ## Code structure and boundary
 
-The submission stays in the `quire-hackathon` repo but the new work is walled off in a distinct top-level subpackage, with a one-way dependency onto the Quire kernel:
+The submission stays in the `quire-hackathon` repo but the new work is walled off in a distinct top-level subpackage, with a one-way dependency onto the doc-gen kernel:
 
 ```
 src/
-  docgen/               ← Quire kernel. Prior work. Unchanged except for one hook.
+  docgen/               ← doc-gen kernel. Prior work. Unchanged except for one hook.
     api/
     core/               (deterministic render — untouched)
     designtime/
@@ -42,9 +42,9 @@ src/
 
 **Reuse declaration this structure produces (`HACKATHON.md`):**
 
-> **Prior work (before 2026-08-26):** everything under `src/docgen/`. Quire is the doc-gen kernel — design-time AI mapping, deterministic render, freeze/publish, generic inbox agent, provider abstraction, multi-tenancy.
+> **Prior work (before 2026-08-26):** everything under `src/docgen/`. The doc-gen kernel — design-time AI mapping, deterministic render, freeze/publish, generic inbox agent, provider abstraction, multi-tenancy.
 >
-> **New during the submission window:** everything under `src/pap_pipeline/`. The PAP intake pipeline — three stages (extract via `nv-ingest`, retrieve via NeMo Retriever NIMs, reason via Nemotron), the intake and decision schemas, the four eligibility rules, PAP-specific templates, routing-table instrumentation, and the orchestrator. The pipeline consumes Quire as a library; Quire is unchanged except for a single extension point that lets the pipeline plug in.
+> **New during the submission window:** everything under `src/pap_pipeline/`. The PAP intake pipeline — three stages (extract via `nv-ingest`, retrieve via NeMo Retriever NIMs, reason via Nemotron), the intake and decision schemas, the four eligibility rules, PAP-specific templates, routing-table instrumentation, and the orchestrator. The pipeline consumes the kernel as a library; the kernel is unchanged except for a single extension point that lets the pipeline plug in.
 
 Provable by `git log -- src/pap_pipeline/` returning only commits after 2026-08-26.
 
@@ -68,17 +68,17 @@ Provable by `git log -- src/pap_pipeline/` returning only commits after 2026-08-
 
 **Status:** Executed. `pyproject.toml` now declares `license = "MIT"`, pymupdf is removed from dependencies, and `scripts/license_check.py` forbids AGPL again. See the "Superseded outcome" section of `docs/adr/0001-adopt-agpl-for-pymupdf.md` for the exact stack that replaced pymupdf and the behaviour deltas the migration accepted.
 
-Original rationale (kept for context): hackathon rules (verified 2026-09-09) require an open-source license with permissive examples (Apache 2.0 / MIT / MPL 2.0). While pymupdf (AGPL) was a runtime dep, MIT-licensing this codebase would have been a legal contradiction. Executed ADR-0001 Option 2 — swap to `pypdfium2` (Apache-2.0) for rasterization + text-with-bboxes and `pdfplumber` (MIT) for vector drawings, with `reportlab` + `pypdf` already covering overlay draw.
+Original rationale (kept for context): hackathon rules (verified 2026-09-09) require an open-source license with permissive examples (Apache 2.0 / MIT / MPL 2.0). While the previous AGPL-licensed PDF library was a runtime dep, MIT-licensing this codebase would have been a legal contradiction. Executed ADR-0001 Option 2 — swap to a permissive-licensed PDF stack (Apache-2.0 rasterization + MIT vector-parsing + BSD-3 overlay draw + BSD-3 page merge). Library names are documented in ADR-0001 for maintainer reference.
 
 ## Phase 2 — Build the three pipeline stages (Weeks 2–3, ~14 days)
 
 **Goal: end of week 3, an email with a realistic packet produces a decision + rendered reply, end-to-end — via the new subpackage, wired into the existing inbox agent by a single config flag.**
 
 - **Stage 1 (intake)** — `src/pap_pipeline/stages/extract.py`. Wire the chosen extraction backend (nv-ingest or MiniCPM-V fallback). Attachments in, structured intake object out (validated against the schemas from Phase 1). Log timings per call.
-- **Stage 2 (retrieval)** — `src/pap_pipeline/stages/retrieve.py`. Populate a pgvector table with the four eligibility rules as retrievable chunks. Wire NeMo Retriever embed + rerank NIMs. Given an intake object, retrieve top-k relevant rules with scores.
+- **Stage 2 (retrieval)** — `src/pap_pipeline/stages/retrieve.py`. Populate a vector-search table with the four eligibility rules as retrievable chunks. Wire NeMo Retriever embed + rerank NIMs. Given an intake object, retrieve top-k relevant rules with scores.
 - **Stage 3 (reasoning)** — `src/pap_pipeline/stages/reason.py`. Nemotron-Super call: given intake + retrieved rules, emit a structured decision (`approve` | `deny` | `missing_info`) with citations to which rules fired and — for `missing_info` — which fields are absent or illegible.
 - **Orchestrator** — `src/pap_pipeline/orchestrator.py`. Composes the three stages, catches errors between them, returns a canonical `Decision` object. This is the single entry point the inbox agent will call.
-- **Four PAP templates** — `src/pap_pipeline/templates/` — enrollment form (the thing patients / providers send in), approval letter, denial letter, missing-info letter. Run through the existing Quire design-time flow (upload → freeze → publish) so they're first-class `TemplateVersion` records.
+- **Four PAP templates** — `src/pap_pipeline/templates/` — enrollment form (the thing patients / providers send in), approval letter, denial letter, missing-info letter. Run through the existing design-time flow (upload → freeze → publish) so they're first-class `TemplateVersion` records.
 - **Wire-up point in `docgen.inbox.agent`.** Add the `use_pipeline_backend` config flag. When true, after intake resolution, call `pap_pipeline.orchestrator.run(msg)` and route the resulting decision to the right template render. When false, existing behavior. Feature-flag on by default in the demo tenant; off for all other tenants (nothing regresses).
 - **Instrument every model call** — `src/pap_pipeline/routing.py`. Model name, tokens in/out, wall-clock latency, per-call cost. This is the raw data source for the routing-table page.
 

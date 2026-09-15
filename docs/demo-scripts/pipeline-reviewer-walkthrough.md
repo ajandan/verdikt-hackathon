@@ -101,7 +101,7 @@ stage flagged as needed to adjudicate. Empty on approve/deny outcomes.
 - **Outbound Message-ID** — matches what the applicant's mail client
   shows in the reply thread.
 - **Attached PDF** — link to `/ui/inbox/{id}/reply-attachment`, which
-  streams the byte-identical PDF from MinIO. Same bytes that left the
+  streams the byte-identical PDF from the object store. Same bytes that left the
   building, with `Cache-Control: private, no-store` so it doesn't get
   reused across sessions.
 

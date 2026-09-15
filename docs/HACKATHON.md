@@ -13,16 +13,16 @@ We took the opposite bet from the industry: **AI-in, deterministic-out.** AI run
 
 ## Reuse declaration
 
-This submission is a hybrid — a hackathon-window pipeline (Verdikt) composed onto a pre-existing doc-gen kernel (Quire). Mechanical boundaries make the split provable.
+This submission is a hybrid — a hackathon-window pipeline (Verdikt) composed onto a pre-existing doc-gen kernel. Mechanical boundaries make the split provable.
 
-**Prior work — Quire kernel (`src/docgen/`).** Design-time AI mapping, deterministic render path, freeze/publish, generic inbox agent, provider abstraction, multi-tenancy. Predates 2026-08-26. Modified during the submission window only for (a) the Nebius Token Factory provider adapter, (b) moving the PDF field labeler to a text-only NVIDIA Nemotron model on Nebius Token Factory, and (c) one extension point that lets Verdikt plug into the generic inbox agent.
+**Prior work — the doc-gen kernel (`src/docgen/`).** Design-time AI mapping, deterministic render path, freeze/publish, generic inbox agent, provider abstraction, multi-tenancy. Predates 2026-08-26. Modified during the submission window only for (a) the Nebius Token Factory provider adapter, (b) moving the PDF field labeler to a text-only NVIDIA Nemotron model on Nebius Token Factory, and (c) one extension point that lets Verdikt plug into the generic inbox agent.
 
 **Submission-window work — Verdikt (`src/pap_pipeline/`).** The three-stage decision pipeline (extract → retrieve → reason), the intake / rule / decision schemas, the four eligibility rules for the Cardiovita demo program, PAP-specific templates, routing-table instrumentation, the orchestrator, and the OncoBridge cameo rules pack. All work landed after 2026-08-26.
 
 Provable mechanically:
 
 - `git log -- src/pap_pipeline/` returns only submission-window commits.
-- `tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline` fails the build if Quire ever reaches back into Verdikt. The dependency direction is one-way: Verdikt imports Quire; Quire never imports Verdikt.
+- `tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline` fails the build if the kernel ever reaches back into the pipeline. The dependency direction is one-way: the pipeline imports the kernel; the kernel never imports the pipeline.
 - `tests/test_boundaries.py::test_core_never_imports_ai_layer` fails the build if the deterministic render path ever imports an AI provider. The "no model at render time" claim is enforced, not asserted.
 
 ## What the hackathon requires, and where it's satisfied
@@ -42,12 +42,12 @@ Three NVIDIA-family models on one Nebius key, chosen by task shape at each stage
 | Stage | What runs | Why this model, why here |
 | --- | --- | --- |
 | **Extract** | `nv-ingest` on a Nebius AI Cloud VM | Multimodal PDF extraction over messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters. Vision handles what regex cannot. Nothing else runs at this stage. |
-| **Retrieve** | NeMo Retriever NIMs — `nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3` | Embedding + rerank surface the eligibility rules that apply to *this* case, from a pgvector store populated at startup from `src/pap_pipeline/rules/*.yaml`. The rules are human-authored and human-versioned; the model's job is to find, not to invent. |
+| **Retrieve** | NeMo Retriever NIMs — `nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3` | Embedding + rerank surface the eligibility rules that apply to *this* case, from a vector store populated at startup from `src/pap_pipeline/rules/*.yaml`. The rules are human-authored and human-versioned; the model's job is to find, not to invent. |
 | **Reason** | Nemotron Super (non-reasoning mode) on Nebius Token Factory | Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape. |
 
 Every model call is instrumented (`src/pap_pipeline/routing.py`) with model name, tokens in/out, wall-clock latency, and per-call cost. The routing-table admin page at `/ui/admin/routing` renders the resulting matrix — real numbers per call site, per stage, defensible as evidence rather than assertion.
 
-Operational health lands on the same principle: `GET /metrics` returns the Prometheus exposition (`src/docgen/metrics.py`) with per-tenant render counters (`docgen_renders_total{tenant_id,format,state}`), a render-latency histogram, queue-depth gauges sampled on scrape, and per-reason preflight-rejection counters. Cardinality is capped at the label set on purpose — tenant + format + outcome, no per-template or per-user labels that would blow the budget. An ops on-call gets "who is this load coming from, what's the P99, is anything stuck" from one scrape.
+Operational health lands on the same principle: `GET /metrics` returns a standard metrics exposition (`src/docgen/metrics.py`) with per-tenant render counters (`docgen_renders_total{tenant_id,format,state}`), a render-latency histogram, queue-depth gauges sampled on scrape, and per-reason preflight-rejection counters. Cardinality is capped at the label set on purpose — tenant + format + outcome, no per-template or per-user labels that would blow the budget. An ops on-call gets "who is this load coming from, what's the P99, is anything stuck" from one scrape.
 
 ## Reviewer-facing pipeline evidence
 
@@ -71,7 +71,7 @@ Persistence primitives added for this view:
   `pap_pipeline.inbox_hook._handler` after `_run_pipeline` succeeds.
 - `inbox_events.reply_attachment_blob_key` (String, nullable) — Alembic
   migration `0019_inbox_events_reply_attachment.py`. The handler uploads the
-  rendered PDF bytes to the `s3_bucket_documents` MinIO/S3 bucket before
+  rendered PDF bytes to the `s3_bucket_documents` S3-compatible bucket before
   handing the same bytes to the mailer, so the reviewer downloads the
   byte-identical artifact that left the building.
 - `programs` table — Alembic migration `0023_programs.py`. One row per
@@ -112,11 +112,11 @@ override channel. A rule that references a program-specific slot therefore
 has a value to evaluate against, without polluting the canonical schema
 that retrieval and the rule engine key on.
 
-## What Quire contributes (and why it matters here)
+## What the doc-gen kernel contributes (and why it matters here)
 
-The deterministic-render boundary is the reason Verdikt lands on Quire rather than on a fresh substrate. `docgen/core/` (render path) does not import `docgen/providers/` (AI). The boundary is enforced in tests, not in comments. Verdikt produces a structured `Decision`; Quire renders that Decision into the reply letter through a byte-identical merge over a frozen `TemplateVersion`. No model runs at render time. No model can. That is what makes *"same input, same output, forever"* a defensible engineering claim rather than marketing.
+The deterministic-render boundary is the reason Verdikt lands on the existing kernel rather than on a fresh substrate. `docgen/core/` (render path) does not import `docgen/providers/` (AI). The boundary is enforced in tests, not in comments. Verdikt produces a structured `Decision`; the kernel renders that Decision into the reply letter through a byte-identical merge over a frozen `TemplateVersion`. No model runs at render time. No model can. That is what makes *"same input, same output, forever"* a defensible engineering claim rather than marketing.
 
-The rest of the Quire kernel — multi-tenancy, provider abstraction, freeze/publish lifecycle, generic inbox agent — carries the operational weight so Verdikt can focus on the pipeline itself. One extension point on `docgen.inbox.agent` (a `use_pipeline_backend` config flag) is all it takes to route intake through Verdikt without touching the substrate.
+The rest of the kernel — multi-tenancy, provider abstraction, freeze/publish lifecycle, generic inbox agent — carries the operational weight so Verdikt can focus on the pipeline itself. One extension point on `docgen.inbox.agent` (a `use_pipeline_backend` config flag) is all it takes to route intake through Verdikt without touching the substrate.
 
 ## Judging-criteria mapping
 
@@ -145,7 +145,7 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 ## Open items before 2026-10-30
 
 - **Repo visibility.** Currently PRIVATE (set 2026-09-07). Flip public before submission.
-- **Public demo URL.** A minimal Verdikt hackathon-demo deploy on Nebius, decoupled from the production Quire deploy scheduled for mid-November. See roadmap Phase 3.
+- **Public demo URL.** A minimal Verdikt hackathon-demo deploy on Nebius, decoupled from the production doc-gen kernel deploy scheduled for mid-November. See roadmap Phase 3.
 - **YouTube video.** 3-minute cut, script in [`docs/demo-scripts/video-narration-60s.md`](demo-scripts/video-narration-60s.md), including the 15-second second-program cameo beat.
 - **Devpost submission.** URL, repo link, video, and this document as the technical write-up.
 

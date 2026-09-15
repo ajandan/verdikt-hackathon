@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T21:00:00Z",
-  "commit": "31e4dee",
+  "generated_at": "2026-09-14T22:00:00Z",
+  "commit": "7e23a96",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -14,9 +14,9 @@
   "summary": {
     "categories": 10,
     "features_total": 81,
-    "shipped": 77,
+    "shipped": 78,
     "in_progress": 0,
-    "backlog": 4,
+    "backlog": 3,
     "parked": 2
   },
   "categories": [
@@ -527,9 +527,9 @@
         },
         {
           "name": "CVE scan (pip-audit) in CI",
-          "status": "backlog",
-          "description": "Blocked on dep cleanup: 231 CVEs today across 41 packages. Sequenced fix plan in roadmap.",
-          "evidence": "roadmap Security"
+          "status": "shipped",
+          "description": "pip-audit --strict --skip-editable runs on every PR. Zero known vulns at HEAD. CVE-safe floors codified in pyproject.toml.",
+          "evidence": ".github/workflows/ci.yml"
         }
       ]
     },
@@ -545,9 +545,9 @@
           "evidence": "docker-compose.yml"
         },
         {
-          "name": "GitHub Actions CI (lint → tests → license → tenant-audit)",
+          "name": "GitHub Actions CI (lint → tests → license → CVE → tenant-audit)",
           "status": "shipped",
-          "description": "6 gates. quay.io mirror for MinIO to sidestep Docker Hub rate limits.",
+          "description": "7 gates. quay.io mirror for MinIO to sidestep Docker Hub rate limits.",
           "evidence": ".github/workflows/ci.yml"
         },
         {
@@ -601,12 +601,6 @@
       "item": "MDM PR6 · CI boundary test",
       "priority": "medium",
       "notes": "Sweep every rules pack; enforce slot mediation."
-    },
-    {
-      "category": "Security",
-      "item": "Dependency CVE scan (pip-audit)",
-      "priority": "high",
-      "notes": "Blocked on dep cleanup: 231 CVEs, sequenced fix plan in roadmap."
     },
     {
       "category": "Observability",

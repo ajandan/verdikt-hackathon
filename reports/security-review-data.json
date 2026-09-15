@@ -1,12 +1,12 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-13T00:00:00Z",
-  "commit": "ec422a8",
+  "generated_at": "2026-09-14T22:00:00Z",
+  "commit": "7e23a96",
   "summary": {
     "verdict": "APPROVED",
-    "controls_shipped": 24,
-    "controls_pending": 2,
-    "open_items": 4,
+    "controls_shipped": 25,
+    "controls_pending": 1,
+    "open_items": 3,
     "risk_level": "LOW",
     "license": "MIT",
     "last_audit": "2026-09-03"
@@ -33,7 +33,7 @@
     {"owasp": "A05 Security Misconfiguration", "control": "CSRF middleware + per-session token", "status": "shipped", "evidence": "test_csrf.py"},
     {"owasp": "A06 Vulnerable Components", "control": "License scan (§12) allowlist + explicit exceptions", "status": "shipped", "evidence": "scripts/license_check.py (MIT/BSD/Apache/PSF allowlist; LGPL deps in EXPLICIT_EXCEPTIONS with justification)"},
     {"owasp": "A06 Vulnerable Components", "control": "AGPL retirement (pymupdf swapped to pypdfium2 + pdfplumber)", "status": "shipped", "evidence": "ADR-0001 superseded 2026-09-09"},
-    {"owasp": "A06 Vulnerable Components", "control": "Dependency CVE scan (pip-audit) in CI", "status": "backlog", "evidence": "Blocked on dep cleanup: 231 CVEs across 41 packages. Sequenced fix plan in roadmap Security."},
+    {"owasp": "A06 Vulnerable Components", "control": "Dependency CVE scan (pip-audit) in CI", "status": "shipped", "evidence": "pip-audit --strict --skip-editable in .github/workflows/ci.yml. Zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml."},
     {"owasp": "A07 Auth Failures", "control": "Login rate limit (sliding-window Redis, 10/15min per (ip, username))", "status": "shipped", "evidence": "src/docgen/ratelimit.py + test_login_ratelimit.py (429 even on correct password)"},
     {"owasp": "A07 Auth Failures", "control": "Failed-login audit log", "status": "shipped", "evidence": "admin_login_failed event with username + ip + request_id"},
     {"owasp": "A08 Software Integrity", "control": "Frozen template versions (content-addressed hash immutable)", "status": "shipped", "evidence": "designtime/freeze.py (version_hash locks the source bytes + canonical placements)"},
@@ -52,7 +52,6 @@
     {"name": "Print-to-PDF reject at router boundary", "shipped": "2026-09-09", "outcome": "Rejects at boundary before any DB / blob write; templates count unchanged after rejected upload.", "findings": ["Producer-aware hint (Word Save-As-PDF vs generic OCR)", "AcroForm flavor untouched (widget rects anchor without needing text)"]}
   ],
   "open_items": [
-    {"priority": "high", "item": "Dependency CVE scan (pip-audit)", "why_blocked": "231 CVEs across 41 packages today. Landing --strict wedges every PR.", "plan": "1) Upgrade in-place fixes (sqlparse 0.6, urllib3 2.7, pyjwt 2.13, python-multipart 0.0.31, cryptography 46.0.7). 2) Evaluate starlette 1.x. 3) Trim mcp fat-transitives. 4) Land --skip-editable in CI."},
     {"priority": "medium", "item": "OpenTelemetry end-to-end traces", "why_blocked": "Not scheduled. Waiting on deploy timing.", "plan": "FastAPI → SQLAlchemy → boto3 → render span. Enable after Nebius VM deploy so trace shape reflects prod topology."},
     {"priority": "medium", "item": "Per-tenant metrics + queue-depth alerts", "why_blocked": "Needs telemetry backbone (OTel above) first.", "plan": "renders/hr, preflight-failure rate, P99 latency. Alert on queue depth over threshold + DLQ growth."},
     {"priority": "low", "item": "Signature-field render", "why_blocked": "Product decision on payload format (base64 PNG? blob key? URL?). Missing-value UX also unresolved.", "plan": "Coerced to text today (safe fallback but no signature semantics)."}

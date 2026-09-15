@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T21:00:00Z",
-  "commit": "31e4dee",
+  "generated_at": "2026-09-14T22:00:00Z",
+  "commit": "7e23a96",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
@@ -186,6 +186,7 @@
     { "date": "2026-09-09", "event": "Product name locked: Verdikt" },
     { "date": "2026-09-13", "event": "Code + security review dashboards shipped" },
     { "date": "2026-09-14", "event": "Prometheus /metrics endpoint (per-tenant counters + latency histograms + queue-depth gauges) shipped" },
+    { "date": "2026-09-14", "event": "CVE scan (pip-audit --strict) landed in CI — zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml" },
     { "date": "mid-Nov",    "event": "Nebius deploy target (post-submission for demo continuity)" },
     { "date": "2026-10-30", "event": "Submission deadline: repo public, demo URL live, video posted" }
   ],

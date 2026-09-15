@@ -120,14 +120,15 @@ jobs:
         run: python scripts/license_check.py
 
       - name: Dependency CVE scan (pip-audit)
-        # Fails if any resolved dependency has a known CVE in the PyPI
-        # advisory DB. `--skip-editable` skips our own in-tree editable
-        # installs (docgen) — they're never published to PyPI so the
-        # advisory DB has nothing to say about them. We deliberately
-        # don't ship an `--ignore-vuln` allowlist: it hides real debt
-        # and rots. If a vuln lands, either bump the dep or open a
-        # roadmap entry with an explicit sunset date.
-        run: python -m pip_audit --skip-editable --progress-spinner off --strict
+        # Fails (exit != 0) if any resolved dependency has a known CVE in
+        # the PyPI advisory DB. `--skip-editable` skips our own in-tree
+        # editable install (docgen) — never published to PyPI so the
+        # advisory DB has nothing to say about it. We deliberately don't
+        # ship an `--ignore-vuln` allowlist: it hides real debt and rots.
+        # `--strict` is off on purpose — combined with `--skip-editable`
+        # it promotes the editable-skip notice into an error, wedging CI
+        # even when no CVEs exist. The default CVE-fail behavior stands.
+        run: python -m pip_audit --skip-editable --progress-spinner off
 
       - name: Tenant-scope audit (multi-tenancy hygiene)
         # Fails if any query against a direct tenant-scoped model

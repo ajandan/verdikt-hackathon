@@ -75,15 +75,15 @@
     </section>
 
     <section class="block">
-      <span class="kicker">Aggregate</span>
-      <h2>Ship signal</h2>
-      <p class="subhead">The dashboards below all render a paper-stamp verdict. This card is the aggregate: approved only when every downstream verdict is green. Production readiness is tracked separately since it's an operational status, not a ship-review gate.</p>
-      <div class="verdict-wrap">
+      <div class="verdict-wrap" style="margin-top:0;align-items:start">
         <div>
-          <p class="subhead" style="max-width:none">The stamp mirrors Verdikt's real product output. Same shape for every case Verdikt decides: verdict word, four meta fields, paper texture, wax-stamp accent. Consistency is the point.</p>
+          <span class="kicker">Aggregate</span>
+          <h2>Ship signal</h2>
+          <p class="subhead" style="max-width:none;margin-bottom:8px">The dashboards below all render a paper-stamp verdict. This card is the aggregate: approved only when every downstream verdict is green. Production readiness is tracked separately since it's an operational status, not a ship-review gate.</p>
+          <p class="subhead" style="max-width:none;margin-top:0">The stamp mirrors Verdikt's real product output. Same shape for every case Verdikt decides: verdict word, four meta fields, paper texture, wax-stamp accent. Consistency is the point.</p>
           <p class="subhead" style="max-width:none;margin-top:16px">Sources: <a href="./dashboard-data.json" style="color:var(--seal-700)">dashboard-data.json</a>, <a href="./features-data.json" style="color:var(--seal-700)">features-data.json</a>, <a href="./code-review-data.json" style="color:var(--seal-700)">code-review-data.json</a>, <a href="./security-review-data.json" style="color:var(--seal-700)">security-review-data.json</a>, <a href="./production-data.json" style="color:var(--seal-700)">production-data.json</a>.</p>
         </div>
-        <div class="verdict-stage">
+        <div class="verdict-stage" style="place-items:start center;min-height:0;padding-top:0">
           <div class="verdict-card" id="verdict-card"></div>
         </div>
       </div>

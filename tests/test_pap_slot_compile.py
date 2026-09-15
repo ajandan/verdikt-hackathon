@@ -26,7 +26,6 @@ from pap_pipeline.stages.slot_compile import (
     compile_slots,
 )
 
-
 AS_OF = date(2026, 9, 14)
 
 

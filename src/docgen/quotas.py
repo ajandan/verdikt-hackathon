@@ -14,7 +14,7 @@ usage vs cap is.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
@@ -49,7 +49,7 @@ async def check_render_quota(session: "AsyncSession", tenant_id: uuid.UUID) -> N
     if cap is None:
         return
 
-    since = datetime.now(tz=timezone.utc) - timedelta(hours=24)
+    since = datetime.now(tz=UTC) - timedelta(hours=24)
     count_stmt = (
         select(func.count())
         .select_from(RenderJob)

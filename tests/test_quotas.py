@@ -28,8 +28,8 @@ from docgen.store.models import (
     Provenance,
     RenderJob,
     Template,
-    Tenant,
     TemplateVersion,
+    Tenant,
 )
 
 

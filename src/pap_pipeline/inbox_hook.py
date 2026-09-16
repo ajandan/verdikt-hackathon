@@ -106,6 +106,20 @@ def _pipeline_config(
         or settings.ai_verdict_model
         or "nvidia/nemotron-3-super-120b-a12b"
     )
+    verifier_model = program.verifier_extract_model if program is not None else None
+    extract_verifier = (
+        ExtractClientConfig(
+            base_url=base_url,
+            api_key=api_key,
+            vision_model=verifier_model,
+            timeout=settings.ai_timeout_seconds,
+        )
+        if verifier_model
+        else None
+    )
+    declared_outcomes = (
+        list(program.outcomes) if program is not None and program.outcomes else None
+    )
     return PipelineConfig(
         extract=ExtractClientConfig(
             base_url=base_url,
@@ -130,6 +144,8 @@ def _pipeline_config(
             timeout=settings.ai_timeout_seconds,
         ),
         mdm=_mdm_config_for_tenant(tenant),
+        extract_verifier=extract_verifier,
+        declared_outcomes=declared_outcomes,
     )
 
 
@@ -871,16 +887,26 @@ def _handler(
     # mapper can see program-specific slots that don't live on Intake.
     event.pap_extraction = raw_extraction
     event.pap_decision = decision.model_dump(mode="json")
+    critical_findings = [
+        f for f in decision.verifier_findings if f.severity == "critical"
+    ]
+    verdict_note = (
+        f"Outcome: {decision.outcome}. "
+        f"Citations: {len(decision.citations)}, "
+        f"missing fields: {len(decision.missing_fields)}. "
+    )
+    if critical_findings:
+        types = sorted({f.type for f in critical_findings})
+        verdict_note += (
+            f"Verifier flagged {len(critical_findings)} issue(s) "
+            f"({', '.join(types)}). "
+        )
+    verdict_note += "Queued for human review."
     _append_audit(
         event,
         action="verdict_rendered",
         actor=_AI_ACTOR,
-        note=(
-            f"Outcome: {decision.outcome}. "
-            f"Citations: {len(decision.citations)}, "
-            f"missing fields: {len(decision.missing_fields)}. "
-            f"Queued for human review."
-        ),
+        note=verdict_note,
     )
     session.commit()
 

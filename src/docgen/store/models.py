@@ -135,6 +135,11 @@ class Program(Base):
     # vision model per program is a data change, not a code deploy.
     extract_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     reason_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Optional dual-VLM cross-check (Phase C). When set, the extract stage runs
+    # a second call with this model in parallel with the primary; any
+    # disagreement on a critical slot forces the case into HumanLoop. NULL
+    # disables the check — the pipeline runs single-VLM as before.
+    verifier_extract_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -15,15 +15,47 @@ Citations discriminate on `type`:
 
 See ADR-0004 for why the two shapes share one class instead of a
 discriminated union.
+
+``verifier_findings`` is populated by the orchestrator *after* Nemotron
+returns, not by the reason stage itself. It carries deterministic
+consistency-check flags (hallucinated citations, verdict/citation mismatch)
+and dual-VLM extraction disagreements. Non-empty findings force the case
+into HumanLoop rather than auto-shipping the reply. See
+:mod:`pap_pipeline.verify` for the checks that populate it.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 Outcome = Literal["approve", "deny", "missing_info"]
 CitationType = Literal["rule", "history"]
+FindingType = Literal[
+    "extract_disagreement",
+    "hallucinated_citation",
+    "cited_rule_not_retrieved",
+    "outcome_missing_info_but_no_gaps",
+    "outcome_missing_info_gap_not_null_in_intake",
+    "missing_field_not_referenced_by_cited_rule",
+    "outcome_approve_no_matched_citation",
+    "outcome_deny_no_unmatched_citation",
+    "outcome_outside_declared_vocabulary",
+]
+FindingSeverity = Literal["critical", "warning"]
+
+
+class VerifierFinding(BaseModel):
+    """One deterministic-verifier flag on the Decision.
+
+    Populated post-hoc by :mod:`pap_pipeline.verify`. ``detail`` carries
+    type-specific context (rule id, field name, both extraction values, etc.)
+    so the reviewer sees exactly what disagreed and why.
+    """
+
+    type: FindingType
+    severity: FindingSeverity = "critical"
+    detail: dict[str, Any] = Field(default_factory=dict)
 
 
 class Citation(BaseModel):
@@ -103,3 +135,7 @@ class Decision(BaseModel):
     citations: list[Citation] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
     rationale: str = ""
+    # Populated post-hoc by pap_pipeline.verify — extraction disagreements
+    # (dual-VLM cross-check) and deterministic citation-consistency flags.
+    # Non-empty findings escalate the case to HumanLoop.
+    verifier_findings: list[VerifierFinding] = Field(default_factory=list)

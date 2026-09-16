@@ -52,6 +52,7 @@ from pap_pipeline.stages.mdm_lookup import (
 )
 from pap_pipeline.stages.reason import ReasonClientConfig, reason
 from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
+from pap_pipeline.verify import dual_extract, verify_decision
 
 
 @dataclass(frozen=True)
@@ -62,12 +63,20 @@ class PipelineConfig:
     hand-thread individual configs through the stack. `mdm` defaults to a
     null source (see ADR-0004) so every case flows through the history
     lookup path even before a real connector is wired.
+
+    ``extract_verifier`` (Phase C) is optional — when set, the pipeline
+    runs a second Extract call in parallel with the primary using this
+    config's vision_model, then diffs the two intake dicts. Any
+    disagreement lands as a ``VerifierFinding`` on the Decision and
+    escalates the case to HumanLoop. None disables the check.
     """
 
     extract: ExtractClientConfig
     retrieve: RetrieveClientConfig
     reason: ReasonClientConfig
     mdm: MdmSourceConfig = field(default_factory=lambda: MdmSourceConfig(provider="null"))
+    extract_verifier: ExtractClientConfig | None = None
+    declared_outcomes: list[str] | None = None
 
 
 async def run_from_intake(
@@ -118,7 +127,14 @@ async def run_from_intake(
         intake, reranked_rules, config=config.reason, extras=merged_extras
     )
     decision = _attach_retrieval_scores(decision, retrieved)
-    return _attach_history_citations(decision, history, reranked_rules)
+    decision = _attach_history_citations(decision, history, reranked_rules)
+    return _attach_verifier_findings(
+        decision,
+        intake=intake,
+        extras=merged_extras,
+        retrieved_rules=reranked_rules,
+        declared_outcomes=config.declared_outcomes,
+    )
 
 
 def _merge_history_slots(
@@ -149,6 +165,44 @@ def _merge_history_slots(
         for slot in history.slots:
             merged.setdefault(slot.name, slot.value)
     return merged
+
+
+def _attach_verifier_findings(
+    decision: Decision,
+    *,
+    intake: Intake,
+    extras: dict[str, Any],
+    retrieved_rules: list[Rule],
+    declared_outcomes: list[str] | None,
+) -> Decision:
+    """Run the deterministic Phase-D checks and stitch findings onto Decision.
+
+    Combines the reason stage's ``matched`` bit + retrieved rule set + the
+    intake into a set of consistency checks. Extraction-disagreement
+    findings from :func:`dual_extract` are stitched in at the top of
+    :func:`run_with_intake` and preserved through this call — we append
+    to the list, never overwrite.
+    """
+    intake_dict = dict(intake.model_dump())
+    # Merge non-Intake fields the reason stage saw (extras) so
+    # missing_field checks can see program-specific slots too.
+    for k, v in (extras or {}).items():
+        intake_dict.setdefault(k, v)
+    retrieved_ids = [r.id for r in retrieved_rules]
+    new_findings = verify_decision(
+        decision,
+        intake_dict=intake_dict,
+        retrieved_rule_ids=retrieved_ids,
+        retrieved_rules=retrieved_rules,
+        declared_outcomes=declared_outcomes,
+    )
+    if not new_findings:
+        return decision
+    return decision.model_copy(
+        update={
+            "verifier_findings": [*decision.verifier_findings, *new_findings],
+        }
+    )
 
 
 def _attach_retrieval_scores(decision: Decision, retrieved) -> Decision:
@@ -318,7 +372,17 @@ async def run_with_intake(
     reasoning so program-specific slots still participate in the verdict.
     The raw dict is returned as-is for persistence + UI display.
     """
-    raw = await extract(attachments, config=config.extract, slots=slots)
+    if config.extract_verifier is not None:
+        raw, extract_findings = await dual_extract(
+            attachments,
+            primary_config=config.extract,
+            verifier_config=config.extract_verifier,
+            slots=slots,
+        )
+    else:
+        raw = await extract(attachments, config=config.extract, slots=slots)
+        extract_findings = []
+
     intake = _intake_from_extraction(raw)
     extras = _extras_from_extraction(raw)
     decision = await run_from_intake(
@@ -332,6 +396,12 @@ async def run_with_intake(
         rules=rules,
         k=k,
     )
+    if extract_findings:
+        decision = decision.model_copy(
+            update={
+                "verifier_findings": [*extract_findings, *decision.verifier_findings],
+            }
+        )
     return raw, intake, decision
 
 

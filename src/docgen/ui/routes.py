@@ -5848,9 +5848,16 @@ async def programs_create(
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(404, "Tenant not found")
+    # Prefill the recommended pipeline defaults so operators see the actual
+    # models in the Models tab, not the implicit "— use system default —"
+    # fallback. They can swap either dropdown later. Defaults intentionally
+    # mirror settings.pdf_vision_ocr_model / settings.ai_verdict_model so
+    # existing deploys don't see a behavior change on first create.
     prog = Program(
         tenant_id=tenant_id, slug=slug_clean, name=name_clean,
         extraction_schema=[], is_active=True,
+        extract_model="openbmb/MiniCPM-V-4_5",
+        reason_model="nvidia/nemotron-3-super-120b-a12b",
     )
     session.add(prog)
     try:
@@ -6256,25 +6263,51 @@ async def program_save(
     else:
         prog.enrollment_template_version_id = None
 
-    # Per-program model overrides. Empty string / whitespace clears the
-    # override so the pipeline falls back to the settings-wide defaults.
-    raw_extract = (form.get("extract_model") or "").strip()
-    raw_reason = (form.get("reason_model") or "").strip()
-    prog.extract_model = raw_extract or None
-    prog.reason_model = raw_reason or None
-
     # JSONB list mutation needs a fresh assignment for ORM dirty tracking.
     prog.extraction_schema = _parse_program_schema_form(form)
     await session.commit()
     log.info(
         "program_saved", program_id=str(prog.id),
         slots=len(prog.extraction_schema or []),
-        extract_model=prog.extract_model,
-        reason_model=prog.reason_model,
     )
     return _redirect(
         f"/ui/programs/{program_id}",
         flash="Program saved.", flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/models")
+async def program_models_save(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Save the per-program Extract + Reason model choices.
+
+    Isolated from :func:`program_save` because the Models tab has its own
+    form and its own Save button. Blank/whitespace clears the override so
+    the pipeline falls back to the settings-wide defaults.
+    """
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    form = await request.form()
+    raw_extract = (form.get("extract_model") or "").strip()
+    raw_reason = (form.get("reason_model") or "").strip()
+    raw_verifier = (form.get("verifier_extract_model") or "").strip()
+    prog.extract_model = raw_extract or None
+    prog.reason_model = raw_reason or None
+    prog.verifier_extract_model = raw_verifier or None
+    await session.commit()
+    log.info(
+        "program_models_saved",
+        program_id=str(prog.id),
+        extract_model=prog.extract_model,
+        reason_model=prog.reason_model,
+        verifier_extract_model=prog.verifier_extract_model,
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}#models",
+        flash="Model choices saved.", flash_kind="success",
     )
 
 

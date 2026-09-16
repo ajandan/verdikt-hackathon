@@ -320,13 +320,25 @@ def run_json_intake_sync(
         #   so it doesn't clog HumanLoop. The verdict has already been
         #   handed to the caller inline; there is nothing for a reviewer
         #   to release.
+        # Verifier findings (Phase C/D) force pending_review even for tenants
+        # that would otherwise auto-approve. Any inconsistency flagged by
+        # dual-VLM diff or by the deterministic citation checker is enough
+        # to short-circuit the auto path.
+        critical_findings = [
+            f for f in decision.verifier_findings if f.severity == "critical"
+        ]
+        should_hold = (
+            program.requires_review
+            or decision.outcome == "missing_info"
+            or bool(critical_findings)
+        )
         result_status = "succeeded"
-        if program.requires_review or decision.outcome == "missing_info":
+        if should_hold:
             event.review_state = "pending_review"
             if callback_url:
                 event.callback_url = callback_url
                 event.callback_status = "pending"
-            if program.requires_review:
+            if program.requires_review or critical_findings:
                 result_status = "queued"
         else:
             event.review_state = "auto_approved"
@@ -336,7 +348,13 @@ def run_json_intake_sync(
             f"Citations: {len(decision.citations)}, "
             f"missing fields: {len(decision.missing_fields)}. "
         )
-        if result_status == "queued":
+        if critical_findings:
+            types = sorted({f.type for f in critical_findings})
+            verdict_note += (
+                f"Verifier flagged {len(critical_findings)} issue(s) "
+                f"({', '.join(types)}). Escalated to HumanLoop. "
+            )
+        elif result_status == "queued":
             verdict_note += "Held for reviewer approval before webhook delivery."
         elif event.review_state == "auto_approved":
             verdict_note += "Auto-approved — verdict returned inline to the caller."

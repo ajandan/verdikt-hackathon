@@ -203,6 +203,7 @@
         Reply bindings
         {% if declared_outcomes %}<span class="tab-count">{{ declared_outcomes|length }}</span>{% endif %}
     </a>
+    <a href="#models" class="tab" role="tab" data-tab="models" aria-selected="false" aria-controls="tab-models" id="tab-btn-models">Models</a>
 </nav>
 
 <section class="tab-panel" id="tab-extraction" role="tabpanel" aria-labelledby="tab-btn-extraction">
@@ -285,42 +286,6 @@
                         </span>
                     </span>
                 </label>
-
-                <fieldset style="margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px">
-                    <legend style="padding: 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600">
-                        Models on Nebius Token Factory
-                    </legend>
-                    <p class="muted" style="font-size: 13px; margin: 0 0 12px">
-                        Per-program override. Blank means "use the process-wide default from settings" — safe to leave alone for new tenants.
-                        Dropdowns populated live from the tenant's Nebius Token Factory catalog.
-                    </p>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
-                        <label>Extract model (vision)
-                            <select name="extract_model">
-                                <option value="">— use system default —</option>
-                                {% for m in vision_models %}
-                                <option value="{{ m }}" {% if program.extract_model == m %}selected{% endif %}>{{ m }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-
-                        <label>Reason model (verdict)
-                            <select name="reason_model">
-                                <option value="">— use system default —</option>
-                                {% for m in reason_models %}
-                                <option value="{{ m }}" {% if program.reason_model == m %}selected{% endif %}>{{ m }}</option>
-                                {% endfor %}
-                            </select>
-                        </label>
-                    </div>
-
-                    {% if not vision_models and not reason_models %}
-                    <p class="muted" style="font-size: 12px; margin-top: 10px">
-                        Catalog is empty — check <code>DOCGEN_AI_API_KEY</code> is set. Falls back to system defaults meanwhile.
-                    </p>
-                    {% endif %}
-                </fieldset>
 
                 <div class="btn-row" style="margin-top: 20px">
                     <button class="primary" type="submit">Save changes</button>
@@ -562,6 +527,94 @@
 </div>
 </section>
 
+<section class="tab-panel" id="tab-models" role="tabpanel" aria-labelledby="tab-btn-models" hidden>
+<div class="prog-grid">
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2>Models on Nebius Token Factory</h2>
+                <span class="subtle">Per-program overrides — dropdowns populated live from Token Factory's catalog</span>
+            </div>
+            <p class="muted" style="font-size: 13px">
+                Verdikt keeps the pipeline code fixed and lets each program pick its models. Change the Reason model
+                to Nemotron Ultra 550B for high-stakes tenants; drop to Nano 30B for high-volume routine cases.
+                Leaving a field blank falls back to the system-wide default configured via env vars.
+            </p>
+            <form action="/ui/programs/{{ program.id }}/models" method="post">
+                {{ csrf_input(request) }}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px">
+                    <label>Extract model <span class="muted" style="font-weight: normal">(vision)</span>
+                        <select name="extract_model">
+                            <option value="">— use system default —</option>
+                            {% for m in vision_models %}
+                            <option value="{{ m }}" {% if program.extract_model == m %}selected{% endif %}>{{ m }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label>Reason model <span class="muted" style="font-weight: normal">(verdict)</span>
+                        <select name="reason_model">
+                            <option value="">— use system default —</option>
+                            {% for m in reason_models %}
+                            <option value="{{ m }}" {% if program.reason_model == m %}selected{% endif %}>{{ m }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+
+                <label style="display: block; margin-top: 14px">
+                    Verifier extract model <span class="muted" style="font-weight: normal">(optional dual-VLM cross-check)</span>
+                    <select name="verifier_extract_model">
+                        <option value="">— off (single-VLM extract) —</option>
+                        {% for m in vision_models %}
+                        <option value="{{ m }}" {% if program.verifier_extract_model == m %}selected{% endif %}>{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="muted" style="display: block; font-size: 12px; margin-top: 4px">
+                        Pick a second vision model (e.g. <code>google/gemma-3-27b-it</code> against
+                        <code>openbmb/MiniCPM-V-4_5</code>). Both run in parallel; any critical-slot disagreement escalates
+                        the case to HumanLoop instead of auto-approving.
+                    </span>
+                </label>
+
+                {% if not vision_models and not reason_models %}
+                <p class="muted" style="font-size: 12px; margin-top: 12px">
+                    Catalog is empty — check <code>DOCGEN_AI_API_KEY</code> is set. The pipeline falls back to system defaults meanwhile.
+                </p>
+                {% endif %}
+
+                <div class="btn-row" style="margin-top: 20px">
+                    <button class="primary" type="submit">Save model choices</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <h3 style="margin-top: 0">What the pipeline uses today</h3>
+            <p class="muted" style="font-size: 13px">
+                The three stages all target one Nebius Token Factory endpoint / one API key. Only Extract and
+                Reason are tenant-configurable in this pass; Retrieve stays at the platform's Qwen3-Embedding-8B.
+            </p>
+            <ul style="font-size: 13px; line-height: 1.7; padding-left: 20px">
+                <li><strong>Extract</strong> — <code>{{ program.extract_model or 'system default' }}</code></li>
+                {% if program.verifier_extract_model %}
+                <li><strong>Extract verifier</strong> — <code>{{ program.verifier_extract_model }}</code> <span class="muted">(dual-VLM cross-check on)</span></li>
+                {% else %}
+                <li><strong>Extract verifier</strong> — <span class="muted">off</span></li>
+                {% endif %}
+                <li><strong>Retrieve</strong> — <code>Qwen/Qwen3-Embedding-8B</code> <span class="muted">(fixed)</span></li>
+                <li><strong>Reason</strong> — <code>{{ program.reason_model or 'system default' }}</code></li>
+            </ul>
+            <p class="muted" style="font-size: 12px; margin-top: 12px">
+                Discovered {{ vision_models|length }} vision-capable and {{ reason_models|length }} chat/reasoning models on the tenant's catalog.
+            </p>
+        </div>
+    </div>
+</div>
+</section>
+
 <template id="slot-row-template">
     <tr>
         <td><input type="text" name="slot_name" class="slot-name" required></td>
@@ -630,8 +683,14 @@
             try { sessionStorage.setItem(STORAGE_KEY, 'bindings'); } catch (e) {}
         }, true);
     }
+    var modelsPanel = document.getElementById('tab-models');
+    if (modelsPanel) {
+        modelsPanel.addEventListener('submit', function () {
+            try { sessionStorage.setItem(STORAGE_KEY, 'models'); } catch (e) {}
+        }, true);
+    }
     var initial = (location.hash || '').replace('#', '');
-    var valid = { rules: 1, extraction: 1, bindings: 1 };
+    var valid = { rules: 1, extraction: 1, bindings: 1, models: 1 };
     if (!valid[initial]) {
         try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
     }

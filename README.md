@@ -1,6 +1,15 @@
 # Verdikt
 
-**AI-in, deterministic-out.** A decision pipeline for regulated document workflows.
+**AI-in, deterministic-out.** A decision pipeline for regulated document workflows — starting with US patient-assistance-program eligibility.
+
+|  |  |
+|---|---|
+| **License** | MIT |
+| **Track** | Best Apps & Agents |
+| **Video** | under 3 minutes — see [Live demo](#live-demo) |
+| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super) · `nv-embedqa-e5-v5` (NeMo Retriever embed) · `nv-rerankqa-mistral-4b-v3` (NeMo Retriever rerank) |
+| **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extraction stage) |
+| **Domain** | US patient-assistance-program (PAP) eligibility |
 
 Verdikt reads inbound documents, retrieves the human-authored rules that apply,
 and issues a structured decision — `approve`, `deny`, or `missing_info` — with
@@ -9,18 +18,51 @@ building is a byte-identical merge of a frozen, human-approved template with
 that decision. **No language model sits on the code path that produces the
 audited artifact.**
 
-> **Nebius × NVIDIA Global AI Hackathon submission.** Three NVIDIA models
-> composed one-per-stage on Nebius Token Factory / Nebius AI Cloud: `nv-ingest`
-> for multimodal extraction, NeMo Retriever NIMs (`nv-embedqa-e5-v5` +
-> `nv-rerankqa-mistral-4b-v3`) for rule retrieval, Nemotron Super for
-> structured-JSON reasoning. See [`docs/HACKATHON.md`](docs/HACKATHON.md) for
-> the full submission write-up, the reuse declaration, and the deploy runbook.
+> **Nebius × NVIDIA Global AI Hackathon submission.** Four models composed
+> across three pipeline stages, all served via Nebius Token Factory:
+> `openbmb/MiniCPM-V-4_5` (Apache-2.0) for multimodal extraction, two NVIDIA
+> NeMo Retriever NIMs (`nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3`) for
+> rule retrieval, and NVIDIA Nemotron Super (`nemotron-3-super-120b-a12b`) in
+> non-reasoning mode for structured-JSON verdict emission. See
+> [`docs/HACKATHON.md`](docs/HACKATHON.md) for the full submission write-up,
+> the reuse declaration, and the deploy runbook.
 
 - **AI where it earns its place**: extraction over messy multimodal PDFs, retrieval over versioned rules, reasoning to a structured verdict.
 - **Deterministic where it must be**: pure template-engine merge for `.docx`, canvas-overlay merge for `.pdf`. No model in the loop at render time.
 - **Programs as data**: a new PAP program is a `programs` row (extraction schema + rules pack + reply template), not a build. The OncoBridge cameo demonstrates the same code, opposite verdict.
 - **Auditable end-to-end**: every stage's output is a structured artifact — intake object, retrieved rules with rerank scores, decision with citations, rendered letter. A reviewer can read the whole path from the admin UI.
 - **Multi-tenant**: row-level `tenant_id` scoping, API-key auth per tenant, CI-enforced [tenant-scope audit](scripts/tenant_scope_audit.py).
+
+## Pipeline shape
+
+```
+  Inbox  (fax · mail · email · REST · MCP)
+    │
+    ▼
+  ┌───────────────────── AI ZONE ─────────────────────┐
+  │                                                   │
+  │   1. Extract    MiniCPM-V (Apache-2.0, vision)    │
+  │        │                                          │
+  │        ▼                                          │
+  │   2. Retrieve   NeMo Retriever  (embed + rerank)  │
+  │        │                                          │
+  │        ▼                                          │
+  │   3. Reason     Nemotron Super  (JSON verdict)    │
+  │                                                   │
+  └────────────────────── STOP ───────────────────────┘
+    │
+    ▼
+  ┌──────────────── DETERMINISTIC ZONE ───────────────┐
+  │                                                   │
+  │      Verdict JSON  ⊕  Frozen Template             │
+  │               │                                   │
+  │               ▼                                   │
+  │        Reply Letter   (byte-identical merge)      │
+  │        Doc Package    (sha256 audit hash)         │
+  │                                                   │
+  │        NO MODEL RUNS AT RENDER TIME.              │
+  └───────────────────────────────────────────────────┘
+```
 
 ## Architecture at a glance
 
@@ -36,8 +78,8 @@ mechanical proof (git log + boundary tests).
 
 ## Live demo
 
-- **Hosted demo**: <https://verdikt.<yourdomain>/ui/> (URL published in [`docs/HACKATHON.md`](docs/HACKATHON.md) at submission time)
 - **Demo video (< 3 min)**: linked from [`docs/HACKATHON.md`](docs/HACKATHON.md)
+- **Hosted demo**: URL published in [`docs/HACKATHON.md`](docs/HACKATHON.md) at submission time. Meanwhile, the full pipeline runs locally on Docker Compose in under 5 minutes — see [Quickstart](#quickstart--5-minutes-local) below.
 
 ## Quickstart (< 5 minutes, local)
 
@@ -68,19 +110,16 @@ Open **<http://localhost:8000/ui/>**. Sign in as `admin` (dev mode; set
 `DOCGEN_ADMIN_PASSWORD_HASH` before you point this at anything real — see
 `.env.example`).
 
-On the empty templates list, click **"Or try a sample →"** — pick the
-**EOB (real-world)** button to load `sample_templates/insurance_eob.docx`,
-an Explanation of Benefits letter that exercises scalar fields, a
-service-line `{% for %}` loop, and an `{% if is_denied %}` block so you can
-see the mapping wizard's type inference and reasoning trace in one screen.
-The **DOCX** button loads the shorter denial-letter sample if you want a
-simpler walk-through. Preflight runs on upload; from there fill a couple of
-fields, freeze the version, publish it, then hit **Render** to download a
-filled `.docx`.
+### First-run walkthrough (doc-gen kernel)
 
-That's the doc-gen kernel loop: upload → preflight → freeze → publish → render.
-For the full Verdikt pipeline (inbox → extract → retrieve → reason → reply),
-walk through [`docs/HACKATHON.md`](docs/HACKATHON.md).
+On the empty templates list, click **"Or try a sample →"** and pick one:
+
+- **EOB (real-world)** loads `sample_templates/insurance_eob.docx`, an Explanation of Benefits letter that exercises scalar fields, a service-line `{% for %}` loop, and an `{% if is_denied %}` block — so you see the mapping wizard's type inference and reasoning trace in one screen.
+- **DOCX** loads the shorter denial-letter sample if you want a simpler walk-through.
+
+Preflight runs on upload; from there fill a couple of fields, freeze the version, publish it, then hit **Render** to download a filled `.docx`.
+
+That's the doc-gen kernel loop: **upload → preflight → freeze → publish → render**. For the full Verdikt pipeline (**inbox → extract → retrieve → reason → reply**), walk through [`docs/HACKATHON.md`](docs/HACKATHON.md).
 
 ### Where to go next
 

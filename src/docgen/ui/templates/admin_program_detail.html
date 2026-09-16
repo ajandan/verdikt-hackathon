@@ -286,6 +286,42 @@
                     </span>
                 </label>
 
+                <fieldset style="margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px">
+                    <legend style="padding: 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); font-weight: 600">
+                        Models on Nebius Token Factory
+                    </legend>
+                    <p class="muted" style="font-size: 13px; margin: 0 0 12px">
+                        Per-program override. Blank means "use the process-wide default from settings" — safe to leave alone for new tenants.
+                        Dropdowns populated live from the tenant's Nebius Token Factory catalog.
+                    </p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+                        <label>Extract model (vision)
+                            <select name="extract_model">
+                                <option value="">— use system default —</option>
+                                {% for m in vision_models %}
+                                <option value="{{ m }}" {% if program.extract_model == m %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+
+                        <label>Reason model (verdict)
+                            <select name="reason_model">
+                                <option value="">— use system default —</option>
+                                {% for m in reason_models %}
+                                <option value="{{ m }}" {% if program.reason_model == m %}selected{% endif %}>{{ m }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+
+                    {% if not vision_models and not reason_models %}
+                    <p class="muted" style="font-size: 12px; margin-top: 10px">
+                        Catalog is empty — check <code>DOCGEN_AI_API_KEY</code> is set. Falls back to system defaults meanwhile.
+                    </p>
+                    {% endif %}
+                </fieldset>
+
                 <div class="btn-row" style="margin-top: 20px">
                     <button class="primary" type="submit">Save changes</button>
                     <a href="/ui/programs" class="btn ghost">Cancel</a>

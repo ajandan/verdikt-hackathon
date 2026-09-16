@@ -75,7 +75,9 @@ def _append_audit(event: InboxEvent, *, action: str, actor: str, note: str) -> N
 
 
 def _pipeline_config(
-    settings: Settings, tenant: Tenant | None = None
+    settings: Settings,
+    tenant: Tenant | None = None,
+    program: Program | None = None,
 ) -> PipelineConfig:
     """Build a PipelineConfig from docgen Settings + the tenant's MDM config.
 
@@ -85,14 +87,30 @@ def _pipeline_config(
     (ADR-0004). When the tenant isn't in scope (rare — the JSON-in API path
     resolves it) or hasn't wired a config, we fall back to the simulated
     source so the demo works out-of-the-box.
+
+    Per-program model overrides: when ``program.extract_model`` or
+    ``program.reason_model`` is set (via the Models admin tab), the
+    corresponding stage uses that model instead of the settings default. NULL
+    columns fall back to the settings default. This lets a tenant swap
+    Nemotron scale or vision model per program without a code deploy.
     """
     base_url = (settings.ai_base_url or "https://api.studio.nebius.com/v1").rstrip("/")
     api_key = settings.ai_api_key or ""
+    extract_model = (
+        (program.extract_model if program is not None else None)
+        or settings.pdf_vision_ocr_model
+        or "openbmb/MiniCPM-V-4_5"
+    )
+    reason_model = (
+        (program.reason_model if program is not None else None)
+        or settings.ai_verdict_model
+        or "nvidia/nemotron-3-super-120b-a12b"
+    )
     return PipelineConfig(
         extract=ExtractClientConfig(
             base_url=base_url,
             api_key=api_key,
-            vision_model=settings.pdf_vision_ocr_model or "openbmb/MiniCPM-V-4_5",
+            vision_model=extract_model,
             timeout=settings.ai_timeout_seconds,
         ),
         retrieve=RetrieveClientConfig(
@@ -108,7 +126,7 @@ def _pipeline_config(
         reason=ReasonClientConfig(
             base_url=base_url,
             api_key=api_key,
-            model=settings.ai_verdict_model or "nvidia/nemotron-3-super-120b-a12b",
+            model=reason_model,
             timeout=settings.ai_timeout_seconds,
         ),
         mdm=_mdm_config_for_tenant(tenant),
@@ -679,6 +697,29 @@ def _draft_reply_artifact(
     return blob_key
 
 
+def _load_program_row(
+    session: Any, tenant: Tenant, program: str | None
+) -> Program | None:
+    """Look up the active Program row for this tenant + slug.
+
+    Returns None when the slug is empty, the row doesn't exist, or the
+    program is inactive. Callers that only need the extraction schema
+    should still use :func:`_resolve_program_slots` (a thin wrapper).
+    """
+    slug = (program or "").strip().lower()
+    if not slug:
+        return None
+    return (
+        session.query(Program)
+        .filter(
+            Program.tenant_id == tenant.id,
+            Program.slug == slug,
+            Program.is_active.is_(True),
+        )
+        .first()
+    )
+
+
 def _resolve_program_slots(
     session: Any, tenant: Tenant, program: str | None
 ) -> list[dict[str, Any]] | None:
@@ -689,18 +730,7 @@ def _resolve_program_slots(
     tenants working during the Program cutover) or when the row exists
     but hasn't had its schema populated yet.
     """
-    slug = (program or "").strip().lower()
-    if not slug:
-        return None
-    row = (
-        session.query(Program)
-        .filter(
-            Program.tenant_id == tenant.id,
-            Program.slug == slug,
-            Program.is_active.is_(True),
-        )
-        .first()
-    )
+    row = _load_program_row(session, tenant, program)
     if row is None or not row.extraction_schema:
         return None
     return list(row.extraction_schema)
@@ -713,6 +743,7 @@ def _run_pipeline(
     rules: list[Rule] | None,
     settings: Settings,
     tenant: Tenant | None = None,
+    program_row: Program | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
     here; each call gets its own loop and NullPool means no cross-loop DB
@@ -729,10 +760,16 @@ def _run_pipeline(
     from the tenant's `mdm_config` JSONB column (ADR-0004). The inbox
     handler always has a tenant; the JSON-in API path also resolves one
     before calling here.
+
+    `program_row` (when passed) sources the per-program Extract / Reason
+    model overrides. Callers that have DB access should resolve the row
+    via ``_load_program_row`` and pass it in; callers without DB access
+    (or when the program isn't registered) can leave it None to fall
+    back to the settings-wide defaults.
     """
     import asyncio
 
-    config = _pipeline_config(settings, tenant)
+    config = _pipeline_config(settings, tenant, program_row)
     return asyncio.run(
         run_with_intake(
             attachments,
@@ -774,7 +811,8 @@ def _handler(
     # Persist raw inbound files up-front so the reviewer can preview them
     # even if the pipeline itself blows up mid-run.
     event.inbound_attachments = _persist_inbound_attachments(event, msg, settings)
-    slots = _resolve_program_slots(session, tenant, program)
+    program_row = _load_program_row(session, tenant, program)
+    slots = list(program_row.extraction_schema) if program_row and program_row.extraction_schema else None
     # Resolve the rule corpus on this side of the boundary so pap_pipeline
     # stages stay ignorant of docgen.store. load_rules resolves the tenant's
     # library rules linked to this program via `program_rule_links`, and
@@ -810,6 +848,7 @@ def _handler(
             rules=rules,
             settings=settings,
             tenant=tenant,
+            program_row=program_row,
         )
     except Exception as e:
         event.status = "failed"

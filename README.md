@@ -7,8 +7,8 @@
 | **License** | MIT |
 | **Track** | Best Apps & Agents |
 | **Video** | under 3 minutes — see [Live demo](#live-demo) |
-| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super) · `nv-embedqa-e5-v5` (NeMo Retriever embed) · `nv-rerankqa-mistral-4b-v3` (NeMo Retriever rerank) |
-| **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extraction stage) |
+| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super, reason stage — non-reasoning mode for schema-conformant JSON verdicts) |
+| **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extract stage) · `Qwen/Qwen3-Embedding-8B` (Apache-2.0 embedding model, retrieve stage) |
 | **Domain** | US patient-assistance-program (PAP) eligibility |
 
 Verdikt reads inbound documents, retrieves the human-authored rules that apply,
@@ -18,12 +18,15 @@ building is a byte-identical merge of a frozen, human-approved template with
 that decision. **No language model sits on the code path that produces the
 audited artifact.**
 
-> **Nebius × NVIDIA Global AI Hackathon submission.** Four models composed
-> across three pipeline stages, all served via Nebius Token Factory:
-> `openbmb/MiniCPM-V-4_5` (Apache-2.0) for multimodal extraction, two NVIDIA
-> NeMo Retriever NIMs (`nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3`) for
-> rule retrieval, and NVIDIA Nemotron Super (`nemotron-3-super-120b-a12b`) in
-> non-reasoning mode for structured-JSON verdict emission. See
+> **Nebius × NVIDIA Global AI Hackathon submission.** Three models composed
+> across three pipeline stages, all served via one Nebius Token Factory
+> endpoint / one API key:
+> `openbmb/MiniCPM-V-4_5` (Apache-2.0) for multimodal extraction,
+> `Qwen/Qwen3-Embedding-8B` (Apache-2.0) for dense-vector rule retrieval,
+> and NVIDIA `nemotron-3-super-120b-a12b` (Nemotron Super) in non-reasoning
+> mode for structured-JSON verdict emission. Each stage's model is
+> tenant-configurable — swap Nemotron Super for Nemotron Ultra 550B or
+> Nemotron Nano 30B per program with no code change. See
 > [`docs/HACKATHON.md`](docs/HACKATHON.md) for the full submission write-up,
 > the reuse declaration, and the deploy runbook.
 
@@ -41,13 +44,13 @@ audited artifact.**
     ▼
   ┌───────────────────── AI ZONE ─────────────────────┐
   │                                                   │
-  │   1. Extract    MiniCPM-V (Apache-2.0, vision)    │
+  │   1. Extract    MiniCPM-V-4_5 (Apache-2.0)        │
   │        │                                          │
   │        ▼                                          │
-  │   2. Retrieve   NeMo Retriever  (embed + rerank)  │
+  │   2. Retrieve   Qwen3-Embedding-8B (dense)        │
   │        │                                          │
   │        ▼                                          │
-  │   3. Reason     Nemotron Super  (JSON verdict)    │
+  │   3. Reason     Nemotron Super (JSON verdict)     │
   │                                                   │
   └────────────────────── STOP ───────────────────────┘
     │

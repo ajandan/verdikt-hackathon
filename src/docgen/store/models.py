@@ -128,6 +128,13 @@ class Program(Base):
     history_slots: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
+    # Per-program model overrides. NULL means "use the process-wide default
+    # from settings" (env vars DOCGEN_PDF_VISION_OCR_MODEL / DOCGEN_AI_VERDICT_MODEL).
+    # Populated from the Models admin tab, whose dropdown is sourced from
+    # Nebius Token Factory's /v1/models catalog. Swapping Nemotron scale or
+    # vision model per program is a data change, not a code deploy.
+    extract_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reason_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

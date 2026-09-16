@@ -81,6 +81,7 @@ from docgen.pagination import (
     keyset_where,
 )
 from docgen.providers.base import FieldSpec, MappingProposal, Suggestion
+from docgen.providers.nebius_catalog import get_cached_catalog
 from docgen.quotas import QuotaExceeded, check_active_template_quota, check_render_quota
 from docgen.ratelimit import (
     LOGIN_MAX_ATTEMPTS,
@@ -5972,6 +5973,18 @@ async def program_detail(
         for o in declared_outcomes
     ]
 
+    # Live model catalog for the Extract / Reason dropdowns. Cached
+    # process-wide; refresh happens on first call after boot. Empty when the
+    # tenant hasn't configured DOCGEN_AI_API_KEY — the UI degrades to
+    # "no models discovered, using system defaults."
+    settings = get_settings()
+    catalog = get_cached_catalog(
+        base_url=(settings.ai_base_url or "https://api.studio.nebius.com/v1"),
+        api_key=(settings.ai_api_key or ""),
+    )
+    vision_models = catalog.vision_models()
+    reason_models = catalog.chat_models()
+
     return templates.TemplateResponse(
         request,
         "admin_program_detail.html",
@@ -5987,6 +6000,8 @@ async def program_detail(
             tenant_packages=tenant_packages,
             outcome_rows=outcome_rows,
             declared_outcomes=declared_outcomes,
+            vision_models=vision_models,
+            reason_models=reason_models,
             flash=flash, flash_kind=flash_kind,
         ),
     )
@@ -6241,12 +6256,21 @@ async def program_save(
     else:
         prog.enrollment_template_version_id = None
 
+    # Per-program model overrides. Empty string / whitespace clears the
+    # override so the pipeline falls back to the settings-wide defaults.
+    raw_extract = (form.get("extract_model") or "").strip()
+    raw_reason = (form.get("reason_model") or "").strip()
+    prog.extract_model = raw_extract or None
+    prog.reason_model = raw_reason or None
+
     # JSONB list mutation needs a fresh assignment for ORM dirty tracking.
     prog.extraction_schema = _parse_program_schema_form(form)
     await session.commit()
     log.info(
         "program_saved", program_id=str(prog.id),
         slots=len(prog.extraction_schema or []),
+        extract_model=prog.extract_model,
+        reason_model=prog.reason_model,
     )
     return _redirect(
         f"/ui/programs/{program_id}",

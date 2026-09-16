@@ -274,7 +274,7 @@ def run_json_intake_sync(
         extras = _extras_from_extraction(raw)
 
         rules = load_rules(program_slug, session=session, tenant_id=tenant_id) or None
-        config = _pipeline_config(settings, tenant)
+        config = _pipeline_config(settings, tenant, program)
 
         try:
             decision: Decision = asyncio.run(

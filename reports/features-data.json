@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T22:00:00Z",
-  "commit": "7e23a96",
+  "generated_at": "2026-09-16T20:11:48Z",
+  "commit": "d0dbb79",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -13,8 +13,8 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 81,
-    "shipped": 78,
+    "features_total": 87,
+    "shipped": 84,
     "in_progress": 0,
     "backlog": 3,
     "parked": 2
@@ -96,6 +96,20 @@
           "status": "shipped",
           "description": "Pure fn (events, slot_defs) -> [HistorySlot]. Kinds: bool, latest_outcome, days_since_latest, count. Orchestrator appends history citations for fired slots.",
           "evidence": "src/pap_pipeline/stages/slot_compile.py, tests/test_pap_slot_compile.py"
+        },
+        {
+          "name": "Per-tenant model selection",
+          "status": "shipped",
+          "evidence": "src/pap_pipeline/orchestrator.py + alembic/versions/0035_program_verifier_extract_model.py",
+          "notes": "Each tenant/program can pin its own extract, decision, and verifier models. Adds program.verifier_model + program.extract_model overrides on top of the tenant defaults.",
+          "commit": "d0dbb79"
+        },
+        {
+          "name": "PDF labeler: VLM vision mode (chunked + cropped)",
+          "status": "shipped",
+          "evidence": "src/docgen/designtime/pdf_labeler_backend.py",
+          "notes": "MiniCPM-V labels form fields via chunked page batches with per-widget crops when the whole-page pass fails. Handles dense flat forms that the widget-index approach mislabeled.",
+          "commit": "34d7bd4"
         }
       ]
     },
@@ -137,7 +151,7 @@
         {
           "name": "AI re-alignment on PDF re-upload",
           "status": "shipped",
-          "description": "Heuristic → diff review UI → AI fallback via Nemotron label match.",
+          "description": "Heuristic \u2192 diff review UI \u2192 AI fallback via Nemotron label match.",
           "evidence": "roadmap PR3 A/B/C"
         },
         {
@@ -150,7 +164,7 @@
           "name": "Non-text widget types (checkbox, radio)",
           "status": "shipped",
           "description": "Explicit type field on placements; render dispatches by type. Signature fields deferred.",
-          "evidence": "roadmap deferred → shipped"
+          "evidence": "roadmap deferred \u2192 shipped"
         },
         {
           "name": "Caller profile mapping engine",
@@ -173,7 +187,7 @@
         {
           "name": "Empty-state onboarding (sample template)",
           "status": "shipped",
-          "description": "'Or try a sample →' button pushes bundled DOCX through the real preflight path.",
+          "description": "'Or try a sample \u2192' button pushes bundled DOCX through the real preflight path.",
           "evidence": "/ui/upload/sample"
         },
         {
@@ -183,16 +197,28 @@
           "evidence": "src/docgen/core/render_pipeline_pdf.py::_draw_signature"
         },
         {
-          "name": "Command palette (⌘K)",
+          "name": "Command palette (\u2318K)",
           "status": "shipped",
           "description": "Jump to any template, tenant, caller profile, program, or nav route. Lazy /_palette.json load on first open; fuzzy score + arrow-key selection.",
           "evidence": "src/docgen/ui/templates/base.html cmdk-* + routes.py /_palette.json"
         },
         {
-          "name": "Responsive tables → mobile card view",
+          "name": "Responsive tables \u2192 mobile card view",
           "status": "shipped",
           "description": "Under 720px, table rows collapse into stacked cards labelled by data-label. Opt-in via class='responsive'. Templates + renders lists covered.",
           "evidence": "base.html @media (max-width: 720px) block; index.html + renders.html data-label attrs"
+        },
+        {
+          "name": "Submission video: design-time labeler insert (Beat 5)",
+          "status": "shipped",
+          "evidence": "assets/video/captures/labeler-clip.mp4 + scripts/assemble_video.sh",
+          "notes": "Real Verdikt UI captures (template detail \u2192 placement editor with acroform bboxes \u2192 expanded 21-field list) overlaid on Beat 5 during the design-time narration."
+        },
+        {
+          "name": "Submission video: 4-stage timeline overlay",
+          "status": "shipped",
+          "evidence": "assets/video/designs/stage-timeline.html + scripts/assemble_video.sh",
+          "notes": "Persistent top-right Ingest\u2192Decide\u2192Deliver\u2192Remember pill. Active stage walks left-to-right through the video so judges can track pipeline position."
         }
       ]
     },
@@ -216,7 +242,7 @@
         {
           "name": "Program outcome bindings",
           "status": "shipped",
-          "description": "programs.outcomes[] + package_bindings{outcome → package_id}. Publish gate refuses unbound outcomes.",
+          "description": "programs.outcomes[] + package_bindings{outcome \u2192 package_id}. Publish gate refuses unbound outcomes.",
           "evidence": "PR-C"
         },
         {
@@ -242,7 +268,7 @@
     {
       "id": "inbox",
       "name": "Inbox Agent",
-      "description": "IMAP-backed intake bus. Email is a normaliser: fax→email, scan→email, web→JSON all fan into this one loop.",
+      "description": "IMAP-backed intake bus. Email is a normaliser: fax\u2192email, scan\u2192email, web\u2192JSON all fan into this one loop.",
       "features": [
         {
           "name": "IMAP polling + allowlist",
@@ -259,7 +285,7 @@
         {
           "name": "Sender/domain resolver",
           "status": "shipped",
-          "description": "Resolves inbound sender → tenant + program via inbound_config.",
+          "description": "Resolves inbound sender \u2192 tenant + program via inbound_config.",
           "evidence": "src/docgen/inbox/resolver.py"
         },
         {
@@ -300,9 +326,9 @@
       "description": "Rules live in tenant-scoped library, linked many-to-many to programs. YAML is the seed; DB is authoritative.",
       "features": [
         {
-          "name": "programs table (tenant × PAP program)",
+          "name": "programs table (tenant \u00d7 PAP program)",
           "status": "shipped",
-          "description": "One row per tenant × program with extraction_schema, outcomes, package_bindings.",
+          "description": "One row per tenant \u00d7 program with extraction_schema, outcomes, package_bindings.",
           "evidence": "alembic 0023"
         },
         {
@@ -432,7 +458,7 @@
     {
       "id": "observability",
       "name": "Admin Dashboard & Observability",
-      "description": "Operator surfaces for state, failures, provenance. First-run path from empty inbox → rendered letter.",
+      "description": "Operator surfaces for state, failures, provenance. First-run path from empty inbox \u2192 rendered letter.",
       "features": [
         {
           "name": "/ui/dashboard rollup",
@@ -467,14 +493,26 @@
         {
           "name": "OpenTelemetry end-to-end tracing",
           "status": "backlog",
-          "description": "FastAPI → SQLAlchemy → boto3 → render span. Not wired yet.",
+          "description": "FastAPI \u2192 SQLAlchemy \u2192 boto3 \u2192 render span. Not wired yet.",
           "evidence": "roadmap Observability"
         },
         {
           "name": "Per-tenant metrics + queue-depth alerts",
           "status": "shipped",
-          "description": "Prometheus exposition at /metrics. Counters for renders (tenant × format × state) and preflight rejections (tenant × reason). Histogram for render latency. Queue-depth gauge sampled on scrape.",
+          "description": "Prometheus exposition at /metrics. Counters for renders (tenant \u00d7 format \u00d7 state) and preflight rejections (tenant \u00d7 reason). Histogram for render latency. Queue-depth gauge sampled on scrape.",
           "evidence": "src/docgen/metrics.py, /metrics endpoint in src/docgen/main.py"
+        },
+        {
+          "name": "Engineering dashboard CSP hardening",
+          "status": "shipped",
+          "evidence": "src/docgen/security_headers.py (_ENGINEERING_CSP)",
+          "notes": "Pre-generated /engineering/* HTML gets a no-nonce CSP so browsers honor `unsafe-inline` for inline styles/scripts, plus fonts.gstatic.com in font-src."
+        },
+        {
+          "name": "Landing page: native HTML5 demo video",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/landing.html (data-video-src) + src/docgen/ui/static/verdikt-submission.mp4",
+          "notes": "Replaces the YouTube facade with a local 1080p MP4 served via /static (28MB, gitignored). Play-on-click swaps in a <video autoplay controls> element."
         }
       ]
     },
@@ -486,7 +524,7 @@
         {
           "name": "Idempotency-Key on /render + /render/mapped",
           "status": "shipped",
-          "description": "Replay-safe for 24h. Fingerprint mismatch → 409.",
+          "description": "Replay-safe for 24h. Fingerprint mismatch \u2192 409.",
           "evidence": "src/docgen/core/idempotency.py"
         },
         {
@@ -508,7 +546,7 @@
           "evidence": "test_security_headers.py"
         },
         {
-          "name": "boundary tests (docgen ↮ pap_pipeline)",
+          "name": "boundary tests (docgen \u21ae pap_pipeline)",
           "status": "shipped",
           "description": "tests/test_boundaries.py fails the build on one-way violation or AI in the render path.",
           "evidence": "test_boundaries.py"
@@ -520,7 +558,7 @@
           "evidence": "test_ssrf_and_idor.py"
         },
         {
-          "name": "License scan (§12)",
+          "name": "License scan (\u00a712)",
           "status": "shipped",
           "description": "MIT-compat allowlist + explicit LGPL/dual-license exceptions with justification.",
           "evidence": "scripts/license_check.py"
@@ -545,13 +583,13 @@
           "evidence": "docker-compose.yml"
         },
         {
-          "name": "GitHub Actions CI (lint → tests → license → CVE → tenant-audit)",
+          "name": "GitHub Actions CI (lint \u2192 tests \u2192 license \u2192 CVE \u2192 tenant-audit)",
           "status": "shipped",
           "description": "7 gates. quay.io mirror for MinIO to sidestep Docker Hub rate limits.",
           "evidence": ".github/workflows/ci.yml"
         },
         {
-          "name": "Alembic migrations (0001 → 0031)",
+          "name": "Alembic migrations (0001 \u2192 0031)",
           "status": "shipped",
           "description": "Fresh DB reaches head cleanly. Kinds-CHECK widened in 0031, seed filter added in 0025.",
           "evidence": "alembic/versions/"
@@ -580,25 +618,25 @@
   "backlog": [
     {
       "category": "Pipeline",
-      "item": "MDM PR3 · state-mdm-v1 adapter",
+      "item": "MDM PR3 \u00b7 state-mdm-v1 adapter",
       "priority": "high",
       "notes": "Real REST+JWT connector against fake MDM in local/mdm-fake/."
     },
     {
       "category": "Pipeline",
-      "item": "MDM PR4 · Ledger columns backfill",
+      "item": "MDM PR4 \u00b7 Ledger columns backfill",
       "priority": "medium",
       "notes": "mdm_snapshot_hash + provider on the case row."
     },
     {
       "category": "Pipeline",
-      "item": "MDM PR5 · History citation UI",
+      "item": "MDM PR5 \u00b7 History citation UI",
       "priority": "medium",
       "notes": "Reply-letter conditional block with prior-determination reference."
     },
     {
       "category": "Pipeline",
-      "item": "MDM PR6 · CI boundary test",
+      "item": "MDM PR6 \u00b7 CI boundary test",
       "priority": "medium",
       "notes": "Sweep every rules pack; enforce slot mediation."
     },
@@ -606,7 +644,7 @@
       "category": "Observability",
       "item": "OpenTelemetry end-to-end tracing",
       "priority": "medium",
-      "notes": "FastAPI → SQLAlchemy → boto3 → render span."
+      "notes": "FastAPI \u2192 SQLAlchemy \u2192 boto3 \u2192 render span."
     },
     {
       "category": "Docs",
@@ -634,7 +672,7 @@
       "date": "2026-09-09"
     },
     {
-      "item": "DOCX → PDF conversion path",
+      "item": "DOCX \u2192 PDF conversion path",
       "reason": "Reverted 2026-08-31; PDF is now a first-class kind. No conversion layer.",
       "date": "2026-08-31"
     }

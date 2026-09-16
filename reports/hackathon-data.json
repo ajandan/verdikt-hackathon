@@ -1,13 +1,13 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T22:00:00Z",
-  "commit": "7e23a96",
+  "generated_at": "2026-09-16T20:11:48Z",
+  "commit": "d0dbb79",
   "event": {
-    "name": "Nebius × NVIDIA Global AI Hackathon",
+    "name": "Nebius \u00d7 NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
-    "submission_window": "2026-08-26 → 2026-10-30",
+    "submission_window": "2026-08-26 \u2192 2026-10-30",
     "deadline": "2026-10-30",
-    "days_remaining": 46,
+    "days_remaining": 44,
     "repo": "https://github.com/ajandan/quire-hackathon"
   },
   "summary": {
@@ -34,7 +34,7 @@
     },
     {
       "id": "R2",
-      "name": "≥ 1 NVIDIA open-source model",
+      "name": "\u2265 1 NVIDIA open-source model",
       "status": "met",
       "how": "Three models, one per pipeline stage, all published under the nvidia/ namespace. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
       "evidence": [
@@ -114,7 +114,7 @@
     },
     "new_work": {
       "package": "src/pap_pipeline/ (Verdikt)",
-      "scope": "Three-stage decision pipeline (extract → retrieve → reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
+      "scope": "Three-stage decision pipeline (extract \u2192 retrieve \u2192 reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
       "mechanically_provable": [
         "git log -- src/pap_pipeline/ returns only submission-window commits",
         "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline (dependency direction is one-way)",
@@ -169,26 +169,88 @@
     }
   ],
   "checklist": [
-    { "item": "Public GitHub repo",       "status": "partial", "note": "Repo PRIVATE since 2026-09-07. Flip public before 2026-10-30." },
-    { "item": "Approved OSS license",     "status": "done",    "note": "MIT, enforced by CI license audit." },
-    { "item": "README with setup steps",  "status": "done",    "note": "Public-framing scrub complete. Docker compose bring-up documented." },
-    { "item": "Nebius-hosted deployment", "status": "planned", "note": "Deploy runbook (docs/deploy-nebius.md) pre-flighted. Actual deploy mid-Nov." },
-    { "item": "Public demo URL",          "status": "planned", "note": "Depends on the Nebius deploy above." },
-    { "item": "≥ 1 NVIDIA OSS model",     "status": "done",    "note": "Three: nv-ingest, NeMo Retriever NIMs, Nemotron. Default enforced by test." },
-    { "item": "YouTube video < 3 min",    "status": "planned", "note": "Script drafted. Recording after live demo URL." },
-    { "item": "Devpost submission",       "status": "planned", "note": "Ready to submit once demo URL + video are live." }
+    {
+      "item": "Public GitHub repo",
+      "status": "partial",
+      "note": "Repo PRIVATE since 2026-09-07. Flip public before 2026-10-30."
+    },
+    {
+      "item": "Approved OSS license",
+      "status": "done",
+      "note": "MIT, enforced by CI license audit."
+    },
+    {
+      "item": "README with setup steps",
+      "status": "done",
+      "note": "Public-framing scrub complete. Docker compose bring-up documented."
+    },
+    {
+      "item": "Nebius-hosted deployment",
+      "status": "planned",
+      "note": "Deploy runbook (docs/deploy-nebius.md) pre-flighted. Actual deploy mid-Nov."
+    },
+    {
+      "item": "Public demo URL",
+      "status": "planned",
+      "note": "Depends on the Nebius deploy above."
+    },
+    {
+      "item": "\u2265 1 NVIDIA OSS model",
+      "status": "done",
+      "note": "Three: nv-ingest, NeMo Retriever NIMs, Nemotron. Default enforced by test."
+    },
+    {
+      "item": "YouTube video < 3 min",
+      "status": "planned",
+      "note": "Script drafted. Recording after live demo URL."
+    },
+    {
+      "item": "Devpost submission",
+      "status": "planned",
+      "note": "Ready to submit once demo URL + video are live."
+    }
   ],
   "timeline": [
-    { "date": "2026-08-26", "event": "Submission window opens" },
-    { "date": "2026-08-27", "event": "Fork created at ajandan/quire-hackathon" },
-    { "date": "2026-09-03", "event": "Security audit: LOW risk, verdict APPROVED" },
-    { "date": "2026-09-07", "event": "Repo set PRIVATE for hackathon-window work" },
-    { "date": "2026-09-09", "event": "Product name locked: Verdikt" },
-    { "date": "2026-09-13", "event": "Code + security review dashboards shipped" },
-    { "date": "2026-09-14", "event": "Prometheus /metrics endpoint (per-tenant counters + latency histograms + queue-depth gauges) shipped" },
-    { "date": "2026-09-14", "event": "CVE scan (pip-audit --strict) landed in CI — zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml" },
-    { "date": "mid-Nov",    "event": "Nebius deploy target (post-submission for demo continuity)" },
-    { "date": "2026-10-30", "event": "Submission deadline: repo public, demo URL live, video posted" }
+    {
+      "date": "2026-08-26",
+      "event": "Submission window opens"
+    },
+    {
+      "date": "2026-08-27",
+      "event": "Fork created at ajandan/quire-hackathon"
+    },
+    {
+      "date": "2026-09-03",
+      "event": "Security audit: LOW risk, verdict APPROVED"
+    },
+    {
+      "date": "2026-09-07",
+      "event": "Repo set PRIVATE for hackathon-window work"
+    },
+    {
+      "date": "2026-09-09",
+      "event": "Product name locked: Verdikt"
+    },
+    {
+      "date": "2026-09-13",
+      "event": "Code + security review dashboards shipped"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "Prometheus /metrics endpoint (per-tenant counters + latency histograms + queue-depth gauges) shipped"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "CVE scan (pip-audit --strict) landed in CI \u2014 zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml"
+    },
+    {
+      "date": "mid-Nov",
+      "event": "Nebius deploy target (post-submission for demo continuity)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Submission deadline: repo public, demo URL live, video posted"
+    }
   ],
   "open_items": [
     {

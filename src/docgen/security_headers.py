@@ -53,15 +53,16 @@ def _base_csp(nonce: str) -> str:
 # Public marketing page at `/`. Same tight rules as base, but allows Google
 # Fonts (stylesheet + woff2) and YouTube's privacy-enhanced embed for the
 # hackathon demo video. No scripts, no XHR, no images beyond self+data.
+# The demo card plays a locally-hosted MP4 from /static, hence media-src 'self'.
 def landing_csp(nonce: str) -> str:
     return "; ".join([
         "default-src 'self'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
-        "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
         "object-src 'none'",
         "img-src 'self' data:",
+        "media-src 'self'",
         "font-src 'self' https://fonts.gstatic.com data:",
         f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com",
         f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline'",
@@ -103,12 +104,36 @@ def preview_csp(nonce: str) -> str:
 _HSTS = "max-age=31536000; includeSubDomains"
 
 
+# Pre-generated static reports under /engineering can't carry per-request
+# nonces on their inline <style>/<script> tags. In CSP3 browsers, the mere
+# presence of a nonce on script-src/style-src disables 'unsafe-inline' — so
+# without a matching nonce every inline block is blocked and the dashboard
+# renders unstyled. Use a nonce-free CSP that relies on 'unsafe-inline'.
+# rsms.me is the Inter font CDN the dashboards use.
+_ENGINEERING_CSP = "; ".join([
+    "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "img-src 'self' data:",
+    "font-src 'self' https://rsms.me https://fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self'",
+])
+
+
 def _is_docs_path(path: str) -> bool:
     return path in {"/docs", "/redoc", "/docs/oauth2-redirect"} or path.startswith("/docs/")
 
 
 def _is_landing_path(path: str) -> bool:
     return path == "/"
+
+
+def _is_engineering_path(path: str) -> bool:
+    return path == "/engineering" or path.startswith("/engineering/")
 
 
 def _request_is_https(request: Request) -> bool:
@@ -143,6 +168,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if _is_docs_path(path):
             policy = _DOCS_CSP
+        elif _is_engineering_path(path):
+            policy = _ENGINEERING_CSP
         elif _is_landing_path(path):
             policy = landing_csp(request.state.csp_nonce)
         else:

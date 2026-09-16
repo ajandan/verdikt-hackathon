@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-14T00:00:00Z",
-  "commit": "e869e09",
+  "generated_at": "2026-09-16T20:11:48Z",
+  "commit": "d0dbb79",
   "attestation": {
     "last_manually_attested_at": "2026-09-14T00:00:00Z",
     "attested_by": "manual",
@@ -47,13 +47,13 @@
             "name": "Caddy TLS reverse-proxy template",
             "status": "ready",
             "detail": "Caddyfile drafted for `quire.<domain>` on :443 with zstd/gzip encoding and query-token redaction.",
-            "evidence": "docs/deploy-nebius.md §8"
+            "evidence": "docs/deploy-nebius.md \u00a78"
           },
           {
             "name": "Local prod-mode smoke test",
             "status": "ready",
             "detail": "Full docker-compose.prod stack brought up on laptop against a stub provider; /health returns 200; mapping wizard works.",
-            "evidence": "docs/deploy-nebius.md §12"
+            "evidence": "docs/deploy-nebius.md \u00a712"
           }
         ]
       },
@@ -113,37 +113,37 @@
             "name": "Nebius VM provisioned",
             "status": "pending",
             "detail": "Ubuntu 24.04, 4 vCPU / 8 GB / 40 GB disk. Region close to Token Factory endpoint. Public IPv4 enabled.",
-            "evidence": "docs/deploy-nebius.md §1"
+            "evidence": "docs/deploy-nebius.md \u00a71"
           },
           {
             "name": "DNS A-record pointing to VM",
             "status": "pending",
-            "detail": "`quire.<domain>` → VM public IPv4. Must propagate before Caddy starts or ACME will retry hourly.",
-            "evidence": "docs/deploy-nebius.md §1"
+            "detail": "`quire.<domain>` \u2192 VM public IPv4. Must propagate before Caddy starts or ACME will retry hourly.",
+            "evidence": "docs/deploy-nebius.md \u00a71"
           },
           {
             "name": "Security group (:22 / :80 / :443)",
             "status": "pending",
             "detail": ":80 required for Let's Encrypt ACME HTTP-01 challenge; :443 for public HTTPS; :22 restricted to admin IPs.",
-            "evidence": "docs/deploy-nebius.md §1"
+            "evidence": "docs/deploy-nebius.md \u00a71"
           },
           {
             "name": "Docker Engine + Compose installed",
             "status": "pending",
             "detail": "One-line install from get.docker.com; deploy user added to docker group.",
-            "evidence": "docs/deploy-nebius.md §2"
+            "evidence": "docs/deploy-nebius.md \u00a72"
           },
           {
             "name": "Nebius Token Factory API key",
             "status": "pending",
             "detail": "Issued at studio.nebius.com. Copied once (not retrievable). Spend cap set in console.",
-            "evidence": "docs/deploy-nebius.md §4, §10"
+            "evidence": "docs/deploy-nebius.md \u00a74, \u00a710"
           },
           {
             "name": "TLS certificate (Let's Encrypt via Caddy)",
             "status": "pending",
             "detail": "90-day auto-renewing cert. First issuance triggered on first HTTPS request after DNS propagates.",
-            "evidence": "docs/deploy-nebius.md §8"
+            "evidence": "docs/deploy-nebius.md \u00a78"
           }
         ]
       },
@@ -167,13 +167,13 @@
             "name": ".env file permissions 600",
             "status": "pending",
             "detail": "chmod 600 .env owned by deploy user only. Enforced on the VM at bring-up.",
-            "evidence": "docs/deploy-nebius.md §5, §10"
+            "evidence": "docs/deploy-nebius.md \u00a75, \u00a710"
           },
           {
             "name": "Credential rotation before demo",
             "status": "pending",
             "detail": "Session secret, admin password hash, and Token Factory key all rotated in the final 24-hour window before recording the video.",
-            "evidence": "docs/deploy-nebius.md §10"
+            "evidence": "docs/deploy-nebius.md \u00a710"
           }
         ]
       }
@@ -219,7 +219,7 @@
       },
       {
         "name": "Caddy (TLS reverse proxy)",
-        "role": "Public :443 → web :8200; Let's Encrypt cert",
+        "role": "Public :443 \u2192 web :8200; Let's Encrypt cert",
         "status": "not-deployed",
         "detail": "Provisioned on the VM host (not in compose) so the ACME challenge can bind :80 directly.",
         "last_seen": "n/a"
@@ -250,25 +250,43 @@
       {
         "name": "TLS certificate",
         "url": "quire.<domain>",
-        "expect": "Let's Encrypt · 90-day auto-renew",
+        "expect": "Let's Encrypt \u00b7 90-day auto-renew",
         "status": "not-deployed",
         "last_seen": "n/a"
       },
       {
         "name": "Public demo URL",
         "url": "https://quire.<domain>/",
-        "expect": "Marketing landing → engineering dashboard hub",
+        "expect": "Marketing landing \u2192 engineering dashboard hub",
         "status": "not-deployed",
         "last_seen": "n/a"
       }
     ]
   },
   "deploy_timeline": [
-    { "date": "2026-09-13", "event": "docs/deploy-nebius.md rev 2: Caddy Cloudsmith repo + ACME failure modes documented" },
-    { "date": "2026-09-14", "event": "Pre-flight smoke test on laptop passed (docker-compose.prod, stub provider)" },
-    { "date": "2026-10-25", "event": "Hackathon-scoped Nebius VM cut, DNS points, TLS certificate issued (planned)" },
-    { "date": "2026-10-27", "event": "Video recorded against the live URL (planned)" },
-    { "date": "2026-10-30", "event": "Devpost submission: live URL, video URL, public repo (planned)" },
-    { "date": "2026-11-15", "event": "Production Verdikt deploy on Nebius (planned)" }
+    {
+      "date": "2026-09-13",
+      "event": "docs/deploy-nebius.md rev 2: Caddy Cloudsmith repo + ACME failure modes documented"
+    },
+    {
+      "date": "2026-09-14",
+      "event": "Pre-flight smoke test on laptop passed (docker-compose.prod, stub provider)"
+    },
+    {
+      "date": "2026-10-25",
+      "event": "Hackathon-scoped Nebius VM cut, DNS points, TLS certificate issued (planned)"
+    },
+    {
+      "date": "2026-10-27",
+      "event": "Video recorded against the live URL (planned)"
+    },
+    {
+      "date": "2026-10-30",
+      "event": "Devpost submission: live URL, video URL, public repo (planned)"
+    },
+    {
+      "date": "2026-11-15",
+      "event": "Production Verdikt deploy on Nebius (planned)"
+    }
   ]
 }

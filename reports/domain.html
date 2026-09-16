@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Domain primer</title>
+<meta name="description" content="A neutral, two-minute primer on Patient Assistance Programs: who's involved, what documents move, what a decision looks like, and where Verdikt fits in the flow." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · Domain primer" />
+<meta property="og:description" content="A neutral, two-minute primer on Patient Assistance Programs: who's involved, what documents move, what a decision looks like, and where Verdikt fits in the flow." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · Domain primer" />
+<meta name="twitter:description" content="A neutral, two-minute primer on Patient Assistance Programs: who's involved, what documents move, what a decision looks like, and where Verdikt fits in the flow." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+<style>
+  body {
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(47,143,118,0.06), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 40%, rgba(201,138,43,0.05), transparent 60%),
+      var(--ink-50);
+  }
+
+  .hero-domain { position: relative; padding: 56px 0 32px; }
+  .hero-domain .lede-strong {
+    max-width: 780px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 22px; line-height: 1.5;
+    color: var(--ink-700);
+    margin: 16px 0 0;
+  }
+  .hero-domain .lede-strong em { font-style: italic; color: var(--seal-700); }
+
+  .flow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    align-items: stretch;
+    margin: 20px 0 12px;
+  }
+  @media (max-width: 900px) { .flow { grid-template-columns: repeat(2, 1fr); } }
+  .flow-node {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .flow-node .role-badge {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--seal-700);
+    background: rgba(47,143,118,0.08);
+    padding: 3px 8px; border-radius: 3px;
+    align-self: flex-start;
+  }
+  .flow-node h4 {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 20px; margin: 4px 0 2px; color: var(--ink-900);
+  }
+  .flow-node p { margin: 2px 0 0; font-size: 13.5px; color: var(--ink-700); line-height: 1.45; }
+  .flow-arrow-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin: 4px 0 2px;
+    color: var(--seal-500);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.10em;
+  }
+  .flow-arrow-row span {
+    text-align: center;
+    padding: 4px 0;
+    color: var(--ink-500);
+  }
+  .flow-arrow-row span:last-child { visibility: hidden; }
+  @media (max-width: 900px) { .flow-arrow-row { display: none; } }
+
+  .doc-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 14px; margin: 18px 0 6px;
+  }
+  @media (max-width: 900px) { .doc-grid { grid-template-columns: repeat(2, 1fr); } }
+  .doc-card {
+    background: #fefdf9;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-radius: 10px;
+    padding: 18px 16px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .doc-card::before {
+    content: attr(data-tag);
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(122, 20, 20, 0.90); color: #fefdf9;
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    letter-spacing: 0.14em; padding: 2px 7px; border-radius: 3px;
+  }
+  .doc-card .doc-title {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 18px; color: var(--ink-900);
+    margin-top: 24px;
+  }
+  .doc-card .doc-why {
+    font-size: 13px; color: var(--ink-700); line-height: 1.45;
+  }
+
+  .outcome-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px; margin: 18px 0 8px;
+  }
+  @media (max-width: 820px) { .outcome-grid { grid-template-columns: 1fr; } }
+  .outcome-card {
+    background: #fff;
+    border-left: 4px solid var(--seal-500);
+    border-top: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-right: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-bottom: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .outcome-card.deny { border-left-color: #b45309; }
+  .outcome-card.missing { border-left-color: #6c6858; }
+  .outcome-card h4 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-900); margin: 0 0 4px;
+  }
+  .outcome-card p { margin: 6px 0 0; font-size: 13.5px; color: var(--ink-700); line-height: 1.5; }
+  .outcome-card ul {
+    margin: 6px 0 0; padding-left: 18px;
+    font-size: 13px; color: var(--ink-700); line-height: 1.55;
+  }
+
+  .pipeline-map {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 22px; margin: 18px 0 8px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .pipeline-map { grid-template-columns: 1fr; } }
+  .pipeline-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 14px; align-items: start;
+    padding: 12px 0;
+    border-bottom: 1px dashed rgba(20,20,16,0.12);
+  }
+  .pipeline-row:last-child { border-bottom: none; }
+  .pipeline-row .stage {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #141410; color: #fefdf9;
+    padding: 5px 10px; border-radius: 100px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .pipeline-row .stage::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--seal-500);
+  }
+  .pipeline-row .maps-to {
+    font-size: 13.5px; color: var(--ink-700); line-height: 1.5;
+  }
+  .pipeline-row .maps-to b { color: var(--ink-900); }
+
+  .glossary {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 6px 24px; margin: 12px 0 8px;
+    background: #fafaf5;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+  @media (max-width: 820px) { .glossary { grid-template-columns: 1fr; } }
+  .glossary dt {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--seal-700);
+    margin-top: 6px;
+  }
+  .glossary dd {
+    margin: 0 0 4px; font-size: 13px; color: var(--ink-700); line-height: 1.5;
+  }
+
+  /* --- End-to-end diagram --- */
+  .e2e-wrap {
+    margin: 22px 0 8px;
+    background: linear-gradient(180deg, #fefdf9 0%, #f5f4ef 100%);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 14px;
+    padding: 26px 22px 20px;
+    box-shadow: 0 20px 60px -40px rgba(20,20,16,0.20);
+    overflow-x: auto;
+  }
+  .e2e-wrap svg.e2e { display: block; width: 100%; min-width: 1100px; height: auto; }
+  .e2e-legend {
+    display: flex; flex-wrap: wrap; gap: 16px 24px;
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px dashed rgba(20,20,16,0.15);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; color: var(--ink-700); letter-spacing: 0.04em;
+  }
+  .e2e-legend .swatch {
+    display: inline-block; width: 12px; height: 12px;
+    border-radius: 2px; margin-right: 6px; vertical-align: -2px;
+  }
+  .e2e-legend .verdikt-sw { background: rgba(47,143,118,0.20); border: 1.5px solid #2f8f76; }
+  .e2e-legend .partner-sw { background: #fff; border: 1px solid #a9a394; }
+  .e2e-legend .feeder-sw { background: #fafaf5; border: 1px dashed #6c6858; }
+  .e2e-legend .fulfill-sw { background: rgba(201,138,43,0.14); border: 1px solid #a26a1e; }
+
+  .primer-callout {
+    background: linear-gradient(140deg, rgba(47,143,118,0.09), rgba(201,138,43,0.06));
+    border: 1px solid rgba(47,143,118,0.20);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 20px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  }
+  .primer-callout .txt { font-size: 14px; color: var(--ink-800); }
+  .primer-callout .txt b { color: var(--ink-900); }
+  .primer-callout a {
+    background: var(--seal-500); color: #fefdf9;
+    padding: 8px 14px; border-radius: 6px;
+    font-weight: 500; text-decoration: none;
+    font-size: 13px;
+  }
+  .primer-callout a:hover { background: var(--seal-700); }
+</style>
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">The <em>domain.</em></span>
+    </div>
+    <nav class="crossnav">
+      <a href="./index.html">Overview</a>
+      <a href="./about.html">About</a>
+      <a href="./domain.html" class="active">Domain</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero hero-domain">
+    <span class="eyebrow"><span class="dot"></span> Domain primer · ~2 minutes</span>
+    <h1 class="display">Patient Assistance Programs, <em>in plain terms</em></h1>
+    <p class="lede-strong">Patient Assistance Programs (PAPs) are grants that <em>pay for medication</em> when insurance won't. A pharmaceutical manufacturer funds the program, a pharmacy or hub service administers it, and eligible patients receive the drug at no cost. This page explains the roles, the paperwork, and where Verdikt fits, so the demo video makes sense even if you don't work in pharma.</p>
+  </section>
+
+  <!-- SECTION 1 · money + medication flow -->
+  <section class="block">
+    <span class="kicker">The flow</span>
+    <h2>Who pays whom, who receives what</h2>
+    <p class="subhead">Four parties, one loop. The manufacturer funds the program to broaden access to its own drug; a specialty pharmacy or hub administrator screens applicants; approved patients get the medication shipped to their door.</p>
+
+    <div class="flow">
+      <div class="flow-node">
+        <span class="role-badge">Sponsor</span>
+        <h4>Manufacturer</h4>
+        <p>Funds the program, sets the eligibility rules (income cap, indication, insurance status).</p>
+      </div>
+      <div class="flow-node">
+        <span class="role-badge">Administrator</span>
+        <h4>PAP hub / pharmacy</h4>
+        <p>Screens applications against the rules, issues an outcome letter, ships the medication.</p>
+      </div>
+      <div class="flow-node">
+        <span class="role-badge">Point of care</span>
+        <h4>Prescriber</h4>
+        <p>Writes the prescription, signs the medical-necessity attestation, provides NPI/DEA.</p>
+      </div>
+      <div class="flow-node">
+        <span class="role-badge">Beneficiary</span>
+        <h4>Patient</h4>
+        <p>Submits an enrollment packet (income, insurance denial, prescription) and receives the drug.</p>
+      </div>
+    </div>
+    <div class="flow-arrow-row">
+      <span>funds &rarr;</span>
+      <span>ships drug &rarr;</span>
+      <span>prescribes &rarr;</span>
+      <span></span>
+    </div>
+    <p class="subhead" style="margin-top: 8px">In the demo, the administrator is a fictional pharmacy called <b>Alderwood Specialty Pharmacy</b>. The patient is <b>Devon Okafor</b>; the medication is <b>Cardiovita 40 mg</b>.</p>
+  </section>
+
+  <!-- SECTION 2 · intake stack -->
+  <section class="block">
+    <span class="kicker">The application</span>
+    <h2>Four documents, one case file</h2>
+    <p class="subhead">A PAP application isn't a single form. It's a stack. Each document proves one thing the administrator has to verify before approving the grant.</p>
+
+    <div class="doc-grid">
+      <div class="doc-card" data-tag="ASP-100">
+        <div class="doc-title">Enrollment form</div>
+        <div class="doc-why">Applicant identity, contact, household size, income attestation, consent to share medical info. The intake anchor.</div>
+      </div>
+      <div class="doc-card" data-tag="Paystub">
+        <div class="doc-title">Income verification</div>
+        <div class="doc-why">Two recent pay stubs or the prior year's tax return. Proves household income is below the program's cap.</div>
+      </div>
+      <div class="doc-card" data-tag="Ins card">
+        <div class="doc-title">Insurance card</div>
+        <div class="doc-why">Confirms the applicant has no coverage, or that their coverage denied this specific drug. Sponsors don't want to displace commercial insurance.</div>
+      </div>
+      <div class="doc-card" data-tag="e-Rx">
+        <div class="doc-title">Prescription</div>
+        <div class="doc-why">The prescriber's Rx pad script with NPI, dosage, and refills. Proves medical need for the exact drug the program covers.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3 · outcomes -->
+  <section class="block">
+    <span class="kicker">The decision</span>
+    <h2>Three outcomes an administrator can issue</h2>
+    <p class="subhead">Every submitted case ends in one of three states. Each one is a letter with different content and, importantly, different <em>next-step</em> instructions for the applicant.</p>
+
+    <div class="outcome-grid">
+      <div class="outcome-card">
+        <h4>Approve</h4>
+        <p>Meets income, medical, and insurance criteria.</p>
+        <ul>
+          <li>Approval letter + first ship date</li>
+          <li>Refill schedule (typically every 30 days)</li>
+          <li>Benefits guide + re-attestation reminder</li>
+        </ul>
+      </div>
+      <div class="outcome-card deny">
+        <h4>Deny</h4>
+        <p>Fails at least one hard rule (usually income cap, commercial coverage, or wrong indication).</p>
+        <ul>
+          <li>Denial letter citing the specific rule that failed</li>
+          <li>Appeals notice (30-day window)</li>
+          <li>Resubmission form if circumstances change</li>
+        </ul>
+      </div>
+      <div class="outcome-card missing">
+        <h4>Missing information</h4>
+        <p>Application isn't decidable as sent. A required document is absent or unreadable.</p>
+        <ul>
+          <li>Missing-info letter with an itemized checklist</li>
+          <li>Instructions to submit only the delta</li>
+          <li>Case held open, no denial recorded</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4 · the reply -->
+  <section class="block">
+    <span class="kicker">The reply</span>
+    <h2>Why the outbound letter isn't just a letter</h2>
+    <p>Because it's the record that leaves the building. Regulators, sponsors, and internal audit teams all reference the same PDF for years. The letter has to reproduce <em>bit-for-bit</em> from the audit log (same input, same output) long after the AI models that helped produce it have changed versions.</p>
+
+    <p style="margin-top: 10px">And the reply is rarely a single letter. Depending on the outcome it may be an <b>ordered document package</b>: outcome letter → appeals notice → benefits guide → whatever blank forms the applicant needs next. The administrator declares the package composition in advance; it never changes at render time.</p>
+  </section>
+
+  <!-- SECTION 4b · End-to-end diagram: full PAP operation -->
+  <section class="block">
+    <span class="kicker">The full picture</span>
+    <h2>From every channel to the patient's door</h2>
+    <p class="subhead">Verdikt is the AI + deterministic-render pipeline in the middle of a much larger operation. The intake channels on the left all normalize into one case; the pipeline (highlighted) reads, decides, and produces the byte-identical reply; downstream systems dispatch the physical order to fulfillment. Outbound is via pharmacy OMS + carrier + case management, not email.</p>
+
+    <div class="e2e-wrap">
+      <svg class="e2e" viewBox="0 0 1520 820" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PAP end-to-end operational flow with Verdikt pipeline highlighted">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2f8f76"/>
+          </marker>
+          <marker id="arr-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a9a394"/>
+          </marker>
+          <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a26a1e"/>
+          </marker>
+
+          <!-- Reusable icons (stroke inherits currentColor) -->
+          <symbol id="i-email" viewBox="0 0 24 24"><path d="M3 6h18v12H3z M3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-fax" viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 9V4h8v5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="13" r="1" fill="currentColor"/><line x1="8" y1="13" x2="13" y2="13" stroke="currentColor" stroke-width="1.4"/><line x1="8" y1="16" x2="13" y2="16" stroke="currentColor" stroke-width="1.4"/></symbol>
+          <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="6" y1="10" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="13" x2="14" y2="13" stroke="currentColor" stroke-width="1.2"/><line x1="15" y1="9" x2="15" y2="16" stroke="currentColor" stroke-width="1.2"/><line x1="17" y1="9" x2="17" y2="16" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-web" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3" y1="8" x2="21" y2="8" stroke="currentColor" stroke-width="1.6"/><circle cx="6" cy="6" r="0.7" fill="currentColor"/><circle cx="8" cy="6" r="0.7" fill="currentColor"/><path d="M8 14h8M8 17h5" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-api" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 13 l3-3 3 3 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><line x1="9" y1="20" x2="15" y2="20" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-intake" viewBox="0 0 24 24"><path d="M3 13v6h18v-6h-5l-2 2h-4l-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7 4h10v9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-ingest" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 12c3-5 7-7 10-7s7 2 10 7c-3 5-7 7-10 7s-7-2-10-7z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-decide" viewBox="0 0 24 24"><path d="M12 3v6M9 6l3-3 3 3M6 12h12M6 21h12M9 18l3 3 3-3M4 12l3-4M20 12l-3-4M4 12l3 4M20 12l-3 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-deliver" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="4" width="8" height="5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="14" width="8" height="6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="10" y1="16" x2="14" y2="16" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-remember" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="3" width="18" height="4" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-mdm" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 5v14c0 1 4 2 8 2s8-1 8-2V5" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="12" cy="12" rx="8" ry="2" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/></symbol>
+          <symbol id="i-rules" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 4v3h3" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="8" y1="11" x2="16" y2="11" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="14" x2="16" y2="14" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-tmpl" viewBox="0 0 24 24"><path d="M5 4h11l4 4v12H5z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 13l3 3 5-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-audit" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="16" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="9" y1="11" x2="15" y2="11" stroke="currentColor" stroke-width="1.2"/><line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="1.2"/><line x1="9" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-pharma" viewBox="0 0 24 24"><path d="M6 4h12l-1 4H7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8v9c0 1 1 2 2 2h4c1 0 2-1 2-2V8" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="12" y1="11" x2="12" y2="17" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-truck" viewBox="0 0 24 24"><rect x="2" y="8" width="12" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M14 11h5l2 3v2h-7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="6" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-patient" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 20c0-5 4-8 8-8s8 3 8 8" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-crm" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="14" width="4" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="17" y="14" width="4" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M20 19v1a2 2 0 0 1-2 2h-4" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-portal" viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="3" y1="8" x2="17" y2="8" stroke="currentColor" stroke-width="1.6"/><path d="M20 8v10a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 2"/><line x1="7" y1="12" x2="13" y2="12" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="15" x2="11" y2="15" stroke="currentColor" stroke-width="1.2"/></symbol>
+          <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-8 7-13a7 7 0 0 0-14 0c0 5 7 13 7 13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+          <symbol id="i-ebv" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.6"/><path d="M7 14l2 2 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-badge" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 3h6v3H9z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 18c0-2 2-3 4-3s4 1 4 3" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+        </defs>
+
+        <!-- Section titles -->
+        <text x="20" y="24" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="0.16em" fill="#6c6858">INBOUND</text>
+        <text x="270" y="24" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="0.16em" fill="#6c6858">NORMALIZE</text>
+        <text x="480" y="24" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="0.16em" fill="#2f8f76" font-weight="600">VERDIKT PIPELINE · AI in, deterministic out</text>
+        <text x="1170" y="24" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="0.16em" fill="#6c6858">DOWNSTREAM</text>
+        <text x="1400" y="24" font-family="'JetBrains Mono', monospace" font-size="11" letter-spacing="0.16em" fill="#a26a1e">FULFILLMENT</text>
+
+        <!-- === LEFT: 5 INBOUND CHANNELS === -->
+        <g font-family="'Inter', sans-serif" color="#1e5f4f">
+          <!-- Email -->
+          <g transform="translate(20,50)">
+            <rect width="200" height="58" rx="8" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-email" x="16" y="17" width="24" height="24" color="#1e5f4f"/>
+            <text x="52" y="30" font-size="14" font-weight="600" fill="#141410">Email</text>
+            <text x="52" y="47" font-size="11" fill="#6c6858">applicant · plus attachments</text>
+          </g>
+          <!-- Fax -->
+          <g transform="translate(20,120)">
+            <rect width="200" height="58" rx="8" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-fax" x="16" y="17" width="24" height="24" color="#1e5f4f"/>
+            <text x="52" y="30" font-size="14" font-weight="600" fill="#141410">Fax</text>
+            <text x="52" y="47" font-size="11" fill="#6c6858">prescriber office · fax-to-email</text>
+          </g>
+          <!-- Mail (scan) -->
+          <g transform="translate(20,190)">
+            <rect width="200" height="58" rx="8" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-mail" x="16" y="17" width="24" height="24" color="#1e5f4f"/>
+            <text x="52" y="30" font-size="14" font-weight="600" fill="#141410">Mail (scanned)</text>
+            <text x="52" y="47" font-size="11" fill="#6c6858">physical intake · digitized</text>
+          </g>
+          <!-- Web portal -->
+          <g transform="translate(20,260)">
+            <rect width="200" height="58" rx="8" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-web" x="16" y="17" width="24" height="24" color="#1e5f4f"/>
+            <text x="52" y="30" font-size="14" font-weight="600" fill="#141410">Web portal</text>
+            <text x="52" y="47" font-size="11" fill="#6c6858">patient / caregiver form</text>
+          </g>
+          <!-- EHR / API -->
+          <g transform="translate(20,330)">
+            <rect width="200" height="58" rx="8" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-api" x="16" y="17" width="24" height="24" color="#1e5f4f"/>
+            <text x="52" y="30" font-size="14" font-weight="600" fill="#141410">EHR · REST/API</text>
+            <text x="52" y="47" font-size="11" fill="#6c6858">provider system · JSON push</text>
+          </g>
+        </g>
+
+        <!-- === INTAKE NORMALIZER === -->
+        <g transform="translate(270,180)" font-family="'Inter', sans-serif">
+          <rect width="160" height="100" rx="10" fill="#fefdf9" stroke="#6c6858" stroke-width="1.5"/>
+          <use href="#i-intake" x="68" y="12" width="26" height="26" color="#1e5f4f"/>
+          <text x="80" y="60" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Intake normalizer</text>
+          <text x="80" y="76" text-anchor="middle" font-size="10" fill="#6c6858">tenant resolve · dedupe</text>
+          <text x="80" y="90" text-anchor="middle" font-size="10" fill="#6c6858">one case per applicant</text>
+        </g>
+
+        <!-- === VERDIKT PIPELINE (highlighted) === -->
+        <g transform="translate(470,50)" font-family="'Inter', sans-serif">
+          <rect width="600" height="360" rx="16" fill="rgba(47,143,118,0.06)" stroke="#2f8f76" stroke-width="2"/>
+          <!-- Pipeline subtitle -->
+          <text x="300" y="34" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="17" fill="#1e5f4f">Ingest &rarr; Decide &rarr; Deliver &rarr; Remember</text>
+
+          <!-- 4 pipeline stages -->
+          <g transform="translate(20,64)">
+            <!-- Ingest -->
+            <g>
+              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-ingest" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Ingest</text>
+              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">read stack</text>
+              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ structured fields</text>
+            </g>
+            <!-- Decide -->
+            <g transform="translate(150,0)">
+              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-decide" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Decide</text>
+              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">rules + verdict</text>
+              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ approve/deny/miss</text>
+            </g>
+            <!-- Deliver -->
+            <g transform="translate(300,0)">
+              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-deliver" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Deliver</text>
+              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">frozen template</text>
+              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ byte-identical PDF</text>
+            </g>
+            <!-- Remember -->
+            <g transform="translate(450,0)">
+              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-remember" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Remember</text>
+              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">audit + sha256</text>
+              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ reproducible</text>
+            </g>
+          </g>
+
+          <!-- Intra-pipeline arrows -->
+          <g stroke="#2f8f76" stroke-width="1.5" fill="none">
+            <line x1="150" y1="114" x2="170" y2="114" marker-end="url(#arr)"/>
+            <line x1="300" y1="114" x2="320" y2="114" marker-end="url(#arr)"/>
+            <line x1="450" y1="114" x2="470" y2="114" marker-end="url(#arr)"/>
+          </g>
+
+          <!-- STOP gate label between Decide and Deliver -->
+          <g transform="translate(305,180)">
+            <rect x="-24" y="-8" width="48" height="16" rx="8" fill="#141410"/>
+            <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#fefdf9" letter-spacing="0.20em">STOP</text>
+            <text x="0" y="24" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#2f8f76">AI ends here</text>
+          </g>
+
+          <!-- Pipeline label bottom -->
+          <text x="300" y="340" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="16" fill="#1e5f4f">Case in. Verdict out. Same case, same reply, forever.</text>
+        </g>
+
+        <!-- === FEEDER SYSTEMS (below Verdikt) === -->
+        <g transform="translate(470,440)" font-family="'Inter', sans-serif">
+          <text x="0" y="-8" font-family="'JetBrains Mono', monospace" font-size="10" fill="#6c6858" letter-spacing="0.14em">FEEDER · DATA + CONFIG</text>
+          <!-- MDM -->
+          <g>
+            <rect width="140" height="88" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-mdm" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="50" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">MDM</text>
+            <text x="70" y="66" text-anchor="middle" font-size="10" fill="#6c6858">patient · prescriber</text>
+            <text x="70" y="78" text-anchor="middle" font-size="10" fill="#6c6858">master identity</text>
+          </g>
+          <!-- Rules Library -->
+          <g transform="translate(155,0)">
+            <rect width="140" height="88" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-rules" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="50" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Rules Library</text>
+            <text x="70" y="66" text-anchor="middle" font-size="10" fill="#6c6858">program eligibility</text>
+            <text x="70" y="78" text-anchor="middle" font-size="10" fill="#6c6858">versioned YAML</text>
+          </g>
+          <!-- Template Library -->
+          <g transform="translate(310,0)">
+            <rect width="140" height="88" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-tmpl" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="50" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Template Library</text>
+            <text x="70" y="66" text-anchor="middle" font-size="10" fill="#6c6858">frozen · sha256</text>
+            <text x="70" y="78" text-anchor="middle" font-size="10" fill="#6c6858">human-approved</text>
+          </g>
+          <!-- Audit Log -->
+          <g transform="translate(465,0)">
+            <rect width="135" height="88" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-audit" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="67" y="50" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Audit Log · S3</text>
+            <text x="67" y="66" text-anchor="middle" font-size="10" fill="#6c6858">every stage · every</text>
+            <text x="67" y="78" text-anchor="middle" font-size="10" fill="#6c6858">artifact · retained</text>
+          </g>
+        </g>
+
+        <!-- === DOWNSTREAM SYSTEMS === -->
+        <g transform="translate(1160,50)" font-family="'Inter', sans-serif">
+          <!-- Case Mgmt / CRM (top — primary route from Verdikt Deliver) -->
+          <g>
+            <rect width="170" height="94" rx="10" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-crm" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
+            <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Case Mgmt &middot; CRM</text>
+            <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">orchestrates dispatch,</text>
+            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">outreach, appeals</text>
+          </g>
+          <!-- Pharmacy OMS (middle — fed by CRM on approve) -->
+          <g transform="translate(0,130)">
+            <rect width="170" height="94" rx="10" fill="#fff8f0" stroke="#a26a1e" stroke-width="1.5"/>
+            <use href="#i-pharma" x="15" y="15" width="24" height="24" color="#a26a1e"/>
+            <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Pharmacy OMS</text>
+            <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">dispensing order</text>
+            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">on approve &middot; SFTP/API</text>
+          </g>
+          <!-- Patient Portal (bottom — fed by CRM, patient-facing) -->
+          <g transform="translate(0,260)">
+            <rect width="170" height="94" rx="10" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-portal" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
+            <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Patient Portal</text>
+            <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">signed letter &middot; status</text>
+            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">no email outbound</text>
+          </g>
+
+          <!-- Internal arrows: CRM → Pharmacy (down), CRM → Portal (down) -->
+          <g stroke="#a9a394" stroke-width="1.5" fill="none">
+            <line x1="85" y1="94" x2="85" y2="130" marker-end="url(#arr-mut)"/>
+            <line x1="85" y1="224" x2="85" y2="260" marker-end="url(#arr-mut)"/>
+          </g>
+        </g>
+
+        <!-- === FULFILLMENT === -->
+        <g transform="translate(1400,140)" font-family="'Inter', sans-serif">
+          <!-- Carrier truck -->
+          <g>
+            <rect width="110" height="90" rx="8" fill="#fff8f0" stroke="#a26a1e" stroke-width="1.5"/>
+            <use href="#i-truck" x="43" y="12" width="24" height="24" color="#a26a1e"/>
+            <text x="55" y="58" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Carrier</text>
+            <text x="55" y="72" text-anchor="middle" font-size="10" fill="#6c6858">FedEx / UPS / USPS</text>
+          </g>
+          <!-- Patient (leaf node) -->
+          <g transform="translate(0,130)">
+            <rect width="110" height="90" rx="8" fill="#f0f8f4" stroke="#2f8f76" stroke-width="1.5"/>
+            <use href="#i-patient" x="43" y="12" width="24" height="24" color="#1e5f4f"/>
+            <text x="55" y="58" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Patient</text>
+            <text x="55" y="72" text-anchor="middle" font-size="10" fill="#6c6858">medication delivered</text>
+          </g>
+          <!-- Arrow Carrier → Patient -->
+          <line x1="55" y1="90" x2="55" y2="130" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#arr-amber)"/>
+        </g>
+
+        <!-- === CONNECTOR ARROWS === -->
+        <g fill="none">
+          <!-- 5 channels converge into intake normalizer -->
+          <g stroke="#2f8f76" stroke-width="1.6">
+            <path d="M220 79 C 245 79, 260 210, 270 214" marker-end="url(#arr)"/>
+            <path d="M220 149 C 245 149, 260 220, 270 224" marker-end="url(#arr)"/>
+            <line x1="220" y1="219" x2="268" y2="230" marker-end="url(#arr)"/>
+            <path d="M220 289 C 245 289, 260 244, 270 244" marker-end="url(#arr)"/>
+            <path d="M220 359 C 245 359, 260 254, 270 254" marker-end="url(#arr)"/>
+          </g>
+
+          <!-- Intake normalizer → Verdikt Ingest -->
+          <line x1="430" y1="230" x2="490" y2="228" stroke="#2f8f76" stroke-width="1.8" marker-end="url(#arr)"/>
+
+          <!-- Verdikt Deliver → Case Mgmt / CRM (the ONLY outbound edge from the pipeline).
+               Exits Deliver's right edge and arcs ABOVE the Remember box into CRM's left edge. -->
+          <path d="M 920,164 C 1000,90, 1090,80, 1160,97" stroke="#2f8f76" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+
+          <!-- Pharmacy OMS → Carrier (right side, physical hand-off) -->
+          <line x1="1330" y1="227" x2="1400" y2="185" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#arr-amber)"/>
+
+          <!-- Feeder systems ↑ to Verdikt stages (dashed). Terminates at stage box bottoms (y=214). -->
+          <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3">
+            <line x1="540" y1="440" x2="555" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="695" y1="440" x2="705" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="850" y1="440" x2="855" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="1002" y1="440" x2="1005" y2="220" marker-end="url(#arr-mut)"/>
+          </g>
+
+          <!-- External Verifiers → pipeline (Ingest + Decide).
+               One consolidated dashed L-path routed around the LEFT margin (x≈445) so it never
+               crosses the Feeder row. Source is the LEFT edge of the identity-bureau box; path bends
+               left into the margin channel, up past the Feeder row, and into the Ingest bottom. -->
+          <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3" fill="none">
+            <path d="M 470,661 L 445,661 L 445,222 L 553,222" marker-end="url(#arr-mut)"/>
+          </g>
+          <text x="440" y="606" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9" fill="#6c6858" letter-spacing="0.08em">called by Ingest &amp; Decide</text>
+        </g>
+
+        <!-- === EXTERNAL VERIFIERS (real-time third-party APIs) === -->
+        <g transform="translate(470,620)" font-family="'Inter', sans-serif">
+          <text x="0" y="-8" font-family="'JetBrains Mono', monospace" font-size="10" fill="#6c6858" letter-spacing="0.14em">EXTERNAL VERIFIERS &middot; THIRD-PARTY APIS</text>
+          <!-- Identity bureau -->
+          <g>
+            <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-shield" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Identity bureau</text>
+            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">identity &middot; income</text>
+            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">verification</text>
+          </g>
+          <!-- Address validation -->
+          <g transform="translate(155,0)">
+            <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-pin" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Address validation</text>
+            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">USPS &middot; Melissa</text>
+            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">SmartyStreets</text>
+          </g>
+          <!-- EBV vendors -->
+          <g transform="translate(310,0)">
+            <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-ebv" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">EBV vendors</text>
+            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">RxHub &middot; CoverMyMeds</text>
+            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">Change Healthcare</text>
+          </g>
+          <!-- NPI Registry -->
+          <g transform="translate(465,0)">
+            <rect width="135" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
+            <use href="#i-badge" x="10" y="10" width="22" height="22" color="#6c6858"/>
+            <text x="67" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">NPI Registry</text>
+            <text x="67" y="62" text-anchor="middle" font-size="10" fill="#6c6858">CMS &middot; prescriber</text>
+            <text x="67" y="74" text-anchor="middle" font-size="10" fill="#6c6858">validation</text>
+          </g>
+        </g>
+
+        <!-- === NOTES === -->
+        <g font-family="'Inter', sans-serif" font-size="11" fill="#6c6858">
+          <text x="20" y="740">All channels normalize to the <tspan font-weight="600" fill="#141410">same case</tspan>. Fax and mail turn into email attachments upstream.</text>
+          <text x="20" y="760">The <tspan fill="#2f8f76" font-weight="600">green box is Verdikt</tspan> &mdash; the AI-in / deterministic-out pipeline this repository ships.</text>
+          <text x="20" y="780">Verdikt hands the reply to <tspan fill="#a26a1e" font-weight="600">Case Mgmt / CRM</tspan>; CRM dispatches to Pharmacy OMS on approve and updates the Patient Portal on every outcome.</text>
+          <text x="20" y="800" font-style="italic" fill="#a9a394">Feeders &amp; External Verifiers below Verdikt supply data, config, and real-time lookups. Outbound to the patient is via signed portal + carrier &mdash; never email.</text>
+        </g>
+      </svg>
+
+      <div class="e2e-legend">
+        <span><span class="swatch verdikt-sw"></span>Verdikt pipeline (this repository)</span>
+        <span><span class="swatch partner-sw"></span>Partner / channel system</span>
+        <span><span class="swatch feeder-sw"></span>Feeder (data + config)</span>
+        <span><span class="swatch fulfill-sw"></span>Physical fulfillment</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5 · where Verdikt fits -->
+  <section class="block">
+    <span class="kicker">Where Verdikt fits</span>
+    <h2>The four stages, mapped onto the domain</h2>
+    <p class="subhead">Verdikt is the pipeline that reads the case, decides against the program's rules, delivers a byte-identical reply package, and remembers the trail. Here's how each of the four stages maps onto the flow above, the <b>same four stages</b> the timeline pill in the demo video walks through.</p>
+
+    <div class="pipeline-map">
+      <div>
+        <div class="pipeline-row">
+          <span class="stage">Ingest</span>
+          <div class="maps-to">Reads the intake stack (<b>enrollment form, pay stubs, insurance card, prescription</b>) and turns each into structured fields. Uses <b>MiniCPM-V</b> on Nebius for multimodal extraction.</div>
+        </div>
+        <div class="pipeline-row">
+          <span class="stage">Decide</span>
+          <div class="maps-to">Retrieves the program's eligibility rules (<b>NeMo Retriever</b>), then runs <b>Nemotron Super</b> to produce a structured verdict (approve / deny / missing info) with citations back to the specific rule that fired.</div>
+        </div>
+      </div>
+      <div>
+        <div class="pipeline-row">
+          <span class="stage">Deliver</span>
+          <div class="maps-to">Merges the verdict into a <b>frozen human-approved template</b> (Alderwood's ASP-201 for approvals). <em>No AI runs at render time.</em> The bytes come from templates a human already signed off.</div>
+        </div>
+        <div class="pipeline-row">
+          <span class="stage">Remember</span>
+          <div class="maps-to">Every stage's output is written to the audit log with a sha256 hash. Years later, a reviewer can reproduce the exact PDF that left the building.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6 · callout back to the demo -->
+  <section class="block" style="border-top: none; padding-top: 0">
+    <div class="primer-callout">
+      <div class="txt"><b>Ready for the demo?</b> The 3-minute video walks through a real Cardiovita application from email arrival to signed approval letter. The timeline pill at the top-right shows which of the four stages is being explained at any moment.</div>
+      <a href="/#hackathon">Watch the demo &rarr;</a>
+    </div>
+  </section>
+
+  <!-- SECTION 7 · glossary -->
+  <section class="block">
+    <span class="kicker">Reference</span>
+    <h2>Glossary</h2>
+    <p class="subhead">Terms that show up in the demo, the templates, and the code.</p>
+
+    <dl class="glossary">
+      <dt>PAP</dt>
+      <dd>Patient Assistance Program. Manufacturer-funded grant that covers the cost of a specific medication for eligible patients.</dd>
+
+      <dt>PBM</dt>
+      <dd>Pharmacy Benefit Manager. The middleman between an insurer and pharmacies for prescription drugs.</dd>
+
+      <dt>PA</dt>
+      <dd>Prior authorization. Insurer's approval that a specific drug is medically appropriate before dispensing.</dd>
+
+      <dt>Rx</dt>
+      <dd>Prescription. The prescriber's written order for a specific medication, dosage, and refill count.</dd>
+
+      <dt>NPI</dt>
+      <dd>National Provider Identifier. A 10-digit ID issued to every prescribing clinician in the United States.</dd>
+
+      <dt>DEA #</dt>
+      <dd>Drug Enforcement Administration registration number. Required on any prescription for a controlled substance.</dd>
+
+      <dt>Formulary</dt>
+      <dd>An insurer's list of covered drugs, usually tiered by copay level.</dd>
+
+      <dt>Copay</dt>
+      <dd>The patient's out-of-pocket share of a prescription cost, after insurance pays its portion.</dd>
+
+      <dt>Enrollment form</dt>
+      <dd>The intake application. In the demo it's Alderwood's ASP-100, a 4-page fillable PDF.</dd>
+
+      <dt>Outcome letter</dt>
+      <dd>The compliance-audited reply that documents the administrator's decision. In the demo it's ASP-201 (approval), ASP-202 (denial), or ASP-203 (missing info).</dd>
+
+      <dt>Doc package</dt>
+      <dd>An ordered set of documents the applicant receives for a given outcome, e.g. approval letter + benefits guide + next-refill reminder.</dd>
+
+      <dt>Preflight</dt>
+      <dd>Static analysis of an uploaded template before it can be labeled; checks for form fields, page count, and font embedding.</dd>
+
+      <dt>Placement</dt>
+      <dd>A named region on a template PDF (e.g., <code>patient.dob</code>) that the render pipeline fills at merge time.</dd>
+
+      <dt>Freeze</dt>
+      <dd>Marking a template version as immutable and production-ready. Frozen versions are the only ones that can render outbound letters.</dd>
+    </dl>
+  </section>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="6" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+    </div>
+    <div class="foot-links">
+      <a href="./index.html">Overview</a>
+      <a href="./about.html">About</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </div>
+  </footer>
+
+</main>
+
+</body>
+</html>

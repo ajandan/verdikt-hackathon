@@ -44,6 +44,25 @@ log = logging.getLogger(__name__)
 
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
+# Max fields per vision-labeling API call. Dense pages (36+ boxes) trigger a
+# reading-order bias in the VLM: it labels boxes in top-to-bottom order
+# instead of respecting the numbered-marker identity, so mid-page checkboxes
+# end up with top-of-page captions. Chunking each page into small groups
+# (sorted by reading order) keeps the numbered order aligned with the VLM's
+# natural read and drops per-page mis-attribution to near zero.
+# 8 was chosen from empirical data: pages with <=13 fields hit 88-92%
+# correct; pages with 36+ dropped to 50-56%. Sub-10 is the safe ceiling.
+_VISION_CHUNK_SIZE = 8
+
+# Vertical padding above/below a chunk's bounding box when cropping the
+# annotated PNG. Chunking alone doesn't kill the reading-order bias because
+# the VLM still sees the whole page and latches onto the topmost caption.
+# Cropping to just the chunk's region + padding forces the VLM to only see
+# the captions immediately near its boxes. Above-padding is larger because
+# form captions usually sit ABOVE their inputs. Sides / below get a smaller
+# margin — enough to catch a section header to the left or a legend below.
+_VISION_CROP_PAD_ABOVE_PX = 90
+_VISION_CROP_PAD_OTHER_PX = 30
 # Nebius Token Factory returns 429/503 during transient overload. One failed
 # labeling batch cancels the whole `label_fields_in_pdf` gather, which drops
 # every AI label for the template and leaves it stuck at raw AcroForm names
@@ -989,6 +1008,62 @@ def _annotate_page_with_boxes(
     return out.getvalue(), box_to_field_idx
 
 
+def _crop_annotated_to_chunk(
+    annotated_png: bytes,
+    chunk: list[dict[str, Any]],
+    page_w: float,
+    page_h: float,
+    scale: float = 3.125,
+) -> bytes:
+    """Crop the full-page annotated PNG down to just the region covering
+    `chunk`'s fields, plus padding.
+
+    Why: the VLM's reading-order bias reaches across the entire visible
+    image. A chunk of 8 mid-page boxes on a full-page image causes the VLM
+    to read the topmost caption on the page and attribute it to box #1,
+    even when box #1 sits at y=0.50. Cropping to the chunk's bounding
+    region (+ padding) limits what the VLM can even see — the only captions
+    in view are the ones that actually belong to the boxes it's labeling.
+
+    Padding is asymmetric: more space above than below/sides because form
+    captions almost always sit above their input widgets (or to their left
+    on the same row, which the horizontal padding covers).
+    """
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(annotated_png)).convert("RGB")
+    px_w, px_h = img.size
+    x_scale = px_w / page_w
+    y_scale = px_h / page_h
+
+    # Bounding box of the chunk's fields in image pixels.
+    xs: list[float] = []
+    ys: list[float] = []
+    for f in chunk:
+        try:
+            fx0 = float(f.get("x_pct") or 0) * page_w * x_scale
+            fy0 = float(f.get("y_pct") or 0) * page_h * y_scale
+            fx1 = fx0 + float(f.get("w_pct") or 0) * page_w * x_scale
+            fy1 = fy0 + float(f.get("h_pct") or 0) * page_h * y_scale
+        except (TypeError, ValueError):
+            continue
+        xs.extend([fx0, fx1])
+        ys.extend([fy0, fy1])
+
+    if not xs or not ys:
+        return annotated_png  # nothing to crop against — send full page
+
+    x0 = max(0, int(min(xs)) - _VISION_CROP_PAD_OTHER_PX)
+    y0 = max(0, int(min(ys)) - _VISION_CROP_PAD_ABOVE_PX)
+    x1 = min(px_w, int(max(xs)) + _VISION_CROP_PAD_OTHER_PX)
+    y1 = min(px_h, int(max(ys)) + _VISION_CROP_PAD_OTHER_PX)
+
+    cropped = img.crop((x0, y0, x1, y1))
+    out = io.BytesIO()
+    cropped.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
 async def _vision_label_page(
     client: httpx.AsyncClient,
     annotated_png: bytes,
@@ -1174,6 +1249,7 @@ async def label_fields_in_pdf(
     pdf_flavor: str | None = None,
     extra_body: dict[str, Any] | None = None,
     vision_model: str = "",
+    labeler_mode: str = "auto",
 ) -> dict[int, dict[str, str]]:
     """Label fields using geometry first, Nemotron for anything left over.
 
@@ -1184,13 +1260,17 @@ async def label_fields_in_pdf(
       * `pdf_flavor == "acroform"`: run `_geometric_labels_for_widgets`
         first — for AcroForm PDFs it resolves most widgets with pixel
         accuracy off the real /Rect entries. Widgets it can't resolve fall
-        through to Nemotron.
-      * For each page with remaining unresolved fields: extract per-line
-        OCR text with `_ocr_lines_for_page` (pdfplumber-backed), format the fields
-        as `#<idx> at (x=..y=..) [type]` lines, and send ONE Nemotron chat
-        call per page (or per 20-field batch if a page has more). Runs up
-        to `_BATCH_CONCURRENCY` batches in parallel.
-      * Geometric labels overlay Nemotron labels — on conflict, geometry
+        through to the model-based labelers.
+      * For each page with remaining unresolved fields the routing depends
+        on `labeler_mode`:
+          - "auto"   (default): text-only Nemotron for pages with
+                     extractable text; vision fallback only where none.
+          - "vision": force vision-labeling on every page even when text
+                     is extractable. Beats text-only on dense multi-column
+                     forms where Nemotron drops labels as empty. Slower.
+          - "text":  force text-only labeling; never call the VLM even
+                     when the page has no extractable text.
+      * Geometric labels overlay model labels — on conflict, geometry
         wins because it matched a real caption bbox to a real widget rect.
 
     `text_model` is the Nemotron model id (e.g.
@@ -1241,63 +1321,103 @@ async def label_fields_in_pdf(
             page_ocr[page_num] = _ocr_lines_for_page(page)
             page_size[page_num] = (float(page.width), float(page.height))
 
-    # Vision-labeling fallback: pages with no extractable text (vector-glyph
-    # forms — every letter drawn as a fill curve) get rasterized with each
-    # detected widget outlined in a numbered red box, and the annotated image
-    # is sent to the VLM. It sees each field's position AND the caption
-    # printed next to it, so we skip the OCR-then-spatial-match indirection
-    # entirely — the VLM returns `{box: label}` directly.
-    vision_pages: list[int] = [
-        pn for pn in by_page if not page_ocr.get(pn, "").strip()
-    ]
+    # Vision-labeling pages: rasterize with each detected widget outlined
+    # in a numbered red box and send the annotated image to the VLM. The
+    # VLM sees each field's position AND the caption printed next to it,
+    # so we skip the OCR-then-spatial-match indirection entirely — it
+    # returns `{box: label}` directly.
+    #   - "auto"   (default): only pages with no extractable text (vector-
+    #              glyph forms) go through vision.
+    #   - "vision": every page goes through vision, even text-bearing ones.
+    #              Wins on dense multi-column forms where Nemotron's
+    #              coordinate reasoning drops labels as empty.
+    #   - "text":  no page goes through vision.
+    if labeler_mode == "vision":
+        vision_pages = list(by_page.keys())
+    elif labeler_mode == "text":
+        vision_pages = []
+    else:
+        vision_pages = [pn for pn in by_page if not page_ocr.get(pn, "").strip()]
     visual_labels: dict[int, dict[str, str]] = {}
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         sem = asyncio.Semaphore(_BATCH_CONCURRENCY)
 
         if vision_model and vision_pages:
-            async def _visual_label_one(pn: int) -> dict[int, dict[str, str]]:
+            # Split each page's fields into small reading-order chunks
+            # (`_VISION_CHUNK_SIZE`). Each chunk becomes its own annotated
+            # image + its own VLM call. Sorting by (y_pct, x_pct) first
+            # aligns the drawn numbering with the VLM's natural reading
+            # order — the mid-page-checkbox-labeled-as-top-of-page-caption
+            # failure mode disappears because there are only 8 boxes per
+            # image and they all sit in the same horizontal band.
+            vision_chunks: list[tuple[int, list[dict[str, Any]]]] = []
+            for pn in vision_pages:
+                page_fields = sorted(
+                    by_page[pn],
+                    key=lambda f: (float(f.get("y_pct") or 0), float(f.get("x_pct") or 0)),
+                )
+                for i in range(0, len(page_fields), _VISION_CHUNK_SIZE):
+                    vision_chunks.append((pn, page_fields[i : i + _VISION_CHUNK_SIZE]))
+
+            async def _visual_label_chunk(
+                pn: int, chunk: list[dict[str, Any]]
+            ) -> dict[int, dict[str, str]]:
                 async with sem:
                     pw, ph = page_size.get(pn, (612.0, 792.0))
-                    page_fields = by_page[pn]
                     annotated, box_map = _annotate_page_with_boxes(
-                        pdf_bytes, pn, page_fields, pw, ph,
+                        pdf_bytes, pn, chunk, pw, ph,
                     )
                     if not annotated or not box_map:
                         return {}
+                    # Crop the full-page annotated PNG to just this chunk's
+                    # bounding region + padding. Without this the VLM still
+                    # sees every caption on the page and its reading-order
+                    # bias attributes top-of-page captions to whichever box
+                    # happens to be #1 in the chunk (even when box #1 sits
+                    # mid-page). Cropping tightly around the chunk means the
+                    # only captions in the VLM's field of view are the ones
+                    # that actually belong to these boxes.
+                    cropped = _crop_annotated_to_chunk(annotated, chunk, pw, ph)
                     try:
                         return await _vision_label_page(
-                            client, annotated, box_map,
+                            client, cropped, box_map,
                             api_key=api_key,
                             vision_model=vision_model,
                             base_url=base_url,
                         )
                     except httpx.HTTPStatusError as e:
                         log.warning(
-                            "vision_label_http_error page=%s model=%s status=%s body=%r",
-                            pn, vision_model, e.response.status_code,
+                            "vision_label_http_error page=%s chunk=%d model=%s status=%s body=%r",
+                            pn, len(chunk), vision_model, e.response.status_code,
                             e.response.text[:400],
                         )
                         return {}
                     except Exception as e:
                         log.warning(
-                            "vision_label_failed page=%s model=%s err=%s: %s",
-                            pn, vision_model, type(e).__name__, e,
+                            "vision_label_failed page=%s chunk=%d model=%s err=%s: %s",
+                            pn, len(chunk), vision_model, type(e).__name__, e,
                         )
                         return {}
 
-            per_page_results = await asyncio.gather(
-                *(_visual_label_one(pn) for pn in vision_pages)
+            per_chunk_results = await asyncio.gather(
+                *(_visual_label_chunk(pn, chunk) for pn, chunk in vision_chunks)
             )
-            for r in per_page_results:
+            for r in per_chunk_results:
                 visual_labels.update(r)
 
-        # Text-model batches only cover pages that HAVE extractable text.
-        # Vision-labeled pages are already resolved via `visual_labels` and
-        # merged in at the end.
+        # Text-model batches cover pages that weren't already sent to vision.
+        # In "auto" mode that's every page with extractable text; in "vision"
+        # mode every page was vision-labeled so this list is empty; in "text"
+        # mode every page routes through the text labeler regardless of
+        # whether it has extractable text (Nemotron will get an empty OCR
+        # dump and drop most labels, but the escape hatch is intentional).
+        vision_page_set = set(vision_pages)
         batches: list[tuple[int, list[dict[str, Any]]]] = []
         for page_num in sorted(by_page):
-            if not page_ocr.get(page_num, "").strip():
+            if page_num in vision_page_set:
+                continue
+            if labeler_mode != "text" and not page_ocr.get(page_num, "").strip():
                 continue
             page_fields = by_page[page_num]
             for i in range(0, len(page_fields), _BATCH_SIZE):

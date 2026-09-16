@@ -74,6 +74,19 @@ class Settings(BaseSettings):
     # doing the caption-matching / reasoning step.
     pdf_vision_ocr_model: str = "openbmb/MiniCPM-V-4_5"
 
+    # Labeler routing.
+    #   "auto"   — text-only Nemotron for pages with extractable text; vision
+    #              fallback only when there is none. Fastest and cheapest.
+    #   "vision" — force vision-labeling on EVERY page (annotated numbered
+    #              boxes + VLM), even when text is extractable. Beats the
+    #              text-only path on dense multi-column forms where Nemotron's
+    #              coordinate reasoning drops labels as empty. Slower.
+    #   "text"   — force text-only labeling for every page; disable the
+    #              vision fallback even for text-less pages. Escape hatch
+    #              when you want to guarantee no VLM calls.
+    # Geometric labeling for AcroForm widgets always runs first regardless.
+    pdf_labeler_mode: Literal["auto", "vision", "text"] = "auto"
+
     sync_render_max_bytes: int = Field(default=512 * 1024)
     pdf_conversion_timeout_seconds: float = 60.0
 

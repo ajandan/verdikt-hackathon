@@ -2064,6 +2064,7 @@ async def placements_ai_detect(
             pdf_flavor=tv.pdf_flavor,
             extra_body=backend["extra_body"],
             vision_model=backend.get("vision_model", ""),
+            labeler_mode=backend.get("labeler_mode", "auto"),
         )
     except Exception as e:
         log.warning(
@@ -2191,6 +2192,7 @@ async def placements_ai_realign(
             timeout=backend["timeout"],
             extra_body=backend["extra_body"],
             vision_model=backend.get("vision_model", ""),
+            labeler_mode=backend.get("labeler_mode", "auto"),
         )
     except Exception as e:
         log.warning(

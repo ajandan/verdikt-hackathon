@@ -79,6 +79,8 @@ services:
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
       DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      DOCGEN_PDF_VISION_OCR_MODEL: ${DOCGEN_PDF_VISION_OCR_MODEL:-openbmb/MiniCPM-V-4_5}
+      DOCGEN_PDF_LABELER_MODE: ${DOCGEN_PDF_LABELER_MODE:-auto}
       # Plugin modules imported at startup. `pap_pipeline.inbox_hook` registers
       # the PAP handler against docgen.inbox.agent so `[pap]` subject-tagged
       # mail routes to the pipeline instead of the template flow.
@@ -152,6 +154,8 @@ services:
       DOCGEN_AI_MODEL: ${DOCGEN_AI_MODEL:-}
       DOCGEN_AI_TIMEOUT_SECONDS: ${DOCGEN_AI_TIMEOUT_SECONDS:-120}
       DOCGEN_PDF_LABELER_MODEL: ${DOCGEN_PDF_LABELER_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      DOCGEN_PDF_VISION_OCR_MODEL: ${DOCGEN_PDF_VISION_OCR_MODEL:-openbmb/MiniCPM-V-4_5}
+      DOCGEN_PDF_LABELER_MODE: ${DOCGEN_PDF_LABELER_MODE:-auto}
       # See web service — same plugin registration story on the worker side,
       # which is where process_message actually runs and needs the handler.
       DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}

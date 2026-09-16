@@ -31,6 +31,7 @@ def pick_pdf_labeler_backend(settings: Any) -> dict[str, Any] | None:
         "api_key": settings.ai_api_key,
         "text_model": settings.pdf_labeler_model,
         "vision_model": getattr(settings, "pdf_vision_ocr_model", "") or "",
+        "labeler_mode": getattr(settings, "pdf_labeler_mode", "auto") or "auto",
         "base_url": settings.ai_base_url or "https://api.studio.nebius.com/v1",
         "timeout": settings.ai_timeout_seconds,
         # Nemotron reasoning models default to a thinking preamble that

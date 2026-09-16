@@ -422,6 +422,7 @@ async def _label_pdf_placements(
                 pdf_flavor=tv.pdf_flavor,
                 extra_body=backend["extra_body"],
                 vision_model=backend.get("vision_model", ""),
+                labeler_mode=backend.get("labeler_mode", "auto"),
             )
         except Exception as e:
             log.warning(

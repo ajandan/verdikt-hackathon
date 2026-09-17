@@ -59,7 +59,32 @@
 
 <main class="container">
 
-  <section class="hero">
+  <style>
+  .tests-subnav { display:flex; gap:0; margin: 12px 0 0; border-bottom: 1px solid var(--hair, #e5e0d3); }
+  .tests-subnav a {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    color: var(--ink-500, #666); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .tests-subnav a:hover { color: var(--ink-900, #1a1a1a); }
+  .tests-subnav a.active {
+    color: var(--brand, #1e5f4f); border-bottom-color: var(--brand, #1e5f4f);
+    font-weight: 600;
+  }
+  .tests-subnav .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-300, #999); padding: 8px 12px 8px 0;
+    font-family: JetBrains Mono, ui-monospace, monospace;
+  }
+</style>
+  <nav class="tests-subnav" aria-label="Test outputs">
+    <span class="k">Tests ▾</span>
+    <a href="./dashboard.html" class="active">Pytest</a>
+    <a href="./browser-e2e.html">UI</a>
+    <a href="./perf.html">Perf</a>
+  </nav>
+<section class="hero">
     <svg class="hero-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <path d="M38 46 L 44 52 L 54 40" fill="none" stroke="#1e5f4f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       <line x1="60" y1="46" x2="82" y2="46" stroke="#1e5f4f" stroke-width="2" stroke-linecap="round"/>

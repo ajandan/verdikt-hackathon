@@ -1,0 +1,428 @@
+{
+  "generated_at": "2026-09-17T17:31:57.358103+00:00",
+  "head_sha": "6b0ad1a",
+  "browser": "chromium",
+  "chromium_version": "145.0.7632.6",
+  "runs": [
+    {
+      "url": "/",
+      "slug": "landing",
+      "cold": {
+        "goto_ms": 814,
+        "ttfb_ms": 37,
+        "dcl_ms": 665,
+        "load_ms": 799,
+        "resources": 3,
+        "transfer_kb": 632.2,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 496,
+        "ttfb_ms": 18,
+        "load_ms": 490,
+        "resources": 3,
+        "transfer_kb": 0.0
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; media-src 'self'; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'nonce-MaUUfPCQ_48jTuPrTzIPaQ' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'nonce-MaUUfPCQ_48jTuPrTzIPaQ' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 9,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/01-landing.png",
+      "verdict": "NOTE",
+      "notes": [
+        "NOTE transfer=632.2KB > 500KB"
+      ]
+    },
+    {
+      "url": "/engineering/about.html",
+      "slug": "about",
+      "cold": {
+        "goto_ms": 341,
+        "ttfb_ms": 17,
+        "dcl_ms": 137,
+        "load_ms": 331,
+        "resources": 3,
+        "transfer_kb": 48.7,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 208,
+        "ttfb_ms": 2,
+        "load_ms": 198,
+        "resources": 3,
+        "transfer_kb": 0.0
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/02-about.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/domain.html",
+      "slug": "domain",
+      "cold": {
+        "goto_ms": 357,
+        "ttfb_ms": 13,
+        "dcl_ms": 321,
+        "load_ms": 349,
+        "resources": 3,
+        "transfer_kb": 0.0,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 294,
+        "ttfb_ms": 2,
+        "load_ms": 287,
+        "resources": 3,
+        "transfer_kb": 0.0
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/03-domain.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/thesis.html",
+      "slug": "thesis",
+      "cold": {
+        "goto_ms": 483,
+        "ttfb_ms": 30,
+        "dcl_ms": 428,
+        "load_ms": 475,
+        "resources": 3,
+        "transfer_kb": 0.0,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 287,
+        "ttfb_ms": 2,
+        "load_ms": 280,
+        "resources": 3,
+        "transfer_kb": 0.0
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/04-thesis.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/index.html",
+      "slug": "overview",
+      "cold": {
+        "goto_ms": 325,
+        "ttfb_ms": 19,
+        "dcl_ms": 243,
+        "load_ms": 318,
+        "resources": 8,
+        "transfer_kb": 95.5,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 260,
+        "ttfb_ms": 2,
+        "load_ms": 248,
+        "resources": 8,
+        "transfer_kb": 1.5
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/05-overview.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/features.html",
+      "slug": "features",
+      "cold": {
+        "goto_ms": 512,
+        "ttfb_ms": 20,
+        "dcl_ms": 461,
+        "load_ms": 502,
+        "resources": 4,
+        "transfer_kb": 0.3,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 293,
+        "ttfb_ms": 1,
+        "load_ms": 285,
+        "resources": 4,
+        "transfer_kb": 0.3
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/06-features.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/dashboard.html",
+      "slug": "dashboard",
+      "cold": {
+        "goto_ms": 230,
+        "ttfb_ms": 13,
+        "dcl_ms": 161,
+        "load_ms": 223,
+        "resources": 5,
+        "transfer_kb": 10.0,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 238,
+        "ttfb_ms": 2,
+        "load_ms": 229,
+        "resources": 5,
+        "transfer_kb": 0.6
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/07-dashboard.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/code-review.html",
+      "slug": "code-review",
+      "cold": {
+        "goto_ms": 299,
+        "ttfb_ms": 14,
+        "dcl_ms": 240,
+        "load_ms": 287,
+        "resources": 4,
+        "transfer_kb": 0.3,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 248,
+        "ttfb_ms": 3,
+        "load_ms": 237,
+        "resources": 4,
+        "transfer_kb": 0.3
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/08-code-review.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/security-review.html",
+      "slug": "security-review",
+      "cold": {
+        "goto_ms": 293,
+        "ttfb_ms": 15,
+        "dcl_ms": 256,
+        "load_ms": 284,
+        "resources": 4,
+        "transfer_kb": 0.3,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 213,
+        "ttfb_ms": 2,
+        "load_ms": 207,
+        "resources": 4,
+        "transfer_kb": 0.3
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/09-security-review.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/production.html",
+      "slug": "production",
+      "cold": {
+        "goto_ms": 252,
+        "ttfb_ms": 16,
+        "dcl_ms": 207,
+        "load_ms": 245,
+        "resources": 4,
+        "transfer_kb": 0.3,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 322,
+        "ttfb_ms": 1,
+        "load_ms": 315,
+        "resources": 4,
+        "transfer_kb": 0.3
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/10-production.png",
+      "verdict": "OK",
+      "notes": []
+    },
+    {
+      "url": "/engineering/hackathon.html",
+      "slug": "hackathon",
+      "cold": {
+        "goto_ms": 257,
+        "ttfb_ms": 14,
+        "dcl_ms": 219,
+        "load_ms": 250,
+        "resources": 4,
+        "transfer_kb": 13.4,
+        "doc_status": 200,
+        "console_errors": [],
+        "failed_requests": []
+      },
+      "warm": {
+        "goto_ms": 230,
+        "ttfb_ms": 2,
+        "load_ms": 225,
+        "resources": 4,
+        "transfer_kb": 0.3
+      },
+      "headers": {
+        "content-security-policy": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; img-src 'self' data:; font-src 'self' https://rsms.me https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://rsms.me https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+        "strict-transport-security": null,
+        "x-frame-options": "DENY",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+      },
+      "a11y": {
+        "imgs": 0,
+        "imgs_missing_alt": 0,
+        "h1_count": 1,
+        "html_lang": "en"
+      },
+      "shot": "reports/perf-shots/11-hackathon.png",
+      "verdict": "OK",
+      "notes": []
+    }
+  ]
+}

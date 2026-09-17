@@ -1,15 +1,15 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-16T20:15:24Z",
-  "commit": "d0dbb79",
+  "generated_at": "2026-09-17T04:00:00Z",
+  "commit": "a574942",
   "summary": {
     "verdict": "APPROVED",
-    "tests_total": 529,
-    "tests_passing": 529,
+    "tests_total": 658,
+    "tests_passing": 658,
     "lint_clean": true,
     "boundary_tests_passing": 4,
-    "audits_passing": 3,
-    "open_review_notes": 9
+    "audits_passing": 4,
+    "open_review_notes": 8
   },
   "gates": [
     {
@@ -22,9 +22,9 @@
     {
       "name": "Pytest suite",
       "status": "passing",
-      "scope": "tests/ (529 tests)",
-      "evidence": "reports/results.xml (529/529 green)",
-      "notes": "pytest --forked isolates provider mocks per-test."
+      "scope": "tests/ (658 tests · 10 suites incl. dedicated E2E card)",
+      "evidence": "reports/results.xml (658/658 green)",
+      "notes": "pytest --forked isolates provider mocks per-test. 3m01s at HEAD. New end-to-end suite covers the 3-level model chain reaching the wire; new admin_ui suite covers inherit-toggle write-paths."
     },
     {
       "name": "License scan (\u00a712)",
@@ -85,6 +85,12 @@
     }
   ],
   "audits": [
+    {
+      "name": "Triage + 3-level config chain review",
+      "shipped": "2026-09-17",
+      "outcome": "4 blockers found, all fixed at HEAD. Route allowlist added to both routing_json POST handlers; dead routing-clobber code removed from program_models_save; inbound email subject now threaded to Triage classifier; bare assert replaced with explicit guard in _llm_classify (safe under python -O).",
+      "reference": "src/pap_pipeline/stages/triage.py + src/pap_pipeline/inbox_hook.py + src/docgen/ui/routes.py"
+    },
     {
       "name": "Multi-tenancy scope",
       "shipped": "2026-09-03",
@@ -154,6 +160,31 @@
       "area": "Pipeline \u00b7 orchestrator",
       "note": "orchestrator.run_with_intake stacks extract_findings before verifier_findings intentionally (extraction disagreements read first). Undocumented in the code.",
       "action": "Add a one-line comment noting the ordering is intentional so a future reviewer doesn't reorder."
+    },
+    {
+      "area": "UI \u00b7 program_models_save",
+      "note": "src/docgen/ui/routes.py previously wrote prog.triage_routing on every Models-tab save with a dead form-field lookup (`route_{case_type}`) that never matched anything, silently clearing operator-set routing overrides.",
+      "action": "FIXED 2026-09-17: removed the routing block from program_models_save; the dedicated Triage tab now owns routing writes."
+    },
+    {
+      "area": "Security \u00b7 Triage routing writes",
+      "note": "Both admin_save_tenant_triage_routing and program_triage_routing_save accepted arbitrary `route` strings from routing_json and persisted them to JSONB. A hand-crafted POST could inject values outside the UI's <select> vocabulary.",
+      "action": "FIXED 2026-09-17: introduced _TRIAGE_ROUTES tuple as the single source of truth; both POST handlers now allowlist-check `route` before insert."
+    },
+    {
+      "area": "Pipeline \u00b7 inbox_hook",
+      "note": "_handler resolved the inbound email `subject` on the InboxEvent but never forwarded it to _run_pipeline. The Triage LLM classifier treats subject as its highest-precedence signal, so every production case was classifying against extras+intake only.",
+      "action": "FIXED 2026-09-17: _run_pipeline gained a `subject` kwarg and _handler now threads msg.subject through to run_with_intake."
+    },
+    {
+      "area": "Pipeline \u00b7 triage",
+      "note": "_llm_classify used `assert config.base_url and config.api_key and config.model` as a runtime precondition. `python -O` compiles asserts out, breaking the documented fallback contract (return None on missing creds).",
+      "action": "FIXED 2026-09-17: replaced with an explicit `if not (\u2026): return None`."
+    },
+    {
+      "area": "Pipeline \u00b7 inbox_hook (pre-existing, unchanged)",
+      "note": "Duplicate helpers _lookup_program_row and _load_program_row (byte-identical) still cause two DB round-trips per case in the happy path. Consolidation deferred so this review round stays focused on the Triage / config-chain surface.",
+      "action": "Queued: consolidate to a single function and thread the resolved Program row through _draft_reply_artifact instead of re-fetching."
     }
   ],
   "conventions": [
@@ -184,6 +215,22 @@
   ],
   "recent_commits": [
     {
+      "sha": "a574942",
+      "subject": "Dashboard: E2E as its own suite + per-run history expansion"
+    },
+    {
+      "sha": "9fc8941",
+      "subject": "Tests: 17 new (E2E + admin UI) + dashboard refresh"
+    },
+    {
+      "sha": "61135c3",
+      "subject": "Demo assets + landing video swap + engineering dashboards refresh"
+    },
+    {
+      "sha": "3b45c07",
+      "subject": "Triage stage + 3-level model config + inherit toggles"
+    },
+    {
       "sha": "d0dbb79",
       "subject": "Per-tenant model selection + retrieve-stage truth-alignment"
     },
@@ -198,22 +245,6 @@
     {
       "sha": "0b3819c",
       "subject": "MCP: list_pending_reviews + signed-URL case reply downloads"
-    },
-    {
-      "sha": "1bbbceb",
-      "subject": "MCP: fetch_case_reply tool for previewing drafted reply artifacts"
-    },
-    {
-      "sha": "97d6eb2",
-      "subject": "License check: allowlist pypdfium2's compound license string"
-    },
-    {
-      "sha": "fc5b029",
-      "subject": "Migration 0025: only seed kinds allowed by its own CHECK constraint"
-    },
-    {
-      "sha": "a9cf133",
-      "subject": "CI: pull MinIO from quay.io to sidestep Docker Hub rate limit"
     }
   ]
 }

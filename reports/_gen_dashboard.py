@@ -177,9 +177,11 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
         "admin_ui",
         "Admin UI write-paths",
         "Tenant/program configuration pages: inherit-from-tenant toggles, "
-        "split Triage routing page, tenant models dropdowns.",
+        "split Triage routing page, tenant models dropdowns, shared "
+        "page-number pagination helpers.",
         [
             "test_pap_ui_inherit_and_tenant_models",
+            "test_pagination_page_number",
         ],
     ),
     (
@@ -193,6 +195,8 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_e2e_pipeline",
             # PAP pipeline + 3-level model config chain hitting the wire.
             "test_pap_e2e_config_chain",
+            # JSON intake channel must invoke Triage — regression guard.
+            "test_pap_json_intake_triage",
         ],
     ),
 ]

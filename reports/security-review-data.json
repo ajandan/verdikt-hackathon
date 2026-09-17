@@ -1,15 +1,15 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-16T20:11:48Z",
-  "commit": "d0dbb79",
+  "generated_at": "2026-09-17T04:00:00Z",
+  "commit": "a574942",
   "summary": {
     "verdict": "APPROVED",
-    "controls_shipped": 25,
+    "controls_shipped": 27,
     "controls_pending": 1,
     "open_items": 3,
     "risk_level": "LOW",
     "license": "MIT",
-    "last_audit": "2026-09-03"
+    "last_audit": "2026-09-17"
   },
   "posture": [
     {
@@ -87,6 +87,18 @@
       "control": "PDF preflight (text-less flat PDFs rejected at router boundary)",
       "status": "shipped",
       "evidence": "designtime/preflight_pdf.py + upload.py :: PdfPreflightRejected"
+    },
+    {
+      "owasp": "A03 Injection",
+      "control": "Triage-routing write allowlist (routes constrained to a server-side tuple)",
+      "status": "shipped",
+      "evidence": "src/docgen/ui/routes.py :: _TRIAGE_ROUTES + admin_save_tenant_triage_routing + program_triage_routing_save (allowlisted 2026-09-17)"
+    },
+    {
+      "owasp": "A03 Injection",
+      "control": "Triage LLM classifier response bounded to routing-table vocabulary",
+      "status": "shipped",
+      "evidence": "src/pap_pipeline/stages/triage.py :: _llm_classify (rejects case_type outside allowed_vocab; confidence/reason capped; falls through to deterministic rules on any parse failure)"
     },
     {
       "owasp": "A04 Insecure Design",
@@ -192,6 +204,21 @@
     }
   ],
   "audits": [
+    {
+      "name": "Triage stage + 3-level config chain review",
+      "shipped": "2026-09-17",
+      "outcome": "1 blocker fixed (route allowlist), 5 notes filed. No cross-tenant escalation surface introduced by the new admin write-paths; every new route is behind _require_super_admin or _enforce_scope. LLM prompt injection contained to same-tenant self-poisoning; classifier response is allowlisted before it reaches the pipeline.",
+      "findings": [
+        "FIXED: server-side route allowlist added on both admin_save_tenant_triage_routing and program_triage_routing_save (was: any string persisted verbatim to JSONB).",
+        "FIXED: dead routing block in program_models_save that silently cleared program.triage_routing on every Models-tab save.",
+        "FIXED: msg.subject now threaded to Triage classifier in production (was: LLM saw empty subject on every real inbound case).",
+        "FIXED: bare assert in _llm_classify replaced with explicit guard so the LLM-unavailable fallback survives `python -O`.",
+        "PRAISE: skip-Decide path preserves the full audit trail (event.status, review_history, pap_decision all written) so a routed refill is as traceable as a fully-decided case.",
+        "PRAISE: Nebius API key sourced from settings only; no per-tenant credential persistence. Tenant/program columns hold model NAMES not secrets.",
+        "NOTE (queued): cap user_payload size before serializing to the LLM to bound token-flood risk on very large attachment extractions.",
+        "NOTE (queued): consider returning HTTP 400 on malformed routing_json instead of silently coercing to empty."
+      ]
+    },
     {
       "name": "Caller-profile mapping threat model",
       "shipped": "2026-09-03",

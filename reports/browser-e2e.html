@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · UI walkthrough</title>
+<meta name="description" content="Live browser E2E walkthrough of the Verdikt admin UI: tenant onboarding through pipeline verdict, per-phase status + timing." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · UI walkthrough" />
+<meta property="og:description" content="Live browser E2E walkthrough of the Verdikt admin UI." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · UI walkthrough" />
+<meta name="twitter:description" content="Live browser E2E walkthrough of the Verdikt admin UI." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css?v=11">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <a href="/" class="brand" aria-label="Back to main site">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">UI <em>walkthrough.</em></span>
+    </a>
+    <nav class="crossnav">
+      <a href="./about.html">About</a>
+      <a href="./domain.html">Domain</a>
+      <a href="./thesis.html">Thesis</a>
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <style>
+  .tests-subnav { display:flex; gap:0; margin: 12px 0 0; border-bottom: 1px solid var(--hair, #e5e0d3); }
+  .tests-subnav a {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    color: var(--ink-500, #666); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .tests-subnav a:hover { color: var(--ink-900, #1a1a1a); }
+  .tests-subnav a.active {
+    color: var(--brand, #1e5f4f); border-bottom-color: var(--brand, #1e5f4f);
+    font-weight: 600;
+  }
+  .tests-subnav .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-300, #999); padding: 8px 12px 8px 0;
+    font-family: JetBrains Mono, ui-monospace, monospace;
+  }
+</style>
+  <nav class="tests-subnav" aria-label="Test outputs">
+    <span class="k">Tests ▾</span>
+    <a href="./dashboard.html">Pytest</a>
+    <a href="./browser-e2e.html" class="active">UI</a>
+    <a href="./perf.html">Perf</a>
+  </nav>
+<section class="hero">
+    <svg class="hero-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="26" y="30" width="68" height="60" rx="4" fill="none" stroke="#1e5f4f" stroke-width="2.5"/>
+      <line x1="26" y1="42" x2="94" y2="42" stroke="#1e5f4f" stroke-width="2"/>
+      <circle cx="34" cy="36" r="1.7" fill="#8ec7b5"/>
+      <circle cx="40" cy="36" r="1.7" fill="#8ec7b5"/>
+      <circle cx="46" cy="36" r="1.7" fill="#8ec7b5"/>
+      <path d="M38 62 L 46 70 L 60 54" fill="none" stroke="#3cb371" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M66 62 L 76 62 M66 70 L 82 70 M66 78 L 78 78" stroke="#5fa58f" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="eyebrow"><span class="dot"></span> Chromium session, 11 phases, one live case</span>
+    <h1 class="display">Onboarded, configured, <em>verdict rendered</em>.</h1>
+    <p class="lede">A single Playwright run walks the admin UI from tenant creation through pipeline dispatch. Every phase snapshots the browser and pins the server timing so a regression in any admin write-path or the pipeline surfaces here. The case is real: it hits Nebius and comes back with an outcome.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading walkthrough data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Latest run</h2>
+      <p class="subhead">Every phase gets one row. Failures block the summary card at the top.</p>
+      <div class="kpi-row" id="kpi-row"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Pipeline case</span>
+      <h2>The one live dispatch</h2>
+      <p class="subhead">Test tenant seeded, real JSON intake POST, real Nebius verdict.</p>
+      <div class="case-card" id="case-card"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Phases</span>
+      <h2>Per-phase timing + notes</h2>
+      <p class="subhead">Each phase clicks through the admin UI, waits for the resulting server response, and screenshots the rendered page. Duplicate <code style="font-family:JetBrains Mono,monospace">docker exec</code> logs are correlated for context.</p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead>
+          <tr>
+            <th style="width: 24px"></th>
+            <th>#</th>
+            <th>Phase</th>
+            <th>URL</th>
+            <th>Status</th>
+            <th>Server</th>
+            <th>Load</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="phase-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Findings</span>
+      <h2>What surfaced</h2>
+      <details class="findings-details">
+        <summary>
+          <span class="findings-summary-label">Show findings</span>
+          <span class="findings-count" id="findings-count"></span>
+        </summary>
+        <p class="subhead" style="margin-top:12px">Blockers = broken user-visible behavior. Notes = polish. Praise = pattern to preserve.</p>
+        <div id="findings"></div>
+      </details>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Screenshots</span>
+      <h2>Frame-by-frame</h2>
+      <p class="subhead">One PNG per phase. Click to open full-size in a new tab.</p>
+      <div class="shot-grid" id="shot-grid"></div>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <span class="foot-mark"><svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="none" stroke-width="6" stroke-linecap="square">
+          <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+          <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+          <path d="M8 32H42" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+        </g>
+      </svg></span>
+      <span class="foot-wordmark">Verdikt</span>
+      <span class="foot-tag">UI walkthrough</span>
+    </div>
+    <div class="foot-meta">
+      <span class="nav-meta" id="nav-meta"></span>
+      <span class="foot-sep">·</span>
+      <a href="./browser-e2e-data.json">browser-e2e-data.json</a>
+      <span class="foot-sep">·</span>
+      <a href="/">&larr; Main site</a>
+    </div>
+  </footer>
+
+</main>
+
+<style>
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--border,#e5e0d3); border-radius: 8px; padding: 12px 14px; background: white; }
+  .kpi .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-500,#666); }
+  .kpi .v { font-size: 26px; font-family: 'Space Grotesk', ui-monospace, monospace; font-weight: 600; }
+  .kpi .d { font-size: 12px; color: var(--ink-500,#666); margin-top: 4px; }
+  .kpi.pass .v { color: #2c7a4a; } .kpi.fail .v { color: #b64a3f; }
+  .num { text-align: right; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .status-dot { display:inline-block; width:10px; height:10px; border-radius:50%; }
+  .status-dot.ok { background:#3cb371; }
+  .status-dot.fail { background:#b64a3f; }
+  .status-dot.skip { background:#c0b48a; }
+  .case-card {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px 20px; border: 1px solid var(--border,#e5e0d3);
+    border-radius: 10px; padding: 16px 18px; background: white;
+  }
+  .case-card .field .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-500,#666); margin-bottom: 2px; }
+  .case-card .field .v { font-family: ui-monospace, monospace; font-size: 13px; word-break: break-word; }
+  .case-card .field .v.big { font-size: 18px; font-family: 'Space Grotesk', ui-monospace, monospace; font-weight: 600; color: #1e5f4f; }
+  .findings-details { border: 1px solid var(--hair,#e5e0d3); border-radius: 8px; background: white; }
+  .findings-details > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--ink-700,#333);
+  }
+  .findings-details > summary::-webkit-details-marker { display: none; }
+  .findings-details > summary::before {
+    content: "▸"; color: var(--ink-500,#666); font-family: ui-monospace, monospace;
+    transition: transform .15s ease; display: inline-block;
+  }
+  .findings-details[open] > summary::before { transform: rotate(90deg); }
+  .findings-details[open] > summary .findings-summary-label::after { content: " findings"; color: var(--ink-500,#666); }
+  .findings-details:not([open]) > summary .findings-summary-label::after { content: ""; }
+  .findings-details > summary .findings-count {
+    margin-left: auto; font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--ink-500,#666);
+  }
+  .findings-details > summary .findings-count .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 999px; margin-left: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .findings-details > summary .findings-count .pill.blocker { background:#fbe5e0; color:#9c2617; }
+  .findings-details > summary .findings-count .pill.note    { background:#fdf4d9; color:#8a5b12; }
+  .findings-details > summary .findings-count .pill.praise  { background:#e5f4ec; color:#1e5f4f; }
+  .findings-details > *:not(summary) { padding: 0 14px; }
+  .findings-details > *:last-child { padding-bottom: 14px; }
+  #findings .finding { border-left: 3px solid var(--border,#e5e0d3); padding: 6px 10px; margin-bottom: 6px; font-size: 13px; }
+  #findings .finding.blocker { border-left-color:#b64a3f; }
+  #findings .finding.note { border-left-color:#c58e17; }
+  #findings .finding.praise { border-left-color:#2c7a4a; }
+  #findings .finding .sev { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; margin-right:8px; }
+  #findings .finding.blocker .sev { color:#b64a3f; }
+  #findings .finding.note .sev { color:#c58e17; }
+  #findings .finding.praise .sev { color:#2c7a4a; }
+  .shot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .shot-grid figure { margin: 0; border: 1px solid var(--border,#e5e0d3); border-radius: 8px; overflow: hidden; background: white; }
+  .shot-grid img { width: 100%; height: 140px; object-fit: cover; object-position: top; display: block; border-bottom: 1px solid var(--border,#e5e0d3); }
+  .shot-grid figcaption { padding: 8px 10px; font-size: 12px; color: var(--ink-500,#666); }
+  .shot-grid figcaption .n { display:block; font-weight: 600; color: var(--ink-900,#1a1a1a); }
+</style>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let d;
+  try {
+    const res = await fetch('./browser-e2e-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    d = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.textContent = "Couldn't load browser-e2e-data.json (" + (e.message || e) + ").";
+    return;
+  }
+
+  const phases = d.phases || [];
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // Coerce ISO strings OR Unix-epoch floats/seconds to a display string.
+  function tstamp(v) {
+    if (v == null) return '';
+    if (typeof v === 'number') return new Date(v * 1000).toISOString().replace('T',' ').split('.')[0];
+    return String(v).replace('T',' ').split('.')[0];
+  }
+  // Normalize a screenshot path: strip the "reports/" prefix (HTML lives
+  // inside reports/) and swap Windows backslashes for forward slashes.
+  function shotPath(p) {
+    if (!p) return '';
+    return String(p).replace(/\\/g, '/').replace(/^reports\//, './');
+  }
+
+  // Nav meta + hero chips
+  document.getElementById('nav-meta').textContent =
+    tstamp(d.finished_at || d.started_at) +
+    (d.head_sha ? '  ·  ' + d.head_sha : '');
+  const chips = [
+    ['Phases', String(phases.length)],
+    ['Playwright', d.playwright_version || 'n/a'],
+    ['AI provider', d.ai_provider || 'n/a'],
+    ['Head', d.head_sha || 'n/a'],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k,v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + esc(v) + '</span>').join('');
+
+  // KPIs
+  const okN = phases.filter(p => p.status === 'OK' || p.status === 'ok' || p.status === 'pass').length;
+  const failN = phases.filter(p => p.status === 'FAIL' || p.status === 'fail').length;
+  const skipN = phases.length - okN - failN;
+  const totalServer = phases.reduce((a,p) => a + (p.server_ms || 0), 0);
+  document.getElementById('kpi-row').innerHTML = [
+    { k:'Phases', v: phases.length, d:'walked this run', cls:'' },
+    { k:'Passed', v: okN, d:'no user-visible break', cls:'pass' },
+    { k:'Failed', v: failN, d:'blocker for the operator', cls: failN ? 'fail' : '' },
+    { k:'Skipped', v: skipN, d:'not applicable', cls:'' },
+    { k:'Server time', v: (totalServer/1000).toFixed(2) + 's', d:'sum of admin-page responses', cls:'' },
+    { k:'Pipeline', v: Math.round(d.intake_latency_ms || 0) + ' ms', d:'JSON intake → verdict', cls: (d.verdict_outcome ? 'pass' : '') },
+  ].map(x =>
+    '<div class="kpi ' + x.cls + '"><div class="k">' + x.k + '</div><div class="v">' + x.v + '</div><div class="d">' + x.d + '</div></div>'
+  ).join('');
+
+  // Case card
+  const caseFields = [
+    { k:'Case ID',      v: d.case_id || '—' },
+    { k:'Event ID',     v: d.event_id || '—' },
+    { k:'Outcome',      v: (d.verdict_outcome || '—').toUpperCase(), big: true },
+    { k:'Triage type',  v: d.verdict_case_type || '—' },
+    { k:'Route',        v: d.verdict_route || '—' },
+    { k:'Intake→verdict', v: Math.round(d.intake_latency_ms || 0) + ' ms' },
+    { k:'Tenant',       v: (d.tenant_name || d.tenant_id || '—') },
+    { k:'Program',      v: (d.program_slug || d.program_id || '—') },
+    { k:'Extract model', v: d.extract_used_model || '(not scraped)' },
+    { k:'Triage model',  v: d.triage_used_model || '(not scraped)' },
+    { k:'Reason model',  v: d.reason_used_model || '(not scraped)' },
+  ];
+  document.getElementById('case-card').innerHTML = caseFields.map(f =>
+    '<div class="field"><div class="k">' + esc(f.k) + '</div><div class="v ' + (f.big ? 'big' : '') + '">' + esc(f.v) + '</div></div>'
+  ).join('');
+
+  // Per-phase table
+  document.getElementById('phase-body').innerHTML = phases.map(p => {
+    const cls = (p.status === 'OK' || p.status === 'ok') ? 'ok'
+              : (p.status === 'FAIL' || p.status === 'fail') ? 'fail'
+              : 'skip';
+    const url = p.url ? '<a href="http://localhost:8100' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.url) + '</a>' : '—';
+    return '<tr>' +
+      '<td><span class="status-dot ' + cls + '"></span></td>' +
+      '<td class="num">' + (p.idx != null ? p.idx : '') + '</td>' +
+      '<td class="mono">' + esc(p.slug || '') + '</td>' +
+      '<td class="mono" style="max-width:340px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' + url + '</td>' +
+      '<td>' + esc(p.status || '') + '</td>' +
+      '<td class="num">' + (p.server_ms != null ? Math.round(p.server_ms) + ' ms' : '—') + '</td>' +
+      '<td class="num">' + (p.load_ms != null ? Math.round(p.load_ms) + ' ms' : '—') + '</td>' +
+      '<td style="font-size:12.5px">' + esc(p.notes || '') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Findings — combine per-phase failures with hand-noted findings if present
+  const findings = [];
+  phases.forEach(p => {
+    if (p.status === 'FAIL' || p.status === 'fail') {
+      findings.push({ sev:'blocker', text: 'Phase ' + (p.idx || '') + ' (' + (p.slug || '') + ') failed: ' + (p.notes || 'no notes') });
+    }
+    (p.console_errors || []).forEach(err => {
+      findings.push({ sev:'blocker', text: (p.slug || '') + ' — console error: ' + (err.text || err) });
+    });
+    (p.http_errors || []).forEach(err => {
+      findings.push({ sev:'blocker', text: (p.slug || '') + ' — ' + err.status + ' at ' + err.url });
+    });
+  });
+  (d.findings || []).forEach(f => findings.push({ sev: (f.sev || 'note').toLowerCase(), text: f.text || f.note || '' }));
+  if (!findings.length) findings.push({ sev:'praise', text: 'All ' + phases.length + ' phases passed with no console errors, no failed requests, and a real verdict returned inline in ' + Math.round(d.intake_latency_ms || 0) + 'ms.' });
+
+  document.getElementById('findings').innerHTML = findings.map(f =>
+    '<div class="finding ' + f.sev + '"><span class="sev">' + f.sev + '</span>' + f.text + '</div>').join('');
+
+  // Summary counter — shown on the collapsed <details> so operators know
+  // the shape of what's inside without expanding.
+  const counts = { blocker: 0, note: 0, praise: 0 };
+  findings.forEach(f => { if (counts[f.sev] != null) counts[f.sev]++; });
+  const pills = [];
+  if (counts.blocker) pills.push('<span class="pill blocker">' + counts.blocker + ' blocker</span>');
+  if (counts.note)    pills.push('<span class="pill note">' + counts.note + ' note</span>');
+  if (counts.praise)  pills.push('<span class="pill praise">' + counts.praise + ' praise</span>');
+  document.getElementById('findings-count').innerHTML = pills.join(' ');
+
+  // Screenshots grid
+  document.getElementById('shot-grid').innerHTML = phases.filter(p => p.screenshot).map(p => {
+    const src = shotPath(p.screenshot);
+    return '<figure>' +
+      '<a href="' + esc(src) + '" target="_blank" rel="noopener">' +
+        '<img src="' + esc(src) + '" alt="' + esc(p.slug) + ' screenshot" loading="lazy">' +
+      '</a>' +
+      '<figcaption><span class="n">' + (p.idx || '') + ' · ' + esc(p.slug || '') + '</span>' + esc((p.notes || '').slice(0, 120)) + '</figcaption>' +
+    '</figure>';
+  }).join('');
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+})();
+</script>
+
+</body>
+</html>

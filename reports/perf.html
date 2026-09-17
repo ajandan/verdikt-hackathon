@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Performance</title>
+<meta name="description" content="Live performance report for the public Verdikt engineering pages: per-page cold/warm timings, transfer sizes, security headers, a11y smoke." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · Performance" />
+<meta property="og:description" content="Live performance report for the public Verdikt engineering pages." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · Performance" />
+<meta name="twitter:description" content="Live performance report for the public Verdikt engineering pages." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css?v=11">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <a href="/" class="brand" aria-label="Back to main site">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">Perf <em>sweep.</em></span>
+    </a>
+    <nav class="crossnav">
+      <a href="./about.html">About</a>
+      <a href="./domain.html">Domain</a>
+      <a href="./thesis.html">Thesis</a>
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <style>
+  .tests-subnav { display:flex; gap:0; margin: 12px 0 0; border-bottom: 1px solid var(--hair, #e5e0d3); }
+  .tests-subnav a {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    color: var(--ink-500, #666); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .tests-subnav a:hover { color: var(--ink-900, #1a1a1a); }
+  .tests-subnav a.active {
+    color: var(--brand, #1e5f4f); border-bottom-color: var(--brand, #1e5f4f);
+    font-weight: 600;
+  }
+  .tests-subnav .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-300, #999); padding: 8px 12px 8px 0;
+    font-family: JetBrains Mono, ui-monospace, monospace;
+  }
+</style>
+  <nav class="tests-subnav" aria-label="Test outputs">
+    <span class="k">Tests ▾</span>
+    <a href="./dashboard.html">Pytest</a>
+    <a href="./browser-e2e.html">UI</a>
+    <a href="./perf.html" class="active">Perf</a>
+  </nav>
+<section class="hero">
+    <svg class="hero-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="60" cy="60" r="34" fill="none" stroke="#1e5f4f" stroke-width="2.5"/>
+      <path d="M60 60 L 82 42" stroke="#1e5f4f" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="60" cy="60" r="3.5" fill="#1e5f4f"/>
+      <line x1="60" y1="26" x2="60" y2="32" stroke="#8ec7b5" stroke-width="2" stroke-linecap="round"/>
+      <line x1="60" y1="88" x2="60" y2="94" stroke="#8ec7b5" stroke-width="2" stroke-linecap="round"/>
+      <line x1="26" y1="60" x2="32" y2="60" stroke="#8ec7b5" stroke-width="2" stroke-linecap="round"/>
+      <line x1="88" y1="60" x2="94" y2="60" stroke="#8ec7b5" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="eyebrow"><span class="dot"></span> Cold + warm timings, headers, a11y smoke</span>
+    <h1 class="display">Every public page, <em>measured</em>.</h1>
+    <p class="lede">Sequential Chromium walk over every public Verdikt page. Records TTFB, load event, transfer size, console errors, failed requests, security headers, and accessibility basics for each. Data is regenerated by <code style="font-family:JetBrains Mono,monospace">python scripts/perf_sweep.py</code>.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading perf data…</div>
+
+  <div id="content" hidden>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Latest sweep</h2>
+      <p class="subhead">Buckets are exclusive — every page counted once. Anything red is a real regression against the budget below.</p>
+      <div class="kpi-row" id="kpi-row"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Per page</span>
+      <h2>Cold response</h2>
+      <p class="subhead">Cache-cleared first hit. Budget: TTFB &lt; 300 ms, Load &lt; 2500 ms, transfer &lt; 500 KB.</p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead>
+          <tr>
+            <th>URL</th>
+            <th>TTFB</th>
+            <th>DCL</th>
+            <th>Load</th>
+            <th>Resources</th>
+            <th>Transfer</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody id="perf-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Cache</span>
+      <h2>Warm vs cold</h2>
+      <p class="subhead">Same-context reload after a cold hit — proxy for repeat-visit experience.</p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead>
+          <tr>
+            <th>URL</th>
+            <th>Cold Load</th>
+            <th>Warm Load</th>
+            <th>&Delta;</th>
+            <th>Cold KB</th>
+            <th>Warm KB</th>
+          </tr>
+        </thead>
+        <tbody id="warm-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Security headers</span>
+      <h2>Response headers matrix</h2>
+      <p class="subhead">Presence per page. Missing headers are fine on localhost but must be added at the reverse proxy for the Nebius deploy.</p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead>
+          <tr>
+            <th>URL</th>
+            <th>CSP</th>
+            <th>HSTS</th>
+            <th>X-Frame</th>
+            <th>Referrer</th>
+            <th>Permissions</th>
+          </tr>
+        </thead>
+        <tbody id="headers-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Findings</span>
+      <h2>What to fix</h2>
+      <details class="findings-details">
+        <summary>
+          <span class="findings-summary-label">Show findings</span>
+          <span class="findings-count" id="findings-count"></span>
+        </summary>
+        <p class="subhead" style="margin-top:12px">Automated flags — any page that busts a budget or has console/network errors surfaces here.</p>
+        <div id="findings"></div>
+      </details>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <span class="foot-mark"><svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="none" stroke-width="6" stroke-linecap="square">
+          <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+          <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+          <path d="M8 32H42" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+        </g>
+      </svg></span>
+      <span class="foot-wordmark">Verdikt</span>
+      <span class="foot-tag">Performance</span>
+    </div>
+    <div class="foot-meta">
+      <span class="nav-meta" id="nav-meta"></span>
+      <span class="foot-sep">·</span>
+      <a href="./perf-data.json">perf-data.json</a>
+      <span class="foot-sep">·</span>
+      <a href="/">&larr; Main site</a>
+    </div>
+  </footer>
+
+</main>
+
+<style>
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .kpi { border: 1px solid var(--border, #e5e0d3); border-radius: 8px; padding: 12px 14px; background: white; }
+  .kpi .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-500,#666); }
+  .kpi .v { font-size: 26px; font-family: 'Space Grotesk', ui-monospace, monospace; font-weight: 600; }
+  .kpi .d { font-size: 12px; color: var(--ink-500,#666); margin-top: 4px; }
+  .kpi.pass .v { color: #2c7a4a; } .kpi.fail .v { color: #b64a3f; } .kpi.warn .v { color: #c58e17; }
+  .num { text-align: right; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .verdict-pill { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .verdict-pill.ok { background:#e5f4ec; color:#1e5f4f; }
+  .verdict-pill.warn { background:#fdf4d9; color:#8a5b12; }
+  .verdict-pill.fail { background:#fbe5e0; color:#9c2617; }
+  .yes { color:#2c7a4a; font-weight:600; } .no { color:#b64a3f; font-weight:600; }
+  .findings-details { border: 1px solid var(--hair,#e5e0d3); border-radius: 8px; background: white; }
+  .findings-details > summary {
+    list-style: none; cursor: pointer; user-select: none;
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--ink-700,#333);
+  }
+  .findings-details > summary::-webkit-details-marker { display: none; }
+  .findings-details > summary::before {
+    content: "▸"; color: var(--ink-500,#666); font-family: ui-monospace, monospace;
+    transition: transform .15s ease; display: inline-block;
+  }
+  .findings-details[open] > summary::before { transform: rotate(90deg); }
+  .findings-details[open] > summary .findings-summary-label::after { content: " findings"; color: var(--ink-500,#666); }
+  .findings-details:not([open]) > summary .findings-summary-label::after { content: ""; }
+  .findings-details > summary .findings-count {
+    margin-left: auto; font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--ink-500,#666);
+  }
+  .findings-details > summary .findings-count .pill {
+    display: inline-block; padding: 1px 6px; border-radius: 999px; margin-left: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+  .findings-details > summary .findings-count .pill.blocker { background:#fbe5e0; color:#9c2617; }
+  .findings-details > summary .findings-count .pill.note    { background:#fdf4d9; color:#8a5b12; }
+  .findings-details > summary .findings-count .pill.praise  { background:#e5f4ec; color:#1e5f4f; }
+  .findings-details > *:not(summary) { padding: 0 14px; }
+  .findings-details > *:last-child { padding-bottom: 14px; }
+  #findings .finding { border-left: 3px solid var(--border,#e5e0d3); padding: 6px 10px; margin-bottom: 6px; font-size: 13px; }
+  #findings .finding.blocker { border-left-color:#b64a3f; }
+  #findings .finding.note { border-left-color:#c58e17; }
+  #findings .finding.praise { border-left-color:#2c7a4a; }
+  #findings .finding .sev { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; margin-right:8px; }
+  #findings .finding.blocker .sev { color:#b64a3f; }
+  #findings .finding.note .sev { color:#c58e17; }
+  #findings .finding.praise .sev { color:#2c7a4a; }
+</style>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let data;
+  try {
+    const res = await fetch('./perf-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.textContent = "Couldn't load perf-data.json (" + (e.message || e) + ").";
+    return;
+  }
+
+  const runs = data.runs || [];
+  const escapeHtml = (s) => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  // Nav meta
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at || '').replace('T',' ').split('.')[0] +
+    (data.head_sha ? '  ·  ' + data.head_sha : '');
+
+  // Hero chips
+  const chips = [
+    ['Pages', String(runs.length)],
+    ['Browser', data.browser || 'chromium'],
+    ['Chromium', data.chromium_version || 'n/a'],
+    ['Head', data.head_sha || 'n/a'],
+  ];
+  document.getElementById('meta-row').innerHTML = chips.map(([k,v]) =>
+    '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>').join('');
+
+  // Verdict per page against the budget
+  const BUDGET = { ttfb: 300, load: 2500, kb: 500, hardLoad: 5000 };
+  function verdictFor(r) {
+    const c = r.cold || {};
+    if ((c.doc_status || 200) >= 400) return 'fail';
+    if ((c.load_ms || 0) >= BUDGET.hardLoad) return 'fail';
+    if ((c.console_errors || []).length) return 'fail';
+    if ((c.failed_requests || []).length) return 'fail';
+    if ((c.load_ms || 0) > BUDGET.load) return 'warn';
+    if ((c.ttfb_ms || 0) > BUDGET.ttfb) return 'warn';
+    if ((c.transfer_kb || 0) > BUDGET.kb) return 'warn';
+    return 'ok';
+  }
+
+  const verdicts = runs.map(verdictFor);
+  const okN = verdicts.filter(v => v==='ok').length;
+  const warnN = verdicts.filter(v => v==='warn').length;
+  const failN = verdicts.filter(v => v==='fail').length;
+  const avgTTFB = runs.length ? Math.round(runs.reduce((a,r)=>a+(r.cold?.ttfb_ms||0),0)/runs.length) : 0;
+  const avgLoad = runs.length ? Math.round(runs.reduce((a,r)=>a+(r.cold?.load_ms||0),0)/runs.length) : 0;
+
+  // KPI row
+  document.getElementById('kpi-row').innerHTML = [
+    { k:'Pages', v: runs.length, d:'measured this sweep', cls:'' },
+    { k:'Green', v: okN, d:'within budget', cls:'pass' },
+    { k:'Warn', v: warnN, d:'over a soft cap', cls: warnN ? 'warn' : '' },
+    { k:'Blocker', v: failN, d:'over hard cap / error', cls: failN ? 'fail' : '' },
+    { k:'Avg TTFB', v: avgTTFB + 'ms', d:'cold', cls:'' },
+    { k:'Avg Load', v: avgLoad + 'ms', d:'cold, DOMContentLoaded+', cls:'' },
+  ].map(x =>
+    '<div class="kpi ' + x.cls + '"><div class="k">' + x.k + '</div><div class="v">' + x.v + '</div><div class="d">' + x.d + '</div></div>'
+  ).join('');
+
+  // Per-page cold table
+  document.getElementById('perf-body').innerHTML = runs.map((r,i) => {
+    const c = r.cold || {};
+    const v = verdicts[i];
+    const pill = '<span class="verdict-pill ' + v + '">' + v + '</span>';
+    return '<tr>' +
+      '<td class="mono"><a href="http://localhost:8100' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' + escapeHtml(r.url) + '</a></td>' +
+      '<td class="num">' + (c.ttfb_ms||0) + 'ms</td>' +
+      '<td class="num">' + (c.dcl_ms||0) + 'ms</td>' +
+      '<td class="num">' + (c.load_ms||0) + 'ms</td>' +
+      '<td class="num">' + (c.resources||0) + '</td>' +
+      '<td class="num">' + (c.transfer_kb||0).toFixed(1) + ' KB</td>' +
+      '<td>' + pill + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Warm vs cold
+  document.getElementById('warm-body').innerHTML = runs.map(r => {
+    const c = r.cold || {}, w = r.warm || {};
+    const dc = (c.load_ms||0), dw = (w.load_ms||0);
+    const delta = dc - dw;
+    const deltaStr = (delta > 0 ? '-' : '+') + Math.abs(delta) + 'ms';
+    return '<tr>' +
+      '<td class="mono">' + escapeHtml(r.url) + '</td>' +
+      '<td class="num">' + dc + 'ms</td>' +
+      '<td class="num">' + dw + 'ms</td>' +
+      '<td class="num ' + (delta > 0 ? 'pass' : '') + '">' + deltaStr + '</td>' +
+      '<td class="num">' + (c.transfer_kb||0).toFixed(1) + '</td>' +
+      '<td class="num">' + (w.transfer_kb||0).toFixed(1) + '</td>' +
+    '</tr>';
+  }).join('');
+
+  // Security headers matrix
+  function has(r, k) {
+    return (r.headers && r.headers[k]) ? '<span class="yes">✓</span>' : '<span class="no">–</span>';
+  }
+  document.getElementById('headers-body').innerHTML = runs.map(r =>
+    '<tr>' +
+      '<td class="mono">' + escapeHtml(r.url) + '</td>' +
+      '<td>' + has(r,'content-security-policy') + '</td>' +
+      '<td>' + has(r,'strict-transport-security') + '</td>' +
+      '<td>' + has(r,'x-frame-options') + '</td>' +
+      '<td>' + has(r,'referrer-policy') + '</td>' +
+      '<td>' + has(r,'permissions-policy') + '</td>' +
+    '</tr>').join('');
+
+  // Findings — synthesized from the same data + budget
+  const findings = [];
+  runs.forEach((r,i) => {
+    const c = r.cold || {};
+    if (verdicts[i] === 'fail') {
+      if ((c.load_ms||0) >= BUDGET.hardLoad) {
+        findings.push({ sev:'blocker', text: r.url + ' — cold load ' + c.load_ms + 'ms exceeds the 5000ms hard cap. Transfer ' + (c.transfer_kb||0).toFixed(1) + ' KB.' });
+      }
+      if ((c.console_errors||[]).length) {
+        findings.push({ sev:'blocker', text: r.url + ' — ' + c.console_errors.length + ' console error(s): ' + c.console_errors.slice(0,2).map(e=>e.text||e).join('; ') });
+      }
+      if ((c.failed_requests||[]).length) {
+        findings.push({ sev:'blocker', text: r.url + ' — ' + c.failed_requests.length + ' failed request(s).' });
+      }
+    } else if (verdicts[i] === 'warn') {
+      if ((c.load_ms||0) > BUDGET.load) findings.push({ sev:'note', text: r.url + ' — cold load ' + c.load_ms + 'ms exceeds 2500ms soft cap.' });
+      if ((c.ttfb_ms||0) > BUDGET.ttfb) findings.push({ sev:'note', text: r.url + ' — TTFB ' + c.ttfb_ms + 'ms exceeds 300ms soft cap.' });
+      if ((c.transfer_kb||0) > BUDGET.kb) findings.push({ sev:'note', text: r.url + ' — transfer ' + c.transfer_kb.toFixed(1) + ' KB exceeds 500 KB soft cap.' });
+    }
+  });
+  const anyMissingHsts = runs.some(r => !(r.headers && r.headers['strict-transport-security']));
+  if (anyMissingHsts) findings.push({ sev:'note', text: 'Strict-Transport-Security missing on the sweep — acceptable on localhost, must be added at the reverse proxy in the Nebius deploy.' });
+  if (okN === runs.length) findings.push({ sev:'praise', text: 'All ' + runs.length + ' pages passed the perf + hygiene budget.' });
+  else findings.push({ sev:'praise', text: okN + '/' + runs.length + ' pages passed cleanly with no console errors, no failed requests, and 1 &lt;h1&gt; each.' });
+
+  document.getElementById('findings').innerHTML = findings.map(f =>
+    '<div class="finding ' + f.sev + '"><span class="sev">' + f.sev + '</span>' + f.text + '</div>').join('');
+
+  const fCounts = { blocker: 0, note: 0, praise: 0 };
+  findings.forEach(f => { if (fCounts[f.sev] != null) fCounts[f.sev]++; });
+  const fPills = [];
+  if (fCounts.blocker) fPills.push('<span class="pill blocker">' + fCounts.blocker + ' blocker</span>');
+  if (fCounts.note)    fPills.push('<span class="pill note">' + fCounts.note + ' note</span>');
+  if (fCounts.praise)  fPills.push('<span class="pill praise">' + fCounts.praise + ' praise</span>');
+  document.getElementById('findings-count').innerHTML = fPills.join(' ');
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+})();
+</script>
+
+</body>
+</html>

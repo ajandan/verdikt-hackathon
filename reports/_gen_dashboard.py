@@ -49,7 +49,8 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
     (
         "pipeline",
         "PAP pipeline",
-        "Intake, extraction, MDM lookup, retrieval, reasoning, orchestration.",
+        "Intake, Triage, extraction, MDM lookup, retrieval, reasoning, "
+        "orchestration, 3-level model config resolver.",
         [
             "test_pap_extract",
             "test_pap_reason",
@@ -65,6 +66,15 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_pap_json_intake_aliases",
             "test_pap_slot_compile",
             "test_pap_inbox_hook",
+            "test_pap_program_model_override",
+            "test_pap_verify",
+            # Triage stage + config resolver (2026-09-16 additions)
+            "test_pap_triage",
+            "test_pap_triage_llm",
+            "test_pap_triage_skip_decide",
+            "test_pap_config_resolver",
+            # End-to-end wire-capture: 3-level chain reaches Nebius body
+            "test_pap_e2e_config_chain",
         ],
     ),
     (
@@ -164,6 +174,15 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_metrics",
             "test_e2e_pipeline",
             "test_ui_smoke",
+        ],
+    ),
+    (
+        "admin_ui",
+        "Admin UI write-paths",
+        "Tenant/program configuration pages: inherit-from-tenant toggles, "
+        "split Triage routing page, tenant models dropdowns.",
+        [
+            "test_pap_ui_inherit_and_tenant_models",
         ],
     ),
 ]

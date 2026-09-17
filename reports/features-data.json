@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-17T02:02:56Z",
-  "commit": "d0dbb79",
+  "generated_at": "2026-09-17T03:15:00Z",
+  "commit": "c7daa6d",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -13,8 +13,8 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 92,
-    "shipped": 89,
+    "features_total": 96,
+    "shipped": 93,
     "in_progress": 0,
     "backlog": 3,
     "parked": 2
@@ -140,6 +140,33 @@
           "status": "shipped",
           "evidence": "admin_program_detail.html (Triage tab) + admin_tenant_models.html + src/pap_pipeline/stages/triage.py",
           "notes": "Program-detail page now has a \"Triage routing\" tab with a dynamic table: operators add/remove rows, name their own case types, pick a downstream route, and toggle a \"Decision needed?\" flag per row. When the flag is off, the orchestrator skips the Decide stage entirely and emits a stub Decision carrying the route (refill straight to Pharmacy OMS, not-decidable straight to reject, etc.). LLM prompt is built dynamically from the configured case_types so program-specific types are classifiable."
+        },
+        {
+          "name": "Program page \u2014 \"Inherit from tenant\" toggle per model field",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/admin_program_detail.html (Models tab) + src/docgen/ui/routes.py (program_models_save)",
+          "notes": "Each of the four model dropdowns (Extract, Reason, Triage, Verifier) is paired with a checkbox that, when ticked, disables the dropdown and stores NULL on the program row so the resolver falls back to the tenant/platform default. The row displays the currently-resolved value with its source (program / tenant / settings) so operators can see what they'd inherit before unchecking. Inherit state is per-field, not all-or-nothing.",
+          "commit": "3b45c07"
+        },
+        {
+          "name": "Program page \u2014 \"Inherit routing from tenant\" toggle for Triage",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/admin_program_detail.html (Triage tab) + src/docgen/ui/routes.py (program_triage_routing_save)",
+          "notes": "Whole-table inherit toggle on the program's Triage tab. Checked (default when no override exists) disables every row and hides the Add-row button; unchecking enables the dynamic table. On submit with the toggle checked, the JS sends an empty payload and the handler clears program.triage_routing to NULL so the resolver walks up to tenant/platform routing.",
+          "commit": "3b45c07"
+        },
+        {
+          "name": "Tenant admin split \u2014 dedicated Triage routing page",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/admin_tenant_triage_routing.html + src/docgen/ui/templates/admin_tenant_models.html + src/docgen/ui/routes.py (admin_tenant_triage_routing, admin_save_tenant_triage_routing)",
+          "notes": "Tenant Models page is now models-only; the routing table lives at /ui/admin/tenants/{id}/triage-routing with its own dynamic-rows editor. Tenant list page swaps text-link actions for a row of icon buttons (Inbox / MDM / Models / Triage / Quotas / Keys) with CSS-only tooltips so operator context stays compact and CSP-safe.",
+          "commit": "3b45c07"
+        },
+        {
+          "name": "E2E regression: 3-level config chain reaches the wire",
+          "status": "shipped",
+          "evidence": "tests/test_pap_e2e_config_chain.py (6 tests)",
+          "notes": "Wire-capture MockTransport intercepts every Extract/Triage/Reason HTTP call and asserts the model name in the request body matches the resolved value. Covers program overrides winning end-to-end, tenant fallback when program is NULL, all-null falling through to settings, verifier opt-in firing a second vision call, per-program triage routing skipping Decide entirely, and precedence between program and tenant. Complements the resolver unit tests by proving inbox_hook actually threads the resolved values into each stage's config."
         }
       ]
     },

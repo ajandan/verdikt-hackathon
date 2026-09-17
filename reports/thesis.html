@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Design thesis</title>
+<meta name="description" content="Why Verdikt is a pipeline in the middle, not code inside the CRM. The three defaults, the line we drew, and what that unlocks for every downstream system." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · Design thesis" />
+<meta property="og:description" content="Why Verdikt is a pipeline in the middle, not code inside the CRM. The three defaults, the line we drew, and what that unlocks for every downstream system." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · Design thesis" />
+<meta name="twitter:description" content="Why Verdikt is a pipeline in the middle, not code inside the CRM." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css">
+<style>
+  body {
+    background:
+      radial-gradient(ellipse 90% 60% at 50% -10%, rgba(47,143,118,0.06), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 40%, rgba(201,138,43,0.05), transparent 60%),
+      var(--ink-50);
+  }
+
+  .hero-thesis { position: relative; padding: 56px 0 32px; }
+  .hero-thesis .lede-strong {
+    max-width: 780px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 22px; line-height: 1.5;
+    color: var(--ink-700);
+    margin: 16px 0 0;
+  }
+  .hero-thesis .lede-strong em { font-style: italic; color: var(--seal-700); }
+
+  /* --- Three defaults (anti-patterns) --- */
+  .defaults-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin: 22px 0 8px;
+  }
+  @media (max-width: 900px) { .defaults-grid { grid-template-columns: 1fr; } }
+  .default-card {
+    background: #fff;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-top: 3px solid #b45309;
+    border-radius: 10px;
+    padding: 22px 22px 20px;
+  }
+  .default-card h4 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #b45309; margin: 0 0 8px;
+  }
+  .default-card .name {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 22px; color: var(--ink-900);
+    display: block; margin-bottom: 8px;
+  }
+  .default-card .body { font-size: 13.5px; color: var(--ink-700); line-height: 1.55; margin: 0; }
+  .default-card .cost {
+    display: block; margin-top: 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .default-card .cost b { color: #b45309; font-weight: 500; }
+
+  /* --- The line diagram --- */
+  .line-diagram-wrap {
+    margin: 22px 0 12px;
+    background: linear-gradient(180deg, #fefdf9 0%, #f5f4ef 100%);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 14px;
+    padding: 26px 22px 20px;
+    box-shadow: 0 20px 60px -40px rgba(20,20,16,0.20);
+  }
+  .line-diagram-wrap svg { display: block; width: 100%; height: auto; }
+  .line-diagram-legend {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; color: var(--ink-700); letter-spacing: 0.04em;
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px dashed rgba(20,20,16,0.15);
+    text-align: center;
+  }
+  .line-diagram-legend b { color: var(--seal-700); font-weight: 500; }
+
+  /* --- Unlocks (before/after) --- */
+  .unlocks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 20px 0 8px;
+  }
+  @media (max-width: 820px) { .unlocks-grid { grid-template-columns: 1fr; } }
+  .unlock {
+    background: #fff;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-left: 4px solid var(--seal-500);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .unlock h4 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--seal-700); margin: 0 0 4px;
+  }
+  .unlock p { font-size: 13.5px; color: var(--ink-700); line-height: 1.55; margin: 6px 0 0; }
+  .unlock .before {
+    display: block; margin-top: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px; color: var(--ink-500); letter-spacing: 0.04em;
+  }
+  .unlock .before b { color: var(--ink-700); font-weight: 500; }
+
+  /* --- Next step / triage teaser --- */
+  .next-step {
+    background: linear-gradient(140deg, rgba(47,143,118,0.09), rgba(201,138,43,0.06));
+    border: 1px solid rgba(47,143,118,0.20);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin: 20px 0 8px;
+  }
+  .next-step h3 {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 22px; color: var(--ink-900); margin: 0 0 8px;
+    font-weight: 400;
+  }
+  .next-step h3 em { color: var(--seal-700); }
+  .next-step p { font-size: 14px; color: var(--ink-700); line-height: 1.55; margin: 8px 0; }
+  .next-step .tag {
+    display: inline-block;
+    background: #141410; color: #fefdf9;
+    padding: 3px 8px; border-radius: 3px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px; letter-spacing: 0.12em; margin-right: 10px;
+    vertical-align: middle;
+    position: relative; top: -2px;
+  }
+  .next-step h3 { white-space: nowrap; }
+  @media (max-width: 700px) { .next-step h3 { white-space: normal; } }
+
+  /* --- Ready-for-the-demo callout --- */
+  .primer-callout {
+    background: linear-gradient(140deg, rgba(47,143,118,0.09), rgba(201,138,43,0.06));
+    border: 1px solid rgba(47,143,118,0.20);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 20px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  }
+  .primer-callout .txt { font-size: 14px; color: var(--ink-800); }
+  .primer-callout .txt b { color: var(--ink-900); }
+  .primer-callout a {
+    background: var(--seal-500); color: #fefdf9;
+    padding: 8px 14px; border-radius: 6px;
+    font-weight: 500; text-decoration: none;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .primer-callout a:hover { background: var(--seal-700); }
+  @media (max-width: 700px) {
+    .primer-callout { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <div class="brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">The <em>thesis.</em></span>
+    </div>
+    <nav class="crossnav">
+      <a href="./about.html">About</a>
+      <a href="./domain.html">Domain</a>
+      <a href="./thesis.html" class="active">Thesis</a>
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- HERO -->
+  <section class="hero hero-thesis">
+    <span class="eyebrow"><span class="dot"></span> Design thesis</span>
+    <h1 class="display">Why we put a pipeline <em>in the middle</em></h1>
+    <p class="lede-strong">Most systems that touch service requests do it one of three ways, and all three lose context at the seam. AI made a fourth option viable: <em>draw a line, put the pipeline there</em>, and every downstream system gets the request already analyzed instead of raw.</p>
+  </section>
+
+  <!-- SECTION 1 · The three defaults -->
+  <section class="block">
+    <span class="kicker">The three defaults</span>
+    <h2>How most operations wire this today</h2>
+    <p class="subhead">There are three shapes an intake-to-fulfillment operation usually takes. Each one works. Each one costs something the others don't. Verdikt is a fourth shape, made possible by AI carrying context that used to be a human's job.</p>
+
+    <div class="defaults-grid">
+      <div class="default-card">
+        <h4>Default 1</h4>
+        <span class="name">Everything inside the CRM</span>
+        <p class="body">Case management platform becomes the system-of-record for intake, decisioning, correspondence, and fulfillment orchestration. Great for reporting; every change is a CRM build. Rules are hard-coded, letters live in template tools, decisions are humans clicking buttons.</p>
+        <span class="cost"><b>Costs:</b> every new program or channel is a project. Rules and letters drift from the CRM code that reads them.</span>
+      </div>
+      <div class="default-card">
+        <h4>Default 2</h4>
+        <span class="name">One-off per channel</span>
+        <p class="body">Email intake gets its own scripts. Fax has its own OCR pipeline. Portal writes directly to the case DB. EHR integrations go through a middleware. Each channel is normalized differently before landing in the same case store.</p>
+        <span class="cost"><b>Costs:</b> five extract-and-map codepaths instead of one. Bugs discovered in one channel don't automatically get fixed in the others.</span>
+      </div>
+      <div class="default-card">
+        <h4>Default 3</h4>
+        <span class="name">Siloed teams stitching systems</span>
+        <p class="body">Intake team hands off to an eligibility team, who hands off to a fulfillment team, who hands off to a compliance team. Every hand-off is an email, a spreadsheet, or a shared inbox. The case is the same; the context isn't carried across.</p>
+        <span class="cost"><b>Costs:</b> humans re-read the same documents at every step. Turnaround measured in days, not seconds.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2 · Why now -->
+  <section class="block">
+    <span class="kicker">Why now</span>
+    <h2>The bit that used to be the human's job</h2>
+    <p>All three defaults exist because <em>context</em>, what does this case actually mean, is it decidable, which rules apply, what should happen next, used to be something only a human could produce reliably. So every architecture pushed context work to the humans and let the systems be dumb pipes.</p>
+    <p>Modern extraction, retrieval, and reasoning models change what a machine can carry across a seam. The intake documents can be read into structured fields with fidelity. The program rules can be retrieved and cited. The verdict can be produced with an explanation attached. Not perfectly, but reliably enough that the downstream systems can trust <em>context has been established</em> and act on it.</p>
+    <p>Once that's true, the shape of the operation can change. The pipeline in the middle stops being aspirational.</p>
+  </section>
+
+  <!-- SECTION 3 · The line we drew -->
+  <section class="block">
+    <span class="kicker">The line we drew</span>
+    <h2>A logical boundary, not another silo</h2>
+    <p class="subhead">The line runs between "reading the case in context" and "writing the reply." AI carries the case across the first half; deterministic code carries the reply across the second half. Everything upstream of the line normalizes into one case; everything downstream receives it already analyzed.</p>
+
+    <div class="line-diagram-wrap">
+      <svg viewBox="0 0 1000 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The line: AI in on the left, deterministic out on the right, downstream receives context">
+        <defs>
+          <marker id="th-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2f8f76"/>
+          </marker>
+          <marker id="th-arr-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#a9a394"/>
+          </marker>
+        </defs>
+
+        <!-- Left band: upstream (raw) -->
+        <rect x="20" y="40" width="180" height="240" rx="10" fill="#fafaf5" stroke="#a9a394" stroke-width="1"/>
+        <text x="110" y="66" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" letter-spacing="0.14em" fill="#6c6858">UPSTREAM</text>
+        <text x="110" y="90" text-anchor="middle" font-family="'Instrument Serif', serif" font-size="18" fill="#141410">Raw intake</text>
+        <text x="110" y="115" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6c6858">email · fax · mail</text>
+        <text x="110" y="130" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6c6858">portal · EHR API</text>
+        <text x="110" y="175" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6c6858">what arrives:</text>
+        <text x="110" y="192" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#141410">bytes + attachments</text>
+        <text x="110" y="230" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#a9a394" font-style="italic">no context yet</text>
+
+        <!-- Pipeline (the line) -->
+        <rect x="290" y="40" width="420" height="240" rx="14" fill="rgba(47,143,118,0.06)" stroke="#2f8f76" stroke-width="2"/>
+        <text x="500" y="66" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#2f8f76" font-weight="600" letter-spacing="0.14em">VERDIKT PIPELINE</text>
+        <text x="500" y="98" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="22" fill="#1e5f4f">AI reads. Deterministic code writes.</text>
+        <text x="500" y="150" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#141410">Ingest &middot; Triage &middot; Decide &middot; Deliver &middot; Remember</text>
+
+        <!-- STOP line inside pipeline -->
+        <line x1="500" y1="170" x2="500" y2="240" stroke="#141410" stroke-width="1" stroke-dasharray="4 3"/>
+        <g transform="translate(500,178)">
+          <rect x="-28" y="-9" width="56" height="18" rx="9" fill="#141410"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#fefdf9" letter-spacing="0.20em">STOP</text>
+        </g>
+        <text x="410" y="215" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#2f8f76" letter-spacing="0.10em">AI in</text>
+        <text x="595" y="215" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#a26a1e" letter-spacing="0.10em">deterministic out</text>
+
+        <!-- Right band: downstream (with context) -->
+        <rect x="800" y="40" width="180" height="240" rx="10" fill="#fff8f0" stroke="#a26a1e" stroke-width="1"/>
+        <text x="890" y="66" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" letter-spacing="0.14em" fill="#a26a1e">DOWNSTREAM</text>
+        <text x="890" y="90" text-anchor="middle" font-family="'Instrument Serif', serif" font-size="18" fill="#141410">CRM · Pharmacy</text>
+        <text x="890" y="108" text-anchor="middle" font-family="'Instrument Serif', serif" font-size="18" fill="#141410">Portal · Audit</text>
+        <text x="890" y="175" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6c6858">what arrives:</text>
+        <text x="890" y="192" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#141410">verdict + reply +</text>
+        <text x="890" y="205" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="#141410">cited rules + audit</text>
+        <text x="890" y="240" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#2f8f76" font-style="italic">context already established</text>
+
+        <!-- Arrows -->
+        <line x1="200" y1="160" x2="290" y2="160" stroke="#2f8f76" stroke-width="1.8" marker-end="url(#th-arr)"/>
+        <line x1="710" y1="160" x2="800" y2="160" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#th-arr)"/>
+
+        <!-- Callouts under bands -->
+        <text x="110" y="310" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#6c6858">Every channel normalizes here</text>
+        <text x="890" y="310" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" fill="#6c6858">Every system receives context, not bytes</text>
+      </svg>
+
+      <p class="line-diagram-legend">The pipeline is the seam. <b>AI stops</b> before the reply is written; the deterministic render carries bytes-forever guarantees to every downstream integration.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 4 · What this unlocks -->
+  <section class="block">
+    <span class="kicker">What this unlocks</span>
+    <h2>Four things that were structural blockers before</h2>
+    <p class="subhead">These aren't features; they're properties of the shape. Once the line is drawn, the rest follows.</p>
+
+    <div class="unlocks-grid">
+      <div class="unlock">
+        <h4>Every request enters analyzed</h4>
+        <p>The pipeline reads the case, cites the rules, and produces the verdict before anything downstream sees it. Downstream systems act on <em>meaning</em>, not raw attachments.</p>
+        <span class="before"><b>Before:</b> CRM stored PDFs; a human opened each one to decide.</span>
+      </div>
+      <div class="unlock">
+        <h4>Context flows across the seam</h4>
+        <p>The verdict, the rationale, the rule citations, and the byte-identical reply travel together as one payload. When a CRM ticket opens, it's already annotated. When Pharmacy OMS receives a dispense order, it knows why.</p>
+        <span class="before"><b>Before:</b> humans re-explained the case at every hand-off.</span>
+      </div>
+      <div class="unlock">
+        <h4>New channels plug in without a rebuild</h4>
+        <p>Fax, mail, portal, EHR all normalize into the same case shape before the pipeline runs. Adding a channel means writing one adapter, not rewriting the whole decision path.</p>
+        <span class="before"><b>Before:</b> each channel had its own extract-and-map codepath.</span>
+      </div>
+      <div class="unlock">
+        <h4>New programs onboard as data</h4>
+        <p>Program rules, extraction schemas, and reply templates are configuration, not code. A second program with a stricter cap and a different template is a folder, not a project.</p>
+        <span class="before"><b>Before:</b> each new program was a CRM release cycle.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5 · What we're building now -->
+  <section class="block" style="border-top: none; padding-top: 0">
+    <div class="next-step">
+      <h3><span class="tag">BUILT</span><em>Triage</em> as a first-class stage</h3>
+      <p>Triage was never a real automation step before. Knowing what a case actually was, whether a new intake, a refill, an appeal, or a note with a missing signature, required someone to open the envelope, open the attachments, and read them. The classification lived inside the human's head, so every architecture put a person in front of the queue and let the systems be dumb pipes downstream.</p>
+      <p>Modern extraction and reasoning models change that. The machine can read the attachments first, recognize the shape of the case, and route on what's actually inside, not on subject lines, sender rules, or a person's inbox instinct. That's the unlock: <em>triage becomes a stage the pipeline runs, not a job the human does before the pipeline starts.</em></p>
+      <p>Triage now sits as a first-class stage between Ingest and Decide. It classifies the case (new intake · refill · appeal · missing-info · not-decidable) and routes accordingly. A refill short-circuits to Pharmacy OMS directly, a missing-info case goes straight to CRM outreach, and a fresh intake continues down the full Decide → Deliver path. Reading every case the same way was the right default for a single-shape submission; not every case needs the full run.</p>
+      <p>The pipeline: <b>Ingest → Triage → Decide → Deliver → Remember</b>. Same line, more precise routing.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 6 · callout to the demo -->
+  <section class="block" style="border-top: none; padding-top: 0">
+    <div class="primer-callout">
+      <div class="txt"><b>Ready for the demo?</b> The 3-minute video walks through a real Cardiovita application from email arrival to signed approval letter. The timeline pill at the top-right shows which of the five stages is being explained at any moment.</div>
+      <a href="/#hackathon">Watch the demo &rarr;</a>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="6" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+    </div>
+    <div class="foot-links">
+      <a href="./index.html">Overview</a>
+      <a href="./about.html">About</a>
+      <a href="./domain.html">Domain</a>
+      <a href="./features.html">Features</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </div>
+  </footer>
+
+</main>
+
+</body>
+</html>

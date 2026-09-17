@@ -8,7 +8,7 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -216,6 +216,12 @@ def create_app() -> FastAPI:
     # from the hackathon block on the marketing page. Bypasses api-key auth
     # via the `/engineering` prefix in docgen.auth._BYPASS_PREFIXES.
     if _REPORTS_DIR.exists():
+        # Land on About instead of the static-mount default (index.html).
+        @app.get("/engineering/", include_in_schema=False)
+        @app.get("/engineering", include_in_schema=False)
+        async def _engineering_landing() -> RedirectResponse:
+            return RedirectResponse(url="/engineering/about.html", status_code=307)
+
         app.mount(
             "/engineering",
             StaticFiles(directory=str(_REPORTS_DIR), html=True),

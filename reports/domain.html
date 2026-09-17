@@ -84,7 +84,7 @@
     padding: 4px 0;
     color: var(--ink-500);
   }
-  .flow-arrow-row span:last-child { visibility: hidden; }
+  .flow-arrow-row span:last-child { color: var(--seal-700); font-weight: 500; }
   @media (max-width: 900px) { .flow-arrow-row { display: none; } }
 
   .doc-grid {
@@ -200,9 +200,9 @@
     border-radius: 14px;
     padding: 26px 22px 20px;
     box-shadow: 0 20px 60px -40px rgba(20,20,16,0.20);
-    overflow-x: auto;
+    overflow: hidden;
   }
-  .e2e-wrap svg.e2e { display: block; width: 100%; min-width: 1100px; height: auto; }
+  .e2e-wrap svg.e2e { display: block; width: 100%; height: auto; }
   .e2e-legend {
     display: flex; flex-wrap: wrap; gap: 16px 24px;
     margin-top: 14px; padding-top: 14px;
@@ -258,9 +258,10 @@
       <span class="brand-tag">The <em>domain.</em></span>
     </div>
     <nav class="crossnav">
-      <a href="./index.html">Overview</a>
       <a href="./about.html">About</a>
       <a href="./domain.html" class="active">Domain</a>
+      <a href="./thesis.html">Thesis</a>
+      <a href="./index.html">Overview</a>
       <a href="./features.html">Features</a>
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
@@ -292,14 +293,14 @@
         <p>Funds the program, sets the eligibility rules (income cap, indication, insurance status).</p>
       </div>
       <div class="flow-node">
-        <span class="role-badge">Administrator</span>
-        <h4>PAP hub / pharmacy</h4>
-        <p>Screens applications against the rules, issues an outcome letter, ships the medication.</p>
-      </div>
-      <div class="flow-node">
         <span class="role-badge">Point of care</span>
         <h4>Prescriber</h4>
         <p>Writes the prescription, signs the medical-necessity attestation, provides NPI/DEA.</p>
+      </div>
+      <div class="flow-node">
+        <span class="role-badge">Administrator</span>
+        <h4>PAP hub / pharmacy</h4>
+        <p>Screens applications against the rules, issues an outcome letter, ships the medication.</p>
       </div>
       <div class="flow-node">
         <span class="role-badge">Beneficiary</span>
@@ -309,11 +310,35 @@
     </div>
     <div class="flow-arrow-row">
       <span>funds &rarr;</span>
-      <span>ships drug &rarr;</span>
       <span>prescribes &rarr;</span>
-      <span></span>
+      <span>ships drug &rarr;</span>
+      <span>&larr; receives meds</span>
     </div>
     <p class="subhead" style="margin-top: 8px">In the demo, the administrator is a fictional pharmacy called <b>Alderwood Specialty Pharmacy</b>. The patient is <b>Devon Okafor</b>; the medication is <b>Cardiovita 40 mg</b>.</p>
+  </section>
+
+  <!-- SECTION 1b · why sponsors fund PAPs -->
+  <section class="block">
+    <span class="kicker">The motive</span>
+    <h2>Why manufacturers fund PAPs</h2>
+    <p class="subhead">A PAP is not pure charity. It's a legitimate access program that also protects the manufacturer's most important asset: a patient staying on their drug. Three reasons usually drive it.</p>
+
+    <div class="outcome-grid">
+      <div class="outcome-card">
+        <h4>Access &amp; adherence</h4>
+        <p>Uninsured or underinsured patients who can't afford a specialty drug walk away from therapy. A PAP keeps them on the prescribed regimen, which protects clinical outcomes and avoids losing the patient to discontinuation.</p>
+      </div>
+      <div class="outcome-card">
+        <h4>Fill the coverage gap</h4>
+        <p>High-cost specialty drugs get denied by payers all the time. A PAP catches the cases the manufacturer wants covered anyway: correct indication, right patient, no commercial insurance path available.</p>
+      </div>
+      <div class="outcome-card">
+        <h4>Long-term relationship</h4>
+        <p>Patients who start on a brand through a PAP often stay on it after they gain coverage. Prescribers who trust a manufacturer's safety net keep prescribing. The program pays back over years, not months.</p>
+      </div>
+    </div>
+
+    <p class="subhead" style="margin-top: 14px; font-size: 13px; color: var(--ink-500)">PAPs also sit inside an active policy conversation about list-price optics and OIG scrutiny of manufacturer-funded charity foundations. That debate is real and worth reading separately; this primer stays on the mechanics.</p>
   </section>
 
   <!-- SECTION 2 · intake stack -->
@@ -416,6 +441,7 @@
           <symbol id="i-intake" viewBox="0 0 24 24"><path d="M3 13v6h18v-6h-5l-2 2h-4l-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M7 4h10v9" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
           <symbol id="i-ingest" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M2 12c3-5 7-7 10-7s7 2 10 7c-3 5-7 7-10 7s-7-2-10-7z" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
           <symbol id="i-decide" viewBox="0 0 24 24"><path d="M12 3v6M9 6l3-3 3 3M6 12h12M6 21h12M9 18l3 3 3-3M4 12l3-4M20 12l-3-4M4 12l3 4M20 12l-3 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+          <symbol id="i-triage" viewBox="0 0 24 24"><path d="M12 3v6" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M12 9l-6 6M12 9l0 6M12 9l6 6" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="6" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="18" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
           <symbol id="i-deliver" viewBox="0 0 24 24"><rect x="5" y="9" width="14" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="4" width="8" height="5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="14" width="8" height="6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="10" y1="16" x2="14" y2="16" stroke="currentColor" stroke-width="1.2"/></symbol>
           <symbol id="i-remember" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="3" width="18" height="4" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="9" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="1.6"/></symbol>
           <symbol id="i-mdm" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 5v14c0 1 4 2 8 2s8-1 8-2V5" fill="none" stroke="currentColor" stroke-width="1.6"/><ellipse cx="12" cy="12" rx="8" ry="2" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/></symbol>
@@ -490,62 +516,74 @@
 
         <!-- === VERDIKT PIPELINE (highlighted) === -->
         <g transform="translate(470,50)" font-family="'Inter', sans-serif">
-          <rect width="600" height="360" rx="16" fill="rgba(47,143,118,0.06)" stroke="#2f8f76" stroke-width="2"/>
+          <rect width="620" height="360" rx="16" fill="rgba(47,143,118,0.06)" stroke="#2f8f76" stroke-width="2"/>
           <!-- Pipeline subtitle -->
-          <text x="300" y="34" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="17" fill="#1e5f4f">Ingest &rarr; Decide &rarr; Deliver &rarr; Remember</text>
+          <text x="310" y="34" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="16" fill="#1e5f4f">Ingest &rarr; Triage &rarr; Decide &rarr; Deliver &rarr; Remember</text>
 
-          <!-- 4 pipeline stages -->
-          <g transform="translate(20,64)">
+          <!-- 5 pipeline stages (Triage sits between Ingest and Decide). Stage
+               width 105, inter-stage gap 15; group left offset 17 so both
+               sides get ~18px of padding inside the 620-wide pipeline box. -->
+          <g transform="translate(17,64)">
             <!-- Ingest -->
             <g>
-              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
-              <use href="#i-ingest" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
-              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Ingest</text>
-              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">read stack</text>
-              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ structured fields</text>
+              <rect width="105" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-ingest" x="39.5" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="52" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Ingest</text>
+              <text x="52" y="76" text-anchor="middle" font-size="10" fill="#6c6858">read stack</text>
+              <text x="52" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ structured fields</text>
+            </g>
+            <!-- Triage -->
+            <g transform="translate(120,0)">
+              <rect width="105" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-triage" x="39.5" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="52" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Triage</text>
+              <text x="52" y="76" text-anchor="middle" font-size="10" fill="#6c6858">classify + route</text>
+              <text x="52" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ new/refill/appeal</text>
             </g>
             <!-- Decide -->
-            <g transform="translate(150,0)">
-              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
-              <use href="#i-decide" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
-              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Decide</text>
-              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">rules + verdict</text>
-              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ approve/deny/miss</text>
+            <g transform="translate(240,0)">
+              <rect width="105" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-decide" x="39.5" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="52" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Decide</text>
+              <text x="52" y="76" text-anchor="middle" font-size="10" fill="#6c6858">rules + verdict</text>
+              <text x="52" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ approve/deny/miss</text>
             </g>
             <!-- Deliver -->
-            <g transform="translate(300,0)">
-              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
-              <use href="#i-deliver" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
-              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Deliver</text>
-              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">frozen template</text>
-              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ byte-identical PDF</text>
+            <g transform="translate(360,0)">
+              <rect width="105" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-deliver" x="39.5" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="52" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Deliver</text>
+              <text x="52" y="76" text-anchor="middle" font-size="10" fill="#6c6858">frozen template</text>
+              <text x="52" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ byte-identical PDF</text>
             </g>
             <!-- Remember -->
-            <g transform="translate(450,0)">
-              <rect width="130" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
-              <use href="#i-remember" x="52" y="10" width="26" height="26" color="#1e5f4f"/>
-              <text x="65" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Remember</text>
-              <text x="65" y="76" text-anchor="middle" font-size="10" fill="#6c6858">audit + sha256</text>
-              <text x="65" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ reproducible</text>
+            <g transform="translate(480,0)">
+              <rect width="105" height="100" rx="10" fill="#ffffff" stroke="#2f8f76" stroke-width="1.5"/>
+              <use href="#i-remember" x="39.5" y="10" width="26" height="26" color="#1e5f4f"/>
+              <text x="52" y="58" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Remember</text>
+              <text x="52" y="76" text-anchor="middle" font-size="10" fill="#6c6858">audit + sha256</text>
+              <text x="52" y="90" text-anchor="middle" font-size="10" fill="#6c6858">→ reproducible</text>
             </g>
           </g>
 
-          <!-- Intra-pipeline arrows -->
+          <!-- Intra-pipeline arrows (4 arrows across 5 stages, in stages-local coords) -->
           <g stroke="#2f8f76" stroke-width="1.5" fill="none">
-            <line x1="150" y1="114" x2="170" y2="114" marker-end="url(#arr)"/>
-            <line x1="300" y1="114" x2="320" y2="114" marker-end="url(#arr)"/>
-            <line x1="450" y1="114" x2="470" y2="114" marker-end="url(#arr)"/>
+            <line x1="122" y1="114" x2="137" y2="114" marker-end="url(#arr)"/>
+            <line x1="242" y1="114" x2="257" y2="114" marker-end="url(#arr)"/>
+            <line x1="362" y1="114" x2="377" y2="114" marker-end="url(#arr)"/>
+            <line x1="482" y1="114" x2="497" y2="114" marker-end="url(#arr)"/>
           </g>
 
-          <!-- STOP gate label between Decide and Deliver -->
-          <g transform="translate(305,180)">
+          <!-- STOP gate label between Decide and Deliver (midpoint at 370 in
+               pipeline-local coords = stages translate(17) + Decide right(240+105) + gap/2). -->
+          <g transform="translate(370,180)">
             <rect x="-24" y="-8" width="48" height="16" rx="8" fill="#141410"/>
             <text x="0" y="4" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#fefdf9" letter-spacing="0.20em">STOP</text>
             <text x="0" y="24" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#2f8f76">AI ends here</text>
           </g>
 
           <!-- Pipeline label bottom -->
-          <text x="300" y="340" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="16" fill="#1e5f4f">Case in. Verdict out. Same case, same reply, forever.</text>
+          <text x="310" y="340" text-anchor="middle" font-family="'Instrument Serif', serif" font-style="italic" font-size="16" fill="#1e5f4f">Case in. Verdict out. Same case, same reply, forever.</text>
         </g>
 
         <!-- === FEEDER SYSTEMS (below Verdikt) === -->
@@ -585,26 +623,28 @@
           </g>
         </g>
 
-        <!-- === DOWNSTREAM SYSTEMS === -->
+        <!-- === DOWNSTREAM SYSTEMS ===
+             CRM sits in the middle so it can fan out to Pharmacy (up) and
+             Portal (down) with simple vertical arrows — no wraparound path. -->
         <g transform="translate(1160,50)" font-family="'Inter', sans-serif">
-          <!-- Case Mgmt / CRM (top — primary route from Verdikt Deliver) -->
+          <!-- Pharmacy OMS (top — dispatched by CRM on approve) -->
           <g>
-            <rect width="170" height="94" rx="10" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
-            <use href="#i-crm" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
-            <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Case Mgmt &middot; CRM</text>
-            <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">orchestrates dispatch,</text>
-            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">outreach, appeals</text>
-          </g>
-          <!-- Pharmacy OMS (middle — fed by CRM on approve) -->
-          <g transform="translate(0,130)">
             <rect width="170" height="94" rx="10" fill="#fff8f0" stroke="#a26a1e" stroke-width="1.5"/>
             <use href="#i-pharma" x="15" y="15" width="24" height="24" color="#a26a1e"/>
             <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Pharmacy OMS</text>
             <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">dispensing order</text>
             <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">on approve &middot; SFTP/API</text>
           </g>
-          <!-- Patient Portal (bottom — fed by CRM, patient-facing) -->
-          <g transform="translate(0,260)">
+          <!-- Case Mgmt / CRM (middle — primary hand-off from the pipeline) -->
+          <g transform="translate(0,110)">
+            <rect width="170" height="94" rx="10" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
+            <use href="#i-crm" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
+            <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Case Mgmt &middot; CRM</text>
+            <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">orchestrates dispatch,</text>
+            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">outreach, appeals</text>
+          </g>
+          <!-- Patient Portal (bottom — CRM updates on every outcome) -->
+          <g transform="translate(0,220)">
             <rect width="170" height="94" rx="10" fill="#ffffff" stroke="#a9a394" stroke-width="1"/>
             <use href="#i-portal" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
             <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Patient Portal</text>
@@ -612,10 +652,11 @@
             <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">no email outbound</text>
           </g>
 
-          <!-- Internal arrows: CRM → Pharmacy (down), CRM → Portal (down) -->
+          <!-- Internal arrows: CRM → Pharmacy (short UP) and CRM → Portal
+               (short DOWN). Both are simple vertical lines, no wraparound. -->
           <g stroke="#a9a394" stroke-width="1.5" fill="none">
-            <line x1="85" y1="94" x2="85" y2="130" marker-end="url(#arr-mut)"/>
-            <line x1="85" y1="224" x2="85" y2="260" marker-end="url(#arr-mut)"/>
+            <line x1="85" y1="110" x2="85" y2="94" marker-end="url(#arr-mut)"/>
+            <line x1="85" y1="204" x2="85" y2="220" marker-end="url(#arr-mut)"/>
           </g>
         </g>
 
@@ -653,29 +694,33 @@
           <!-- Intake normalizer → Verdikt Ingest -->
           <line x1="430" y1="230" x2="490" y2="228" stroke="#2f8f76" stroke-width="1.8" marker-end="url(#arr)"/>
 
-          <!-- Verdikt Deliver → Case Mgmt / CRM (the ONLY outbound edge from the pipeline).
-               Exits Deliver's right edge and arcs ABOVE the Remember box into CRM's left edge. -->
-          <path d="M 920,164 C 1000,90, 1090,80, 1160,97" stroke="#2f8f76" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+          <!-- Whole Verdikt pipeline → Case Mgmt / CRM. Arrow originates from
+               the pipeline BOX right edge (x=1090 after widening) at its vertical
+               centre and lands at CRM's left-middle (y=207). -->
+          <path d="M 1090,230 L 1160,207" stroke="#2f8f76" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
 
-          <!-- Pharmacy OMS → Carrier (right side, physical hand-off) -->
-          <line x1="1330" y1="227" x2="1400" y2="185" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#arr-amber)"/>
+          <!-- Pharmacy OMS → Carrier (Pharmacy now at top of the downstream
+               stack; y-centre 97 lines up with Carrier centre 185). Slight
+               up-slope diagonal. -->
+          <line x1="1330" y1="97" x2="1400" y2="140" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#arr-amber)"/>
 
-          <!-- Feeder systems ↑ to Verdikt stages (dashed). Terminates at stage box bottoms (y=214). -->
-          <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3">
-            <line x1="540" y1="440" x2="555" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="695" y1="440" x2="705" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="850" y1="440" x2="855" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="1002" y1="440" x2="1005" y2="220" marker-end="url(#arr-mut)"/>
+          <!-- All dotted boxes below (Feeders + External Verifiers) converge on
+               the DECIDE stage. Decide's bottom-centre in the 5-stage layout is
+               at x≈780, y=220. -->
+          <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3" fill="none" opacity="0.75">
+            <!-- Feeders (short lines, ~220px climb) -->
+            <line x1="540"  y1="440" x2="774" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="695"  y1="440" x2="778" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="850"  y1="440" x2="782" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="1002" y1="440" x2="786" y2="220" marker-end="url(#arr-mut)"/>
+            <!-- External Verifiers (longer climb, pass through the Feeder-row
+                 vertical band — the muted opacity keeps the crossing subtle). -->
+            <line x1="540"  y1="620" x2="774" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="695"  y1="620" x2="778" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="850"  y1="620" x2="782" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="1002" y1="620" x2="786" y2="220" marker-end="url(#arr-mut)"/>
           </g>
-
-          <!-- External Verifiers → pipeline (Ingest + Decide).
-               One consolidated dashed L-path routed around the LEFT margin (x≈445) so it never
-               crosses the Feeder row. Source is the LEFT edge of the identity-bureau box; path bends
-               left into the margin channel, up past the Feeder row, and into the Ingest bottom. -->
-          <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3" fill="none">
-            <path d="M 470,661 L 445,661 L 445,222 L 553,222" marker-end="url(#arr-mut)"/>
-          </g>
-          <text x="440" y="606" text-anchor="end" font-family="'JetBrains Mono', monospace" font-size="9" fill="#6c6858" letter-spacing="0.08em">called by Ingest &amp; Decide</text>
+          <text x="780" y="242" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#6c6858" letter-spacing="0.14em">READ BY DECIDE</text>
         </g>
 
         <!-- === EXTERNAL VERIFIERS (real-time third-party APIs) === -->
@@ -719,8 +764,8 @@
         <g font-family="'Inter', sans-serif" font-size="11" fill="#6c6858">
           <text x="20" y="740">All channels normalize to the <tspan font-weight="600" fill="#141410">same case</tspan>. Fax and mail turn into email attachments upstream.</text>
           <text x="20" y="760">The <tspan fill="#2f8f76" font-weight="600">green box is Verdikt</tspan> &mdash; the AI-in / deterministic-out pipeline this repository ships.</text>
-          <text x="20" y="780">Verdikt hands the reply to <tspan fill="#a26a1e" font-weight="600">Case Mgmt / CRM</tspan>; CRM dispatches to Pharmacy OMS on approve and updates the Patient Portal on every outcome.</text>
-          <text x="20" y="800" font-style="italic" fill="#a9a394">Feeders &amp; External Verifiers below Verdikt supply data, config, and real-time lookups. Outbound to the patient is via signed portal + carrier &mdash; never email.</text>
+          <text x="20" y="780">The whole pipeline hands off to <tspan fill="#a26a1e" font-weight="600">Case Mgmt / CRM</tspan>; CRM dispatches to Pharmacy OMS on approve and updates the Patient Portal on every outcome.</text>
+          <text x="20" y="800" font-style="italic" fill="#a9a394">Feeders (reference data + config) &amp; External Verifiers (third-party lookups) are all read at the Decide stage. Outbound to the patient is via signed portal + carrier &mdash; never email.</text>
         </g>
       </svg>
 
@@ -746,6 +791,10 @@
           <div class="maps-to">Reads the intake stack (<b>enrollment form, pay stubs, insurance card, prescription</b>) and turns each into structured fields. Uses <b>MiniCPM-V</b> on Nebius for multimodal extraction.</div>
         </div>
         <div class="pipeline-row">
+          <span class="stage">Triage</span>
+          <div class="maps-to"><b>Nemotron Nano</b> on Nebius classifies the case (<b>new intake · refill · appeal · missing info · not decidable</b>) and routes accordingly. Refills short-circuit to Pharmacy OMS; missing-info goes straight to CRM outreach; a fresh intake continues down the full Decide → Deliver path. Falls back to a deterministic rule-based classifier if the LLM call fails or returns low confidence.</div>
+        </div>
+        <div class="pipeline-row">
           <span class="stage">Decide</span>
           <div class="maps-to">Retrieves the program's eligibility rules (<b>NeMo Retriever</b>), then runs <b>Nemotron Super</b> to produce a structured verdict (approve / deny / missing info) with citations back to the specific rule that fired.</div>
         </div>
@@ -760,14 +809,6 @@
           <div class="maps-to">Every stage's output is written to the audit log with a sha256 hash. Years later, a reviewer can reproduce the exact PDF that left the building.</div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- SECTION 6 · callout back to the demo -->
-  <section class="block" style="border-top: none; padding-top: 0">
-    <div class="primer-callout">
-      <div class="txt"><b>Ready for the demo?</b> The 3-minute video walks through a real Cardiovita application from email arrival to signed approval letter. The timeline pill at the top-right shows which of the four stages is being explained at any moment.</div>
-      <a href="/#hackathon">Watch the demo &rarr;</a>
     </div>
   </section>
 

@@ -146,6 +146,14 @@
     border-color: var(--seal-700);
     color: #fff;
   }
+  .tl-badge.tl-badge-q {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 30px;
+    font-weight: 400;
+    letter-spacing: 0;
+    border-style: dashed;
+    color: var(--seal-500);
+  }
   .tl-card {
     padding-top: 4px;
     padding-right: 8px;
@@ -170,6 +178,22 @@
     font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--ink-500);
   }
+  .tl-aside {
+    display: block;
+    margin-top: 8px;
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--ink-700);
+  }
+  .tl-aside a {
+    color: var(--seal-700);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  .tl-aside a:hover { color: var(--seal-500); }
 
   /* Why-PAP: statement-style */
   .statement {
@@ -272,9 +296,10 @@
       <span class="brand-tag">The <em>story.</em></span>
     </div>
     <nav class="crossnav">
-      <a href="./index.html">Overview</a>
       <a href="./about.html" class="active">About</a>
       <a href="./domain.html">Domain</a>
+      <a href="./thesis.html">Thesis</a>
+      <a href="./index.html">Overview</a>
       <a href="./features.html">Features</a>
       <a href="./dashboard.html">Tests</a>
       <a href="./code-review.html">Code</a>
@@ -314,43 +339,52 @@
         <div class="tl-card">
           <span class="tl-tag">Stop 01 · The seed</span>
           <h3>Won a <em>platform hackathon</em></h3>
-          <p>A REST API for document generation. One endpoint. One document. No rendering logic in the caller. The interesting problem was <em>content assembly</em>, not delivery.</p>
+          <p>A REST API for document generation. One endpoint. Single source of truth. No rendering logic in the caller. The interesting problem was <em>content assembly</em>, not delivery. <span class="tl-aside">(Got a spare minute? <a href="https://devpost.com/software/dapi-gen-document-generation-via-rest-api" target="_blank" rel="noopener">peek at the 2020 devpost</a>. Same idea, fewer neurons.)</span></p>
         </div>
       </div>
 
       <div class="tl-stop">
-        <div class="tl-badge">Then</div>
+        <div class="tl-badge">2021</div>
         <div class="tl-card">
           <span class="tl-tag">Stop 02 · In the wild</span>
           <h3>Productionised inside a <em>real engagement</em></h3>
-          <p>Same idea, real business users touching it daily. Every mapping, every content branch was still defined by hand. Humans in the loop everywhere.</p>
+          <p>Same idea, real business users touching it daily. Every mapping, every content branch was still defined by hand. Humans in the loop everywhere. Template setup shifted from dev to business, and business loved it. They finally owned their own copy, dev hours came back, the constant back-and-forth mostly vanished, and template on-boarding ran about <b>5× faster</b>.</p>
         </div>
       </div>
 
       <div class="tl-stop">
-        <div class="tl-badge">AI era</div>
+        <div class="tl-badge">2023</div>
         <div class="tl-card">
-          <span class="tl-tag">Stop 03 · The rebrush</span>
-          <h3>Back to <em>hands-on</em></h3>
-          <p>Brushed up React on the front. Got fluent with LLMs, agents, RAG, retrieval, rerankers. Earned the right to <em>design AI in,</em> not bolt it on.</p>
+          <span class="tl-tag">Stop 03 · The reopening</span>
+          <h3>AI reopened my <em>curiosity</em></h3>
+          <p>Brushed up React on the front, Python on the back. Started with vibe-coding on Vercel, upgraded to Claude, and it's been <em>Claude ever since</em>. Got fluent with LLMs, agents, RAG, retrieval, rerankers. Earned the right to <em>design AI in,</em> not bolt it on.</p>
         </div>
       </div>
 
       <div class="tl-stop">
-        <div class="tl-badge">Quire</div>
+        <div class="tl-badge">Aug<br>2026</div>
         <div class="tl-card">
           <span class="tl-tag">Stop 04 · Off-platform</span>
           <h3>The <em>advanced</em> version of 2020</h3>
-          <p>Rebuilt outside any single platform. AI now carries the upstream human steps (mapping, extraction, verdicting). Deterministic code still owns the artifact.</p>
+          <p>Every learning from the previous stops poured in here, supercharged by agentic AI coding and endless brainstorming with my <em>partner in crime, Mr. AI</em>. Rebuilt outside any single platform. AI now carries the upstream human steps (mapping, extraction, verdicting). Deterministic code still owns the artifact.</p>
         </div>
       </div>
 
       <div class="tl-stop">
-        <div class="tl-badge filled">2026</div>
+        <div class="tl-badge filled">Sep<br>2026</div>
         <div class="tl-card">
           <span class="tl-tag">Stop 05 · This build</span>
           <h3>Verdikt, <em>shaped for the rulebook</em></h3>
-          <p>Nemotron on Nebius Token Factory for reasoning. A vision-language OCR for the read. Deterministic Python for the render. A paper-stamp verdict as the artifact.</p>
+          <p>The Nebius × NVIDIA hackathon dropped, and I got excited enough to wire up the <em>full pipeline</em>. Nemotron on Nebius Token Factory for reasoning. A vision-language OCR for the read. Deterministic Python for the render. A paper-stamp verdict as the artifact.</p>
+        </div>
+      </div>
+
+      <div class="tl-stop">
+        <div class="tl-badge tl-badge-q">?</div>
+        <div class="tl-card">
+          <span class="tl-tag">Stop 06 · TBD</span>
+          <h3>Whatever comes <em>next</em></h3>
+          <p>Honestly, I don't know where I take this idea <em>next</em>. Every previous stop looked obvious in hindsight and unreachable in advance, so I've given up predicting. But I never stop building on it, folding in what's on trend and what the idea actually needs. If you've got a lead worth chasing, my inbox is open, ideally without a Jira ticket attached.</p>
         </div>
       </div>
     </div>
@@ -362,6 +396,7 @@
     <div class="statement">
       <p>Real letters. Real deadlines. Real humans stuck between a payer, a physician, and a patient, waiting on a decision a case-management team has to justify <em>line by line.</em></p>
       <p>Chat is not the product. A signed, auditable <strong>verdict</strong> is.</p>
+      <p>I've lived inside this domain for <em>a decade.</em></p>
     </div>
   </section>
 

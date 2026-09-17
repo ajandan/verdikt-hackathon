@@ -69,7 +69,7 @@ BEAT_IDS=(0a 0b 0c 0d 1 2 3 3b 4 5 6 7 8)
 #            deterministic -> cameo -> audit -> CTA
 # Intro sum 38s, body trimmed by 4s (beats 1,2,6,8) to keep total under the
 # 3:00 hackathon cap.
-BEAT_DURATIONS=(4 14 14 10 12 16 16 19 20 24 11 11 10)   # sum = 181s; beat0d bumped 9->10 to fit "Five named stages" 5-stage voiceover (audio 9.85s). Final ffmpeg trim to 179.9s eats the 1.1s tail silence at end of beat 8.
+BEAT_DURATIONS=(4 12 14 9 12 16 16 18 26 21 11 11 9)    # sum = 179s (2:59); tuned to fit under the 3:00 hackathon cap after the triage-first Beat 4 rewrite. Beat 4 at 26 to fit triage narration (audio 25.6s). Beat 5 tightened to 21 with a shorter "Then AI stops" script. beat0b/0d/8 trimmed to their audio durations (no content cut); beat3b tail eats ~0.3s.
 BEAT_TITLES=(
     "VERDIKT"
     "PATIENT ASSISTANCE PROGRAMS"
@@ -229,24 +229,37 @@ render_capture_beat() {
 
     echo "[assemble] beat${beat}: capture ($capture_file) -> $out_file (${duration}s)"
     if [[ -n "$use_chips" && -n "$tl_png" ]]; then
+        # Beat 4 is a triage-first pipeline walkthrough. Instead of a single
+        # timeline variant frozen for the full beat, sweep the pill through
+        # ingest -> triage -> decide as the narration explains each stage.
+        # Chip overlays are timed to the same moments.
+        local tl_ingest="$SCREENSHOTS_DIR/timeline/timeline-ingest.png"
+        local tl_triage="$SCREENSHOTS_DIR/timeline/timeline-triage.png"
+        local tl_decide="$SCREENSHOTS_DIR/timeline/timeline-decide.png"
         ffmpeg -y -hide_banner -loglevel error \
             -ss 0.7 -i "$capture_file" \
             "${audio_inputs[@]}" \
             -i "$chip_dir/nv-ingest.png" \
             -i "$chip_dir/nemo.png" \
             -i "$chip_dir/nemotron.png" \
-            -i "$tl_png" \
+            -i "$tl_ingest" \
+            -i "$tl_triage" \
+            -i "$tl_decide" \
             -filter_complex "
                 [0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
                      pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=black,
                      setsar=1,fps=${FPS},
                      tpad=stop_mode=clone:stop_duration=${duration},
                      trim=duration=${duration},setpts=PTS-STARTPTS[base];
-                [5:v]scale=${TIMELINE_W}:-1[tl];
-                [base][tl]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}[b1];
-                [b1][2:v]overlay=W-w-70:120:enable='between(t,4,8)'[o1];
-                [o1][3:v]overlay=W-w-70:120:enable='between(t,8,11)'[o2];
-                [o2][4:v]overlay=W-w-70:120:enable='between(t,11,15)'[v];
+                [5:v]scale=${TIMELINE_W}:-1[tli];
+                [6:v]scale=${TIMELINE_W}:-1[tlt];
+                [7:v]scale=${TIMELINE_W}:-1[tld];
+                [base][tli]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,0,6.5)'[bi];
+                [bi][tlt]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,6.5,14)'[bt];
+                [bt][tld]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,14,26)'[b1];
+                [b1][2:v]overlay=W-w-70:120:enable='between(t,3,7)'[o1];
+                [o1][3:v]overlay=W-w-70:120:enable='between(t,7,9.5)'[o2];
+                [o2][4:v]overlay=W-w-70:120:enable='between(t,14,22)'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \

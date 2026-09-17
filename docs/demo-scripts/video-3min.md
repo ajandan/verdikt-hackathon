@@ -1,17 +1,17 @@
 # 3-minute submission video — full shooting script
 
-_Master shooting script for the Nebius × NVIDIA hackathon submission video. Target run-time **2:55**, hard cap **3:00**. Five beats, two engineered applause lines, one continuous take from cold-open to close. Public-framing rules (no employer references, no library names in prose, no competitor names) apply to voiceover **and** on-screen text. NVIDIA / Nebius / model names stay — hackathon-mandated._
+_Master shooting script for the Nebius × NVIDIA hackathon submission video. Target run-time **2:59**, ceiling **3:05** (nudged up from 2:55 to accommodate the triage-first framing in Beat 2). Five beats, two engineered applause lines, one continuous take from cold-open to close. Public-framing rules (no employer references, no library names in prose, no competitor names) apply to voiceover **and** on-screen text. NVIDIA / Nebius / model names stay — hackathon-mandated._
 
 ## Timing overview
 
 | # | Beat | Start | End | Duration | Applause line |
 | :-: | --- | :-: | :-: | :-: | --- |
 | 1 | Cold open | 0:00 | 0:20 | 0:20 | — |
-| 2 | Live demo | 0:20 | 1:30 | 1:10 | — |
-| 3 | Architecture beat | 1:30 | 2:22 | 0:52 | *"AI-in, deterministic-out"* · *"Then AI stops"* |
-| 4 | Second-program cameo | 2:22 | 2:38 | 0:16 | *"The pipeline is the product, not the program"* |
-| 5 | Close + CTA | 2:38 | 2:55 | 0:17 | — |
-| | **Total** | | | **2:55** | |
+| 2 | Live demo (triage-first) | 0:20 | 1:34 | 1:14 | — |
+| 3 | Architecture beat | 1:34 | 2:26 | 0:52 | *"AI-in, deterministic-out"* · *"Then AI stops"* |
+| 4 | Second-program cameo | 2:26 | 2:42 | 0:16 | *"The pipeline is the product, not the program"* |
+| 5 | Close + CTA | 2:42 | 2:59 | 0:17 | — |
+| | **Total** | | | **2:59** | |
 
 **Pacing target:** 2.5 words per second. Slightly slower than conversational. Every sentence is a claim, no hedging.
 
@@ -35,7 +35,7 @@ _Master shooting script for the Nebius × NVIDIA hackathon submission video. Tar
 
 ---
 
-## Beat 2 — Live demo (0:20 – 1:30)
+## Beat 2 — Live demo (0:20 – 1:34)
 
 _Screen capture from the actual running system. No mock-ups. Every artifact shown is one the pipeline actually produced against a real intake._
 
@@ -45,15 +45,15 @@ _Screen capture from the actual running system. No mock-ups. Every artifact show
 
 > An enrollment packet arrives by email. Multiple attachments — enrollment form, income documents, insurance card, prescription. The system reads all of them.
 
-**(0:34 – 0:56)** — *pipeline runs*
+**(0:34 – 1:00)** — *pipeline runs (triage-first framing)*
 
-> Three stages run, one NVIDIA model per stage. Extraction reads every attachment into a structured intake. Retrieval surfaces the program's eligibility rules from a versioned knowledge base. Reasoning evaluates the intake against those rules and produces a structured verdict — approve, deny, or missing information — with citations back to the rules that fired.
+> The pipeline reads first, then routes. A vision-language model reads every attachment into a structured intake. A small classifier looks at what's inside and picks a route: refills go straight to the pharmacy, missing information goes to CRM outreach, fresh intakes continue to the full decision. For a fresh intake, retrieval surfaces the eligibility rules and a reasoning model produces the verdict — approve, deny, or missing information — with citations back to the rules that fired.
 
-**(0:56 – 1:14)** — *reviewer opens the case*
+**(1:00 – 1:18)** — *reviewer opens the case*
 
-> A human reviewer opens the case. Every stage's output is visible and defensible: the extracted fields, the rules cited with retrieval scores, the reasoning behind the verdict, and the exact reply that left the building.
+> A human reviewer opens the case. Every stage's output is visible and defensible: the extracted fields, the case type and its routing rationale, the rules cited with retrieval scores, the reasoning behind the verdict, and the exact reply that left the building.
 
-**(1:14 – 1:30)** — *reveal the doc package*
+**(1:18 – 1:34)** — *reveal the doc package*
 
 > And the reply isn't a single letter. It's an ordered document package — the outcome letter, the appeals notice, the benefits guide, the blank forms the applicant needs next. All rendered from human-approved templates. Composed in the order the operator declared. Same input, same package, forever.
 
@@ -63,22 +63,24 @@ _Screen capture from the actual running system. No mock-ups. Every artifact show
 | :-: | --- |
 | 0:20 | Inbox view — new applicant email highlighted, attachment count visible |
 | 0:26 | Attachment thumbnails fan out: enrollment form, pay stub, insurance card, prescription |
-| 0:34 | Pipeline diagram: three stages animate left-to-right (Extract → Retrieve → Reason) |
-| 0:38 | Extract stage — structured intake JSON scrolls into view |
-| 0:44 | Retrieve stage — versioned rules-pack YAML flashes, four rules light up in a rules table |
-| 0:50 | Reason stage — verdict badge lands (APPROVE), one-sentence rationale below |
-| 0:56 | Cut to `/ui/inbox/{event_id}/pipeline` — full reviewer detail page scrolls |
-| 1:02 | Zoom on rule-citations table: rule ID · matched yes/no · reranker score · statement |
-| 1:10 | Zoom on Reply section — Message-ID + attached PDF link |
-| 1:14 | Open the reply — cover page reveals it's a doc package |
-| 1:20 | Doc-package assembly log: template version + each static-doc version stamped in order |
-| 1:26 | Cut to `/ui/programs` — one row per tenant × program, extraction schema visible |
+| 0:34 | Pipeline diagram: five stages fade in left-to-right (Ingest · Triage · Decide · Deliver · Remember) |
+| 0:38 | Ingest stage lights up — vision-language read animates over PDF attachments, structured intake JSON scrolls in |
+| 0:44 | Triage stage lights up — "case-type: NEW INTAKE" chip lands, routing arrows flash toward three destinations (Decide / Pharmacy / CRM), the Decide arrow lights up green |
+| 0:50 | Decide stage lights up — versioned rules-pack YAML flashes, verdict badge lands (APPROVE) |
+| 0:53 | **HERO MOMENT** — paper-stamp verdict cross-dissolves in on the word *"Signed"*, wax-seal punches down, ~1s held (see "Hero visual moment" section below) |
+| 1:00 | Cut to `/ui/inbox/{event_id}/pipeline` — full reviewer detail page scrolls |
+| 1:06 | Zoom on the new Triage row — case_type · route_target · confidence · rationale |
+| 1:10 | Zoom on rule-citations table: rule ID · matched yes/no · reranker score · statement |
+| 1:14 | Zoom on Reply section — Message-ID + attached PDF link |
+| 1:18 | Open the reply — cover page reveals it's a doc package |
+| 1:24 | Doc-package assembly log: template version + each static-doc version stamped in order |
+| 1:30 | Cut to `/ui/programs` — one row per tenant × program, extraction schema visible |
 
 ---
 
-## Beat 3 — Architecture beat (1:30 – 2:22)
+## Beat 3 — Architecture beat (1:34 – 2:26)
 
-_The load-bearing beat. Two engineered applause lines, both designed as one-frame text overlays. Land them cleanly: full stop before, full stop after, no rushing._
+_The load-bearing beat. Two engineered applause lines, both designed as one-frame text overlays. Land them cleanly: full stop before, full stop after, no rushing. Start shifted 4s later since Beat 2 grew to accommodate the triage-first framing (see the Delivery notes for the 3:05 total budget)._
 
 **Voice-over:**
 
@@ -86,7 +88,7 @@ _The load-bearing beat. Two engineered applause lines, both designed as one-fram
 >
 > **AI-in, deterministic-out.**
 >
-> We call it **Verdikt**. Three NVIDIA-family models compose the pipeline, one per stage. Multimodal extraction reads the intake documents. NeMo Retriever surfaces the eligibility rules. Nemotron reasons over both to produce a structured decision.
+> We call it **Verdikt**. Three AI stages, four models on Nebius Token Factory. A vision-language model for the read. A classifier for the triage. A reasoning model for the decision. Embeddings for rules retrieval.
 >
 > **Then AI stops.**
 >
@@ -94,7 +96,7 @@ _The load-bearing beat. Two engineered applause lines, both designed as one-fram
 >
 > This is where regulated verticals are converging. We built it now.
 
-**Emphasis words:** *opposite bet*, *Verdikt*, *earn their place*, *stops*, *byte-identical*, *no model can*, *forever*, *built it now*.
+**Emphasis words:** *opposite bet*, *Verdikt*, *Nebius Token Factory*, *classifier*, *reasoning*, *stops*, *byte-identical*, *no model can*, *forever*, *built it now*.
 
 **Product-name landing:** *"We call it Verdikt"* is the one time the name is spoken in this beat. Brief pause before, brief pause after, so the on-screen name callout has a word to sync to.
 
@@ -104,8 +106,8 @@ _The load-bearing beat. Two engineered applause lines, both designed as one-fram
 | --- | --- |
 | "opposite bet" | Split-frame: agent swarm on left greying out, deterministic pipeline on right lighting up |
 | "AI-in, deterministic-out" | Full-frame text overlay — first applause line |
-| "Three NVIDIA-family models" | Architecture diagram reveal, three stages highlighted |
-| Model callouts (extraction / retriever / Nemotron) | Three quick highlights on the pipeline diagram, one per stage |
+| "Three AI stages, four models on Nebius Token Factory" | Architecture diagram reveal: five-stage rail with the three AI stages (Ingest, Triage, Decide) highlighted; the two deterministic stages (Deliver, Remember) sit muted; a Nebius Token Factory chip anchors the top |
+| Model callouts (vision-language / classifier / reasoning / embeddings) | Four quick highlights on the pipeline diagram: vision-language on Ingest, classifier on Triage, reasoning + embeddings on Decide (embeddings badge fades in inside the Decide card) |
 | "Then AI stops" | Dramatic cut to the render code path with model boxes greyed out — second applause line |
 | "byte-identical merge" | Two rendered PDFs side-by-side, diff overlay reads `0 bytes different` (callback to Beat 1) |
 | "composed in the order the operator declared" | Doc-package composition list scrolls |
@@ -114,7 +116,7 @@ _The load-bearing beat. Two engineered applause lines, both designed as one-fram
 
 ---
 
-## Beat 4 — Second-program cameo (2:22 – 2:38)
+## Beat 4 — Second-program cameo (2:26 – 2:42)
 
 _Immediately after the architecture beat, same voice, same pace. Continuous take with the architecture beat, not a separate segment. Without the cameo, judges may read the submission as a one-off._
 
@@ -139,7 +141,7 @@ _Immediately after the architecture beat, same voice, same pace. Continuous take
 
 ---
 
-## Beat 5 — Close + CTA (2:38 – 2:55)
+## Beat 5 — Close + CTA (2:42 – 2:59)
 
 **Voice-over:**
 
@@ -162,9 +164,9 @@ _Immediately after the architecture beat, same voice, same pace. Continuous take
 **Pacing:** 2.5 words per second across every beat. Slightly slower than conversational. Gives the editor room for cuts and lets the applause lines breathe.
 
 **Applause lines — three total, all engineered as one-frame text overlays:**
-1. *"AI-in, deterministic-out"* (Beat 3, ~1:36)
-2. *"Then AI stops"* (Beat 3, ~1:55)
-3. *"The pipeline is the product, not the program"* (Beat 4, ~2:22)
+1. *"AI-in, deterministic-out"* (Beat 3, ~1:40)
+2. *"Then AI stops"* (Beat 3, ~1:59)
+3. *"The pipeline is the product, not the program"* (Beat 4, ~2:26)
 
 Land each with a full stop before and after. No rushing into the next sentence.
 
@@ -212,8 +214,9 @@ The script exercises these features live on screen. Every one is a real capabili
 | Three NVIDIA models one-per-stage | Beats 2 + 3 | `src/docgen/providers/nebius.py`, `src/pap_pipeline/stages/` |
 | Pipeline reviewer detail page | Beat 2 (0:56 – 1:14) | `/ui/inbox/{event_id}/pipeline`, migrations `0018` + `0019` |
 | Rule citations with retrieval scores | Beat 2 (1:02) | `Decision.citations`, `_attach_retrieval_scores` |
-| Reply is an ordered doc package | Beat 2 (1:14 – 1:30) + Beat 3 payoff | Migration `0029_doc_packages.py`, `doc_package_assemblies.resolved_items` |
-| Programs table — new PAP = data change | Beat 2 (1:26) + Beat 4 payoff | Migration `0023_programs.py`, `/ui/programs` |
+| Triage as a first-class stage | Beat 2 (0:44 – 0:50) + Beat 3 model callout | `src/pap_pipeline/stages/triage.py`, `case_events.case_type`, `_route_target` |
+| Reply is an ordered doc package | Beat 2 (1:18 – 1:34) + Beat 3 payoff | Migration `0029_doc_packages.py`, `doc_package_assemblies.resolved_items` |
+| Programs table — new PAP = data change | Beat 2 (1:30) + Beat 4 payoff | Migration `0023_programs.py`, `/ui/programs` |
 | Structured JSON verdict with rationale | Beat 2 (0:50) | `Decision.outcome`, `Decision.rationale` |
 | Byte-identical audit-artifact retrieval | Beats 1 + 3 | `inbox_events.reply_attachment_blob_key` |
 | Two-program cameo (Cardiovita → OncoBridge) | Beat 4 | `src/pap_pipeline/rules/oncobridge-pap-2026.yaml` |

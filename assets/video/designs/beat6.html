@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 6 — Opposite verdict</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  .cameo-row {
+    display: grid;
+    grid-template-columns: 1fr 200px 1fr;
+    gap: 0;
+    flex: 1; align-items: stretch;
+    padding-top: 30px;
+  }
+  .verdict-side {
+    padding: 30px 40px;
+    display: flex; flex-direction: column;
+  }
+  .program-name {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-500); margin-bottom: 10px;
+  }
+  .verdict-card-lg {
+    background: var(--paper);
+    border: 3px solid transparent;
+    border-radius: 8px;
+    padding: 30px 34px;
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.30);
+    transform: rotate(-1.3deg);
+    position: relative;
+    flex: 1;
+  }
+  .left .verdict-card-lg { border-color: var(--seal-500); }
+  .right .verdict-card-lg { border-color: var(--rose); transform: rotate(1.4deg); }
+  .verdict-card-lg .stamp-big {
+    font-family: var(--font-serif); font-size: 60px; font-style: italic;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+  .left .verdict-card-lg .stamp-big { color: var(--seal-700); }
+  .right .verdict-card-lg .stamp-big { color: var(--rose); }
+  .verdict-card-lg .sub { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.10em; color: var(--ink-500); text-transform: uppercase; margin-bottom: 24px; }
+  .verdict-card-lg .cite-list { margin: 0; padding: 0; list-style: none; }
+  .verdict-card-lg .cite-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px dashed rgba(20,20,16,0.10);
+    font-family: var(--font-mono); font-size: 13px;
+  }
+  .verdict-card-lg .cite-list li .rule-id { color: var(--ink-900); }
+  .verdict-card-lg .cite-list li .match-y { color: var(--seal-700); background: rgba(47,143,118,0.10); padding: 2px 8px; border-radius: 4px; font-size: 11px; letter-spacing: 0.10em; }
+  .verdict-card-lg .cite-list li .match-n { color: var(--rose); background: rgba(176, 74, 63, 0.10); padding: 2px 8px; border-radius: 4px; font-size: 11px; letter-spacing: 0.10em; }
+  .rationale {
+    margin-top: 20px; padding: 14px; background: #ffffff; border-radius: 6px;
+    font-family: var(--font-sans); font-size: 13px; color: var(--ink-700); line-height: 1.5;
+  }
+  .rationale b { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--ink-500); text-transform: uppercase; display: block; margin-bottom: 4px; }
+  .center-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 0 20px;
+    gap: 18px;
+  }
+  .center-col .pipeline-mini {
+    background: var(--ink-900); color: var(--ink-50);
+    border-radius: 8px;
+    padding: 18px 14px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+    box-shadow: 0 20px 40px -20px rgba(20,20,16,0.5);
+  }
+  .center-col .pipeline-mini .step {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.10); border-radius: 999px;
+  }
+  .center-col .arrow { font-family: var(--font-serif); font-size: 24px; color: var(--seal-300); }
+  .center-col .same {
+    font-family: var(--font-serif); font-size: 20px; font-style: italic;
+    color: var(--ink-900);
+    text-align: center;
+  }
+  .center-col .same b { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; color: var(--ink-500); text-transform: uppercase; font-style: normal; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main class="stage col gap-24">
+  <div class="eyebrow">Pipeline = product · Programs = data</div>
+  <h1 class="hero">Same code. <em>Opposite verdict.</em></h1>
+  <div class="cameo-row">
+    <div class="verdict-side left">
+      <div class="program-name">Program · Cardiovita PAP 2026</div>
+      <div class="verdict-card-lg">
+        <div class="stamp-big">Approve</div>
+        <div class="sub">Applicant · Devon Okafor · income within cap</div>
+        <ul class="cite-list">
+          <li><span class="rule-id">CV-INC-01 · financial</span><span class="match-y">matched</span></li>
+          <li><span class="rule-id">CV-INS-01 · insurance</span><span class="match-y">matched</span></li>
+          <li><span class="rule-id">CV-CLIN-01 · clinical</span><span class="match-y">matched</span></li>
+          <li><span class="rule-id">CV-RES-01 · residency</span><span class="match-y">matched</span></li>
+        </ul>
+        <div class="rationale"><b>Rationale</b>All eligibility rules satisfied. Approval letter + full doc package sent.</div>
+      </div>
+    </div>
+    <div class="center-col">
+      <div class="same"><b>Same pipeline</b>Ingest · Triage · Decide</div>
+      <div class="pipeline-mini">
+        <div class="step">Ingest</div>
+        <div class="arrow">↓</div>
+        <div class="step">Triage</div>
+        <div class="arrow">↓</div>
+        <div class="step">Decide</div>
+      </div>
+      <div class="same"><b>Change</b>rules pack + templates</div>
+    </div>
+    <div class="verdict-side right">
+      <div class="program-name">Program · OncoBridge PAP 2026</div>
+      <div class="verdict-card-lg">
+        <div class="stamp-big">Deny</div>
+        <div class="sub">Applicant · Devon Okafor · income above stricter cap</div>
+        <ul class="cite-list">
+          <li><span class="rule-id">OB-INC-01 · financial</span><span class="match-n">failed</span></li>
+          <li><span class="rule-id">OB-INS-01 · insurance</span><span class="match-y">matched</span></li>
+          <li><span class="rule-id">OB-CLIN-01 · clinical</span><span class="match-y">matched</span></li>
+          <li><span class="rule-id">OB-RES-01 · residency</span><span class="match-y">matched</span></li>
+        </ul>
+        <div class="rationale"><b>Rationale</b>Household income exceeds OncoBridge's 300% FPL cap. Denial letter with appeals notice sent.</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-brand">Verdikt</div>
+</main>
+</body>
+</html>

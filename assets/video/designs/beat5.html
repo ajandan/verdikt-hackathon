@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 5 — Then AI stops (PDF reveal)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { background: #f6f5f1; }
+  .stage { background: #f6f5f1; padding: 40px 90px 30px; }
+
+  h1.hero { font-size: 72px; margin: 2px 0 12px; }
+  h1.hero em { font-style: italic; color: var(--seal-700); }
+
+  .split {
+    display: grid;
+    grid-template-columns: 0.85fr 60px 1.35fr;
+    gap: 0;
+    flex: 1;
+    align-items: stretch;
+    padding-top: 10px;
+  }
+  /* --- AI zone (faded out) --- */
+  .ai-side {
+    padding: 26px 34px;
+    opacity: 0.55;
+    display: flex; flex-direction: column;
+  }
+  .ai-side .band {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.20em;
+    text-transform: uppercase; color: var(--ink-300);
+    padding-bottom: 16px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid rgba(20,20,16,0.15);
+  }
+  .ai-stage-mini {
+    background: rgba(255,255,255,0.65);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .ai-stage-mini .head {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.14em;
+    color: var(--ink-500); text-transform: uppercase;
+    display: flex; justify-content: space-between; margin-bottom: 4px;
+  }
+  .ai-stage-mini .head b { color: var(--ink-900); }
+  .ai-stage-mini .val {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-700);
+  }
+
+  /* --- STOP divider --- */
+  .divider {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 26px 0;
+    gap: 12px;
+  }
+  .divider .stop {
+    background: var(--ink-900); color: var(--ink-50);
+    padding: 10px 18px; border-radius: 999px;
+    font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.24em;
+    text-transform: uppercase;
+    box-shadow: 0 20px 40px -20px rgba(20,20,16,0.5);
+  }
+  .divider .line-v {
+    flex: 1; width: 2px;
+    background: linear-gradient(180deg, var(--ink-300), var(--seal-500));
+  }
+
+  /* --- Deterministic zone with PDF reveal --- */
+  .det-side {
+    padding: 26px 34px;
+    background: linear-gradient(180deg, rgba(47,143,118,0.06), rgba(47,143,118,0.01));
+    display: flex; flex-direction: column;
+  }
+  .det-side .band {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.20em;
+    text-transform: uppercase; color: var(--seal-700);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(47,143,118,0.35);
+  }
+  .merge-strip {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 14px; align-items: center;
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid var(--seal-500);
+    border-radius: 6px;
+    margin-bottom: 14px;
+  }
+  .merge-strip .piece {
+    background: var(--paper); padding: 8px 10px; border-radius: 4px;
+    text-align: center;
+  }
+  .merge-strip .piece .k { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--ink-500); text-transform: uppercase; margin-bottom: 3px; }
+  .merge-strip .piece .v { font-family: var(--font-serif); font-size: 17px; color: var(--ink-900); line-height: 1.1; }
+  .merge-strip .equals { font-family: var(--font-serif); font-size: 30px; color: var(--seal-700); font-style: italic; }
+
+  .pdf-reveal {
+    background-color: #f5efdc;
+    background-image: url('../screenshots/pdfs/reply-1.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center top;
+    border: 1px solid rgba(20,20,16,0.15);
+    box-shadow:
+      0 40px 80px -32px rgba(20,20,16,0.42),
+      0 12px 22px -12px rgba(20,20,16,0.22);
+    flex: 1;
+    min-height: 460px;
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .pdf-reveal::before {
+    content: "PDF · reply-attachment · Alderwood PAP · Cardiovita approve";
+    position: absolute; top: 12px; left: 16px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.10em;
+    color: var(--seal-700);
+    background: rgba(255,255,255,0.92);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(47,143,118,0.35);
+  }
+  .pdf-reveal::after {
+    content: "sha256:8a3f4c1d9b2e77f0…";
+    position: absolute; bottom: 14px; right: 16px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--seal-700);
+    background: rgba(255,255,255,0.94);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(47,143,118,0.35);
+  }
+  .forever-stamp {
+    margin-top: 14px;
+    background: var(--ink-900); color: var(--ink-50);
+    padding: 14px 20px; border-radius: 8px;
+    text-align: center;
+    font-family: var(--font-serif); font-size: 26px;
+    letter-spacing: 0.01em;
+    box-shadow: 0 20px 40px -20px rgba(20,20,16,0.5);
+  }
+  .forever-stamp em { color: var(--seal-300); font-style: italic; }
+</style>
+</head>
+<body>
+<main class="stage col gap-16">
+  <div class="eyebrow">Then AI stops · deterministic render</div>
+  <h1 class="hero">Same input. Same package. <em>Forever.</em></h1>
+
+  <div class="split">
+    <div class="ai-side">
+      <div class="band">◂ AI Zone · pipeline output</div>
+      <div class="ai-stage-mini">
+        <div class="head"><span><b>I</b> Ingest</span><span>Vision-language</span></div>
+        <div class="val">intake fields · complete</div>
+      </div>
+      <div class="ai-stage-mini">
+        <div class="head"><span><b>II</b> Triage</span><span>Classifier</span></div>
+        <div class="val">case_type: NEW_INTAKE · route: DECIDE</div>
+      </div>
+      <div class="ai-stage-mini">
+        <div class="head"><span><b>III</b> Decide</span><span>Reasoning + embeddings</span></div>
+        <div class="val">verdict: approve · rationale: "All rules satisfied."</div>
+      </div>
+    </div>
+
+    <div class="divider">
+      <div class="line-v"></div>
+      <div class="stop">▪ Stop ▪</div>
+      <div class="line-v"></div>
+    </div>
+
+    <div class="det-side">
+      <div class="band">Deterministic Zone · reply time · no model, ever ▸</div>
+      <div class="merge-strip">
+        <div class="piece"><div class="k">verdict</div><div class="v">approve</div></div>
+        <div class="equals">⊕</div>
+        <div class="piece"><div class="k">frozen template</div><div class="v">Alderwood ASP-201 · v3</div></div>
+      </div>
+      <div class="pdf-reveal"></div>
+      <div class="forever-stamp">No model at render time. <em>No model can.</em></div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 7 — Remember (AI · Human · System audit log)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { background: #f6f5f1; }
+  .stage { background: #f6f5f1; padding: 42px 90px 30px; }
+  h1.hero { font-size: 72px; margin: 4px 0 10px; }
+
+  .audit-shell {
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 14px;
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.28);
+    padding: 30px 36px 26px;
+    flex: 1;
+    display: flex; flex-direction: column;
+  }
+  .audit-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding-bottom: 18px; margin-bottom: 22px;
+    border-bottom: 1px solid rgba(20,20,16,0.10);
+  }
+  .audit-header h4 {
+    font-family: var(--font-serif); font-size: 28px; margin: 0; color: var(--ink-900);
+  }
+  .audit-header .case-id {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.10em;
+    color: var(--ink-500); text-transform: uppercase;
+  }
+
+  /* Actor legend */
+  .actor-legend {
+    display: flex; gap: 16px; align-items: center;
+    margin-bottom: 16px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--ink-500);
+  }
+  .actor-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 4px;
+    font-weight: 600;
+  }
+  .actor-chip::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+  }
+  .actor-chip.ai { background: rgba(47,143,118,0.10); color: var(--seal-700); border: 1px solid rgba(47,143,118,0.35); }
+  .actor-chip.ai::before { background: var(--seal-500); }
+  .actor-chip.hum { background: rgba(245, 158, 11, 0.10); color: #8a3f14; border: 1px solid rgba(245, 158, 11, 0.42); }
+  .actor-chip.hum::before { background: #f59e0b; }
+  .actor-chip.sys { background: rgba(20, 20, 16, 0.06); color: var(--ink-700); border: 1px solid rgba(20, 20, 16, 0.28); }
+  .actor-chip.sys::before { background: var(--ink-700); }
+
+  /* Audit rows */
+  .rows { flex: 1; display: flex; flex-direction: column; }
+  .row {
+    display: grid;
+    grid-template-columns: 132px 100px 60px 1fr 1.15fr 250px;
+    gap: 20px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed rgba(20,20,16,0.10);
+    font-family: var(--font-sans);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row .ts {
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-500);
+    letter-spacing: 0.04em;
+  }
+  .row .actor {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .row .actor::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+  }
+  .row .actor.ai { background: rgba(47,143,118,0.10); color: var(--seal-700); }
+  .row .actor.ai::before { background: var(--seal-500); }
+  .row .actor.hum { background: rgba(245, 158, 11, 0.10); color: #8a3f14; }
+  .row .actor.hum::before { background: #f59e0b; }
+  .row .actor.sys { background: rgba(20, 20, 16, 0.06); color: var(--ink-700); }
+  .row .actor.sys::before { background: var(--ink-700); }
+  .row .dot {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  }
+  .row .dot.ai { background: rgba(47,143,118,0.12); color: var(--seal-700); border: 1.5px solid var(--seal-500); }
+  .row .dot.hum { background: rgba(245, 158, 11, 0.14); color: #8a3f14; border: 1.5px solid #f59e0b; }
+  .row .dot.sys { background: rgba(20, 20, 16, 0.08); color: var(--ink-700); border: 1.5px solid var(--ink-500); }
+  .row .event {
+    font-family: var(--font-serif); font-size: 19px; color: var(--ink-900); letter-spacing: -0.005em;
+  }
+  .row .event .k {
+    display: block; font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .row .detail {
+    font-family: var(--font-sans); font-size: 12.5px; color: var(--ink-700); line-height: 1.35;
+  }
+  .row .detail .kicker {
+    display: block; font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .row .hash {
+    font-family: var(--font-mono); font-size: 11px; color: var(--seal-700);
+    background: rgba(47,143,118,0.05);
+    border: 1px solid rgba(47,143,118,0.22);
+    padding: 6px 10px; border-radius: 5px;
+    letter-spacing: 0.05em;
+    text-align: center;
+    line-height: 1.35;
+  }
+  .row .hash b {
+    display: block; font-size: 8.5px; letter-spacing: 0.16em;
+    color: var(--ink-500); text-transform: uppercase; font-weight: 400;
+    margin-bottom: 2px;
+  }
+
+  .foot {
+    margin-top: 18px; padding-top: 16px;
+    border-top: 1px solid rgba(20,20,16,0.10);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-500);
+    letter-spacing: 0.06em;
+  }
+  .foot .replay {
+    color: var(--seal-700); letter-spacing: 0.14em;
+    text-transform: uppercase; font-size: 11.5px;
+  }
+</style>
+</head>
+<body>
+<main class="stage col gap-12">
+  <div class="eyebrow">Stage IV · Remember · Reproducible</div>
+  <h1 class="hero">AI. Human. <em>System.</em></h1>
+
+  <div class="audit-shell">
+    <div class="audit-header">
+      <h4>Case · Devon Okafor · Cardiovita PAP 2026</h4>
+      <div class="case-id">event · 6e1525a8-a4f9-457e-8e7d-d5a170e8f726</div>
+    </div>
+
+    <div class="actor-legend">
+      <span>Actors:</span>
+      <span class="actor-chip ai">AI</span>
+      <span class="actor-chip hum">Human</span>
+      <span class="actor-chip sys">System</span>
+    </div>
+
+    <div class="rows">
+      <div class="row">
+        <div class="ts">09-13 01:04:57</div>
+        <div class="actor sys">System</div>
+        <div class="dot sys">01</div>
+        <div class="event">Intake received<span class="k">Channel · email → intake bus</span></div>
+        <div class="detail"><span class="kicker">Attachments · 4</span>enrollment.pdf · paystub.jpg · insurance.png · rx.pdf</div>
+        <div class="hash"><b>Intake blob sha256</b>2a3f0c…9e1b</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:04:59</div>
+        <div class="actor ai">AI</div>
+        <div class="dot ai">02</div>
+        <div class="event">Ingest<span class="k">Vision-language model · Nebius Token Factory</span></div>
+        <div class="detail"><span class="kicker">8 slots populated</span>patient · dob · dx · rx · household · income · denial letter · state</div>
+        <div class="hash"><b>Intake JSON sha256</b>8c1ef7…4a20</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:05:00</div>
+        <div class="actor ai">AI</div>
+        <div class="dot ai">03</div>
+        <div class="event">Triage<span class="k">Classifier · Nebius Token Factory</span></div>
+        <div class="detail"><span class="kicker">case_type: NEW_INTAKE · route: DECIDE</span>confidence 0.96 · rationale "Enrollment packet with denial letter"</div>
+        <div class="hash"><b>Triage sha256</b>b3d2c5…9a41</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:05:02</div>
+        <div class="actor ai">AI</div>
+        <div class="dot ai">04</div>
+        <div class="event">Decide<span class="k">Reasoning + embeddings · Nebius Token Factory</span></div>
+        <div class="detail"><span class="kicker">4 rules cited · verdict: approve</span>CV-INC-01 · CV-INS-01 · CV-CLIN-01 · CV-RES-01 · rationale attached</div>
+        <div class="hash"><b>Decision sha256</b>e7f4a2…c0d1</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:05:03</div>
+        <div class="actor hum">Human</div>
+        <div class="dot hum">05</div>
+        <div class="event">Reviewer approved<span class="k">a.ortiz@alderwood-rx · portal</span></div>
+        <div class="detail"><span class="kicker">Human-in-the-loop check</span>Decision confirmed · reply queued for delivery</div>
+        <div class="hash"><b>Approval sha256</b>d92c1b…7c8a</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:05:04</div>
+        <div class="actor sys">System</div>
+        <div class="dot sys">06</div>
+        <div class="event">Deliver — reply rendered<span class="k">Deterministic merge · no model</span></div>
+        <div class="detail"><span class="kicker">Doc package · 4 items</span>Approval letter → Appeals notice → Benefits guide → Follow-up form</div>
+        <div class="hash"><b>Rendered PDF sha256</b>1a5c8b…7f2e</div>
+      </div>
+
+      <div class="row">
+        <div class="ts">09-13 01:05:05</div>
+        <div class="actor sys">System</div>
+        <div class="dot sys">06</div>
+        <div class="event">Delivered<span class="k">Email + fax + downstream JSON</span></div>
+        <div class="detail"><span class="kicker">Message-ID + fax receipt + webhook 200</span>SMTP 250 · fax OK · downstream ACK</div>
+        <div class="hash"><b>Delivery sha256</b>4e7b90…f314</div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div>Every actor stamped · every hash re-verifiable · every artifact reproducible from the same inputs</div>
+      <div class="replay">▶ Replay · years later</div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

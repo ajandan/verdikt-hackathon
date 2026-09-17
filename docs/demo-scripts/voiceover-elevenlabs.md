@@ -27,7 +27,7 @@ audio/beat0d.mp3     intro: end-to-end architecture
 audio/beat1.mp3      intake documents arrive
 audio/beat2.mp3      program: eligibility as data
 audio/beat3.mp3      output docs: templates + human approved
-audio/beat4.mp3      pipeline runs: extract → retrieve → reason
+audio/beat4.mp3      pipeline runs: ingest → triage → decide
 audio/beat5.mp3      then AI stops (deterministic merge)
 audio/beat6.mp3      second-program cameo
 audio/beat7.mp3      auditable end-to-end
@@ -74,7 +74,7 @@ You could throw an agent at it.<break time="0.3s" /> But letters under audit mus
 Every channel fans into one pipeline.<break time="0.3s" /> Five named stages —<break time="0.2s" /> Ingest,<break time="0.15s" /> Triage,<break time="0.15s" /> Decide,<break time="0.15s" /> Deliver,<break time="0.15s" /> Remember.<break time="0.3s" /> Every outcome traced.
 ```
 
-**Visual:** end-to-end architecture — six intake channels fan into a bordered AI Zone (Extract / Retrieve / Reason, each with its NVIDIA model chip) with a Program Configuration touchpoint below, a *Stop* gate divider, then the Deterministic Zone (Merge / Deliver / Audit) with a Human Review touchpoint. Outcome strip footer: *Same input → Same package → Forever.*
+**Visual:** end-to-end architecture — six intake channels fan into a bordered AI Zone (Ingest / Triage / Decide, each with its Nebius Token Factory model chip) with a Program Configuration touchpoint below, a *Stop* gate divider, then the Deterministic Zone (Deliver / Remember) with a Human Review touchpoint. Outcome strip footer: *Same input → Same package → Forever.*
 
 ---
 
@@ -118,20 +118,20 @@ Each outcome maps to its own composed package.<break time="0.5s" /> Approve — 
 
 ---
 
-## Beat 4 — Pipeline runs: extract → retrieve → reason (30 s)
+## Beat 4 — Pipeline runs: ingest → triage → decide (26 s)
 
 ```
-When a case arrives, the pipeline runs.<break time="0.4s" /> Ingest — MiniCPM-V on Nebius reads the intake into structured fields.<break time="0.4s" /> Decide — NeMo Retriever surfaces rules,<break time="0.2s" /> and Nemotron Super produces a structured verdict — approve,<break time="0.15s" /> deny,<break time="0.15s" /> or missing info — with citations.
+When a case arrives, the pipeline runs.<break time="0.3s" /> Ingest — a vision-language model reads every attachment.<break time="0.3s" /> Triage — a classifier picks the route.<break time="0.15s" /> Refills to the pharmacy,<break time="0.15s" /> missing info to CRM,<break time="0.15s" /> fresh intakes continue.<break time="0.3s" /> Decide — embeddings retrieve the rules, a reasoning model produces the verdict — approve,<break time="0.15s" /> deny,<break time="0.15s" /> or missing info — with citations.<break time="0.3s" /> All on Nebius Token Factory.
 ```
 
-**Visual:** horizontal three-stage pipeline — Extract [nv-ingest] → Retrieve [NeMo Retriever] → Reason [Nemotron], each stage a card with model badge + one-line input/output.
+**Visual:** horizontal three-stage pipeline — **Ingest** [Vision-language] → **Triage** [Classifier] → **Decide** [Reasoning + embeddings], each stage a card with model chip + one-line input/output. All three chips branded **Nebius Token Factory**.
 
 ---
 
-## Beat 5 — Then AI stops (25 s)
+## Beat 5 — Then AI stops (21 s)
 
 ```
-Then AI stops.<break time="0.9s" /> Deliver — the reply is a byte-identical merge of verdict plus a human-approved template.<break time="0.4s" /> Templates drafted by design-time AI,<break time="0.2s" /> reviewed and approved by humans for accurate outcomes.<break time="0.4s" /> Here's the approval letter,<break time="0.3s" /> rendered from Alderwood's template.<break time="0.3s" /> sha256 pinned.<break time="0.3s" /> No model at render time.<break time="0.3s" /> Same input,<break time="0.2s" /> same package,<break time="0.2s" /> forever.
+Then AI stops.<break time="0.8s" /> Deliver — a byte-identical merge of the verdict with a human-approved template.<break time="0.3s" /> Every template is human-reviewed.<break time="0.3s" /> Here's the approval letter,<break time="0.15s" /> from Alderwood's template — sha256 pinned.<break time="0.3s" /> No model at render time.<break time="0.3s" /> Same input,<break time="0.15s" /> same package,<break time="0.15s" /> forever.
 ```
 
 **Visual:** AI ZONE / DETERMINISTIC ZONE split — left half fades out with the AI stages; right half lights up with the verdict + frozen template merging into a rendered PDF, `byte-identical · sha256:…` stamp.
@@ -168,7 +168,7 @@ Remember — every stage is auditable.<break time="0.3s" /> AI events,<break tim
 Verdikt.<break time="0.4s" /> NVIDIA and open-source models on Nebius Token Factory.<break time="0.3s" /> One deterministic reply.<break time="0.3s" /> MIT-licensed.<break time="0.2s" /> Links below.
 ```
 
-**Visual:** dark hero — Verdikt wordmark + Nebius × NVIDIA lockup + three tech chips (Nemotron Super, NeMo Retriever, nv-ingest) + MIT License badge + three URL cards (Repo / Demo / Dashboards).
+**Visual:** dark hero — Verdikt wordmark + Nebius × NVIDIA lockup + three tech chips (Vision-language, Classifier, Reasoning — all on Nebius Token Factory) + MIT License badge + three URL cards (Repo / Demo / Dashboards).
 
 ---
 
@@ -179,7 +179,7 @@ Verdikt.<break time="0.4s" /> NVIDIA and open-source models on Nebius Token Fact
 | 1 | 18 s | What arrives — intake documents |
 | 2 | 22 s | Program = data (not code) |
 | 3 | 24 s | Reply is a doc package of frozen human-approved templates |
-| 4 | 30 s | Pipeline runs — three NVIDIA models, structured verdict + citations |
+| 4 | 30 s | Pipeline runs — ingest, triage, decide on Nebius Token Factory, cited verdict |
 | 5 | 25 s | Then AI stops — deterministic byte-identical merge |
 | 6 | 17 s | Cameo — same pipeline, opposite verdict |
 | 7 | 15 s | Auditable end-to-end |

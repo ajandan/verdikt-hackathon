@@ -314,7 +314,19 @@
 
   <section class="hero hero-about">
     <svg class="stamp-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M40 60 L54 74 L82 46" fill="none" stroke="#1e5f4f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Story arc: five achieved stops connected by a rising trail, one dashed future waypoint. Mirrors the timeline below. -->
+      <polyline points="20,100 40,82 55,64 72,48 90,32"
+                fill="none" stroke="#1e5f4f" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="90" y1="32" x2="106" y2="16"
+            stroke="#1e5f4f" stroke-width="3.5"
+            stroke-linecap="round" stroke-dasharray="4 5"/>
+      <circle cx="20" cy="100" r="6" fill="#1e5f4f"/>
+      <circle cx="40" cy="82" r="5" fill="#1e5f4f"/>
+      <circle cx="55" cy="64" r="5" fill="#1e5f4f"/>
+      <circle cx="72" cy="48" r="5" fill="#1e5f4f"/>
+      <circle cx="90" cy="32" r="6" fill="#1e5f4f"/>
+      <circle cx="106" cy="16" r="5" fill="none" stroke="#1e5f4f" stroke-width="3"/>
     </svg>
     <span class="eyebrow"><span class="dot"></span> About</span>
     <h1 class="display">Same idea. <em>Better tools.</em></h1>

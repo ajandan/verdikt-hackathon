@@ -30,6 +30,15 @@
   }
 
   .hero-domain { position: relative; padding: 56px 0 32px; }
+  .hero-domain .stamp-glyph {
+    position: absolute;
+    right: 24px; top: 16px;
+    width: 260px; height: 260px;
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  @media (max-width: 1100px) { .hero-domain .stamp-glyph { right: 12px; width: 200px; height: 200px; } }
+  @media (max-width: 820px)  { .hero-domain .stamp-glyph { display: none; } }
   .hero-domain .lede-strong {
     max-width: 780px;
     font-family: 'Instrument Serif', ui-serif, Georgia, serif;
@@ -275,8 +284,20 @@
 <main class="container">
 
   <section class="hero hero-domain">
+    <svg class="stamp-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- Four parties, one loop: sponsor / prescriber / admin / patient. Mirrors the flow diagram below. -->
+      <line x1="60" y1="18" x2="102" y2="60" stroke="#1e5f4f" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="102" y1="60" x2="60" y2="102" stroke="#1e5f4f" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="60" y1="102" x2="18" y2="60" stroke="#1e5f4f" stroke-width="3.5" stroke-linecap="round"/>
+      <line x1="18" y1="60" x2="60" y2="18" stroke="#1e5f4f" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="60" cy="18" r="7" fill="#1e5f4f"/>
+      <circle cx="102" cy="60" r="7" fill="#1e5f4f"/>
+      <circle cx="60" cy="102" r="7" fill="#1e5f4f"/>
+      <circle cx="18" cy="60" r="7" fill="#1e5f4f"/>
+      <circle cx="60" cy="60" r="4" fill="#1e5f4f"/>
+    </svg>
     <span class="eyebrow"><span class="dot"></span> Domain primer · ~2 minutes</span>
-    <h1 class="display">Patient Assistance Programs, <em>in plain terms</em></h1>
+    <h1 class="display">PAPs, <em>in plain terms</em></h1>
     <p class="lede-strong">Patient Assistance Programs (PAPs) are grants that <em>pay for medication</em> when insurance won't. A pharmaceutical manufacturer funds the program, a pharmacy or hub service administers it, and eligible patients receive the drug at no cost. This page explains the roles, the paperwork, and where Verdikt fits, so the demo video makes sense even if you don't work in pharma.</p>
   </section>
 

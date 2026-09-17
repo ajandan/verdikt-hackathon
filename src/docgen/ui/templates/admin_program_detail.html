@@ -962,7 +962,7 @@
         }, true);
     }
     var initial = (location.hash || '').replace('#', '');
-    var valid = { rules: 1, extraction: 1, bindings: 1, models: 1 };
+    var valid = { rules: 1, extraction: 1, bindings: 1, models: 1, triage: 1 };
     if (!valid[initial]) {
         try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
     }

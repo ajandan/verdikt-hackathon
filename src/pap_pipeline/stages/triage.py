@@ -366,7 +366,10 @@ async def _llm_classify(
     tenant-configured custom types (e.g., "prescription_transfer") are
     accepted because they're enumerated in the prompt.
     """
-    assert config.base_url and config.api_key and config.model  # noqa: S101
+    # Explicit guard (not `assert`) so the fallback stays intact under
+    # `python -O`. Callers treat None as "LLM unavailable — use rules".
+    if not (config.base_url and config.api_key and config.model):
+        return None
 
     allowed_types = "\n".join(f"- {ct}" for ct in routing.keys())
     system_prompt = _LLM_SYSTEM_PROMPT_TEMPLATE.format(allowed_types=allowed_types)

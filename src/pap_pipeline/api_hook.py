@@ -46,7 +46,7 @@ from pap_pipeline.json_intake import (
 from pap_pipeline.orchestrator import (
     _extras_from_extraction,
     _intake_from_extraction,
-    run_from_intake,
+    run_triaged_from_intake,
 )
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
@@ -277,8 +277,13 @@ def run_json_intake_sync(
         config = _pipeline_config(settings, tenant, program)
 
         try:
+            # run_triaged_from_intake runs Triage first (honoring tenant /
+            # program routing overrides + skip-Decide flag) and then
+            # dispatches to run_from_intake for the Decide path. Prior to
+            # this, the JSON channel bypassed Triage entirely — every case
+            # ran straight through Decide with decision.triage=None.
             decision: Decision = asyncio.run(
-                run_from_intake(
+                run_triaged_from_intake(
                     intake,
                     config=config,
                     program=program_slug,

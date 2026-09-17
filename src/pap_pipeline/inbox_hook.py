@@ -771,6 +771,7 @@ def _run_pipeline(
     settings: Settings,
     tenant: Tenant | None = None,
     program_row: Program | None = None,
+    subject: str | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
     here; each call gets its own loop and NullPool means no cross-loop DB
@@ -805,6 +806,10 @@ def _run_pipeline(
             tenant_id=str(tenant.id) if tenant else "",
             slots=slots,
             rules=rules,
+            # Subject is the highest-precedence signal in the Triage classifier
+            # (see triage._LLM_SYSTEM_PROMPT_TEMPLATE). Without forwarding it,
+            # every production case would classify against extras + intake only.
+            subject=subject,
         )
     )
 
@@ -876,6 +881,7 @@ def _handler(
             settings=settings,
             tenant=tenant,
             program_row=program_row,
+            subject=msg.subject,
         )
     except Exception as e:
         event.status = "failed"

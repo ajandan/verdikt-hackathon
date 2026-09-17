@@ -399,11 +399,63 @@ async def run_with_intake(
     intake = _intake_from_extraction(raw)
     extras = _extras_from_extraction(raw)
 
-    # Triage runs here when the caller opts in via ``config.triage``.
-    # ``None`` skips the stage entirely — preserves pre-Triage behavior
-    # for callers that haven't wired it. When enabled, ``decision_needed``
-    # drives whether we run the full Decide → Deliver path or short-circuit
-    # with a stub Decision that names the target route.
+    decision = await run_triaged_from_intake(
+        intake,
+        config=config,
+        program=program,
+        program_family_id=program_family_id,
+        tenant_id=tenant_id,
+        mdm_source=mdm_source,
+        extras=extras,
+        rules=rules,
+        k=k,
+        subject=subject,
+    )
+
+    if extract_findings:
+        decision = decision.model_copy(
+            update={
+                "verifier_findings": [*extract_findings, *decision.verifier_findings],
+            }
+        )
+    return raw, intake, decision
+
+
+async def run_triaged_from_intake(
+    intake: Intake,
+    *,
+    config: PipelineConfig,
+    program: str | None = None,
+    program_family_id: str | None = None,
+    tenant_id: str = "",
+    mdm_source: MdmSource | None = None,
+    extras: dict[str, Any] | None = None,
+    rules: list[Rule] | None = None,
+    k: int = 4,
+    subject: str | None = None,
+) -> Decision:
+    """Triage → (Decide or skip-Decide) against an already-parsed Intake.
+
+    Shared middle-slice used by every channel that arrives at the pipeline
+    with an Intake already in hand:
+
+    * ``run_with_intake`` — after extract runs on inbound attachments.
+    * JSON intake API (``pap_pipeline.api_hook.run_json_intake_sync``) —
+      the caller submitted structured JSON, so extract is bypassed but the
+      case still must pass through Triage to pick its route / skip-Decide
+      flag.
+
+    Behaviour:
+
+    * ``config.triage is None`` — skip Triage entirely, run Decide. Preserves
+      pre-Triage behaviour for callers that haven't wired it.
+    * ``config.triage`` set — run Triage. If ``decision_needed`` is True,
+      run the full Decide path via :func:`run_from_intake`. Otherwise emit
+      a stub Decision that names the route so the caller can dispatch.
+    * Either way, the final ``Decision.triage`` field carries the
+      classifier's evidence trail so the audit log and reviewer UI can see
+      what happened without re-running the stage.
+    """
     triage_decision = None
     if config.triage is not None:
         triage_decision = await triage(
@@ -440,15 +492,9 @@ async def run_with_intake(
             ),
         )
 
-    if extract_findings:
-        decision = decision.model_copy(
-            update={
-                "verifier_findings": [*extract_findings, *decision.verifier_findings],
-            }
-        )
     if triage_decision is not None:
         decision = _attach_triage_result(decision, triage_decision)
-    return raw, intake, decision
+    return decision
 
 
 def _attach_triage_result(

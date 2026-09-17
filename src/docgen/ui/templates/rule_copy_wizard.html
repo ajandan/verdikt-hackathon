@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Copy rule {{ rule.rule_id }} to program — Verdikt{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .wizard-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 900px) { .wizard-grid { grid-template-columns: 1fr; } }
+    .rule-preview {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px; line-height: 1.55;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 8px; padding: 12px 14px; margin-top: 8px;
+        white-space: pre-wrap; word-break: break-word;
+    }
+    .rule-preview .field-ref {
+        display: inline; padding: 1px 5px; border-radius: 4px;
+        background: rgba(37, 99, 235, 0.10); color: var(--brand);
+        font-weight: 600;
+    }
+    .map-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .map-table th, .map-table td {
+        text-align: left; padding: 8px 10px; font-size: 13px;
+        border-bottom: 1px solid var(--border);
+    }
+    .map-table th {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); font-weight: 500;
+    }
+    .map-source {
+        font-family: ui-monospace, monospace; font-size: 12.5px;
+        color: var(--text); font-weight: 500;
+    }
+    .map-table select {
+        font-family: ui-monospace, monospace; font-size: 12.5px;
+        width: 100%; padding: 4px 8px;
+    }
+    .conf-pill {
+        display: inline-block; padding: 1px 8px; border-radius: 999px;
+        font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .conf-exact      { background:#e5f4ec; color:#1e5f4f; }
+    .conf-fuzzy      { background:#fdf4d9; color:#8a5b12; }
+    .conf-unresolved { background:#fbe5e0; color:#9c2617; }
+    .step-nav { display:flex; align-items:center; gap:10px; font-size: 13px; color: var(--text-muted); margin: 6px 0 14px; }
+    .step { padding: 2px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); }
+    .step.done { background: var(--brand-soft); color: var(--brand); border-color: var(--brand-soft); }
+    .step.current { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/rules">Rules</a> ›
+    <a href="/ui/rules/{{ rule.id }}">{{ rule.rule_id }}</a> ›
+    Copy to program
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">
+    Copy <code style="font-family:JetBrains Mono,ui-monospace,monospace">{{ rule.rule_id }}</code> to a program
+</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Library rules speak whatever field vocabulary they were authored in. Programs may have
+    different slot names (Alderwood's <code style="font-family:JetBrains Mono,monospace">ins_uninsured</code>
+    vs a canonical <code style="font-family:JetBrains Mono,monospace">insurance_status</code>).
+    Pick a target program below and the wizard suggests a mapping for each
+    <code style="font-family:JetBrains Mono,monospace">@field</code> reference in the rule text.
+</p>
+
+<div class="step-nav" aria-label="Wizard steps">
+    <span class="step {% if not target_program %}current{% else %}done{% endif %}">1 · Pick target</span>
+    <span>›</span>
+    <span class="step {% if target_program %}current{% endif %}">2 · Review mapping</span>
+    <span>›</span>
+    <span class="step">3 · Save</span>
+</div>
+
+<div class="wizard-grid">
+    <div class="card">
+        {% if not target_program %}
+        <h3 style="margin-top: 0">Step 1 · Choose the target program</h3>
+        <p class="muted" style="font-size: 13px">
+            Only programs on the same tenant as this rule are listed.
+        </p>
+        <form method="get" action="/ui/rules/{{ rule.id }}/copy-to-program">
+            <label style="display:block; margin-top:10px">
+                <span style="font-weight: 500">Program</span>
+                <select name="target" required style="margin-top: 4px; width: 100%; max-width: 480px">
+                    <option value="">— pick a program —</option>
+                    {% for p in programs %}
+                    <option value="{{ p.id }}">{{ p.slug }} — {{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="btn-row" style="margin-top: 20px; display:flex; gap:10px">
+                <button class="btn primary" type="submit">Continue &rarr;</button>
+                <a class="btn" href="/ui/rules/{{ rule.id }}">Cancel</a>
+            </div>
+        </form>
+        {% else %}
+        <h3 style="margin-top: 0">Step 2 · Review the auto-mapping</h3>
+        <p class="muted" style="font-size: 13px">
+            Copy target: <strong>{{ target_program.slug }}</strong> ({{ target_program.name }})
+            · {{ target_slots|length }} slots on this program's schema.
+            <a href="/ui/rules/{{ rule.id }}/copy-to-program" style="margin-left:6px">Change target</a>
+        </p>
+
+        <div style="margin: 12px 0 4px; font-size: 13px; font-weight: 500">Source rule text</div>
+        <div class="rule-preview" id="rule-preview">{{ rule.criterion }}{% if rule.exception %}
+
+Exception: {{ rule.exception }}{% endif %}</div>
+
+        {% if matches %}
+        <form method="post" action="/ui/rules/{{ rule.id }}/copy-to-program" id="copy-form">
+            {{ csrf_input(request) }}
+            <input type="hidden" name="target_program_id" value="{{ target_program.id }}">
+            <div style="margin-top: 16px; font-size: 13px; font-weight: 500">Field mappings ({{ matches|length }})</div>
+            <table class="map-table">
+                <thead>
+                    <tr>
+                        <th style="width:36%">Source ref</th>
+                        <th style="width:44%">Target slot on {{ target_program.slug }}</th>
+                        <th style="width:20%">Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in matches %}
+                    <tr>
+                        <td class="map-source">@{{ m.source }}</td>
+                        <td>
+                            <select name="map_{{ m.source }}" required>
+                                <option value="">— pick a slot —</option>
+                                {% for slot in target_slots %}
+                                <option value="{{ slot }}" {% if slot == m.target %}selected{% endif %}>{{ slot }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <span class="conf-pill conf-{{ m.confidence }}">{{ m.confidence }}</span>
+                            {% if m.confidence == 'fuzzy' %}
+                            <span class="muted" style="font-size:11px; margin-left:4px">{{ m.score }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="btn-row" style="margin-top: 20px; display:flex; gap:10px; flex-wrap:wrap">
+                <button class="btn primary" type="submit">Save copy &rarr;</button>
+                <a class="btn" href="/ui/rules/{{ rule.id }}">Cancel</a>
+            </div>
+            <p class="muted" style="font-size: 12px; margin-top: 8px">
+                Save creates a new rule scoped to <code style="font-family:JetBrains Mono,monospace">{{ target_program.slug }}</code>
+                with rewritten field references. The library rule is untouched.
+            </p>
+        </form>
+        {% else %}
+        <div class="empty">
+            <h3>No <code style="font-family:JetBrains Mono,monospace">@field</code> references found</h3>
+            <p>This rule doesn't reference any fields via <code style="font-family:JetBrains Mono,monospace">@name</code> syntax.
+            Copy-to-program is only useful when there's vocabulary to remap; edit the rule to use
+            <code style="font-family:JetBrains Mono,monospace">@fieldname</code> for each field it needs.</p>
+            <div class="cta-row">
+                <a class="btn" href="/ui/rules/{{ rule.id }}">Back to rule</a>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <aside class="card">
+        <h3 style="margin-top: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px">How this works</h3>
+        <p class="muted" style="font-size: 12.5px">
+            The auto-mapper runs three passes over each <code style="font-family:JetBrains Mono,monospace">@field</code>
+            in the source rule:
+        </p>
+        <ol style="font-size: 12.5px; padding-left: 20px; margin: 6px 0">
+            <li><strong>Exact</strong> — source name matches a target slot 1:1.</li>
+            <li><strong>Fuzzy</strong> — strip form-vocabulary prefixes / suffixes, compare on the meaningful tokens.</li>
+            <li><strong>Unresolved</strong> — no confident match; you pick one from the dropdown.</li>
+        </ol>
+        <p class="muted" style="font-size: 12.5px; margin-top: 10px">
+            Every row is editable — the algorithm is a hint, not a decision. On save,
+            references in the criterion / exception text are rewritten to the target
+            slot names and the new rule is scoped to the target program.
+        </p>
+    </aside>
+</div>
+
+<script nonce="{{ csp_nonce(request) }}">
+(function () {
+    // Highlight @field tokens in the source rule preview so operators can
+    // scan them against the mapping table on the right.
+    var pre = document.getElementById('rule-preview');
+    if (!pre) return;
+    var raw = pre.textContent;
+    pre.innerHTML = raw
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/@([A-Za-z_][A-Za-z0-9_]*)/g, '<span class="field-ref">@$1</span>');
+})();
+</script>
+{% endblock %}

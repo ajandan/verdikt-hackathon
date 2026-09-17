@@ -6938,6 +6938,200 @@ async def rule_update(
     )
 
 
+@router.get("/rules/{rule_row_id}/copy-to-program", response_class=HTMLResponse)
+async def rule_copy_wizard(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    target: str | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Wizard: pick a target program and preview the auto-mapping.
+
+    Two modes on the same page:
+      * ``target`` empty — show a program dropdown scoped to the source
+        tenant. Once the operator picks one, we redirect with
+        ``?target=<uuid>`` so the URL is bookmarkable and the review
+        state survives an accidental refresh.
+      * ``target`` set — resolve the target program, parse the source
+        rule's @-refs, run the three-pass auto-mapper, and render the
+        review table with editable per-row dropdowns for unresolved /
+        low-confidence rows.
+
+    The wizard doesn't mutate any state — nothing is written until the
+    operator submits the POST.
+    """
+    from pap_pipeline.rule_mapping import auto_map
+    from pap_pipeline.rule_refs import parse_field_refs
+
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+
+    programs_stmt = (
+        select(Program)
+        .where(Program.tenant_id == rule.tenant_id, Program.is_active.is_(True))
+        .order_by(Program.slug.asc())
+    )
+    programs = list((await session.execute(programs_stmt)).scalars().all())
+
+    target_program: Program | None = None
+    matches: list[dict[str, Any]] = []
+    target_slots: list[str] = []
+    if target:
+        try:
+            tgt_id = uuid.UUID(target)
+        except ValueError:
+            return _redirect(
+                f"/ui/rules/{rule.id}/copy-to-program",
+                flash="Malformed program id.", flash_kind="error",
+            )
+        target_program = await session.get(Program, tgt_id)
+        if target_program is None or target_program.tenant_id != rule.tenant_id:
+            raise HTTPException(404, "Program not found for this tenant")
+        target_slots = [s["name"] for s in (target_program.extraction_schema or [])]
+        source_refs = parse_field_refs(rule.criterion, rule.exception)
+        raw_matches = auto_map(source_refs, target_slots)
+        # Serialize to a dict-of-dicts so the Jinja template can iterate
+        # without knowing about the dataclass.
+        matches = [
+            {
+                "source": m.source,
+                "target": m.target or "",
+                "confidence": m.confidence,
+                "score": round(m.score, 3),
+            }
+            for m in raw_matches
+        ]
+
+    return templates.TemplateResponse(
+        request,
+        "rule_copy_wizard.html",
+        await _base_ctx(
+            request, session, active="rules",
+            rule=rule,
+            programs=programs,
+            target_program=target_program,
+            target_slots=target_slots,
+            matches=matches,
+        ),
+    )
+
+
+@router.post("/rules/{rule_row_id}/copy-to-program")
+async def rule_copy_execute(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Persist the copy: create a new program-scoped rule with the
+    operator-approved field-name substitutions applied to criterion,
+    exception, and fields[].
+
+    The mapping payload arrives as ``map_<source_field>`` form entries —
+    one per row in the wizard table. Missing entries (rows the operator
+    left unresolved) fail the request; the wizard's own submit button is
+    disabled while any row is empty, so this is a defense-in-depth check.
+    """
+    from pap_pipeline.rule_refs import parse_field_refs, substitute_refs, validate_field_refs
+
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
+
+    form = await request.form()
+    target_id_raw = (form.get("target_program_id") or "").strip()
+    try:
+        target_id = uuid.UUID(target_id_raw)
+    except ValueError:
+        return _redirect(
+            f"/ui/rules/{rule.id}/copy-to-program",
+            flash="Pick a target program.", flash_kind="error",
+        )
+    target_program = await session.get(Program, target_id)
+    if target_program is None or target_program.tenant_id != rule.tenant_id:
+        raise HTTPException(404, "Program not found for this tenant")
+    target_slots = [s["name"] for s in (target_program.extraction_schema or [])]
+
+    source_refs = parse_field_refs(rule.criterion, rule.exception)
+    mapping: dict[str, str] = {}
+    for src in source_refs:
+        chosen = (form.get(f"map_{src}") or "").strip()
+        if not chosen:
+            return _redirect(
+                f"/ui/rules/{rule.id}/copy-to-program?target={target_id}",
+                flash=f"Field '{src}' is unmapped — pick a target slot.",
+                flash_kind="error",
+            )
+        mapping[src] = chosen
+
+    new_criterion = substitute_refs(rule.criterion, mapping)
+    new_exception = substitute_refs(rule.exception, mapping)
+    # Rewrite the fields[] list too so the reasoner's "which slots does
+    # this rule need" contract matches the criterion text.
+    new_fields = [mapping.get(f, f) for f in (rule.fields or [])]
+    new_refs = parse_field_refs(new_criterion, new_exception)
+
+    # Final validation: the substituted text must reference only slots
+    # declared on the target program. Belt-and-suspenders — the wizard
+    # already forced a valid pick per source ref, but a hand-typed value
+    # in the dropdown could sneak through.
+    errors = validate_field_refs(new_refs, target_slots)
+    if errors:
+        joined = ", ".join(f"@{e.field}" for e in errors)
+        return _redirect(
+            f"/ui/rules/{rule.id}/copy-to-program?target={target_id}",
+            flash=f"Post-substitution references unknown slots: {joined}",
+            flash_kind="error",
+        )
+
+    # New program-scoped rule row. rule_id gets a suffix so the (tenant,
+    # rule_id) unique constraint doesn't fire — operators can rename it
+    # later on the rule detail page if they want a tidier ID.
+    new_rule_id = f"{rule.rule_id}-{target_program.slug[:16]}"
+    copied = Rule(
+        tenant_id=rule.tenant_id,
+        program_id=target_program.id,
+        rule_id=new_rule_id,
+        kind=rule.kind,
+        title=f"{rule.title} (copied to {target_program.slug})",
+        criterion=new_criterion,
+        exception=new_exception,
+        fields=new_fields,
+        field_refs=new_refs,
+        references_slots=rule.references_slots,
+        is_active=True,
+    )
+    session.add(copied)
+    try:
+        await session.flush()
+        await _snapshot_rule_version(session, copied, request, "Copied from library")
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return _redirect(
+            f"/ui/rules/{rule.id}/copy-to-program?target={target_id}",
+            flash=f"Rule ID '{new_rule_id}' already exists for this tenant.",
+            flash_kind="error",
+        )
+    log.info(
+        "rule_copied_to_program",
+        source_rule_row_id=str(rule.id),
+        source_rule_id=rule.rule_id,
+        target_program_id=str(target_program.id),
+        target_program_slug=target_program.slug,
+        new_rule_row_id=str(copied.id),
+        new_rule_id=new_rule_id,
+        substitutions=mapping,
+    )
+    return _redirect(
+        f"/ui/rules/{copied.id}",
+        flash=f"Copied '{rule.rule_id}' into program {target_program.slug} as '{new_rule_id}'.",
+        flash_kind="success",
+    )
+
+
 @router.post("/rules/{rule_row_id}/delete")
 async def rule_delete(
     rule_row_id: uuid.UUID,

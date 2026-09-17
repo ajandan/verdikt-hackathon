@@ -178,10 +178,13 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
         "Admin UI write-paths",
         "Tenant/program configuration pages: inherit-from-tenant toggles, "
         "split Triage routing page, tenant models dropdowns, shared "
-        "page-number pagination helpers.",
+        "page-number pagination helpers, copy-a-rule-to-a-program wizard.",
         [
             "test_pap_ui_inherit_and_tenant_models",
             "test_pagination_page_number",
+            "test_rule_refs",
+            "test_rule_mapping",
+            "test_rule_copy_wizard",
         ],
     ),
     (

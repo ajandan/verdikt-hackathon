@@ -338,6 +338,17 @@ class Rule(Base):
         ForeignKey("tenants.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # NULL = library rule in the tenant's shared master pack (attachable to
+    # multiple programs via `program_rule_links`). Non-NULL = program-scoped
+    # copy whose criterion/exception references THAT program's slot names.
+    # 0037 migration; SET NULL on delete so deleting a program leaves
+    # orphaned rules that the operator can archive or re-copy rather than
+    # losing rule text irreversibly.
+    program_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("programs.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
     rule_id: Mapped[str] = mapped_column(String(64), nullable=False)
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     # Structured rule body. Kept short so the LLM sees a compact contract and
@@ -349,6 +360,13 @@ class Rule(Base):
     # field is None at reason time, the rule contributes to missing_fields
     # rather than a match/fail verdict.
     fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    # Cached @field references parsed from criterion + exception on save
+    # (0037). Populated by pap_pipeline.rule_refs.parse_field_refs — kept
+    # denormalized so the rules list can show "touches N slots" and the
+    # reasoner prompt-builder can pull the slot list without re-parsing.
+    field_refs: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
     # Slot names this rule reads (ADR-0004). Nullable because rules that

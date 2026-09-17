@@ -100,6 +100,8 @@ header.hairline-b {
   font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1;
   color: var(--seal-700);
 }
+a.brand { cursor: pointer; transition: opacity 120ms ease; }
+a.brand:hover { opacity: 0.85; }
 .brand .mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px;

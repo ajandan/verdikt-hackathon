@@ -52,6 +52,7 @@ from pap_pipeline.stages.mdm_lookup import (
 )
 from pap_pipeline.stages.reason import ReasonClientConfig, reason
 from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
+from pap_pipeline.stages.triage import TriageConfig, TriageDecision, triage
 from pap_pipeline.verify import dual_extract, verify_decision
 
 
@@ -77,6 +78,12 @@ class PipelineConfig:
     mdm: MdmSourceConfig = field(default_factory=lambda: MdmSourceConfig(provider="null"))
     extract_verifier: ExtractClientConfig | None = None
     declared_outcomes: list[str] | None = None
+    # Triage runs after extract, before retrieve. Additive today — the
+    # returned TriageDecision is attached to the pipeline result but does
+    # not yet reroute execution. A follow-up will honor
+    # ``TriageDecision.route`` for short-circuit paths (refill, appeal,
+    # missing-info reply). ``None`` = triage disabled (unchanged behavior).
+    triage: TriageConfig | None = None
 
 
 async def run_from_intake(
@@ -361,6 +368,7 @@ async def run_with_intake(
     slots: list[dict[str, Any]] | None = None,
     rules: list[Rule] | None = None,
     k: int = 4,
+    subject: str | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Same as :func:`run` but also returns the raw extraction dict + Intake.
 
@@ -371,6 +379,11 @@ async def run_with_intake(
     query builder and (b) a leftover *extras* dict that flows through to
     reasoning so program-specific slots still participate in the verdict.
     The raw dict is returned as-is for persistence + UI display.
+
+    ``subject`` is the incoming email/message subject, forwarded to the
+    Triage stage as the strongest classification signal. Callers that
+    don't have a subject (JSON/API intake) can leave it None; Triage
+    will fall back to the extras / intake-shape signals.
     """
     if config.extract_verifier is not None:
         raw, extract_findings = await dual_extract(
@@ -385,24 +398,82 @@ async def run_with_intake(
 
     intake = _intake_from_extraction(raw)
     extras = _extras_from_extraction(raw)
-    decision = await run_from_intake(
-        intake,
-        config=config,
-        program=program,
-        program_family_id=program_family_id,
-        tenant_id=tenant_id,
-        mdm_source=mdm_source,
-        extras=extras,
-        rules=rules,
-        k=k,
-    )
+
+    # Triage runs here when the caller opts in via ``config.triage``.
+    # ``None`` skips the stage entirely — preserves pre-Triage behavior
+    # for callers that haven't wired it. When enabled, ``decision_needed``
+    # drives whether we run the full Decide → Deliver path or short-circuit
+    # with a stub Decision that names the target route.
+    triage_decision = None
+    if config.triage is not None:
+        triage_decision = await triage(
+            intake,
+            config=config.triage,
+            subject=subject,
+            extras=extras,
+        )
+
+    if triage_decision is None or triage_decision.decision_needed:
+        decision = await run_from_intake(
+            intake,
+            config=config,
+            program=program,
+            program_family_id=program_family_id,
+            tenant_id=tenant_id,
+            mdm_source=mdm_source,
+            extras=extras,
+            rules=rules,
+            k=k,
+        )
+    else:
+        # Skip Decide (and Deliver — the caller sees decision.triage.route
+        # and dispatches accordingly). Stub Decision keeps the audit trail
+        # complete; outcome="missing_info" is the closest existing Outcome
+        # value and the rationale explains it's a route, not missing info.
+        decision = Decision(
+            outcome="missing_info",
+            citations=[],
+            missing_fields=[],
+            rationale=(
+                f"Triaged as '{triage_decision.case_type}'. Decide skipped; "
+                f"case routed to '{triage_decision.route}'."
+            ),
+        )
+
     if extract_findings:
         decision = decision.model_copy(
             update={
                 "verifier_findings": [*extract_findings, *decision.verifier_findings],
             }
         )
+    if triage_decision is not None:
+        decision = _attach_triage_result(decision, triage_decision)
     return raw, intake, decision
+
+
+def _attach_triage_result(
+    decision: Decision, triage_decision: TriageDecision
+) -> Decision:
+    """Fold the triage classification onto the ``decision.triage`` field.
+
+    Preserves the classifier's evidence trail (case_type, route, reason,
+    signals) on the Decision so the audit log and reviewer UI can see
+    what Triage decided without re-running the stage. Downstream systems
+    that want to short-circuit off the Decide path read this field.
+    """
+    from pap_pipeline.schemas.decision import TriageResult
+
+    return decision.model_copy(
+        update={
+            "triage": TriageResult(
+                case_type=triage_decision.case_type,
+                route=triage_decision.route,
+                decision_needed=triage_decision.decision_needed,
+                reason=triage_decision.reason,
+                signals=dict(triage_decision.signals),
+            )
+        }
+    )
 
 
 def _intake_from_extraction(raw: dict[str, Any]) -> Intake:

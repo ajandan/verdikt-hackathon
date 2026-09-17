@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     # doing the caption-matching / reasoning step.
     pdf_vision_ocr_model: str = "openbmb/MiniCPM-V-4_5"
 
+    # Triage stage LLM (platform default). Classifier-scale — routes each
+    # case into one of {new_intake, refill, appeal, missing_info_reply,
+    # not_decidable}. Nano/small models are appropriate here; a reasoning
+    # model is overkill for one-shot classification. Tenants override via
+    # `tenants.triage_model`; programs override via `programs.triage_model`.
+    triage_model: str = "nvidia/nemotron-nano-3-6b"
+
     # Labeler routing.
     #   "auto"   — text-only Nemotron for pages with extractable text; vision
     #              fallback only when there is none. Fastest and cheapest.

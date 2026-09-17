@@ -204,6 +204,7 @@
         {% if declared_outcomes %}<span class="tab-count">{{ declared_outcomes|length }}</span>{% endif %}
     </a>
     <a href="#models" class="tab" role="tab" data-tab="models" aria-selected="false" aria-controls="tab-models" id="tab-btn-models">Models</a>
+    <a href="#triage" class="tab" role="tab" data-tab="triage" aria-selected="false" aria-controls="tab-triage" id="tab-btn-triage">Triage routing</a>
 </nav>
 
 <section class="tab-panel" id="tab-extraction" role="tabpanel" aria-labelledby="tab-btn-extraction">
@@ -542,40 +543,93 @@
             </p>
             <form action="/ui/programs/{{ program.id }}/models" method="post">
                 {{ csrf_input(request) }}
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px">
-                    <label>Extract model <span class="muted" style="font-weight: normal">(vision)</span>
-                        <select name="extract_model">
-                            <option value="">— use system default —</option>
-                            {% for m in vision_models %}
-                            <option value="{{ m }}" {% if program.extract_model == m %}selected{% endif %}>{{ m }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
 
-                    <label>Reason model <span class="muted" style="font-weight: normal">(verdict)</span>
-                        <select name="reason_model">
-                            <option value="">— use system default —</option>
-                            {% for m in reason_models %}
-                            <option value="{{ m }}" {% if program.reason_model == m %}selected{% endif %}>{{ m }}</option>
+                <style nonce="{{ csp_nonce(request) }}">
+                    .inherit-field { margin-top: 14px; }
+                    .inherit-toggle {
+                        display: flex; align-items: center; gap: 6px;
+                        font-size: 12px; color: var(--text-muted); margin-bottom: 4px;
+                    }
+                    .inherit-toggle input[type="checkbox"] { margin: 0; }
+                    .inherit-toggle .inherited-source {
+                        color: var(--text-subtle); font-family: ui-monospace, monospace;
+                        margin-left: auto;
+                    }
+                    .inherit-field select[disabled],
+                    .inherit-field input[type="text"][disabled] {
+                        background: var(--surface-2); color: var(--text-muted);
+                        cursor: not-allowed;
+                    }
+                </style>
+
+                {% macro inherit_field(field_id, program_value, resolved_value, resolved_source, label, sublabel, model_list, is_text=false, off_label="— off (single-VLM extract) —") %}
+                <div class="inherit-field" data-inherit-field>
+                    <label class="inherit-toggle">
+                        <input type="checkbox" name="inherit_{{ field_id }}" value="1"
+                               {% if not program_value %}checked{% endif %}
+                               data-inherit-toggle>
+                        <span>Inherit from tenant</span>
+                        <span class="inherited-source">
+                            {% if resolved_value %}resolved: {{ resolved_value }} ({{ resolved_source }}){% else %}resolved: none{% endif %}
+                        </span>
+                    </label>
+                    <label style="display: block; margin: 0">
+                        <span style="font-weight: 500">{{ label }}</span>
+                        <span class="muted" style="font-weight: normal">{{ sublabel }}</span>
+                        {% if is_text %}
+                        <input type="text" name="{{ field_id }}"
+                               value="{{ program_value or '' }}"
+                               placeholder="{{ resolved_value if resolved_value else 'inherit from tenant / system' }}"
+                               data-inherit-input
+                               {% if not program_value %}disabled{% endif %}
+                               style="width: 100%; max-width: 480px; font-family: ui-monospace, monospace; font-size: 13px">
+                        {% else %}
+                        <select name="{{ field_id }}" data-inherit-input
+                                {% if not program_value %}disabled{% endif %}>
+                            <option value="">{{ off_label }}</option>
+                            {% for m in model_list %}
+                            <option value="{{ m }}" {% if program_value == m %}selected{% endif %}>{{ m }}</option>
                             {% endfor %}
                         </select>
+                        {% endif %}
                     </label>
                 </div>
+                {% endmacro %}
 
-                <label style="display: block; margin-top: 14px">
-                    Verifier extract model <span class="muted" style="font-weight: normal">(optional dual-VLM cross-check)</span>
-                    <select name="verifier_extract_model">
-                        <option value="">— off (single-VLM extract) —</option>
-                        {% for m in vision_models %}
-                        <option value="{{ m }}" {% if program.verifier_extract_model == m %}selected{% endif %}>{{ m }}</option>
-                        {% endfor %}
-                    </select>
-                    <span class="muted" style="display: block; font-size: 12px; margin-top: 4px">
-                        Pick a second vision model (e.g. <code>google/gemma-3-27b-it</code> against
-                        <code>openbmb/MiniCPM-V-4_5</code>). Both run in parallel; any critical-slot disagreement escalates
-                        the case to HumanLoop instead of auto-approving.
-                    </span>
-                </label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px">
+                    {{ inherit_field(
+                        'extract_model', program.extract_model,
+                        resolved.extract if resolved else None,
+                        resolved.source.extract if resolved else 'settings',
+                        'Extract model', ' (vision)', vision_models,
+                        off_label='— use tenant/system default —'
+                    ) }}
+                    {{ inherit_field(
+                        'reason_model', program.reason_model,
+                        resolved.reason if resolved else None,
+                        resolved.source.reason if resolved else 'settings',
+                        'Reason model', ' (verdict)', reason_models,
+                        off_label='— use tenant/system default —'
+                    ) }}
+                </div>
+
+                {{ inherit_field(
+                    'triage_model', program.triage_model,
+                    resolved.triage if resolved else None,
+                    resolved.source.triage if resolved else 'settings',
+                    'Triage model',
+                    ' (classifier — new intake / refill / appeal / missing info / not decidable)',
+                    reason_models,
+                    off_label='— use tenant/system default —'
+                ) }}
+
+                {{ inherit_field(
+                    'verifier_extract_model', program.verifier_extract_model,
+                    resolved.verifier if resolved else None,
+                    resolved.source.verifier if resolved else 'disabled',
+                    'Verifier extract model', ' (optional dual-VLM cross-check)',
+                    vision_models
+                ) }}
 
                 {% if not vision_models and not reason_models %}
                 <p class="muted" style="font-size: 12px; margin-top: 12px">
@@ -586,6 +640,24 @@
                 <div class="btn-row" style="margin-top: 20px">
                     <button class="primary" type="submit">Save model choices</button>
                 </div>
+
+                <script nonce="{{ csp_nonce(request) }}">
+                    // Enable/disable the model input based on the paired
+                    // "Inherit from tenant" checkbox. Checked = inherit,
+                    // input disabled + saved as NULL. Unchecked = override,
+                    // input enabled + saved as the chosen value.
+                    (function () {
+                        var fields = document.querySelectorAll('[data-inherit-field]');
+                        fields.forEach(function (field) {
+                            var toggle = field.querySelector('[data-inherit-toggle]');
+                            var input = field.querySelector('[data-inherit-input]');
+                            if (!toggle || !input) return;
+                            toggle.addEventListener('change', function () {
+                                input.disabled = toggle.checked;
+                            });
+                        });
+                    })();
+                </script>
             </form>
         </div>
     </div>
@@ -597,21 +669,221 @@
                 The three stages all target one Nebius Token Factory endpoint / one API key. Only Extract and
                 Reason are tenant-configurable in this pass; Retrieve stays at the platform's Qwen3-Embedding-8B.
             </p>
+            {% if resolved %}
             <ul style="font-size: 13px; line-height: 1.7; padding-left: 20px">
-                <li><strong>Extract</strong> — <code>{{ program.extract_model or 'system default' }}</code></li>
-                {% if program.verifier_extract_model %}
-                <li><strong>Extract verifier</strong> — <code>{{ program.verifier_extract_model }}</code> <span class="muted">(dual-VLM cross-check on)</span></li>
+                <li><strong>Extract</strong> — <code>{{ resolved.extract }}</code> <span class="muted">({{ resolved.source.extract }})</span></li>
+                <li><strong>Triage</strong> — <code>{{ resolved.triage }}</code> <span class="muted">({{ resolved.source.triage }})</span></li>
+                <li><strong>Reason</strong> — <code>{{ resolved.reason }}</code> <span class="muted">({{ resolved.source.reason }})</span></li>
+                {% if resolved.verifier %}
+                <li><strong>Extract verifier</strong> — <code>{{ resolved.verifier }}</code> <span class="muted">({{ resolved.source.verifier }})</span></li>
                 {% else %}
                 <li><strong>Extract verifier</strong> — <span class="muted">off</span></li>
                 {% endif %}
-                <li><strong>Retrieve</strong> — <code>Qwen/Qwen3-Embedding-8B</code> <span class="muted">(fixed)</span></li>
+                <li><strong>Retrieve</strong> — <code>Qwen/Qwen3-Embedding-8B</code> <span class="muted">(fixed — embed only)</span></li>
+            </ul>
+            <p class="muted" style="font-size: 11.5px; margin-top: 10px">
+                Each source label shows where the winning value came from: <code>program</code>,
+                <code>tenant</code>, or <code>settings</code>.
+            </p>
+            {% else %}
+            <ul style="font-size: 13px; line-height: 1.7; padding-left: 20px">
+                <li><strong>Extract</strong> — <code>{{ program.extract_model or 'system default' }}</code></li>
                 <li><strong>Reason</strong> — <code>{{ program.reason_model or 'system default' }}</code></li>
             </ul>
+            {% endif %}
             <p class="muted" style="font-size: 12px; margin-top: 12px">
                 Discovered {{ vision_models|length }} vision-capable and {{ reason_models|length }} chat/reasoning models on the tenant's catalog.
             </p>
         </div>
     </div>
+</div>
+</section>
+
+<section class="tab-panel" id="tab-triage" role="tabpanel" aria-labelledby="tab-btn-triage" hidden>
+<div class="card" style="margin-bottom: 16px">
+    <h3 style="margin-top: 0">Triage routing</h3>
+    <p class="muted" style="font-size: 13px">
+        The Triage stage classifies every inbound case and picks where to send it. Each row here maps a
+        <em>case type</em> to a <em>route</em> (the downstream target) and a <em>Decision needed?</em>
+        flag. When the flag is off, the pipeline <strong>skips the Decide stage entirely</strong> and hands
+        the case straight to the route (e.g., refills go directly to Pharmacy OMS without re-checking
+        eligibility). Rows you don't touch inherit the tenant-level defaults.
+    </p>
+
+    <form action="/ui/programs/{{ program.id }}/triage-routing" method="post" id="triage-routing-form">
+        {{ csrf_input(request) }}
+        <input type="hidden" name="routing_json" id="triage-routing-json" value="[]">
+
+        <style nonce="{{ csp_nonce(request) }}">
+            .triage-inherit-bar {
+                display: flex; align-items: center; gap: 8px;
+                padding: 10px 12px; background: var(--surface-2);
+                border: 1px solid var(--border); border-radius: 8px;
+                font-size: 13px; color: var(--text-muted);
+                margin-top: 8px; margin-bottom: 8px;
+            }
+            .triage-inherit-bar input[type="checkbox"] { margin: 0; }
+            .triage-inherit-bar .inherit-source {
+                color: var(--text-subtle); font-family: ui-monospace, monospace;
+                font-size: 12px; margin-left: auto;
+            }
+            .triage-routing-table.is-inherited input,
+            .triage-routing-table.is-inherited select,
+            .triage-routing-table.is-inherited button {
+                pointer-events: none; opacity: 0.55;
+            }
+            #triage-add-row.is-disabled,
+            #triage-save-btn.is-disabled { opacity: 0.55; pointer-events: none; }
+        </style>
+
+        <label class="triage-inherit-bar">
+            <input type="checkbox" name="inherit_routing" value="1"
+                   id="triage-inherit-toggle"
+                   {% if not program.triage_routing %}checked{% endif %}>
+            <span><strong>Inherit routing from tenant</strong></span>
+            <span class="inherit-source">
+                {% set n = resolved.triage_routing|length if resolved else 0 %}
+                resolved: {{ n }} case-type{{ 's' if n != 1 else '' }} from tenant/platform
+            </span>
+        </label>
+
+        <table class="triage-routing-table {% if not program.triage_routing %}is-inherited{% endif %}"
+               id="triage-routing-table"
+               style="width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500">Case type</th>
+                    <th style="text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500">Route to</th>
+                    <th style="text-align: center; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500">Decision needed?</th>
+                    <th style="padding: 8px 10px; border-bottom: 1px solid var(--border); width: 40px"></th>
+                </tr>
+            </thead>
+            <tbody id="triage-routing-rows">
+                {% if resolved %}
+                {% for case_type, cfg in resolved.triage_routing.items() %}
+                <tr data-triage-row>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid var(--border)">
+                        <input type="text" name="case_type" value="{{ case_type }}"
+                               style="width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px"
+                               required>
+                    </td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid var(--border)">
+                        <select name="route" style="font-family: ui-monospace, monospace; font-size: 12.5px; padding: 4px 8px; width: 100%">
+                            {% for r in all_routes %}
+                            <option value="{{ r }}" {% if r == cfg.route %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center">
+                        <input type="checkbox" name="decision_needed" value="1" {% if cfg.decision_needed %}checked{% endif %}>
+                    </td>
+                    <td style="padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center">
+                        <button type="button" class="btn" data-remove-row title="Remove this row"
+                                style="padding: 2px 8px; font-size: 12px">&times;</button>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="btn-row" style="margin-top: 16px; display: flex; gap: 10px; align-items: center">
+            <button type="button" class="btn {% if not program.triage_routing %}is-disabled{% endif %}" id="triage-add-row">+ Add row</button>
+            <button type="submit" class="primary" id="triage-save-btn">Save triage routing</button>
+            <span class="muted" style="font-size: 12px; margin-left: auto">
+                Rows that match the tenant default won't create a program override.
+            </span>
+        </div>
+    </form>
+
+    <template id="triage-row-template">
+        <tr data-triage-row>
+            <td style="padding: 6px 8px; border-bottom: 1px solid var(--border)">
+                <input type="text" name="case_type" value=""
+                       placeholder="e.g. prescription_transfer"
+                       style="width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px"
+                       required>
+            </td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid var(--border)">
+                <select name="route" style="font-family: ui-monospace, monospace; font-size: 12.5px; padding: 4px 8px; width: 100%">
+                    {% for r in all_routes %}
+                    <option value="{{ r }}">{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center">
+                <input type="checkbox" name="decision_needed" value="1" checked>
+            </td>
+            <td style="padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: center">
+                <button type="button" class="btn" data-remove-row title="Remove this row"
+                        style="padding: 2px 8px; font-size: 12px">&times;</button>
+            </td>
+        </tr>
+    </template>
+
+    <script nonce="{{ csp_nonce(request) }}">
+        (function () {
+            var tbody = document.getElementById('triage-routing-rows');
+            var tmpl = document.getElementById('triage-row-template');
+            var addBtn = document.getElementById('triage-add-row');
+            var form = document.getElementById('triage-routing-form');
+            var jsonHidden = document.getElementById('triage-routing-json');
+            var table = document.getElementById('triage-routing-table');
+            var inheritToggle = document.getElementById('triage-inherit-toggle');
+            if (!tbody || !tmpl || !addBtn || !form || !jsonHidden) return;
+
+            function applyInheritState() {
+                var inherited = inheritToggle && inheritToggle.checked;
+                if (table) table.classList.toggle('is-inherited', inherited);
+                addBtn.classList.toggle('is-disabled', inherited);
+            }
+            if (inheritToggle) {
+                inheritToggle.addEventListener('change', applyInheritState);
+                applyInheritState();
+            }
+
+            addBtn.addEventListener('click', function () {
+                if (inheritToggle && inheritToggle.checked) return;
+                var clone = tmpl.content.cloneNode(true);
+                tbody.appendChild(clone);
+            });
+
+            tbody.addEventListener('click', function (e) {
+                if (inheritToggle && inheritToggle.checked) return;
+                var btn = e.target.closest('[data-remove-row]');
+                if (!btn) return;
+                var row = btn.closest('[data-triage-row]');
+                if (row) row.remove();
+            });
+
+            // Serialize the table into a single JSON payload on submit —
+            // avoids the classic HTML-form ambiguity where unchecked checkboxes
+            // don't submit and break parallel-array alignment. When the inherit
+            // toggle is on, submit an empty list so the POST handler clears the
+            // program override and falls back to the tenant/platform routing.
+            form.addEventListener('submit', function () {
+                if (inheritToggle && inheritToggle.checked) {
+                    jsonHidden.value = '[]';
+                    return;
+                }
+                var rows = tbody.querySelectorAll('[data-triage-row]');
+                var out = [];
+                rows.forEach(function (row) {
+                    var ct = row.querySelector('input[name="case_type"]');
+                    var route = row.querySelector('select[name="route"]');
+                    var needed = row.querySelector('input[name="decision_needed"]');
+                    var ctVal = (ct && ct.value || '').trim();
+                    if (!ctVal || !route) return;
+                    out.push({
+                        case_type: ctVal,
+                        route: route.value,
+                        decision_needed: !!(needed && needed.checked)
+                    });
+                });
+                jsonHidden.value = JSON.stringify(out);
+            });
+        })();
+    </script>
 </div>
 </section>
 

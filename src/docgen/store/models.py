@@ -61,6 +61,17 @@ class Tenant(Base):
     quota_renders_per_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quota_active_templates: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quota_storage_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Per-tenant pipeline model defaults (0036). NULL falls back to settings.
+    # Each column is the tenant-wide preferred model for one pipeline stage;
+    # programs override individually via their matching columns.
+    extract_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    triage_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    retrieve_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reason_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    verifier_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Case_type → route override (JSONB). NULL = inherit platform default
+    # from pap_pipeline.stages.triage._ROUTE_BY_CASE_TYPE.
+    triage_routing: Mapped[dict[str, str] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -140,6 +151,12 @@ class Program(Base):
     # disagreement on a critical slot forces the case into HumanLoop. NULL
     # disables the check — the pipeline runs single-VLM as before.
     verifier_extract_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Triage stage model override (0036). NULL falls back to tenant.triage_model
+    # then to settings.DOCGEN_TRIAGE_MODEL. Small classifier-scale model is
+    # appropriate here (case_type routing, not reasoning).
+    triage_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Per-program case_type → route override (0036). NULL = inherit from tenant.
+    triage_routing: Mapped[dict[str, str] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Pipeline models — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .models-grid {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .models-grid { grid-template-columns: 1fr; } }
+    .form-row { margin-bottom: 18px; }
+    .form-row label {
+        display: block; font-size: 13px; font-weight: 600;
+        color: var(--text); margin-bottom: 4px;
+    }
+    .form-row .hint {
+        display: block; font-size: 12px; color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .form-row input {
+        width: 100%; max-width: 480px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+    }
+    .form-row .platform-default {
+        display: inline-block; font-size: 11px; color: var(--text-subtle);
+        margin-left: 8px; font-family: ui-monospace, monospace;
+    }
+    .side-card h3 {
+        margin: 0 0 6px; font-size: 13px; color: var(--text);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .side-card p { font-size: 12.5px; color: var(--text-muted); margin: 6px 0; }
+    .routing-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .routing-table th, .routing-table td {
+        text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+    }
+    .routing-table th {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--text-muted); font-weight: 500;
+    }
+    .routing-table td:first-child {
+        font-family: ui-monospace, monospace; font-size: 12.5px;
+    }
+    .routing-table select {
+        font-family: ui-monospace, monospace; font-size: 12.5px;
+        padding: 4px 8px; width: 100%; max-width: 220px;
+    }
+    .section-header {
+        margin: 0 0 12px; padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+        font-size: 15px; font-weight: 600;
+    }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a> ›
+    <span>{{ tenant.name }}</span> ›
+    Pipeline models
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">Pipeline models &amp; triage routing</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Tenant-level defaults for every pipeline stage. Programs inherit these unless they set
+    their own overrides. Leaving a field blank falls through to the platform default
+    (from <code>.env</code> / <code>Settings</code>).
+</p>
+
+<div class="models-grid">
+    <form method="post" action="/ui/admin/tenants/{{ tenant.id }}/models" class="card">
+        {{ csrf_input(request) }}
+
+        <h2 class="section-header">Model defaults</h2>
+
+        {% macro model_dropdown(field_id, label, hint, current, platform_default, model_list, optional=false) %}
+        <div class="form-row">
+            <label for="{{ field_id }}">{{ label }}
+                {% if optional %}<em style="font-weight: 400; color: var(--text-muted); font-size: 12px">(optional)</em>{% endif %}
+                <span class="platform-default">platform default: {{ platform_default }}</span>
+            </label>
+            <span class="hint">{{ hint }}</span>
+            <select id="{{ field_id }}" name="{{ field_id }}" style="width: 100%; max-width: 480px">
+                <option value="">— use platform default —</option>
+                {% for m in model_list %}
+                <option value="{{ m }}" {% if current == m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endmacro %}
+
+        {{ model_dropdown(
+            'extract_model',
+            'Extract model',
+            'Vision-multimodal model that reads intake attachments (PDFs, images) into structured slots.',
+            tenant.extract_model, platform_defaults.extract, vision_models
+        ) }}
+        {{ model_dropdown(
+            'triage_model',
+            'Triage model',
+            'Classifier that decides the case type and picks the downstream route. A small model is appropriate here — classification, not reasoning.',
+            tenant.triage_model, platform_defaults.triage, reason_models
+        ) }}
+        {{ model_dropdown(
+            'retrieve_model',
+            'Retrieve model',
+            'Rerank model for the eligibility-rule retrieval pass. Nebius Token Factory does not host an NVIDIA rerank NIM yet; reserved for when it lands.',
+            tenant.retrieve_model, '(not wired)', reason_models
+        ) }}
+        {{ model_dropdown(
+            'reason_model',
+            'Reason model',
+            'Reasoning model that produces the structured verdict (approve / deny / missing_info) with citations. Reasoning-scale.',
+            tenant.reason_model, platform_defaults.reason, reason_models
+        ) }}
+        {{ model_dropdown(
+            'verifier_model',
+            'Verifier model',
+            'Optional dual-VLM cross-check on the Extract stage. A second Extract call runs in parallel using this model and any disagreement escalates the case to HumanLoop.',
+            tenant.verifier_model, 'disabled', vision_models, optional=true
+        ) }}
+
+        <div class="flex items-center gap-3" style="margin-top: 20px">
+            <button type="submit" class="btn primary">Save</button>
+            <a href="/ui/admin/tenants/{{ tenant.id }}/triage-routing" class="btn">Manage triage routing &rarr;</a>
+            <a href="/ui/admin/tenants" class="btn">Cancel</a>
+        </div>
+    </form>
+
+    <aside class="card side-card">
+        <h3>Fallback chain</h3>
+        <p>Every stage resolves in this order:</p>
+        <p style="font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--text)">
+            program.&lt;stage&gt;_model<br>
+            &nbsp;&nbsp;↓&nbsp; (NULL)<br>
+            tenant.&lt;stage&gt;_model<br>
+            &nbsp;&nbsp;↓&nbsp; (NULL)<br>
+            settings.&lt;STAGE&gt;_MODEL
+        </p>
+        <p>Set a value here to change the default for every program in this tenant. A program can still override individually on its detail page.</p>
+        <h3 style="margin-top: 14px">Triage routing</h3>
+        <p>Case-type overrides are additive — a program that only wants to change <code>refill</code> can override that one row without restating the others.</p>
+    </aside>
+</div>
+{% endblock %}

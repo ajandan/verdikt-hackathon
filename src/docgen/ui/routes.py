@@ -3982,6 +3982,163 @@ async def admin_save_tenant_quotas(
 
 
 # ---------------------------------------------------------------------------
+# Admin: tenant pipeline models + triage routing (super_admin-only)
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/tenants/{tenant_id}/models", response_class=HTMLResponse)
+async def admin_tenant_models(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    _require_super_admin(request)
+    from docgen.store.models import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    settings = get_settings()
+    catalog = get_cached_catalog(
+        base_url=(settings.ai_base_url or "https://api.studio.nebius.com/v1"),
+        api_key=(settings.ai_api_key or ""),
+    )
+    platform_defaults = {
+        "extract": settings.pdf_vision_ocr_model,
+        "triage": settings.triage_model,
+        "reason": settings.ai_verdict_model,
+    }
+    return templates.TemplateResponse(
+        request,
+        "admin_tenant_models.html",
+        await _base_ctx(
+            request, session, active="admin",
+            tenant=tenant,
+            platform_defaults=platform_defaults,
+            vision_models=catalog.vision_models(),
+            reason_models=catalog.chat_models(),
+        ),
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/models", response_model=None)
+async def admin_save_tenant_models(
+    tenant_id: uuid.UUID,
+    request: Request,
+    extract_model: str = Form(""),
+    triage_model: str = Form(""),
+    retrieve_model: str = Form(""),
+    reason_model: str = Form(""),
+    verifier_model: str = Form(""),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    _require_super_admin(request)
+    from docgen.store.models import Tenant
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    # Blank string ("— use platform default —") → NULL so the fallback chain
+    # kicks in and env-var rotation propagates through automatically.
+    tenant.extract_model = extract_model.strip() or None
+    tenant.triage_model = triage_model.strip() or None
+    tenant.retrieve_model = retrieve_model.strip() or None
+    tenant.reason_model = reason_model.strip() or None
+    tenant.verifier_model = verifier_model.strip() or None
+
+    await session.commit()
+    return _redirect(
+        f"/ui/admin/tenants/{tenant_id}/models",
+        flash="Model defaults saved.", flash_kind="success",
+    )
+
+
+@router.get("/admin/tenants/{tenant_id}/triage-routing", response_class=HTMLResponse)
+async def admin_tenant_triage_routing(
+    tenant_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    _require_super_admin(request)
+    from docgen.store.models import Tenant
+    from pap_pipeline.config_resolver import resolve_pipeline_models
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    settings = get_settings()
+    # Effective routing at the tenant level = platform defaults merged
+    # with any tenant overrides. Program overrides don't apply here.
+    resolved = resolve_pipeline_models(program=None, tenant=tenant, settings=settings)
+    all_routes = ["decide", "pharmacy_direct", "crm_appeals", "crm_outreach", "reject"]
+
+    return templates.TemplateResponse(
+        request,
+        "admin_tenant_triage_routing.html",
+        await _base_ctx(
+            request, session, active="admin",
+            tenant=tenant,
+            effective_routing=resolved.triage_routing,
+            all_routes=all_routes,
+        ),
+    )
+
+
+@router.post("/admin/tenants/{tenant_id}/triage-routing", response_model=None)
+async def admin_save_tenant_triage_routing(
+    tenant_id: uuid.UUID,
+    request: Request,
+    routing_json: str = Form("[]"),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    _require_super_admin(request)
+    import json as _json
+    from docgen.store.models import Tenant
+    from pap_pipeline.stages.triage import _DEFAULT_ROUTING
+
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(404, "Tenant not found")
+
+    try:
+        rows = _json.loads(routing_json)
+        if not isinstance(rows, list):
+            rows = []
+    except (ValueError, TypeError):
+        rows = []
+
+    submitted: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ct = str(row.get("case_type", "")).strip()
+        route = str(row.get("route", "")).strip()
+        if not ct or not route:
+            continue
+        submitted[ct] = {
+            "route": route,
+            "decision_needed": bool(row.get("decision_needed", True)),
+        }
+
+    # Only store rows that differ from the platform default — keeps the
+    # JSONB minimal and audit-visible ("tenant overrides these rows").
+    overrides: dict[str, dict[str, Any]] = {}
+    for ct, cfg in submitted.items():
+        default = _DEFAULT_ROUTING.get(ct)
+        if default is None or default != cfg:
+            overrides[ct] = cfg
+    tenant.triage_routing = overrides or None
+
+    await session.commit()
+    return _redirect(
+        f"/ui/admin/tenants/{tenant_id}/triage-routing",
+        flash="Triage routing saved.", flash_kind="success",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Admin: portal users (super_admin-only)
 #
 # Adds/deactivates admin_users rows so tenants can be given their own UI login
@@ -5848,16 +6005,13 @@ async def programs_create(
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(404, "Tenant not found")
-    # Prefill the recommended pipeline defaults so operators see the actual
-    # models in the Models tab, not the implicit "— use system default —"
-    # fallback. They can swap either dropdown later. Defaults intentionally
-    # mirror settings.pdf_vision_ocr_model / settings.ai_verdict_model so
-    # existing deploys don't see a behavior change on first create.
+    # Create with NULL model columns so the 3-level resolver
+    # (program → tenant → settings) picks the effective model at runtime.
+    # Hard-coding here would freeze the defaults into the row and defeat
+    # env-var or tenant-level rotation.
     prog = Program(
         tenant_id=tenant_id, slug=slug_clean, name=name_clean,
         extraction_schema=[], is_active=True,
-        extract_model="openbmb/MiniCPM-V-4_5",
-        reason_model="nvidia/nemotron-3-super-120b-a12b",
     )
     session.add(prog)
     try:
@@ -5992,6 +6146,12 @@ async def program_detail(
     vision_models = catalog.vision_models()
     reason_models = catalog.chat_models()
 
+    # Resolved 3-level chain for the "effective chain" panel + the triage
+    # routing table's initial values. See pap_pipeline.config_resolver.
+    from pap_pipeline.config_resolver import resolve_pipeline_models
+    resolved = resolve_pipeline_models(program=prog, tenant=tenant, settings=settings)
+    all_routes = ["decide", "pharmacy_direct", "crm_appeals", "crm_outreach", "reject"]
+
     return templates.TemplateResponse(
         request,
         "admin_program_detail.html",
@@ -6009,6 +6169,8 @@ async def program_detail(
             declared_outcomes=declared_outcomes,
             vision_models=vision_models,
             reason_models=reason_models,
+            resolved=resolved,
+            all_routes=all_routes,
             flash=flash, flash_kind=flash_kind,
         ),
     )
@@ -6291,12 +6453,35 @@ async def program_models_save(
     prog = await _load_program(session, program_id)
     _enforce_scope(request, prog.tenant_id)
     form = await request.form()
-    raw_extract = (form.get("extract_model") or "").strip()
-    raw_reason = (form.get("reason_model") or "").strip()
-    raw_verifier = (form.get("verifier_extract_model") or "").strip()
-    prog.extract_model = raw_extract or None
-    prog.reason_model = raw_reason or None
-    prog.verifier_extract_model = raw_verifier or None
+
+    # Each model field pairs with an `inherit_<field>` checkbox. When checked,
+    # the operator wants the tenant/platform default — store NULL regardless
+    # of what the (disabled) select submitted. When unchecked, store the
+    # submitted value (blank still clears).
+    def _resolve(field: str) -> str | None:
+        if form.get(f"inherit_{field}"):
+            return None
+        return (form.get(field) or "").strip() or None
+
+    prog.extract_model = _resolve("extract_model")
+    prog.reason_model = _resolve("reason_model")
+    prog.verifier_extract_model = _resolve("verifier_extract_model")
+    prog.triage_model = _resolve("triage_model")
+
+    # Triage routing overrides: read the effective (resolver-merged) row set,
+    # keep only rows the operator changed vs the currently-effective route.
+    # Stores minimal JSONB so the UI clearly shows "operator-changed" rows.
+    from pap_pipeline.config_resolver import resolve_pipeline_models
+    settings = get_settings()
+    tenant = await session.get(Tenant, prog.tenant_id)
+    tenant_resolved = resolve_pipeline_models(program=None, tenant=tenant, settings=settings)
+    routing_overrides: dict[str, str] = {}
+    for case_type, tenant_route in tenant_resolved.triage_routing.items():
+        submitted = (form.get(f"route_{case_type}") or "").strip()
+        if submitted and submitted != tenant_route:
+            routing_overrides[case_type] = submitted
+    prog.triage_routing = routing_overrides or None
+
     await session.commit()
     log.info(
         "program_models_saved",
@@ -6304,10 +6489,100 @@ async def program_models_save(
         extract_model=prog.extract_model,
         reason_model=prog.reason_model,
         verifier_extract_model=prog.verifier_extract_model,
+        triage_model=prog.triage_model,
+        triage_routing_overrides=prog.triage_routing,
     )
     return _redirect(
         f"/ui/programs/{program_id}#models",
         flash="Model choices saved.", flash_kind="success",
+    )
+
+
+@router.post("/programs/{program_id}/triage-routing")
+async def program_triage_routing_save(
+    program_id: uuid.UUID,
+    request: Request,
+    routing_json: str = Form("[]"),
+    session: AsyncSession = Depends(get_session),
+) -> RedirectResponse:
+    """Save the per-program Triage routing table (dynamic rows).
+
+    The form serializes the whole table into a single JSON payload
+    (avoids HTML's unchecked-checkbox alignment trap). Rows whose values
+    match the currently-effective tenant/platform default are dropped so
+    the stored JSONB stays minimal and clearly represents "program
+    overrides."
+    """
+    import json as _json
+    from pap_pipeline.config_resolver import resolve_pipeline_models
+    from docgen.store.models import Tenant
+
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+
+    # "Inherit routing from tenant" toggle: clear the program's overrides
+    # entirely so the resolver falls back to the tenant/platform routing.
+    form = await request.form()
+    if form.get("inherit_routing"):
+        prog.triage_routing = None
+        await session.commit()
+        log.info(
+            "program_triage_routing_saved",
+            program_id=str(prog.id),
+            inherited_from_tenant=True,
+        )
+        return _redirect(
+            f"/ui/programs/{program_id}#triage",
+            flash="Triage routing now inherits from tenant.",
+            flash_kind="success",
+        )
+
+    try:
+        rows = _json.loads(routing_json)
+        if not isinstance(rows, list):
+            rows = []
+    except (ValueError, TypeError):
+        rows = []
+
+    submitted: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ct = str(row.get("case_type", "")).strip()
+        route = str(row.get("route", "")).strip()
+        if not ct or not route:
+            continue
+        submitted[ct] = {
+            "route": route,
+            "decision_needed": bool(row.get("decision_needed", True)),
+        }
+
+    # Resolve the tenant baseline (without any program override) so we can
+    # drop rows that match the tenant/platform default — keeps JSONB minimal
+    # and makes program overrides audit-visible.
+    settings = get_settings()
+    tenant = await session.get(Tenant, prog.tenant_id)
+    baseline = resolve_pipeline_models(
+        program=None, tenant=tenant, settings=settings
+    ).triage_routing
+
+    overrides: dict[str, dict[str, Any]] = {}
+    for ct, cfg in submitted.items():
+        default = baseline.get(ct)
+        if default is None or default != cfg:
+            overrides[ct] = cfg
+
+    prog.triage_routing = overrides or None
+    await session.commit()
+    log.info(
+        "program_triage_routing_saved",
+        program_id=str(prog.id),
+        rows_submitted=len(submitted),
+        overrides_stored=len(overrides),
+    )
+    return _redirect(
+        f"/ui/programs/{program_id}#triage",
+        flash="Triage routing saved.", flash_kind="success",
     )
 
 

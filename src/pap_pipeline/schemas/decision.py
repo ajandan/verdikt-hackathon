@@ -139,3 +139,35 @@ class Decision(BaseModel):
     # (dual-VLM cross-check) and deterministic citation-consistency flags.
     # Non-empty findings escalate the case to HumanLoop.
     verifier_findings: list[VerifierFinding] = Field(default_factory=list)
+    # Populated by the Triage stage (runs after extract, before retrieve).
+    # Optional so pre-Triage callers and stored Decisions from before the
+    # Triage rollout still validate. Non-null carries the case_type +
+    # downstream route the classifier chose; downstream systems that want
+    # to short-circuit off the Decide path read this field.
+    triage: "TriageResult | None" = None
+
+
+class TriageResult(BaseModel):
+    """Serialized :class:`pap_pipeline.stages.triage.TriageDecision`.
+
+    Stored on the Decision so the audit log preserves *why* a case was
+    routed off the Decide path (or confirmed on it). The stage module
+    (``stages.triage``) owns the classifier; this model owns the wire /
+    persistence shape so schemas stay in one place.
+
+    Kept as plain strings (not Literals) so the schema doesn't need to
+    move in lockstep with the classifier if new case_types are added.
+    """
+
+    case_type: str
+    route: str
+    # Whether the case still needs to run the Decide stage. When False,
+    # the orchestrator emits a stub Decision and downstream systems
+    # dispatch directly to ``route``. Default True to preserve
+    # backwards-compat with stored Decisions from before the flag existed.
+    decision_needed: bool = True
+    reason: str = ""
+    signals: dict[str, Any] = Field(default_factory=dict)
+
+
+Decision.model_rebuild()

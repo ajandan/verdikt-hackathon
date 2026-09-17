@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Triage routing — {{ tenant.name }}{% endblock %}
+{% block content %}
+<style nonce="{{ csp_nonce(request) }}">
+    .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
+    .breadcrumb a { color: var(--text-muted); }
+    .breadcrumb a:hover { color: var(--text); text-decoration: none; }
+    .routing-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    .routing-table th, .routing-table td {
+        text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+        font-size: 13px;
+    }
+    .routing-table th {
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--text-muted); font-weight: 500;
+    }
+    .routing-table input[type="text"] {
+        width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px;
+    }
+    .routing-table select {
+        font-family: ui-monospace, monospace; font-size: 12.5px; padding: 4px 8px; width: 100%;
+    }
+    .grid-2col {
+        display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 24px; align-items: start;
+    }
+    @media (max-width: 1000px) { .grid-2col { grid-template-columns: 1fr; } }
+    .side-card h3 {
+        margin: 0 0 6px; font-size: 13px; color: var(--text);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .side-card p { font-size: 12.5px; color: var(--text-muted); margin: 6px 0; }
+</style>
+
+<p class="breadcrumb">
+    <a href="/ui/admin/tenants">Tenants</a> ›
+    <span>{{ tenant.name }}</span> ›
+    Triage routing
+</p>
+<h1 class="text-[24px] font-semibold tracking-tight leading-tight m-0 mb-1">Triage routing</h1>
+<p class="text-ink-muted text-[14px] m-0 mb-4">
+    Where each case-type goes after the Triage stage classifies it. Toggle <em>Decision needed?</em>
+    off to <strong>skip the Decide stage entirely</strong> (e.g., refills route straight to Pharmacy OMS
+    without re-checking eligibility). Add rows for tenant-specific case types.
+    Programs inherit these rows unless they override individually.
+</p>
+
+<div class="grid-2col">
+    <div class="card">
+        <form method="post" action="/ui/admin/tenants/{{ tenant.id }}/triage-routing" id="triage-routing-form">
+            {{ csrf_input(request) }}
+            <input type="hidden" name="routing_json" id="triage-routing-json" value="[]">
+
+            <table class="routing-table" id="triage-routing-table">
+                <thead>
+                    <tr>
+                        <th>Case type</th>
+                        <th>Route to</th>
+                        <th style="text-align: center">Decision needed?</th>
+                        <th style="width: 40px"></th>
+                    </tr>
+                </thead>
+                <tbody id="triage-routing-rows">
+                    {% for case_type, cfg in effective_routing.items() %}
+                    <tr data-triage-row>
+                        <td>
+                            <input type="text" name="case_type" value="{{ case_type }}" required>
+                        </td>
+                        <td>
+                            <select name="route">
+                                {% for r in all_routes %}
+                                <option value="{{ r }}" {% if r == cfg.route %}selected{% endif %}>{{ r }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td style="text-align: center">
+                            <input type="checkbox" name="decision_needed" value="1" {% if cfg.decision_needed %}checked{% endif %}>
+                        </td>
+                        <td style="text-align: center">
+                            <button type="button" class="btn" data-remove-row style="padding: 2px 8px; font-size: 12px">&times;</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <template id="triage-row-template">
+                <tr data-triage-row>
+                    <td>
+                        <input type="text" name="case_type" value=""
+                               placeholder="e.g. prescription_transfer" required>
+                    </td>
+                    <td>
+                        <select name="route">
+                            {% for r in all_routes %}
+                            <option value="{{ r }}">{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td style="text-align: center">
+                        <input type="checkbox" name="decision_needed" value="1" checked>
+                    </td>
+                    <td style="text-align: center">
+                        <button type="button" class="btn" data-remove-row style="padding: 2px 8px; font-size: 12px">&times;</button>
+                    </td>
+                </tr>
+            </template>
+
+            <div class="flex items-center gap-3" style="margin-top: 20px">
+                <button type="button" class="btn" id="triage-add-row">+ Add row</button>
+                <button type="submit" class="btn primary">Save triage routing</button>
+                <a href="/ui/admin/tenants/{{ tenant.id }}/models" class="btn">← Back to models</a>
+            </div>
+        </form>
+
+        <script nonce="{{ csp_nonce(request) }}">
+            (function () {
+                var tbody = document.getElementById('triage-routing-rows');
+                var tmpl = document.getElementById('triage-row-template');
+                var addBtn = document.getElementById('triage-add-row');
+                var form = document.getElementById('triage-routing-form');
+                var jsonHidden = document.getElementById('triage-routing-json');
+                if (!tbody || !tmpl || !addBtn || !form || !jsonHidden) return;
+
+                addBtn.addEventListener('click', function () {
+                    tbody.appendChild(tmpl.content.cloneNode(true));
+                });
+
+                tbody.addEventListener('click', function (e) {
+                    var btn = e.target.closest('[data-remove-row]');
+                    if (!btn) return;
+                    var row = btn.closest('[data-triage-row]');
+                    if (row) row.remove();
+                });
+
+                form.addEventListener('submit', function () {
+                    var rows = tbody.querySelectorAll('[data-triage-row]');
+                    var out = [];
+                    rows.forEach(function (row) {
+                        var ct = row.querySelector('input[name="case_type"]');
+                        var route = row.querySelector('select[name="route"]');
+                        var needed = row.querySelector('input[name="decision_needed"]');
+                        var ctVal = (ct && ct.value || '').trim();
+                        if (!ctVal || !route) return;
+                        out.push({
+                            case_type: ctVal,
+                            route: route.value,
+                            decision_needed: !!(needed && needed.checked)
+                        });
+                    });
+                    jsonHidden.value = JSON.stringify(out);
+                });
+            })();
+        </script>
+    </div>
+
+    <aside class="card side-card">
+        <h3>How routing works</h3>
+        <p>Triage classifies every inbound case into one of your configured case types, then looks up the row here to pick the downstream route.</p>
+        <p>When <em>Decision needed?</em> is off, the pipeline emits a stub Decision and dispatches straight to the route (no Decide/Deliver work). Use this for cases that don't need eligibility re-checked — refills, appeals routed to a human queue, obvious non-decidable messages.</p>
+        <h3 style="margin-top: 14px">Fallback</h3>
+        <p>Tenant rows override the platform defaults. Programs then override tenant rows individually. Any case-type not listed at any level falls through to the platform default.</p>
+    </aside>
+</div>
+{% endblock %}

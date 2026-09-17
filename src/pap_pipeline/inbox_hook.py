@@ -88,43 +88,53 @@ def _pipeline_config(
     resolves it) or hasn't wired a config, we fall back to the simulated
     source so the demo works out-of-the-box.
 
-    Per-program model overrides: when ``program.extract_model`` or
-    ``program.reason_model`` is set (via the Models admin tab), the
-    corresponding stage uses that model instead of the settings default. NULL
-    columns fall back to the settings default. This lets a tenant swap
-    Nemotron scale or vision model per program without a code deploy.
+    Per-stage model overrides walk a 3-level chain (0036):
+
+        program.<stage>_model  →  tenant.<stage>_model  →  settings.<STAGE>_MODEL
+
+    So the same override slot exists at both the tenant level (a default
+    for every program in the tenant) and the program level (a per-program
+    exception). NULL at both falls back to the settings default. Resolved
+    by :func:`pap_pipeline.config_resolver.resolve_pipeline_models`.
     """
+    from pap_pipeline.config_resolver import resolve_pipeline_models
+    from pap_pipeline.stages.triage import TriageConfig
+
     base_url = (settings.ai_base_url or "https://api.studio.nebius.com/v1").rstrip("/")
     api_key = settings.ai_api_key or ""
-    extract_model = (
-        (program.extract_model if program is not None else None)
-        or settings.pdf_vision_ocr_model
-        or "openbmb/MiniCPM-V-4_5"
-    )
-    reason_model = (
-        (program.reason_model if program is not None else None)
-        or settings.ai_verdict_model
-        or "nvidia/nemotron-3-super-120b-a12b"
-    )
-    verifier_model = program.verifier_extract_model if program is not None else None
+    resolved = resolve_pipeline_models(program=program, tenant=tenant, settings=settings)
     extract_verifier = (
         ExtractClientConfig(
             base_url=base_url,
             api_key=api_key,
-            vision_model=verifier_model,
+            vision_model=resolved.verifier,
             timeout=settings.ai_timeout_seconds,
         )
-        if verifier_model
+        if resolved.verifier
         else None
     )
     declared_outcomes = (
         list(program.outcomes) if program is not None and program.outcomes else None
     )
+    triage_config = TriageConfig(
+        enabled=True,
+        # Routing table (case_type → {route, decision_needed}) comes from
+        # the resolved 3-level chain; per-program or per-tenant overrides
+        # win over the hardcoded platform default.
+        routing=resolved.triage_routing,
+        # LLM classifier creds — same Nebius endpoint + key as the other
+        # stages. When any of these is blank the stage falls back to the
+        # deterministic rule-based classifier.
+        base_url=base_url,
+        api_key=api_key,
+        model=resolved.triage,
+        timeout=settings.ai_timeout_seconds,
+    )
     return PipelineConfig(
         extract=ExtractClientConfig(
             base_url=base_url,
             api_key=api_key,
-            vision_model=extract_model,
+            vision_model=resolved.extract,
             timeout=settings.ai_timeout_seconds,
         ),
         retrieve=RetrieveClientConfig(
@@ -140,12 +150,13 @@ def _pipeline_config(
         reason=ReasonClientConfig(
             base_url=base_url,
             api_key=api_key,
-            model=reason_model,
+            model=resolved.reason,
             timeout=settings.ai_timeout_seconds,
         ),
         mdm=_mdm_config_for_tenant(tenant),
         extract_verifier=extract_verifier,
         declared_outcomes=declared_outcomes,
+        triage=triage_config,
     )
 
 

@@ -21,6 +21,26 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./verdikt.css">
+<style>
+  /* Author credibility line under the lede. Sits between the hero and
+     the rulebook cards so it hits before judges start scanning rules. */
+  .hero .author-hook {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 18px; line-height: 1.4;
+    color: var(--ink-700);
+    margin: 14px 0 0;
+    padding-left: 14px;
+    border-left: 3px solid var(--seal-500);
+    font-style: italic;
+    max-width: 640px;
+  }
+  .hero .author-hook em {
+    color: var(--seal-700);
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+</style>
 </head>
 <body>
 
@@ -67,6 +87,7 @@
     <span class="eyebrow"><span class="dot"></span> Nebius × NVIDIA submission</span>
     <h1 class="display">Five rules. <em>Four met, one on the runway.</em></h1>
     <p class="lede">The hackathon rulebook, checked against the code. Each rule is a card. Click one to see how Verdikt satisfies it and where the evidence lives. Grounded in <code>docs/HACKATHON.md</code> and the four ADRs.</p>
+    <p class="author-hook">A <em>decade</em> inside this domain. It shows in every design choice.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 

@@ -168,6 +168,31 @@ _Immediately after the architecture beat, same voice, same pace. Continuous take
 
 Land each with a full stop before and after. No rushing into the next sentence.
 
+---
+
+## Hero visual moment (engineered)
+
+_A single memorable image judges recall when comparing this entry against others in the final shortlist. This is the picture the panelist describes to a co-panelist afterwards. Positioned inside Beat 2, immediately after the verdict lands. Only one in the whole video — do not dilute._
+
+**Beat:** ~0:53 — comes one heartbeat after the pipeline finishes and the APPROVE badge lands at 0:50. A held moment, not a transition.
+
+**Voice-over (one word, held):** *"Signed."*
+
+- Full beat of silence before the word (~400 ms).
+- Word spoken slowly, with slight downward inflection — a period, not a question.
+- Full beat of silence after (~600 ms), letting the visual finish its animation.
+- Skips the 2.5 words-per-second cadence deliberately. This is a punctuation moment.
+
+**Visual:** The APPROVE verdict badge cross-dissolves into the paper-stamp verdict card — kraft-cream paper texture, deep-green ink, the wordmark VERDIKT along the top, the meta fields (case ID / model / retrieval / date) underneath. On the word *"Signed"* the wax-stamp seal punches down in the bottom-right of the card with a subtle scale-and-settle animation. The whole card holds for ~1 second before continuing.
+
+**Sound design:** A soft paper-and-wax "thunk" synced to the seal landing. No music swell. No other sound.
+
+**Why:** The stamp is Verdikt's product identity made physical. Same reason a signed cheque is more memorable than a spreadsheet — judges scoring finalists remember the entry with one image they can describe. This is that image.
+
+**Editing notes:**
+- Held frame reused as the YouTube thumbnail crop and as the video-hero-shot fallback at 0:00 – 0:03.
+- If the render pipeline can produce it, the stamp card should be the actual PDF paper-stamp verdict from a real case (not a mock-up). The whole video is real artifacts; this one especially.
+
 **Product-name landing:** *"We call it Verdikt"* is the only time the name is spoken in the architecture beat. Brief pause before, brief pause after, synced to the on-screen wordmark reveal.
 
 **Continuous take:** Beats 3 and 4 are one continuous voice take. Do not stop the record between the architecture beat and the cameo — the tempo carries the transition.

@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./verdikt.css?v=7">
+<link rel="stylesheet" href="./verdikt.css?v=8">
 <style>
   /* Author credibility line under the lede. Sits between the hero and
      the rulebook cards so it hits before judges start scanning rules. */
@@ -155,7 +155,7 @@
           <h2>Submission tasks</h2>
           <p class="subhead">What has to be true on <b>2026-10-30</b> for the Devpost submission to be complete. Green rows are done; amber rows are planned with a date.</p>
         </div>
-        <table class="data" id="checklist-table"></table>
+        <div class="table-scroll"><table class="data" id="checklist-table"></table></div>
       </div>
 
       <div class="tab-panel" data-panel="timeline">
@@ -163,7 +163,7 @@
           <h2>Submission-window log</h2>
           <p class="subhead">Dated events from window-open to submission-close. The mid-Nov row is post-deadline on purpose: the production Nebius deploy runs on its own schedule; the hackathon-scoped deploy is cut earlier from the same runbook.</p>
         </div>
-        <table class="data" id="timeline-table"></table>
+        <div class="table-scroll"><table class="data" id="timeline-table"></table></div>
       </div>
 
       <div class="tab-panel" data-panel="open">
@@ -465,6 +465,6 @@
 })();
 </script>
 
-<script defer src="./verdikt.js?v=7"></script>
+<script defer src="./verdikt.js?v=8"></script>
 </body>
 </html>

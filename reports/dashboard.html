@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./verdikt.css?v=7">
+<link rel="stylesheet" href="./verdikt.css?v=8">
 </head>
 <body>
 
@@ -105,6 +105,7 @@
       <span class="kicker">History</span>
       <h2>Recent runs</h2>
       <p class="subhead">Rolling history of the last 50 pytest runs, newest first. Each row is one <code style="font-family:inherit">python reports/_gen_dashboard.py</code> invocation; a run is uniquely keyed by commit and JUnit timestamp so re-generating from the same <code style="font-family:inherit">results.xml</code> does not create a duplicate. Click a row to expand the per-suite breakdown for that run.</p>
+      <div class="table-scroll">
       <table class="files" id="history-table">
         <thead>
           <tr>
@@ -121,6 +122,7 @@
         </thead>
         <tbody id="history-body"></tbody>
       </table>
+      </div>
     </section>
 
     <style>
@@ -425,6 +427,6 @@
 })();
 </script>
 
-<script defer src="./verdikt.js?v=7"></script>
+<script defer src="./verdikt.js?v=8"></script>
 </body>
 </html>

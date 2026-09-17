@@ -40,6 +40,51 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 .container { max-width: 1152px; margin: 0 auto; padding: 0 24px; }
+/* Mobile: tighter side padding so cards get more real estate on 320-393px viewports. */
+@media (max-width: 520px) {
+  .container { padding: 0 16px; }
+}
+
+/* Global mobile guards: nothing on the page should ever push the viewport
+   wider than itself. Prevents accidental horizontal scroll from a stray
+   fixed-width table, long monospace path, or oversized svg. */
+html, body { max-width: 100%; overflow-x: hidden; }
+img, svg, video { max-width: 100%; }
+
+/* Wrap long paths, URLs, hashes inside code blocks and mono cells. */
+code, .mono, td.mono, .r-evidence, .feature-evidence,
+.callout code, table.data td.mono, table.files td.mono {
+  overflow-wrap: anywhere; word-break: break-word;
+}
+
+/* Data tables become horizontally scrollable at narrow widths — with a
+   subtle right-edge fade to hint the overflow is intentional. Applied to
+   any `.data` table that has meaningfully more than two columns. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  background: linear-gradient(90deg, transparent 92%, rgba(20,20,16,0.05));
+  background-attachment: local, scroll;
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 24px 100%;
+  background-position: 0 0, 100% 0;
+}
+.table-scroll > table.data,
+.table-scroll > table.files { min-width: 560px; }
+
+/* Fallback for JS-injected tables: dashboard suite-detail (.detail-body),
+   features backlog (#backlog), security-review inspect-detail body. The
+   injecting JS drops a bare <table class="data|files"> into these
+   containers, so we let the container scroll horizontally on narrow
+   viewports without needing to change the JS. */
+#backlog, .inspect-detail-body, .detail-body {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#backlog > table.data,
+.inspect-detail-body > table.data,
+.detail-body > table.files { min-width: 560px; }
 
 /* Header + cross-nav */
 header.hairline-b {
@@ -998,6 +1043,27 @@ table.files tr:hover td { background: rgba(47,143,118,0.03); }
 }
 .tab-panel .tab-panel-head { margin-bottom: 18px; }
 .tab-panel .tab-panel-head h2 { margin: 0 0 6px; }
+
+/* Mobile tabs — below 640px the buttons overflow their container when
+   wrapping (5+ tabs, three ragged rows). Switch to a single-line horizontal
+   strip that scrolls; each tab keeps its full label and stays a 44px-tall
+   touch target. */
+@media (max-width: 640px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 6px;
+    gap: 6px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
 
 /* Hackathon reuse split (prior work vs submission-window work) */
 .split-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }

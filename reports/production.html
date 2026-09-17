@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./verdikt.css?v=7">
+<link rel="stylesheet" href="./verdikt.css?v=8">
 </head>
 <body>
 
@@ -108,7 +108,7 @@
           <h2 style="font-size:18px">Public endpoints</h2>
           <p class="subhead">What a healthy remote probe will look like once live.</p>
         </div>
-        <table class="data" id="endpoints-table"></table>
+        <div class="table-scroll"><table class="data" id="endpoints-table"></table></div>
       </div>
 
       <div class="tab-panel" data-panel="timeline">
@@ -116,7 +116,7 @@
           <h2>Deploy timeline</h2>
           <p class="subhead">Dated milestones. Everything at or after 2026-10-25 is planned. The mid-Nov row is the production Verdikt deploy; the earlier row is the hackathon-scoped cut from the same runbook.</p>
         </div>
-        <table class="data" id="timeline-table"></table>
+        <div class="table-scroll"><table class="data" id="timeline-table"></table></div>
       </div>
 
     </section>
@@ -324,6 +324,6 @@
 })();
 </script>
 
-<script defer src="./verdikt.js?v=7"></script>
+<script defer src="./verdikt.js?v=8"></script>
 </body>
 </html>

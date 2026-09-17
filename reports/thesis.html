@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./verdikt.css?v=7">
+<link rel="stylesheet" href="./verdikt.css?v=8">
 <style>
   body {
     background:
@@ -92,6 +92,13 @@
     box-shadow: 0 20px 60px -40px rgba(20,20,16,0.20);
   }
   .line-diagram-wrap svg { display: block; width: 100%; height: auto; }
+  /* Below 720px the 1000×340 viewBox squeezes text to unreadable sizes.
+     Let the diagram scroll horizontally inside its wrapper instead; the
+     wrapper's border still frames the entire figure. */
+  @media (max-width: 720px) {
+    .line-diagram-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .line-diagram-wrap svg { min-width: 720px; width: 720px; }
+  }
   .line-diagram-legend {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 11px; color: var(--ink-700); letter-spacing: 0.04em;
@@ -477,6 +484,6 @@
 
 </main>
 
-<script defer src="./verdikt.js?v=7"></script>
+<script defer src="./verdikt.js?v=8"></script>
 </body>
 </html>

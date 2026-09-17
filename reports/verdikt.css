@@ -305,20 +305,45 @@ section.block .subhead {
 .pill.info { color: var(--blue-500); border-color: rgba(63,111,176,0.35); background: rgba(63,111,176,0.06); }
 .pill.muted { color: var(--ink-500); border-color: var(--hair); background: #fff; }
 
-/* Feature list — nested inside a category card */
+/* Feature list — nested inside a category card. Row is a vertical
+   stack: content (name + description) at top using full width, then a
+   footer row with the evidence path on the left and the status pill on
+   the right, on the same line. */
 .feature-list { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
 .feature-row {
-  display: grid; grid-template-columns: 1fr auto; gap: 12px;
+  display: flex; flex-direction: column; gap: 6px;
   padding: 12px 0; border-top: 1px dashed var(--hair-soft);
-  align-items: baseline;
+  min-width: 0;
 }
+.feature-row > * { min-width: 0; }
 .feature-row:first-child { border-top: 0; }
-.feature-name { font-size: 14px; color: var(--ink-900); font-weight: 500; }
-.feature-desc { font-size: 12.5px; color: var(--ink-500); margin-top: 2px; line-height: 1.4; }
+.feature-content { min-width: 0; }
+.feature-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 2px;
+}
+.feature-footer > .pill { flex-shrink: 0; }
+.feature-name {
+  font-size: 14px; color: var(--ink-900); font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.feature-desc {
+  font-size: 12.5px; color: var(--ink-500); margin-top: 2px; line-height: 1.4;
+  overflow-wrap: anywhere;
+}
 .feature-evidence {
   font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px;
-  color: var(--ink-300); margin-top: 4px;
+  color: var(--ink-300);
+  overflow-wrap: anywhere; word-break: break-word;
+  flex: 1 1 auto; min-width: 0;
 }
+/* Roadmap card container needs to be able to shrink on mobile too */
+.journey-card, .journey-detail, .journey-stop { min-width: 0; }
+.journey-card { overflow-wrap: anywhere; }
 
 /* Row list — used by gates, audits, threat notes */
 .row-list { display: flex; flex-direction: column; gap: 10px; }

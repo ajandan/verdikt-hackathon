@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./verdikt.css?v=2">
+<link rel="stylesheet" href="./verdikt.css?v=7">
 </head>
 <body>
 
@@ -208,12 +208,14 @@
     const backPct = (back / total * 100).toFixed(1);
     const rows = cat.features.map(f =>
       '<div class="feature-row">' +
-        '<div>' +
+        '<div class="feature-content">' +
           '<div class="feature-name">' + escapeHtml(f.name) + '</div>' +
           '<div class="feature-desc">' + escapeHtml(f.description || '') + '</div>' +
-          (f.evidence ? '<div class="feature-evidence">' + escapeHtml(f.evidence) + '</div>' : '') +
         '</div>' +
-        '<span class="pill ' + statusClass(f.status) + '">' + statusLabel(f.status) + '</span>' +
+        '<div class="feature-footer">' +
+          '<div class="feature-evidence">' + (f.evidence ? escapeHtml(f.evidence) : '') + '</div>' +
+          '<span class="pill ' + statusClass(f.status) + '">' + statusLabel(f.status) + '</span>' +
+        '</div>' +
       '</div>'
     ).join('');
     const side = idx % 2 === 0 ? 'left' : 'right';
@@ -316,6 +318,6 @@
 })();
 </script>
 
-<script defer src="./verdikt.js?v=2"></script>
+<script defer src="./verdikt.js?v=7"></script>
 </body>
 </html>

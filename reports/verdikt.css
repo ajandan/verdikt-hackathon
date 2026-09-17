@@ -1098,11 +1098,61 @@ table.files tr:hover td { background: rgba(47,143,118,0.03); }
 .split-list { margin: 0; padding-left: 18px; }
 .split-list li { margin-bottom: 6px; font-size: 13.5px; color: var(--ink-700); line-height: 1.5; }
 
-/* Footer */
-footer {
-  padding: 40px 0; border-top: 1px solid var(--hair);
+/* Footer — unified across every report page. Brand mark + wordmark +
+   page tag on the left; timestamp (optional, populated by dashboards)
+   and GitHub link on the right. Story pages leave nav-meta empty and
+   the separator hides via :empty + adjacent-sibling. */
+footer, footer.foot {
+  padding: 40px 0 32px; margin-top: 40px;
+  border-top: 1px solid var(--hair);
   color: var(--ink-500); font-size: 12px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
 }
-footer a { color: var(--seal-700); }
+footer a, footer.foot a {
+  color: var(--seal-700);
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+footer a:hover, footer.foot a:hover { border-color: var(--seal-500); }
+footer .foot-brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+footer .foot-mark { display: inline-flex; }
+footer .foot-mark svg { width: 20px; height: 20px; display: block; }
+footer .foot-wordmark {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700; font-size: 15px;
+  color: var(--seal-700);
+  letter-spacing: -0.01em;
+}
+footer .foot-tag {
+  color: var(--ink-500);
+  font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+  border-left: 1px solid var(--hair); padding-left: 10px;
+}
+footer .foot-meta {
+  display: inline-flex; align-items: center; gap: 8px;
+}
+footer .foot-sep { color: var(--ink-300); }
+footer .nav-meta:empty { display: none; }
+footer .nav-meta:empty + .foot-sep { display: none; }
+@media (max-width: 640px) {
+  footer, footer.foot {
+    justify-content: center; text-align: center;
+    padding: 28px 0 20px;
+    gap: 10px;
+  }
+  footer .foot-brand {
+    justify-content: center; flex-wrap: nowrap; gap: 8px;
+  }
+  footer .foot-mark svg { width: 18px; height: 18px; }
+  footer .foot-wordmark { font-size: 13px; }
+  footer .foot-tag {
+    font-size: 9.5px; letter-spacing: 0.10em;
+    padding-left: 8px;
+  }
+  footer .foot-meta { flex-wrap: nowrap; gap: 6px; font-size: 11px; }
+}

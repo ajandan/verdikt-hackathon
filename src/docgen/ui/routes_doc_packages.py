@@ -68,7 +68,9 @@ def register(
         session: AsyncSession = Depends(get_session),
         flash: str | None = None,
         flash_kind: str | None = None,
+        page: str | None = None,
     ) -> HTMLResponse:
+        from docgen.pagination import PageParams, paginate_query
         scope = forced_tenant_scope(request)
         stmt = (
             select(StaticDocument, Tenant.name)
@@ -77,7 +79,9 @@ def register(
         )
         if scope is not None:
             stmt = stmt.where(StaticDocument.tenant_id == scope)
-        rows = (await session.execute(stmt)).all()
+        page_result = await paginate_query(
+            session, stmt, PageParams.from_request(page), scalars=False,
+        )
         docs = [
             {
                 "id": d.id,
@@ -88,7 +92,7 @@ def register(
                 "current_version": d.current_version,
                 "updated_at": d.updated_at,
             }
-            for (d, tenant_name) in rows
+            for (d, tenant_name) in page_result.items
         ]
         tenants_all = list((await session.execute(select(Tenant).order_by(Tenant.name.asc()))).scalars())
         return templates.TemplateResponse(
@@ -97,6 +101,7 @@ def register(
             await base_ctx(
                 request, session, active="static-documents",
                 docs=docs, tenants_all=tenants_all,
+                page=page_result,
                 flash=flash, flash_kind=flash_kind,
             ),
         )
@@ -233,7 +238,9 @@ def register(
         session: AsyncSession = Depends(get_session),
         flash: str | None = None,
         flash_kind: str | None = None,
+        page: str | None = None,
     ) -> HTMLResponse:
+        from docgen.pagination import PageParams, paginate_query
         scope = forced_tenant_scope(request)
         stmt = (
             select(DocPackage, Tenant.name)
@@ -242,7 +249,9 @@ def register(
         )
         if scope is not None:
             stmt = stmt.where(DocPackage.tenant_id == scope)
-        rows = (await session.execute(stmt)).all()
+        page_result = await paginate_query(
+            session, stmt, PageParams.from_request(page), scalars=False,
+        )
         packages = [
             {
                 "id": p.id,
@@ -254,7 +263,7 @@ def register(
                 "is_active": p.is_active,
                 "updated_at": p.updated_at,
             }
-            for (p, tenant_name) in rows
+            for (p, tenant_name) in page_result.items
         ]
         tenants_all = list((await session.execute(select(Tenant).order_by(Tenant.name.asc()))).scalars())
         return templates.TemplateResponse(
@@ -263,6 +272,7 @@ def register(
             await base_ctx(
                 request, session, active="packages",
                 packages=packages, tenants_all=tenants_all,
+                page=page_result,
                 flash=flash, flash_kind=flash_kind,
             ),
         )

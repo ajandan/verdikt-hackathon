@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Static documents — Verdikt{% endblock %}
 {% block content %}
+{{ pg.pager_styles() }}
 <style nonce="{{ csp_nonce(request) }}">
     .sd-grid {
         display: grid; grid-template-columns: minmax(0, 1fr) 340px;
@@ -74,6 +76,7 @@
             {% endfor %}
             </tbody>
         </table>
+        {{ pg.pager(page, "/ui/static-documents") }}
     </div>
     {% else %}
     <div class="card">

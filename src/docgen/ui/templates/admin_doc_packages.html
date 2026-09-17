@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Doc packages — Verdikt{% endblock %}
 {% block content %}
+{{ pg.pager_styles() }}
 <style nonce="{{ csp_nonce(request) }}">
     .pkg-grid {
         display: grid; grid-template-columns: minmax(0, 1fr) 340px;
@@ -81,6 +83,7 @@
             {% endfor %}
             </tbody>
         </table>
+        {{ pg.pager(page, "/ui/packages") }}
     </div>
     {% else %}
     <div class="card">

@@ -75,10 +75,8 @@ from docgen.designtime.upload import (
 )
 from docgen.metrics import observe_render
 from docgen.pagination import (
-    Cursor,
-    Page,
-    clamp_page_size,
-    keyset_where,
+    PageParams,
+    paginate_query,
 )
 from docgen.providers.base import FieldSpec, MappingProposal, Suggestion
 from docgen.providers.nebius_catalog import get_cached_catalog
@@ -412,10 +410,12 @@ async def index(
     request: Request,
     session: AsyncSession = Depends(get_session),
     tenant: str | None = None,
-    cursor: str | None = None,
-    limit: str | None = None,
+    q: str | None = None,
+    page: str | None = None,
+    size: str | None = None,
     show_inactive: int = 0,
 ) -> HTMLResponse:
+    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant  # local to avoid circular import issues
 
     tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
@@ -426,9 +426,6 @@ async def index(
     all_tenants = tenants_res.scalars().all()
 
     tenant_uuid = _resolve_list_tenant_filter(request, tenant)
-
-    page_size = clamp_page_size(limit)
-    cur = Cursor.decode(cursor)
 
     # Subquery: last render timestamp per template, so the list can show
     # freshness at a glance instead of just when the template was created.
@@ -454,19 +451,30 @@ async def index(
         .join(last_render_sq, last_render_sq.c.tid == Template.id, isouter=True)
         .group_by(Template.id, Tenant.name, last_render_sq.c.last_rendered_at)
         .order_by(Template.created_at.desc(), Template.id.desc())
-        .limit(page_size + 1)
     )
     if not show_inactive:
         query = query.where(Template.is_active.is_(True))
     if tenant_uuid is not None:
         query = query.where(Template.tenant_id == tenant_uuid)
-    keyset = keyset_where(Template.created_at, Template.id, cur)
-    if keyset is not None:
-        query = query.where(keyset)
-    rows = (await session.execute(query)).all()
+
+    # Server-side name search — the client-side row-hider only saw the
+    # current page's rows, so a search for "cardiovita" would silently
+    # miss any match on other pages. `q_filter` is passed to the pager
+    # macro's `extra=` so the search survives page transitions.
+    q_filter = (q or "").strip() or None
+    if q_filter:
+        query = query.where(Template.name.ilike(f"%{q_filter}%"))
+
+    # Page-number pagination — shared with every admin list view so the
+    # visual affordance ("1–20 of N · ‹ Prev / 1 2 3 / Next ›") is the
+    # same across the whole app. Cursor helpers still live in pagination.py
+    # if templates ever needs to grow past OFFSET/LIMIT-friendly volumes.
+    page_result = await paginate_query(
+        session, query, PageParams.from_request(page, size), scalars=False,
+    )
 
     items: list[Any] = []
-    for template, tenant_name, version_count, last_rendered_at in rows:
+    for template, tenant_name, version_count, last_rendered_at in page_result.items:
         items.append(
             type(
                 "TemplateRow",
@@ -485,11 +493,6 @@ async def index(
                 },
             )
         )
-    page = Page.from_rows(
-        items,
-        page_size,
-        cursor_from_row=lambda row: Cursor(ts=row.created_at, id=row.id),
-    )
 
     stats = await _core_stats(session, tenant_uuid)
 
@@ -499,14 +502,13 @@ async def index(
         await _base_ctx(
             request,
             session,
-            templates=page.items,
+            templates=items,
             active="index",
             all_tenants=all_tenants,
             selected_tenant=tenant_uuid,
             stats=stats,
-            next_cursor=page.next_cursor,
-            is_paged=cur is not None,
-            page_size=page_size,
+            page=page_result,
+            q_filter=q_filter,
             show_inactive=bool(show_inactive),
         ),
     )
@@ -896,8 +898,7 @@ async def renders(
     since: str | None = None,
     q: str | None = None,
     caller: str | None = None,
-    cursor: str | None = None,
-    limit: str | None = None,
+    page: str | None = None,
 ) -> HTMLResponse:
     """Paginated history of render jobs across all templates.
 
@@ -906,6 +907,7 @@ async def renders(
     batch run?". Filters: tenant, state, since (24h/7d/30d), caller substring,
     and a free-form `q` that matches job-id prefix / caller / error.
     """
+    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
 
     tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
@@ -921,8 +923,6 @@ async def renders(
     since_filter = since if since in _RENDER_SINCE_FILTERS else None
     caller_filter = (caller or "").strip() or None
     q_filter = (q or "").strip() or None
-    page_size = clamp_page_size(limit)
-    cur = Cursor.decode(cursor)
 
     query = (
         select(
@@ -941,7 +941,6 @@ async def renders(
         .join(Template, Template.id == TemplateVersion.template_id)
         .join(Tenant, Tenant.id == RenderJob.tenant_id)
         .order_by(RenderJob.submitted_at.desc(), RenderJob.id.desc())
-        .limit(page_size + 1)
     )
     if tenant_uuid is not None:
         query = query.where(RenderJob.tenant_id == tenant_uuid)
@@ -963,20 +962,17 @@ async def renders(
             | (RenderJob.error.ilike(like))
             | (func.cast(RenderJob.id, String).ilike(prefix))
         )
-    keyset = keyset_where(RenderJob.submitted_at, RenderJob.id, cur)
-    if keyset is not None:
-        query = query.where(keyset)
 
-    raw_rows = (await session.execute(query)).all()
-    items = [dict(r._mapping) for r in raw_rows]
-    page = Page.from_rows(
-        items,
-        page_size,
-        cursor_from_row=lambda row: Cursor(ts=row["submitted_at"], id=row["id"]),
+    # Page-number pagination — shared with every list view for a consistent
+    # "1–20 of N · ‹ Prev / 1 2 3 / Next ›" affordance.
+    page_result = await paginate_query(
+        session, query, PageParams.from_request(page), scalars=False,
     )
+    items = [dict(r._mapping) for r in page_result.items]
 
-    # Preserve the current filter set in the pagination + reset links so users
-    # don't lose their view when they click "Next".
+    # Preserve the current filter set on page transitions so users don't lose
+    # their view when they click Next. Passed to the shared pager macro as
+    # `extra=` and also to the template's filter chips as `filter_qs`.
     query_parts: list[str] = []
     if state_filter:
         query_parts.append(f"state={state_filter}")
@@ -999,10 +995,8 @@ async def renders(
             active="renders",
             all_tenants=all_tenants,
             selected_tenant=tenant_uuid,
-            renders=page.items,
-            next_cursor=page.next_cursor,
-            is_paged=cur is not None,
-            page_size=page_size,
+            renders=items,
+            page=page_result,
             state_filter=state_filter,
             since_filter=since_filter,
             caller_filter=caller_filter,
@@ -3181,22 +3175,28 @@ async def provenance_view(
     template_id: uuid.UUID,
     request: Request,
     session: AsyncSession = Depends(get_session),
+    page: str | None = None,
 ) -> HTMLResponse:
     template = await session.get(Template, template_id)
     if template is None:
         raise HTTPException(404, "Template not found")
     _enforce_scope(request, template.tenant_id)
-    result = await session.execute(
+    from docgen.pagination import PageParams, paginate_query
+    prov_stmt = (
         select(Provenance)
         .join(TemplateVersion, TemplateVersion.id == Provenance.template_version_id)
         .where(TemplateVersion.template_id == template_id)
         .order_by(Provenance.rendered_at.desc())
     )
-    entries = result.scalars().all()
+    page_result = await paginate_query(session, prov_stmt, PageParams.from_request(page))
     return templates.TemplateResponse(
         request,
         "provenance.html",
-        await _base_ctx(request, session, template=template, entries=entries),
+        await _base_ctx(
+            request, session, template=template,
+            entries=page_result.items,
+            page=page_result,
+        ),
     )
 
 
@@ -3474,6 +3474,7 @@ async def select_tenant(
 async def admin_tenants(
     request: Request,
     session: AsyncSession = Depends(get_session),
+    page: str | None = None,
 ) -> HTMLResponse:
     """List of tenants, filtered by the sidebar workspace picker.
 
@@ -3481,6 +3482,7 @@ async def admin_tenants(
     (no cookie) shows every tenant. Same rules as the templates list.
     """
     _require_super_admin(request)
+    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
     stmt = select(Tenant).order_by(Tenant.name.asc())
     cookie_tid = request.cookies.get("docgen_ui_tenant")
@@ -3489,12 +3491,15 @@ async def admin_tenants(
             stmt = stmt.where(Tenant.id == uuid.UUID(cookie_tid))
         except ValueError:
             pass
-    res = await session.execute(stmt)
-    tenants_list = res.scalars().all()
+    page_result = await paginate_query(session, stmt, PageParams.from_request(page))
     return templates.TemplateResponse(
         request,
         "admin_tenants.html",
-        await _base_ctx(request, session, active="admin", tenants=tenants_list),
+        await _base_ctx(
+            request, session, active="admin",
+            tenants=page_result.items,
+            page=page_result,
+        ),
     )
 
 
@@ -3527,16 +3532,20 @@ async def admin_keys(
     request: Request,
     session: AsyncSession = Depends(get_session),
     new_key: str | None = None,
+    page: str | None = None,
 ) -> HTMLResponse:
     _enforce_scope(request, tenant_id)
+    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
         raise HTTPException(404, "Tenant not found")
-    keys_res = await session.execute(
-        select(ApiKey).where(ApiKey.tenant_id == tenant_id).order_by(ApiKey.created_at.desc())
+    keys_stmt = (
+        select(ApiKey).where(ApiKey.tenant_id == tenant_id)
+        .order_by(ApiKey.created_at.desc())
     )
-    keys = keys_res.scalars().all()
+    page_result = await paginate_query(session, keys_stmt, PageParams.from_request(page))
+    keys = page_result.items
     # MCP endpoint for Claude Desktop config. Prefer the operator-set public URL;
     # fall back to the request's own scheme+host so a fresh deploy without
     # DOCGEN_PUBLIC_BASE_URL still yields a working snippet.
@@ -3557,6 +3566,7 @@ async def admin_keys(
         await _base_ctx(
             request, session, active="admin", tenant=tenant, keys=keys, new_key=new_key,
             mcp_url=mcp_url, mcp_server_name=mcp_server_name,
+            page=page_result,
         ),
     )
 
@@ -3985,6 +3995,13 @@ async def admin_save_tenant_quotas(
 # Admin: tenant pipeline models + triage routing (super_admin-only)
 # ---------------------------------------------------------------------------
 
+# Canonical vocabulary for the Triage routing table — used both to render the
+# UI <select> options and to allowlist operator-submitted values on write.
+# Any string outside this set is silently dropped from routing_json POSTs
+# so a hand-crafted request cannot smuggle an arbitrary route into JSONB.
+_TRIAGE_ROUTES = ("decide", "pharmacy_direct", "crm_appeals", "crm_outreach", "reject")
+
+
 @router.get("/admin/tenants/{tenant_id}/models", response_class=HTMLResponse)
 async def admin_tenant_models(
     tenant_id: uuid.UUID,
@@ -4072,7 +4089,7 @@ async def admin_tenant_triage_routing(
     # Effective routing at the tenant level = platform defaults merged
     # with any tenant overrides. Program overrides don't apply here.
     resolved = resolve_pipeline_models(program=None, tenant=tenant, settings=settings)
-    all_routes = ["decide", "pharmacy_direct", "crm_appeals", "crm_outreach", "reject"]
+    all_routes = list(_TRIAGE_ROUTES)
 
     return templates.TemplateResponse(
         request,
@@ -4115,7 +4132,10 @@ async def admin_save_tenant_triage_routing(
             continue
         ct = str(row.get("case_type", "")).strip()
         route = str(row.get("route", "")).strip()
-        if not ct or not route:
+        # Server-side allowlist — the UI <select> is bounded to _TRIAGE_ROUTES,
+        # but a hand-crafted POST could smuggle an arbitrary string into JSONB
+        # and reach the downstream dispatcher. Drop unknown routes silently.
+        if not ct or route not in _TRIAGE_ROUTES:
             continue
         submitted[ct] = {
             "route": route,
@@ -4152,16 +4172,21 @@ async def admin_users(
     session: AsyncSession = Depends(get_session),
     flash: str | None = None,
     flash_kind: str | None = None,
+    page: str | None = None,
 ) -> HTMLResponse:
     _require_super_admin(request)
+    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import AdminUser, Tenant
-    users_res = await session.execute(
+    users_stmt = (
         select(AdminUser, Tenant.name.label("tenant_name"))
         .join(Tenant, Tenant.id == AdminUser.tenant_id, isouter=True)
         .order_by(AdminUser.created_at.desc())
     )
+    page_result = await paginate_query(
+        session, users_stmt, PageParams.from_request(page), scalars=False,
+    )
     users = [
-        {"user": row[0], "tenant_name": row[1]} for row in users_res.all()
+        {"user": row[0], "tenant_name": row[1]} for row in page_result.items
     ]
     tenants_res = await session.execute(select(Tenant).order_by(Tenant.name.asc()))
     all_tenants = tenants_res.scalars().all()
@@ -4173,6 +4198,7 @@ async def admin_users(
             active="admin",
             users=users,
             all_tenants=all_tenants,
+            page=page_result,
             flash=flash,
             flash_kind=flash_kind,
         ),
@@ -4822,7 +4848,11 @@ _INBOX_REVIEW_FILTERS = ("pending_review", "auto_approved", "approved", "rejecte
 _INBOX_STATUS_FILTERS = ("pending", "processing", "succeeded", "failed", "skipped")
 
 
-_INBOX_PAGE_SIZE = 20
+# Inbox uses the shared LIST_PAGE_SIZE so a single knob controls every
+# list view's default page count. Aliased locally for readability at the
+# use sites — keeps the count of import lines down without hiding the
+# source of truth.
+from docgen.pagination import LIST_PAGE_SIZE as _INBOX_PAGE_SIZE  # noqa: E402
 
 _INBOX_SORT_COLUMNS = {
     "case": InboxEvent.case_number,
@@ -4922,6 +4952,19 @@ async def inbox_list(
 
     rows = [dict(r._mapping) for r in (await session.execute(q)).all()]
 
+    # Wrap the already-computed pagination state in a PageResult so the
+    # inbox list can share the same Jinja macro as every admin list view.
+    # PageResult expects `items` populated so start_index / end_index are
+    # meaningful; the events rendered on the page are the items.
+    from docgen.pagination import PageResult
+    page_result = PageResult(
+        items=rows,
+        page=current_page,
+        size=_INBOX_PAGE_SIZE,
+        total=total_count,
+        total_pages=total_pages,
+    )
+
     return templates.TemplateResponse(
         request,
         "inbox_list.html",
@@ -4940,6 +4983,7 @@ async def inbox_list(
             page_size=_INBOX_PAGE_SIZE,
             sort_key=sort_key,
             sort_dir=sort_dir,
+            page=page_result,
         ),
     )
 
@@ -5944,6 +5988,7 @@ async def programs_list(
     session: AsyncSession = Depends(get_session),
     flash: str | None = None,
     flash_kind: str | None = None,
+    page: str | None = None,
 ) -> HTMLResponse:
     """Programs list — scoped by the sidebar workspace picker.
 
@@ -5951,6 +5996,7 @@ async def programs_list(
     tenant-admin and picker-scoped super-admin see only the current
     tenant's programs. Same rule as the Templates/Renders lists.
     """
+    from docgen.pagination import PageParams, paginate_query
     scope = _forced_tenant_scope(request)
     stmt = (
         select(Program, Tenant.name)
@@ -5959,7 +6005,9 @@ async def programs_list(
     )
     if scope is not None:
         stmt = stmt.where(Program.tenant_id == scope)
-    rows = (await session.execute(stmt)).all()
+    page_result = await paginate_query(
+        session, stmt, PageParams.from_request(page), scalars=False,
+    )
     programs = [
         {
             "id": p.id,
@@ -5972,7 +6020,7 @@ async def programs_list(
             "enrollment_template_version_id": p.enrollment_template_version_id,
             "updated_at": p.updated_at,
         }
-        for (p, tenant_name) in rows
+        for (p, tenant_name) in page_result.items
     ]
     tenants_res = await session.execute(select(Tenant).order_by(Tenant.name.asc()))
     tenants_all = tenants_res.scalars().all()
@@ -5982,6 +6030,7 @@ async def programs_list(
         await _base_ctx(
             request, session, active="programs",
             programs=programs, tenants_all=tenants_all,
+            page=page_result,
             flash=flash, flash_kind=flash_kind,
         ),
     )
@@ -6150,7 +6199,7 @@ async def program_detail(
     # routing table's initial values. See pap_pipeline.config_resolver.
     from pap_pipeline.config_resolver import resolve_pipeline_models
     resolved = resolve_pipeline_models(program=prog, tenant=tenant, settings=settings)
-    all_routes = ["decide", "pharmacy_direct", "crm_appeals", "crm_outreach", "reject"]
+    all_routes = list(_TRIAGE_ROUTES)
 
     return templates.TemplateResponse(
         request,
@@ -6468,19 +6517,9 @@ async def program_models_save(
     prog.verifier_extract_model = _resolve("verifier_extract_model")
     prog.triage_model = _resolve("triage_model")
 
-    # Triage routing overrides: read the effective (resolver-merged) row set,
-    # keep only rows the operator changed vs the currently-effective route.
-    # Stores minimal JSONB so the UI clearly shows "operator-changed" rows.
-    from pap_pipeline.config_resolver import resolve_pipeline_models
-    settings = get_settings()
-    tenant = await session.get(Tenant, prog.tenant_id)
-    tenant_resolved = resolve_pipeline_models(program=None, tenant=tenant, settings=settings)
-    routing_overrides: dict[str, str] = {}
-    for case_type, tenant_route in tenant_resolved.triage_routing.items():
-        submitted = (form.get(f"route_{case_type}") or "").strip()
-        if submitted and submitted != tenant_route:
-            routing_overrides[case_type] = submitted
-    prog.triage_routing = routing_overrides or None
+    # NOTE: routing overrides live on the dedicated Triage tab
+    # (POST /programs/{id}/triage-routing) — do NOT touch prog.triage_routing
+    # here or saving Models would silently clear the routing table.
 
     await session.commit()
     log.info(
@@ -6490,7 +6529,6 @@ async def program_models_save(
         reason_model=prog.reason_model,
         verifier_extract_model=prog.verifier_extract_model,
         triage_model=prog.triage_model,
-        triage_routing_overrides=prog.triage_routing,
     )
     return _redirect(
         f"/ui/programs/{program_id}#models",
@@ -6550,7 +6588,10 @@ async def program_triage_routing_save(
             continue
         ct = str(row.get("case_type", "")).strip()
         route = str(row.get("route", "")).strip()
-        if not ct or not route:
+        # Server-side allowlist — mirrors admin_save_tenant_triage_routing.
+        # A hand-crafted POST could otherwise smuggle an arbitrary route
+        # string into JSONB and reach the downstream dispatcher.
+        if not ct or route not in _TRIAGE_ROUTES:
             continue
         submitted[ct] = {
             "route": route,
@@ -6650,10 +6691,12 @@ async def rules_list(
     session: AsyncSession = Depends(get_session),
     flash: str | None = None,
     flash_kind: str | None = None,
+    page: str | None = None,
 ) -> HTMLResponse:
     """Master rule library — one row per tenant rule, with an attached-programs
     hint per row so ops can see reach at a glance.
     """
+    from docgen.pagination import PageParams, paginate_query
     scope = _forced_tenant_scope(request)
     stmt = (
         select(Rule, Tenant.name)
@@ -6662,7 +6705,10 @@ async def rules_list(
     )
     if scope is not None:
         stmt = stmt.where(Rule.tenant_id == scope)
-    rows = (await session.execute(stmt)).all()
+    page_result = await paginate_query(
+        session, stmt, PageParams.from_request(page), scalars=False,
+    )
+    rows = page_result.items
 
     # Count attached programs per rule so the list gives ops a sense of
     # "how many programs will an edit to this rule ripple out to".
@@ -6699,6 +6745,7 @@ async def rules_list(
             rules=library,
             tenants_all=tenants_all,
             rule_kinds=_RULE_KINDS,
+            page=page_result,
             flash=flash, flash_kind=flash_kind,
         ),
     )

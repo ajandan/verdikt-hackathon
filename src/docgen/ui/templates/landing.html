@@ -2120,35 +2120,35 @@
             <figcaption class="cap">Dashboard · activity, health, and hotspots</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="2 of 9" data-cc-index="1">
-            <img src="{{ url_for('static', path='console-inbox.png') }}" alt="Case queue with sortable rows showing status, received time, sender, subject, and review state for every case the pipeline processed" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-inbox.png') }}" alt="Case queue with sortable rows showing status, received time, sender, subject, and review state for every case the pipeline processed" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Case queue · filter by ingest status or review state</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="3 of 9" data-cc-index="2">
-            <img src="{{ url_for('static', path='console-pipeline.png') }}" alt="Pipeline verdict detail showing the approve outcome, review state, extract stage with structured intake slots grouped into reviewer-facing sections" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-pipeline.png') }}" alt="Pipeline verdict detail showing the approve outcome, review state, extract stage with structured intake slots grouped into reviewer-facing sections" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Pipeline verdict · extract, retrieve, reason with rule citations</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="4 of 9" data-cc-index="3">
-            <img src="{{ url_for('static', path='console-audit.png') }}" alt="Audit trail listing every action taken on a case in order — pipeline stages, reviewer decisions, and system events with actor and timestamp" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-audit.png') }}" alt="Audit trail listing every action taken on a case in order — pipeline stages, reviewer decisions, and system events with actor and timestamp" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Audit trail · every stage, reviewer decision, and system event</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="5 of 9" data-cc-index="4">
-            <img src="{{ url_for('static', path='console-renders.png') }}" alt="Render jobs list across all tenants, newest first, filterable by state to triage failures" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-renders.png') }}" alt="Render jobs list across all tenants, newest first, filterable by state to triage failures" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Renders · every job across tenants, filterable by state</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="6 of 9" data-cc-index="5">
-            <img src="{{ url_for('static', path='console-programs.png') }}" alt="Programs list showing tenant, program name and slug, extraction slot count, active status, and last-updated timestamp per program" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-programs.png') }}" alt="Programs list showing tenant, program name and slug, extraction slot count, active status, and last-updated timestamp per program" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Programs · extraction schema per program, bound to a tenant</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="7 of 9" data-cc-index="6">
-            <img src="{{ url_for('static', path='console-rules.png') }}" alt="Rules library listing human-authored eligibility rules with tenant, rule ID, kind, program bindings, and active status" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-rules.png') }}" alt="Rules library listing human-authored eligibility rules with tenant, rule ID, kind, program bindings, and active status" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Rules · human-authored, versioned, citable on every verdict</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="8 of 9" data-cc-index="7">
-            <img src="{{ url_for('static', path='console-rule-detail.png') }}" alt="Single rule detail showing the rule identifier, criterion, exception, intake fields the rule references, attached programs, and edit action" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-rule-detail.png') }}" alt="Single rule detail showing the rule identifier, criterion, exception, intake fields the rule references, attached programs, and edit action" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Rule detail · criterion, exception, and the intake fields it cites</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="9 of 9" data-cc-index="8">
-            <img src="{{ url_for('static', path='console-tenants.png') }}" alt="Tenants list showing tenant name, tenant ID, created timestamp, and inbox routing plus keys management actions" loading="lazy" />
+            <img data-src="{{ url_for('static', path='console-tenants.png') }}" alt="Tenants list showing tenant name, tenant ID, created timestamp, and inbox routing plus keys management actions" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Tenants · isolation boundary for templates, renders, and keys</figcaption>
           </figure>
         </div>
@@ -2935,6 +2935,39 @@
       }, { root: track, threshold: [0.6, 0.9] });
       slides.forEach(function (s) { io.observe(s); });
     }
+
+    // Hydrate deferred slide images. Slides 2-9 ship with a 1x1
+    // transparent placeholder as src= and the real URL in data-src=,
+    // so the initial page load only fetches slide 1's image (saves
+    // ~700 KB on cold load). Swap to the real URL when the slide is
+    // about to enter the viewport, OR on first user interaction with
+    // any carousel control — whichever fires first.
+    function hydrate(img) {
+      if (!img || !img.dataset.src || img.src === img.dataset.src) return;
+      img.src = img.dataset.src;
+    }
+    function hydrateAll() {
+      slides.forEach(function (s) { hydrate(s.querySelector('img[data-src]')); });
+    }
+    if ('IntersectionObserver' in window) {
+      var lazyIo = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            hydrate(e.target.querySelector('img[data-src]'));
+            lazyIo.unobserve(e.target);
+          }
+        });
+      }, { root: track, rootMargin: '200px', threshold: 0 });
+      slides.forEach(function (s) {
+        if (s.querySelector('img[data-src]')) lazyIo.observe(s);
+      });
+    } else {
+      hydrateAll(); // no IO support → hydrate everything on load
+    }
+    ['click', 'keydown'].forEach(function (ev) {
+      root.addEventListener(ev, hydrateAll, { once: true });
+    });
+    track.addEventListener('scroll', hydrateAll, { once: true, passive: true });
   });
 </script>
 

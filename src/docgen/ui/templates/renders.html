@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Renders — Verdikt{% endblock %}
 {% block content %}
 <div class="page-decor" aria-hidden="true">
@@ -250,6 +251,9 @@
         {% endif %}
     </div>
     {% endif %}
+    {#- Pager sits inside the card so it visually attaches to the table's
+        bottom border, matching every other list view. -#}
+    {{ pg.pager(page, "/ui/renders", extra=(('&' ~ filter_qs) if filter_qs else ''), size_qs=true) }}
 </div>
 
 <script nonce="{{ csp_nonce(request) }}">
@@ -281,20 +285,4 @@
 })();
 </script>
 
-{% if next_cursor or is_paged %}
-{% set trailing = ('&' ~ filter_qs) if filter_qs else '' %}
-<div class="flex items-center justify-between gap-3 mt-4 text-[13px] text-ink-muted">
-    <div>
-        {% if is_paged %}
-            <a href="/ui/renders?limit={{ page_size }}{{ trailing }}" class="btn sm">Back to start</a>
-        {% endif %}
-    </div>
-    <div class="flex items-center gap-3">
-        <span>Showing up to {{ page_size }} per page</span>
-        {% if next_cursor %}
-            <a href="/ui/renders?cursor={{ next_cursor }}&limit={{ page_size }}{{ trailing }}" class="btn sm primary">Next →</a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 {% endblock %}

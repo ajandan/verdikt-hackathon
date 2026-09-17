@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}API keys — {{ tenant.name }}{% endblock %}
 {% block content %}
+{{ pg.pager_styles() }}
 <div class="page-decor" aria-hidden="true">
     <svg viewBox="0 0 560 280" width="560" height="280" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
         <path d="M280 50 L 410 105 L 410 195 L 280 250 L 150 195 L 150 105 Z"/>
@@ -204,6 +206,7 @@
             {% endfor %}
             </tbody>
         </table>
+        {{ pg.pager(page, "/ui/admin/tenants/" ~ tenant.id ~ "/keys") }}
     </div>
     {% else %}
     <div class="card">

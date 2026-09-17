@@ -1,6 +1,8 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Provenance — {{ template.name }}{% endblock %}
 {% block content %}
+{{ pg.pager_styles() }}
 <style nonce="{{ csp_nonce(request) }}">
     .breadcrumb { font-size: 13px; color: var(--text-muted); margin: 0 0 8px; }
     .breadcrumb a { color: var(--text-muted); }
@@ -101,6 +103,7 @@
         {% endfor %}
         </tbody>
     </table>
+    {{ pg.pager(page, "/ui/templates/" ~ template.id ~ "/provenance") }}
 </div>
 {% else %}
 <div class="card">

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Cases — Verdikt{% endblock %}
 {% block content %}
 <div class="page-decor" aria-hidden="true">
@@ -307,43 +308,10 @@
     th.sort-active .sort-ind { color: var(--brand); opacity: 1; }
     th.sort-active .sort-link { color: var(--text); font-weight: 600; }
 
-    .pager {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 12px; padding: 12px 16px; flex-wrap: wrap;
-        border-top: 1px solid var(--border, #e2e8f0);
-        background: var(--surface);
-    }
-    .pager-summary {
-        font-size: 12.5px; color: var(--text-muted, #64748b);
-        font-variant-numeric: tabular-nums;
-    }
-    .pager-controls { display: inline-flex; align-items: center; gap: 4px; }
-    .pager-btn {
-        display: inline-flex; align-items: center; justify-content: center;
-        min-width: 32px; height: 30px; padding: 0 10px;
-        font-size: 12.5px; font-weight: 500;
-        color: var(--text-muted, #64748b);
-        background: transparent; border: 1px solid var(--border, #e2e8f0);
-        border-radius: 7px; text-decoration: none;
-        font-variant-numeric: tabular-nums;
-    }
-    .pager-btn:hover {
-        background: var(--surface-2); color: var(--text);
-        text-decoration: none;
-    }
-    .pager-btn.is-current {
-        background: var(--brand); color: #fff; border-color: var(--brand);
-        pointer-events: none;
-    }
-    .pager-btn.is-disabled {
-        opacity: 0.4; pointer-events: none;
-    }
-    .pager-ellipsis {
-        display: inline-flex; align-items: center;
-        min-width: 24px; color: var(--text-muted, #94a3b8);
-        font-size: 12.5px;
-    }
+    /* Pager styles now come from the shared `_pagination.html` macro
+       (pg.pager_styles) so every list view stays visually in sync. */
 </style>
+{{ pg.pager_styles() }}
 
 <section class="mb-6">
     <div class="flex items-start justify-between gap-6 flex-wrap">
@@ -593,44 +561,19 @@
         {% endfor %}
         </tbody>
     </table>
-    {% if total_pages and total_pages > 1 %}
-    {% set from_row = ((current_page - 1) * page_size) + 1 %}
-    {% set to_row = [current_page * page_size, total_count] | min %}
-    <div class="pager">
-        <div class="pager-summary">{{ from_row }}–{{ to_row }} of {{ total_count }}</div>
-        <nav class="pager-controls" aria-label="Pagination">
-            {% if current_page > 1 %}
-            <a class="pager-btn" href="{{ build_href({'page': current_page - 1}) }}" rel="prev">‹ Prev</a>
-            {% else %}
-            <span class="pager-btn is-disabled" aria-disabled="true">‹ Prev</span>
-            {% endif %}
-
-            {% set ws = [current_page - 2, 1] | max %}
-            {% set we = [current_page + 2, total_pages] | min %}
-            {% if ws > 1 %}
-                <a class="pager-btn" href="{{ build_href({'page': 1}) }}">1</a>
-                {% if ws > 2 %}<span class="pager-ellipsis">…</span>{% endif %}
-            {% endif %}
-            {% for p in range(ws, we + 1) %}
-                {% if p == current_page %}
-                <span class="pager-btn is-current" aria-current="page">{{ p }}</span>
-                {% else %}
-                <a class="pager-btn" href="{{ build_href({'page': p}) }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-            {% if we < total_pages %}
-                {% if we < total_pages - 1 %}<span class="pager-ellipsis">…</span>{% endif %}
-                <a class="pager-btn" href="{{ build_href({'page': total_pages}) }}">{{ total_pages }}</a>
-            {% endif %}
-
-            {% if current_page < total_pages %}
-            <a class="pager-btn" href="{{ build_href({'page': current_page + 1}) }}" rel="next">Next ›</a>
-            {% else %}
-            <span class="pager-btn is-disabled" aria-disabled="true">Next ›</span>
-            {% endif %}
-        </nav>
-    </div>
-    {% endif %}
+    {#- Build the extra query fragment so filter + sort state survives every
+        page click. Deliberately mirrors the fields build_href() considers,
+        minus `page` (the shared macro owns that). -#}
+    {%- set extra_parts = [] -%}
+    {%- if selected_tenant -%}{%- set _ = extra_parts.append('tenant=' ~ selected_tenant) -%}{%- endif -%}
+    {%- if review_filter -%}{%- set _ = extra_parts.append('review=' ~ review_filter) -%}{%- endif -%}
+    {%- if status_filter -%}{%- set _ = extra_parts.append('status=' ~ status_filter) -%}{%- endif -%}
+    {%- if sort_key and sort_key != 'received' -%}{%- set _ = extra_parts.append('sort=' ~ sort_key) -%}{%- endif -%}
+    {%- if sort_dir and not (sort_key in (None, 'received') and sort_dir == 'desc') -%}
+        {%- set _ = extra_parts.append('dir=' ~ sort_dir) -%}
+    {%- endif -%}
+    {%- set inbox_extra = ('&' ~ extra_parts|join('&')) if extra_parts else '' -%}
+    {{ pg.pager(page, "/ui/inbox", extra=inbox_extra) }}
     {% else %}
     <div class="empty">
         <h3>No emails{% if review_filter or status_filter %} match these filters{% endif %}</h3>

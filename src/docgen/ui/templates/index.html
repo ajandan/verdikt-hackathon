@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_pagination.html" as pg %}
 {% block title %}Templates — Verdikt{% endblock %}
 {% block content %}
 <div class="page-decor" aria-hidden="true">
@@ -305,12 +306,20 @@
 </div>
 {% endif %}
 
-{% if templates %}
+{# Show the toolbar + table shell whenever the user has SEEN templates
+   in this workspace — even if the current filter (?q=…) returned zero.
+   Otherwise a "no matches" case falls into the "No templates yet"
+   onboarding, which is misleading. #}
+{% if templates or q_filter %}
 {% set frozen_rows = templates | selectattr('current_version') | list | length %}
-<div class="toolbar" role="search">
+<form action="/ui/" method="get" class="toolbar" role="search">
+    {#- Preserve the filter state on submit — the tenant/inactive/size
+        selectors live outside this form, so re-emit them as hidden fields. -#}
+    {% if selected_tenant %}<input type="hidden" name="tenant" value="{{ selected_tenant }}">{% endif %}
+    {% if show_inactive %}<input type="hidden" name="show_inactive" value="1">{% endif %}
     <label class="search" aria-label="Filter templates by name">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-        <input type="text" id="tpl-search" placeholder="Search templates…  press / to focus" autocomplete="off" spellcheck="false">
+        <input type="text" name="q" id="tpl-search" value="{{ q_filter or '' }}" placeholder="Search templates…  press / to focus" autocomplete="off" spellcheck="false">
     </label>
     <div class="chip-group" role="tablist" aria-label="Filter by status">
         <button type="button" class="chip active" data-status="all">All <span class="count">{{ templates|length }}</span></button>
@@ -318,7 +327,11 @@
         <button type="button" class="chip" data-status="draft">Draft <span class="count">{{ templates|length - frozen_rows }}</span></button>
     </div>
     <div class="flex-1"></div>
-    {% set _toggle_qs = ('tenant=' ~ selected_tenant ~ '&' if selected_tenant else '') ~ ('' if show_inactive else 'show_inactive=1') %}
+    {%- set _toggle_parts = [] -%}
+    {%- if selected_tenant -%}{%- set _ = _toggle_parts.append('tenant=' ~ selected_tenant) -%}{%- endif -%}
+    {%- if not show_inactive -%}{%- set _ = _toggle_parts.append('show_inactive=1') -%}{%- endif -%}
+    {%- if q_filter -%}{%- set _ = _toggle_parts.append('q=' ~ q_filter) -%}{%- endif -%}
+    {%- set _toggle_qs = _toggle_parts|join('&') -%}
     <a href="/ui/?{{ _toggle_qs }}" class="inactive-toggle" role="switch" aria-checked="{{ 'true' if show_inactive else 'false' }}" title="{{ 'Hide inactive templates' if show_inactive else 'Show inactive templates' }}">
         <span>Show inactive</span>
         <span class="switch {% if show_inactive %}on{% endif %}">
@@ -327,7 +340,7 @@
         </span>
     </a>
     <span class="visible-count" id="tpl-visible-count" aria-live="polite">{{ templates|length }} shown</span>
-</div>
+</form>
 <form id="bulk-form" action="/ui/templates/bulk" method="post">
     {{ csrf_input(request) }}
     <input type="hidden" name="action" id="bulk-action" value="">
@@ -390,9 +403,32 @@
         {% endfor %}
         </tbody>
     </table>
-    <div class="empty-filtered" id="tpl-empty-filtered" style="display: none">
+    {#- `hidden` attr instead of `style="display: none"` — the latter is
+        silently dropped by the page's nonce-locked CSP. UA styles apply
+        `[hidden] { display: none }`, so the message stays hidden on load
+        until the client-side filter script (below) shows it. -#}
+    <div class="empty-filtered" id="tpl-empty-filtered" hidden>
         No templates match your filters.
     </div>
+    {#- Server-side search returned zero rows: give the operator a clear
+        "no matches" message + a one-click way back to the unfiltered list.
+        Distinguishes the "empty query result" case from the pristine
+        "No templates yet" onboarding below. -#}
+    {% if not templates and q_filter %}
+    <div class="empty-filtered">
+        No templates match <strong>&ldquo;{{ q_filter }}&rdquo;</strong>.
+        <a href="/ui/{% if selected_tenant %}?tenant={{ selected_tenant }}{% endif %}" style="margin-left:8px; color: var(--brand)">Clear search</a>
+    </div>
+    {% endif %}
+    {#- Pager sits inside the card so it visually attaches to the table's
+        bottom border, matching every other list view. Preserve tenant +
+        show_inactive + q filters across page transitions. -#}
+    {%- set extra_parts = [] -%}
+    {%- if selected_tenant -%}{%- set _ = extra_parts.append('tenant=' ~ selected_tenant) -%}{%- endif -%}
+    {%- if show_inactive -%}{%- set _ = extra_parts.append('show_inactive=1') -%}{%- endif -%}
+    {%- if q_filter -%}{%- set _ = extra_parts.append('q=' ~ q_filter) -%}{%- endif -%}
+    {%- set index_extra = ('&' ~ extra_parts|join('&')) if extra_parts else '' -%}
+    {{ pg.pager(page, "/ui/", extra=index_extra, size_qs=true) }}
 </div>
 <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Bulk actions">
     <span class="count"><span id="bulk-count">0</span> selected</span>
@@ -404,22 +440,6 @@
     <button type="button" class="clear-selection" id="bulk-clear">Clear</button>
 </div>
 </form>
-{% if next_cursor or is_paged %}
-{% set base_extra = ('tenant=' ~ selected_tenant ~ '&' if selected_tenant else '') ~ ('show_inactive=1&' if show_inactive else '') %}{% set limit_qs = 'limit=' ~ page_size %}
-<div class="flex items-center justify-between gap-3 mt-4 text-[13px] text-ink-muted">
-    <div>
-        {% if is_paged %}
-            <a href="/ui/?{{ base_extra }}{{ limit_qs }}" class="btn sm">Back to start</a>
-        {% endif %}
-    </div>
-    <div class="flex items-center gap-3">
-        <span>Showing up to {{ page_size }} per page</span>
-        {% if next_cursor %}
-            <a href="/ui/?cursor={{ next_cursor }}&{{ base_extra }}{{ limit_qs }}" class="btn sm primary">Next →</a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
 {% else %}
 <div class="card">
     <div class="empty">
@@ -481,12 +501,24 @@
             }
         });
         if (counter) counter.textContent = visible + ' shown';
-        if (emptyMsg) emptyMsg.style.display = visible === 0 ? '' : 'none';
+        // Toggle the `hidden` attribute rather than inline style so behavior
+        // matches the initial HTML state (both invisible via UA `[hidden]`).
+        if (emptyMsg) emptyMsg.hidden = visible !== 0;
     }
 
+    // Debounced auto-submit: 400ms after the user stops typing, submit the
+    // form so the server runs the real (paginated, cross-page) name filter.
+    // Purely client-side matching would only see rows on the current page,
+    // which silently misses hits on other pages of a paginated list.
+    var searchForm = search.form;
+    var debounceTimer = null;
     search.addEventListener('input', function () {
         currentQuery = this.value.trim().toLowerCase();
-        applyFilters();
+        applyFilters(); // instant visual feedback while the server call is pending
+        if (searchForm) {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () { searchForm.submit(); }, 400);
+        }
     });
     chips.forEach(function (chip) {
         chip.addEventListener('click', function () {

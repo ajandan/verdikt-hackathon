@@ -1,0 +1,80 @@
+{#
+  Shared pagination controls — single source of truth for every admin list
+  view. Import + call ``pager(page_result, base_url)``. Change the CSS or
+  the numbered-window layout HERE and every list view updates at once.
+
+  Usage:
+
+      {% import "_pagination.html" as pg %}
+      ...
+      {{ pg.pager(page, "/ui/admin/tenants", extra="&status=active") }}
+
+  Where ``page`` is a :class:`docgen.pagination.PageResult`.
+
+  The ``extra`` string is optional — pass any pre-encoded query fragment
+  (e.g., ``"&status=active&q=foo"``) that should survive across page
+  transitions. Leading ``&`` is required; the macro assumes ``?page=N``
+  is the primary parameter.
+#}
+
+{#
+  Pagination CSS lives in base.html's nonce-protected <style> block —
+  emitting it from this macro would violate the app's inline-style CSP
+  and the browser would silently drop the rules. Kept this macro as a
+  no-op for backward compat so templates that still call it don't break.
+#}
+{% macro pager_styles() %}{% endmacro %}
+
+
+{#
+  Emit pagination controls for a PageResult.
+
+  ``page``      — required, a PageResult
+  ``base_url``  — required, the URL of the list view (no query string)
+  ``extra``     — optional pre-encoded query fragment starting with "&"
+                  (e.g. "&status=active"). Preserved across all links.
+  ``size_qs``   — optional; if truthy, appends "&size=N" so a non-default
+                  page size sticks. Default false: page URLs stay clean.
+#}
+{#
+  Ported from the original inbox-list pager (2026-09-17) so every list
+  view shares the same "‹ Prev / 1 2 3 / Next ›" affordance operators
+  already know. Text-labelled Prev/Next beat bare arrows because the
+  label doubles as a click target and doesn't require the operator to
+  hover for a tooltip.
+#}
+{% macro pager(page, base_url, extra="", size_qs=false) -%}
+{%- if page and page.total_pages > 1 -%}
+{%- set size_frag = ('&size=' ~ page.size) if size_qs else '' -%}
+<div class="list-pager" role="navigation" aria-label="Pagination">
+    <div class="list-pager-summary">
+        {{ page.start_index }}–{{ page.end_index }} of {{ page.total }}
+    </div>
+    <div class="list-pager-controls">
+        {%- if page.has_prev -%}
+            <a class="list-pager-btn" href="{{ base_url }}?page={{ page.prev_page }}{{ size_frag }}{{ extra }}" rel="prev">&lsaquo; Prev</a>
+        {%- else -%}
+            <span class="list-pager-btn is-disabled" aria-disabled="true">&lsaquo; Prev</span>
+        {%- endif -%}
+        {%- set window = page.page_window() -%}
+        {%- set ns = namespace(prev=0) -%}
+        {%- for n in window -%}
+            {%- if ns.prev and n > ns.prev + 1 -%}
+                <span class="list-pager-ellipsis" aria-hidden="true">…</span>
+            {%- endif -%}
+            {%- if n == page.page -%}
+                <span class="list-pager-btn is-current" aria-current="page">{{ n }}</span>
+            {%- else -%}
+                <a class="list-pager-btn" href="{{ base_url }}?page={{ n }}{{ size_frag }}{{ extra }}" aria-label="Page {{ n }}">{{ n }}</a>
+            {%- endif -%}
+            {%- set ns.prev = n -%}
+        {%- endfor -%}
+        {%- if page.has_next -%}
+            <a class="list-pager-btn" href="{{ base_url }}?page={{ page.next_page }}{{ size_frag }}{{ extra }}" rel="next">Next &rsaquo;</a>
+        {%- else -%}
+            <span class="list-pager-btn is-disabled" aria-disabled="true">Next &rsaquo;</span>
+        {%- endif -%}
+    </div>
+</div>
+{%- endif -%}
+{%- endmacro %}

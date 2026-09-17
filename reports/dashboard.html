@@ -104,10 +104,11 @@
     <section class="block" id="history-block" hidden>
       <span class="kicker">History</span>
       <h2>Recent runs</h2>
-      <p class="subhead">Rolling history of the last 50 pytest runs, newest first. Each row is one <code style="font-family:inherit">python reports/_gen_dashboard.py</code> invocation; a run is uniquely keyed by commit and JUnit timestamp so re-generating from the same <code style="font-family:inherit">results.xml</code> does not create a duplicate.</p>
+      <p class="subhead">Rolling history of the last 50 pytest runs, newest first. Each row is one <code style="font-family:inherit">python reports/_gen_dashboard.py</code> invocation; a run is uniquely keyed by commit and JUnit timestamp so re-generating from the same <code style="font-family:inherit">results.xml</code> does not create a duplicate. Click a row to expand the per-suite breakdown for that run.</p>
       <table class="files" id="history-table">
         <thead>
           <tr>
+            <th style="width:22px"></th>
             <th>When</th>
             <th>Commit</th>
             <th>Tests</th>
@@ -121,6 +122,51 @@
         <tbody id="history-body"></tbody>
       </table>
     </section>
+
+    <style>
+      /* Expandable history row: caret rotates when open, sub-row hides
+         the per-suite breakdown until the parent row is clicked. */
+      #history-body tr.run-row { cursor: pointer; }
+      #history-body tr.run-row:hover td { background: var(--surface-hover, #f7f4ec); }
+      #history-body td.caret {
+        color: var(--ink-300); font-family: ui-monospace, monospace;
+        transition: transform 0.15s ease; text-align:center;
+      }
+      #history-body tr.run-row.open td.caret { color: var(--ink-900, #1a1a1a); }
+      #history-body tr.run-row.open td.caret::before { content: "▾"; }
+      #history-body tr.run-row td.caret::before { content: "▸"; }
+      #history-body tr.detail-row td { padding: 0; background: var(--surface-2, #faf7ee); }
+      #history-body tr.detail-row .breakdown {
+        padding: 12px 16px; display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px 14px;
+      }
+      #history-body tr.detail-row .cell {
+        border: 1px solid var(--border, #e5e0d3); border-radius: 6px;
+        padding: 8px 10px; background: white;
+      }
+      #history-body tr.detail-row .cell .n {
+        font-size: 12px; color: var(--ink-500, #666); text-transform: uppercase;
+        letter-spacing: 0.06em; margin-bottom: 4px;
+      }
+      #history-body tr.detail-row .cell .v {
+        font-family: ui-monospace, monospace; font-size: 13px;
+        display:flex; justify-content:space-between; align-items:baseline;
+      }
+      #history-body tr.detail-row .cell .v .p { color: var(--ok, #2c7a4a); }
+      #history-body tr.detail-row .cell .v .f { color: var(--err, #b64a3f); }
+      #history-body tr.detail-row .cell .bar {
+        height: 4px; background: var(--surface-2, #eee); border-radius: 2px;
+        margin-top: 6px; overflow: hidden;
+      }
+      #history-body tr.detail-row .cell .bar > span {
+        display: block; height: 100%; background: var(--ok, #2c7a4a);
+      }
+      #history-body tr.detail-row .cell.fail .bar > span { background: var(--err, #b64a3f); }
+      #history-body tr.detail-row .no-detail {
+        padding: 10px 14px; color: var(--ink-500, #666); font-size: 13px;
+      }
+    </style>
 
   </div>
 
@@ -296,7 +342,7 @@
       const hdata = await hres.json();
       const runs = (hdata.runs || []);
       if (runs.length) {
-        const rows = runs.map(function (r) {
+        const rows = runs.map(function (r, i) {
           const isFail = (r.failed || 0) + (r.errored || 0) > 0;
           const ts = (r.timestamp || r.generated_at || '').replace('T', ' ').split('.')[0];
           const dur = (r.duration || 0);
@@ -304,8 +350,34 @@
             ? Math.floor(dur / 60) + 'm ' + Math.round(dur % 60) + 's'
             : dur.toFixed(1) + 's';
           const commit = (r.commit || '') || '—';
+          // Per-suite breakdown for this run (populated for runs generated
+          // after the "suites in history" change; older runs render an empty
+          // detail body with a "no per-suite data" note).
+          let detailInner;
+          if (r.suites && r.suites.length) {
+            detailInner = '<div class="breakdown">' + r.suites.map(function (s) {
+              const p = s.tests ? (s.passed / s.tests * 100) : 0;
+              const suiteFail = (s.failed || 0) + (s.errored || 0) > 0;
+              return (
+                '<div class="cell ' + (suiteFail ? 'fail' : '') + '">' +
+                  '<div class="n">' + escapeHtml(s.name || s.id) + '</div>' +
+                  '<div class="v">' +
+                    '<span><span class="p">' + (s.passed || 0) + '</span>' +
+                    ' / ' + (s.tests || 0) +
+                    (suiteFail ? ' · <span class="f">' + ((s.failed || 0) + (s.errored || 0)) + ' fail</span>' : '') +
+                    '</span>' +
+                    '<span style="color:var(--ink-500,#666)">' + (s.duration || 0).toFixed(1) + 's</span>' +
+                  '</div>' +
+                  '<div class="bar"><span style="width:' + p.toFixed(1) + '%"></span></div>' +
+                '</div>'
+              );
+            }).join('') + '</div>';
+          } else {
+            detailInner = '<div class="no-detail">Older run — per-suite detail wasn\'t recorded in this dashboard-history.json entry. Regenerate to backfill.</div>';
+          }
           return (
-            '<tr>' +
+            '<tr class="run-row" data-run="' + i + '">' +
+              '<td class="caret"></td>' +
               '<td class="mono">' + escapeHtml(ts) + '</td>' +
               '<td class="mono">' + escapeHtml(commit) + '</td>' +
               '<td class="num">' + (r.tests || 0) + '</td>' +
@@ -318,11 +390,26 @@
                 : '<td class="num" style="color:var(--ink-300)">' + (r.errored || 0) + '</td>') +
               '<td class="num" style="color:var(--ink-300)">' + (r.skipped || 0) + '</td>' +
               '<td class="num">' + durStr + '</td>' +
+            '</tr>' +
+            '<tr class="detail-row" data-detail="' + i + '" hidden>' +
+              '<td colspan="9">' + detailInner + '</td>' +
             '</tr>'
           );
         }).join('');
-        document.getElementById('history-body').innerHTML = rows;
+        const body = document.getElementById('history-body');
+        body.innerHTML = rows;
         document.getElementById('history-block').hidden = false;
+
+        // Click a run row → toggle its per-suite breakdown row.
+        body.addEventListener('click', function (ev) {
+          const row = ev.target.closest('tr.run-row');
+          if (!row) return;
+          const idx = row.getAttribute('data-run');
+          const detail = body.querySelector('tr.detail-row[data-detail="' + idx + '"]');
+          if (!detail) return;
+          const open = row.classList.toggle('open');
+          detail.hidden = !open;
+        });
       }
     }
   } catch (e) { /* older checkout — no history file, skip silently */ }

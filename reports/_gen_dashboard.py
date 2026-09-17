@@ -73,8 +73,6 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_pap_triage_llm",
             "test_pap_triage_skip_decide",
             "test_pap_config_resolver",
-            # End-to-end wire-capture: 3-level chain reaches Nebius body
-            "test_pap_e2e_config_chain",
         ],
     ),
     (
@@ -162,7 +160,7 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
         "infra",
         "Workers & providers",
         "Idempotency, watchdog reaper, webhooks, provider config, "
-        "metrics endpoint, E2E pipeline.",
+        "metrics endpoint.",
         [
             "test_worker_idempotency",
             "test_watchdog",
@@ -172,7 +170,6 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_provider_nebius",
             "test_stub_provider",
             "test_metrics",
-            "test_e2e_pipeline",
             "test_ui_smoke",
         ],
     ),
@@ -183,6 +180,19 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
         "split Triage routing page, tenant models dropdowns.",
         [
             "test_pap_ui_inherit_and_tenant_models",
+        ],
+    ),
+    (
+        "e2e",
+        "End-to-end",
+        "Full-stack pipelines: template upload \u2192 render, and PAP "
+        "intake \u2192 verdict with wire-capture proof that the resolved "
+        "program \u2192 tenant \u2192 settings model reaches each stage.",
+        [
+            # Template lifecycle (upload / map / freeze / publish / render).
+            "test_e2e_pipeline",
+            # PAP pipeline + 3-level model config chain hitting the wire.
+            "test_pap_e2e_config_chain",
         ],
     ),
 ]
@@ -362,6 +372,22 @@ def main() -> None:
         "errored": totals["errored"],
         "skipped": totals["skipped"],
         "duration": totals["duration_seconds"],
+        # Per-suite breakdown lets the history row expand to show
+        # which slice of the codebase moved between runs, without
+        # requiring the whole run's file-level detail.
+        "suites": [
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "tests": s["totals"]["tests"],
+                "passed": s["totals"]["passed"],
+                "failed": s["totals"]["failed"],
+                "errored": s["totals"]["errored"],
+                "skipped": s["totals"]["skipped"],
+                "duration": s["totals"]["duration"],
+            }
+            for s in suites_out
+        ],
     }
     history: list[dict] = []
     if HISTORY_OUT.exists():

@@ -2,9 +2,9 @@
   "product": "Verdikt",
   "run": {
     "junit_timestamp": "2026-09-17T03:14:50.284166+00:00",
-    "generated_at": "2026-09-17T03:18:14.454762+00:00",
+    "generated_at": "2026-09-17T03:30:07.974624+00:00",
     "duration_seconds": 198.5,
-    "commit": "c7daa6d",
+    "commit": "9fc8941",
     "framework": "pytest --forked",
     "python": "3.12",
     "environment": "docker (quire-hackathon-web-1)"
@@ -92,12 +92,12 @@
       "name": "PAP pipeline",
       "description": "Intake, Triage, extraction, MDM lookup, retrieval, reasoning, orchestration, 3-level model config resolver.",
       "totals": {
-        "tests": 180,
-        "passed": 180,
+        "tests": 174,
+        "passed": 174,
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 7.56
+        "duration": 7.26
       },
       "files": [
         {
@@ -279,15 +279,6 @@
           "errored": 0,
           "skipped": 0,
           "duration": 0.12
-        },
-        {
-          "file": "test_pap_e2e_config_chain",
-          "tests": 6,
-          "passed": 6,
-          "failed": 0,
-          "errored": 0,
-          "skipped": 0,
-          "duration": 0.29
         }
       ]
     },
@@ -774,14 +765,14 @@
     {
       "id": "infra",
       "name": "Workers & providers",
-      "description": "Idempotency, watchdog reaper, webhooks, provider config, metrics endpoint, E2E pipeline.",
+      "description": "Idempotency, watchdog reaper, webhooks, provider config, metrics endpoint.",
       "totals": {
-        "tests": 44,
-        "passed": 44,
+        "tests": 43,
+        "passed": 43,
         "failed": 0,
         "errored": 0,
         "skipped": 0,
-        "duration": 19.87
+        "duration": 9.92
       },
       "files": [
         {
@@ -857,15 +848,6 @@
           "duration": 0.21
         },
         {
-          "file": "test_e2e_pipeline",
-          "tests": 1,
-          "passed": 1,
-          "failed": 0,
-          "errored": 0,
-          "skipped": 0,
-          "duration": 9.95
-        },
-        {
           "file": "test_ui_smoke",
           "tests": 13,
           "passed": 13,
@@ -897,6 +879,39 @@
           "errored": 0,
           "skipped": 0,
           "duration": 3.88
+        }
+      ]
+    },
+    {
+      "id": "e2e",
+      "name": "End-to-end",
+      "description": "Full-stack pipelines: template upload \u2192 render, and PAP intake \u2192 verdict with wire-capture proof that the resolved program \u2192 tenant \u2192 settings model reaches each stage.",
+      "totals": {
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "errored": 0,
+        "skipped": 0,
+        "duration": 10.24
+      },
+      "files": [
+        {
+          "file": "test_e2e_pipeline",
+          "tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 9.95
+        },
+        {
+          "file": "test_pap_e2e_config_chain",
+          "tests": 6,
+          "passed": 6,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 0.29
         }
       ]
     }

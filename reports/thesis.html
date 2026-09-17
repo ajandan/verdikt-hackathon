@@ -147,6 +147,50 @@
   .next-step h3 { white-space: nowrap; }
   @media (max-width: 700px) { .next-step h3 { white-space: normal; } }
 
+  /* --- Core-idea principles list --- */
+  .principles {
+    list-style: none;
+    padding: 0;
+    margin: 22px 0 8px;
+    display: grid;
+    gap: 14px;
+  }
+  .principles li {
+    display: grid;
+    grid-template-columns: 72px 1fr;
+    gap: 20px;
+    align-items: start;
+    padding: 18px 22px;
+    background: #fff;
+    border: 1px solid var(--hair-soft, rgba(20,20,16,0.10));
+    border-radius: 12px;
+  }
+  .principles .p-num {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    font-size: 42px;
+    line-height: 1;
+    color: var(--seal-500);
+    text-align: center;
+    padding-top: 2px;
+  }
+  .principles .p-body h4 {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: var(--ink-900);
+    margin: 0 0 6px;
+  }
+  .principles .p-body p {
+    font-size: 13.5px;
+    color: var(--ink-700);
+    line-height: 1.55;
+    margin: 0;
+  }
+  @media (max-width: 700px) {
+    .principles li { grid-template-columns: 48px 1fr; gap: 14px; padding: 14px 16px; }
+    .principles .p-num { font-size: 32px; }
+  }
+
   /* --- Ready-for-the-demo callout --- */
   .primer-callout {
     background: linear-gradient(140deg, rgba(47,143,118,0.09), rgba(201,138,43,0.06));
@@ -344,20 +388,67 @@
         <span class="before"><b>Before:</b> each new program was a CRM release cycle.</span>
       </div>
     </div>
+
+    <p class="subhead" style="margin-top: 16px">These properties compound as we add stages. The first stage we've formalized under this shape: <em>triage</em>.</p>
   </section>
 
   <!-- SECTION 5 · What we're building now -->
   <section class="block" style="border-top: none; padding-top: 0">
     <div class="next-step">
       <h3><span class="tag">BUILT</span><em>Triage</em> as a first-class stage</h3>
-      <p>Triage was never a real automation step before. Knowing what a case actually was, whether a new intake, a refill, an appeal, or a note with a missing signature, required someone to open the envelope, open the attachments, and read them. The classification lived inside the human's head, so every architecture put a person in front of the queue and let the systems be dumb pipes downstream.</p>
+      <p>Triage is the clearest example of the shift. Before AI, it was never a real automation step. Knowing what a case actually was, whether a new intake, a refill, an appeal, or a note with a missing signature, required someone to open the envelope, open the attachments, and read them. The classification lived inside the human's head, so every architecture put a person in front of the queue and let the systems be dumb pipes downstream.</p>
       <p>Modern extraction and reasoning models change that. The machine can read the attachments first, recognize the shape of the case, and route on what's actually inside, not on subject lines, sender rules, or a person's inbox instinct. That's the unlock: <em>triage becomes a stage the pipeline runs, not a job the human does before the pipeline starts.</em></p>
       <p>Triage now sits as a first-class stage between Ingest and Decide. It classifies the case (new intake · refill · appeal · missing-info · not-decidable) and routes accordingly. A refill short-circuits to Pharmacy OMS directly, a missing-info case goes straight to CRM outreach, and a fresh intake continues down the full Decide → Deliver path. Reading every case the same way was the right default for a single-shape submission; not every case needs the full run.</p>
       <p>The pipeline: <b>Ingest → Triage → Decide → Deliver → Remember</b>. Same line, more precise routing.</p>
     </div>
   </section>
 
-  <!-- SECTION 6 · callout to the demo -->
+  <!-- SECTION 6 · The core idea (design in five principles, final wrap) -->
+  <section class="block">
+    <span class="kicker">The core idea</span>
+    <h2>The design, in five principles</h2>
+    <p class="subhead">Zoom out and the whole shape collapses to a small set of choices: where AI belongs, where determinism belongs, and where humans belong. Together, they let the operation pull the real power of AI while keeping the deterministic, auditable outcomes this industry demands.</p>
+
+    <ol class="principles">
+      <li>
+        <span class="p-num">01</span>
+        <div class="p-body">
+          <h4>Keep the CRM AI-free</h4>
+          <p>The system-of-record and downstream case-management platform never has to reason. It receives verdicts, replies, and cited rules as data. All the AI work happens upstream of the line, so the audited, regulated, tested part of the stack stays fully deterministic.</p>
+        </div>
+      </li>
+      <li>
+        <span class="p-num">02</span>
+        <div class="p-body">
+          <h4>AI on the front, not the back</h4>
+          <p>Load AI where it moves cases toward a decision: reading, extracting, classifying, reasoning. Not where it summarizes what humans already did. Post-hoc analysis and reporting are cheap; every AI dollar goes further when it pushes a case one step closer to done.</p>
+        </div>
+      </li>
+      <li>
+        <span class="p-num">03</span>
+        <div class="p-body">
+          <h4>AI in the right place, with fallbacks</h4>
+          <p>Not every step is an AI step. The pipeline picks the stages where AI genuinely adds signal (read, triage, verdict rationale) and leaves the rest deterministic. Every AI call has a fallback path so the pipeline degrades safely, not stops.</p>
+        </div>
+      </li>
+      <li>
+        <span class="p-num">04</span>
+        <div class="p-body">
+          <h4>Humans in / on / over the loop</h4>
+          <p>In-the-loop for edge cases the model isn't confident about. On-the-loop for silent oversight of routine cases. Over-the-loop for the reviews that actually need judgment: exceptions, appeals, trend calls. Humans stop doing the reading. They start doing the reviewing.</p>
+        </div>
+      </li>
+      <li>
+        <span class="p-num">05</span>
+        <div class="p-body">
+          <h4>Ops cost freed for the mission</h4>
+          <p>A PAP exists to get medication to eligible patients. Every dollar spent on inbox triage, envelope opening, or copy-paste between systems is a dollar not going to that mission. Compress the ops layer and the program's own budget starts pointing at what it was funded for.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- SECTION 7 · callout to the demo -->
   <section class="block" style="border-top: none; padding-top: 0">
     <div class="primer-callout">
       <div class="txt"><b>Ready for the demo?</b> The 3-minute video walks through a real Cardiovita application from email arrival to signed approval letter. The timeline pill at the top-right shows which of the five stages is being explained at any moment.</div>

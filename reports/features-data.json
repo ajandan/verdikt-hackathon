@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-16T20:11:48Z",
+  "generated_at": "2026-09-17T02:02:56Z",
   "commit": "d0dbb79",
   "sources": [
     "docs/roadmap.md",
@@ -13,8 +13,8 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 87,
-    "shipped": 84,
+    "features_total": 92,
+    "shipped": 89,
     "in_progress": 0,
     "backlog": 3,
     "parked": 2
@@ -110,6 +110,36 @@
           "evidence": "src/docgen/designtime/pdf_labeler_backend.py",
           "notes": "MiniCPM-V labels form fields via chunked page batches with per-widget crops when the whole-page pass fails. Handles dense flat forms that the widget-index approach mislabeled.",
           "commit": "34d7bd4"
+        },
+        {
+          "name": "Triage stage \u2014 LLM classifier + case-type router",
+          "status": "shipped",
+          "evidence": "src/pap_pipeline/stages/triage.py + tests/test_pap_triage_llm.py",
+          "notes": "Nemotron Nano on Nebius classifies each case into (new_intake, refill, appeal, missing_info_reply, not_decidable) and routes accordingly (refill \u2192 Pharmacy OMS, missing-info \u2192 CRM outreach, new intake \u2192 Decide, etc.). Rule-based deterministic classifier is the safety net when the LLM call fails or returns low confidence. Model and routing table configurable per tenant and per program."
+        },
+        {
+          "name": "3-level model fallback chain (program \u2192 tenant \u2192 settings)",
+          "status": "shipped",
+          "evidence": "src/pap_pipeline/config_resolver.py + alembic/versions/0036_configurable_models_and_routing.py",
+          "notes": "Every pipeline stage (extract, triage, retrieve, reason, verifier) resolves its model by walking program \u2192 tenant \u2192 settings. Tenants gain default columns for all 5 stages; programs override individually. Same pattern for triage_routing (case_type \u2192 route map). Non-null values at higher precedence override lower ones; NULL falls through."
+        },
+        {
+          "name": "Tenant admin UI \u2014 pipeline model defaults + triage routing",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/admin_tenant_models.html + src/docgen/ui/routes.py (admin_tenant_models)",
+          "notes": "Super-admin page at /ui/admin/tenants/{id}/models. Editable model fields for all 5 stages with platform-default placeholders. Editable triage routing table (5 case_types \u00d7 5 routes). Saves only rows that differ from the platform default so the JSONB stays minimal."
+        },
+        {
+          "name": "Program admin UI \u2014 Triage model + routing overrides + effective-chain panel",
+          "status": "shipped",
+          "evidence": "src/docgen/ui/templates/admin_program_detail.html + src/docgen/ui/routes.py (program_models_save)",
+          "notes": "Program detail page now shows a Triage model input alongside Extract/Reason, plus a Triage routing table that inherits from the tenant. \"What the pipeline uses today\" panel shows the resolved chain per stage with a source label (program / tenant / settings)."
+        },
+        {
+          "name": "Operator-configurable triage routing (dynamic rows + skip-Decide flag)",
+          "status": "shipped",
+          "evidence": "admin_program_detail.html (Triage tab) + admin_tenant_models.html + src/pap_pipeline/stages/triage.py",
+          "notes": "Program-detail page now has a \"Triage routing\" tab with a dynamic table: operators add/remove rows, name their own case types, pick a downstream route, and toggle a \"Decision needed?\" flag per row. When the flag is off, the orchestrator skips the Decide stage entirely and emits a stub Decision carrying the route (refill straight to Pharmacy OMS, not-decidable straight to reject, etc.). LLM prompt is built dynamically from the configured case_types so program-specific types are classifiable."
         }
       ]
     },
@@ -215,10 +245,10 @@
           "notes": "Real Verdikt UI captures (template detail \u2192 placement editor with acroform bboxes \u2192 expanded 21-field list) overlaid on Beat 5 during the design-time narration."
         },
         {
-          "name": "Submission video: 4-stage timeline overlay",
+          "name": "Submission video: 5-stage timeline overlay",
           "status": "shipped",
           "evidence": "assets/video/designs/stage-timeline.html + scripts/assemble_video.sh",
-          "notes": "Persistent top-right Ingest\u2192Decide\u2192Deliver\u2192Remember pill. Active stage walks left-to-right through the video so judges can track pipeline position."
+          "notes": "Persistent top-right Ingest\u2192Triage\u2192Decide\u2192Deliver\u2192Remember pill. Active stage walks left-to-right through the video so judges can track pipeline position."
         }
       ]
     },

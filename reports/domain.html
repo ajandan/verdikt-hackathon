@@ -790,7 +790,7 @@
         </div>
         <div class="pipeline-row">
           <span class="stage">Triage</span>
-          <div class="maps-to"><b>Nemotron Nano</b> on Nebius classifies the case (<b>new intake · refill · appeal · missing info · not decidable</b>) and routes accordingly. Refills short-circuit to Pharmacy OMS; missing-info goes straight to CRM outreach; a fresh intake continues down the full Decide → Deliver path. Falls back to a deterministic rule-based classifier if the LLM call fails or returns low confidence.</div>
+          <div class="maps-to"><b>Nemotron Nano</b> on Nebius classifies the case (<b>new intake · refill · appeal · missing info · not decidable</b> — plus any program-specific case type the operator adds) and picks a route. Each row carries a <em>decision needed?</em> flag: when off, the pipeline <strong>skips the Decide stage entirely</strong> and dispatches straight to the target (refills to Pharmacy OMS, not-decidable to reject, etc.). Rule-based classifier is the safety net when the LLM call fails or returns low confidence.</div>
         </div>
         <div class="pipeline-row">
           <span class="stage">Decide</span>

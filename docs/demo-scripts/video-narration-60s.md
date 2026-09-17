@@ -1,5 +1,7 @@
 # 60-second video narration — architecture beat (+ cameo)
 
+> **Superseded by [`video-3min.md`](video-3min.md)** — the full shooting script that folds this beat into a five-beat 2:55 master (cold open, live demo, architecture beat, cameo, close). Kept here as a detail reference for the middle beat only; the master is the source of truth for the recorded video.
+
 _Voice-over script covering the ~1:30 to ~2:45 window of the demo video. The 60-second architecture beat lands the "AI-in, deterministic-out" claim; a 15-second cameo immediately after lands the "platform, not bespoke" claim. Two beats, two applause lines, still inside the 3-minute cap with margin._
 
 ## Script

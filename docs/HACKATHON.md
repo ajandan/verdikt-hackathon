@@ -33,7 +33,7 @@ Provable mechanically:
 | ≥ 1 NVIDIA open-source model | Three, one per stage: `nv-ingest` (multimodal extraction), NeMo Retriever NIMs (`nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3`), and Nemotron Super (reasoning). All published under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
 | Approved OSS license | MIT — see [`LICENSE`](../LICENSE). |
 | Public repo, public demo URL, README | This repo (public by 2026-10-30) + [`README.md`](../README.md) + Devpost-published demo URL. |
-| YouTube video < 3 min | Architecture-beat script in [`docs/demo-scripts/video-narration-60s.md`](demo-scripts/video-narration-60s.md); link added post-recording. |
+| YouTube video < 3 min | Full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — five beats, 2:55 target run-time, two engineered applause lines; link added post-recording. |
 
 ## The three-stage Verdikt architecture
 
@@ -146,13 +146,13 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 
 - **Repo visibility.** Currently PRIVATE (set 2026-09-07). Flip public before submission.
 - **Public demo URL.** A minimal Verdikt hackathon-demo deploy on Nebius, decoupled from the production doc-gen kernel deploy scheduled for mid-November. See roadmap Phase 3.
-- **YouTube video.** 3-minute cut, script in [`docs/demo-scripts/video-narration-60s.md`](demo-scripts/video-narration-60s.md), including the 15-second second-program cameo beat.
+- **YouTube video.** 3-minute cut, full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) (cold open, live demo, architecture beat, second-program cameo, close/CTA).
 - **Devpost submission.** URL, repo link, video, and this document as the technical write-up.
 
 ## Companion documents
 
 - [`docs/demo-scripts/architecture-justification.md`](demo-scripts/architecture-justification.md) — the pipeline-vs-agents argument, README-ready.
 - [`docs/demo-scripts/submission-roadmap.md`](demo-scripts/submission-roadmap.md) — the 50-day plan with phase gates and the product-name decision.
-- [`docs/demo-scripts/video-narration-60s.md`](demo-scripts/video-narration-60s.md) — the 60-second architecture beat plus the 15-second cameo script, with delivery + visual-sync notes.
+- [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — full 3-minute shooting script (cold open → live demo → architecture beat → cameo → close), with per-beat visual-sync tables, delivery notes, and a latest-features coverage matrix.
 - [`docs/demo-scripts/judge-qa-briefing.md`](demo-scripts/judge-qa-briefing.md) — live-Q&A material (kept out of public-facing docs).
 - [`docs/deploy-nebius.md`](deploy-nebius.md) — Nebius AI Cloud deploy runbook.

@@ -720,12 +720,17 @@
     .macro-card.seam { border-left: 3px solid var(--seal-700); }
   }
 
-  /* Macro-card variant: 4 grouped stages (Ingest / Decide / Deliver /
-     Remember) instead of 8 raw steps. Each card leads with a Serif
-     stage name and lists its underlying steps inside. */
+  /* Macro-card variant: 5 grouped stages (Ingest / Triage / Decide /
+     Deliver / Remember) instead of 8 raw steps. Each card leads with a
+     Serif stage name and lists its underlying steps inside. */
   .rail.macro { grid-template-columns: repeat(1, minmax(0, 1fr)); }
   @media (min-width: 640px) { .rail.macro { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (min-width: 1024px) { .rail.macro { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { .rail.macro { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  /* Macro rail is 3 AI stages (Ingest/Triage/Decide) + 2 deterministic
+     (Deliver/Remember) at the wide breakpoint. Zone header must match
+     the 3:2 card split so the AI/det boundary aligns with the seam
+     border on the Deliver card. */
+  @media (min-width: 1024px) { .rail.macro .rail-zones { grid-template-columns: 3fr 2fr; } }
   .macro-card {
     padding: 22px 20px;
     border-right: 1px solid var(--hair-soft);
@@ -2500,41 +2505,55 @@
       </div>
       <div class="macro-card ai">
         <div class="mc-eyebrow">Stage <b>II</b></div>
-        <div class="mc-title">Decide</div>
+        <div class="mc-title">Triage</div>
         <ul class="mc-steps">
           <li data-step="03">
+            <b>Classify</b>
+            <p>Case type: new intake, refill, appeal, missing-info, or not-decidable.</p>
+          </li>
+          <li data-step="04">
+            <b>Route</b>
+            <p>Refills short-circuit to Pharmacy OMS; missing-info goes to CRM outreach; new intakes continue to Decide.</p>
+          </li>
+        </ul>
+      </div>
+      <div class="macro-card ai">
+        <div class="mc-eyebrow">Stage <b>III</b></div>
+        <div class="mc-title">Decide</div>
+        <ul class="mc-steps">
+          <li data-step="05">
             <b>Retrieve</b>
             <p>Rules matched by embedding + rerank against a versioned pack.</p>
           </li>
-          <li data-step="04">
+          <li data-step="06">
             <b>Reason</b>
             <p>Structured verdict: approve, deny, or missing_info. Citations attached.</p>
           </li>
         </ul>
       </div>
       <div class="macro-card det seam">
-        <div class="mc-eyebrow">Stage <b>III</b></div>
+        <div class="mc-eyebrow">Stage <b>IV</b></div>
         <div class="mc-title">Deliver</div>
         <ul class="mc-steps">
-          <li data-step="05">
+          <li data-step="07">
             <b>Merge</b>
             <p>Verdict + frozen template → deterministic bytes.</p>
           </li>
-          <li data-step="06">
+          <li data-step="08">
             <b>Deliver</b>
             <p>Two artifacts: byte-identical reply letter, plus JSON verdict for downstream systems.</p>
           </li>
         </ul>
       </div>
       <div class="macro-card det">
-        <div class="mc-eyebrow">Stage <b>IV</b></div>
+        <div class="mc-eyebrow">Stage <b>V</b></div>
         <div class="mc-title">Remember</div>
         <ul class="mc-steps">
-          <li data-step="07">
+          <li data-step="09">
             <b>Audit</b>
             <p>Every stage preserved: intake, rules, decision, letter, downstream handoff.</p>
           </li>
-          <li data-step="08">
+          <li data-step="10">
             <b>Rollback</b>
             <p>Repin an earlier template version. No re-decision. No drift.</p>
           </li>

@@ -360,10 +360,10 @@
     </div>
   </section>
 
-  <!-- SECTION 4 · What this unlocks -->
+  <!-- SECTION 4 · What this unlocks (triage now folded in as the fifth) -->
   <section class="block">
     <span class="kicker">What this unlocks</span>
-    <h2>Four things that were structural blockers before</h2>
+    <h2>Five things that were structural blockers before</h2>
     <p class="subhead">These aren't features; they're properties of the shape. Once the line is drawn, the rest follows.</p>
 
     <div class="unlocks-grid">
@@ -387,62 +387,40 @@
         <p>Program rules, extraction schemas, and reply templates are configuration, not code. A second program with a stricter cap and a different template is a folder, not a project.</p>
         <span class="before"><b>Before:</b> each new program was a CRM release cycle.</span>
       </div>
-    </div>
-
-    <p class="subhead" style="margin-top: 16px">These properties compound as we add stages. The first stage we've formalized under this shape: <em>triage</em>.</p>
-  </section>
-
-  <!-- SECTION 5 · What we're building now -->
-  <section class="block" style="border-top: none; padding-top: 0">
-    <div class="next-step">
-      <h3><span class="tag">BUILT</span><em>Triage</em> as a first-class stage</h3>
-      <p>Triage is the clearest example of the shift. Before AI, it was never a real automation step. Knowing what a case actually was, whether a new intake, a refill, an appeal, or a note with a missing signature, required someone to open the envelope, open the attachments, and read them. The classification lived inside the human's head, so every architecture put a person in front of the queue and let the systems be dumb pipes downstream.</p>
-      <p>Modern extraction and reasoning models change that. The machine can read the attachments first, recognize the shape of the case, and route on what's actually inside, not on subject lines, sender rules, or a person's inbox instinct. That's the unlock: <em>triage becomes a stage the pipeline runs, not a job the human does before the pipeline starts.</em></p>
-      <p>Triage now sits as a first-class stage between Ingest and Decide. It classifies the case (new intake · refill · appeal · missing-info · not-decidable) and routes accordingly. A refill short-circuits to Pharmacy OMS directly, a missing-info case goes straight to CRM outreach, and a fresh intake continues down the full Decide → Deliver path. Reading every case the same way was the right default for a single-shape submission; not every case needs the full run.</p>
-      <p>The pipeline: <b>Ingest → Triage → Decide → Deliver → Remember</b>. Same line, more precise routing.</p>
+      <div class="unlock">
+        <h4>Triage is a pipeline stage, not a human job</h4>
+        <p>The pipeline classifies each case (<em>new intake · refill · appeal · missing-info · not-decidable</em>) and routes on what's actually inside. Refills short-circuit to Pharmacy OMS; missing-info goes straight to CRM outreach; fresh intakes continue down the full Decide → Deliver path.</p>
+        <span class="before"><b>Before:</b> a human opened every envelope just to know what the case was.</span>
+      </div>
     </div>
   </section>
 
-  <!-- SECTION 6 · The core idea (design in five principles, final wrap) -->
+  <!-- SECTION 5 · The core idea (design in three principles, final wrap) -->
   <section class="block">
     <span class="kicker">The core idea</span>
-    <h2>The design, in five principles</h2>
-    <p class="subhead">Zoom out and the whole shape collapses to a small set of choices: where AI belongs, where determinism belongs, and where humans belong. Together, they let the operation pull the real power of AI while keeping the deterministic, auditable outcomes this industry demands.</p>
+    <h2>The design, in three principles</h2>
+    <p class="subhead">Zoom out and the whole shape reduces to three choices: where AI belongs, how it's deployed safely, and where humans belong. Together, they let the operation pull the real power of AI while keeping the deterministic, auditable outcomes this industry demands.</p>
 
     <ol class="principles">
       <li>
         <span class="p-num">01</span>
         <div class="p-body">
-          <h4>Keep the CRM AI-free</h4>
-          <p>The system-of-record and downstream case-management platform never has to reason. It receives verdicts, replies, and cited rules as data. All the AI work happens upstream of the line, so the audited, regulated, tested part of the stack stays fully deterministic.</p>
+          <h4>AI upstream, deterministic downstream</h4>
+          <p>The CRM and every downstream system stay AI-free. They receive verdicts, replies, and cited rules as data. All the AI work lives upstream of the line, moving cases toward a decision instead of summarizing decisions after the fact. The audited, regulated part of the stack never has to reason.</p>
         </div>
       </li>
       <li>
         <span class="p-num">02</span>
-        <div class="p-body">
-          <h4>AI on the front, not the back</h4>
-          <p>Load AI where it moves cases toward a decision: reading, extracting, classifying, reasoning. Not where it summarizes what humans already did. Post-hoc analysis and reporting are cheap; every AI dollar goes further when it pushes a case one step closer to done.</p>
-        </div>
-      </li>
-      <li>
-        <span class="p-num">03</span>
         <div class="p-body">
           <h4>AI in the right place, with fallbacks</h4>
           <p>Not every step is an AI step. The pipeline picks the stages where AI genuinely adds signal (read, triage, verdict rationale) and leaves the rest deterministic. Every AI call has a fallback path so the pipeline degrades safely, not stops.</p>
         </div>
       </li>
       <li>
-        <span class="p-num">04</span>
+        <span class="p-num">03</span>
         <div class="p-body">
           <h4>Humans in / on / over the loop</h4>
           <p>In-the-loop for edge cases the model isn't confident about. On-the-loop for silent oversight of routine cases. Over-the-loop for the reviews that actually need judgment: exceptions, appeals, trend calls. Humans stop doing the reading. They start doing the reviewing.</p>
-        </div>
-      </li>
-      <li>
-        <span class="p-num">05</span>
-        <div class="p-body">
-          <h4>Ops cost freed for the mission</h4>
-          <p>A PAP exists to get medication to eligible patients. Every dollar spent on inbox triage, envelope opening, or copy-paste between systems is a dollar not going to that mission. Compress the ops layer and the program's own budget starts pointing at what it was funded for.</p>
         </div>
       </li>
     </ol>

@@ -187,6 +187,63 @@
     }
     .tab-panel[hidden] { display: none; }
 
+    /* @field references — one visual convention across read-only view,
+       editor overlay, wizard, and inline text. Standalone
+       <code class="at-ref"> pill (Intake fields list) and inline
+       <span class="at-ref"> in prose share the token color. */
+    .at-ref {
+        color: var(--brand, #1e5f4f);
+        background: rgba(37, 99, 235, 0.10);
+        padding: 0 4px; border-radius: 4px;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+        font-weight: 700; font-size: 0.92em;
+        white-space: nowrap;
+    }
+    code.at-ref { padding: 2px 6px; }
+
+    /* Editor overlay: the backdrop div behind the textarea/input renders
+       ALL the visible text. The input itself is color:transparent (with
+       caret-color preserved) so its own glyphs don't stack on top of the
+       backdrop and garble it. @field tokens in the backdrop wear the
+       brand color + bold weight + a light background pill for visual
+       parity with the read-only view. */
+    .at-editor-wrap { position: relative; }
+    .at-editor-backdrop {
+        position: absolute; inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        /* Font + box metrics copied from the input at JS-init time so
+           the mirror aligns pixel-perfect with the caret. */
+    }
+    .at-editor-backdrop .at-ref-bg {
+        /* Background pill + brand color only — no font-weight change,
+           otherwise bold glyphs would be wider than the invisible
+           textarea's regular-weight glyphs and the caret drifts out
+           of sync with the highlighted text position. */
+        background: rgba(37, 99, 235, 0.14);
+        border-radius: 3px;
+        color: var(--brand, #1e5f4f);
+    }
+    .at-editor-wrap textarea[data-at-field-typeahead],
+    .at-editor-wrap input[data-at-field-typeahead] {
+        position: relative;
+        z-index: 1;
+        background: transparent !important;
+        /* Text invisible so the backdrop's rendering is what the user
+           sees. Caret color kept explicit so the input remains usable. */
+        color: transparent !important;
+        caret-color: var(--text, #111) !important;
+    }
+    /* Text selection: browsers render the selection highlight on the
+       real (transparent) glyphs, so selection is visible as a
+       coloured band even though the "text" itself is invisible. */
+    .at-editor-wrap textarea[data-at-field-typeahead]::selection,
+    .at-editor-wrap input[data-at-field-typeahead]::selection {
+        background: rgba(37, 99, 235, 0.25);
+    }
+
     /* Inline validation errors + at-typeahead widget --------------------- */
     .field-error {
         margin-top: 4px; font-size: 12.5px; line-height: 1.4;
@@ -288,7 +345,7 @@
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l3 3 7-7"/></svg>
                         Criterion
                     </div>
-                    <div class="rv-block-body">{{ rule.criterion }}</div>
+                    <div class="rv-block-body" data-at-highlight>{{ rule.criterion }}</div>
                 </div>
 
                 {% if rule.exception %}
@@ -297,7 +354,7 @@
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h0.01"/></svg>
                         Exception
                     </div>
-                    <div class="rv-block-body">{{ rule.exception }}</div>
+                    <div class="rv-block-body" data-at-highlight>{{ rule.exception }}</div>
                 </div>
                 {% endif %}
 
@@ -306,7 +363,7 @@
                         <span class="rv-meta-label">Intake fields</span>
                         {% if rule.fields %}
                         <div class="rv-chips">
-                            {% for f in rule.fields %}<code>{{ f }}</code>{% endfor %}
+                            {% for f in rule.fields %}<code class="at-ref">@{{ f }}</code>{% endfor %}
                         </div>
                         {% else %}
                         <span class="rv-empty">None declared</span>
@@ -374,23 +431,22 @@
                 {% if fe.kind %}<div class="field-error">{{ fe.kind }}</div>{% endif %}
 
                 <label for="fields">Intake fields</label>
+                {#- data-at-field-typeahead here lets the shared widget
+                    fire on every '@' the operator types, not just the
+                    first — HTML5 <datalist> matches against the ENTIRE
+                    input value so it can't handle multiple entries. -#}
                 <input type="text" id="fields" name="fields"
-                       value="{{ _fields|join(', ') if _fields else '' }}"
-                       {% if schema_slots %}list="fields-datalist"{% endif %}
+                       value="{{ ('@' + _fields|join(', @')) if _fields else '' }}"
+                       data-at-field-typeahead
                        autocomplete="off"
-                       placeholder="{% if schema_slots %}Type to pick from the program's slots{% else %}Comma-separated slot names{% endif %}"
+                       placeholder="{% if schema_slots %}Type @ to pick a slot; comma to add another{% else %}Comma-separated @field names{% endif %}"
                        class="{% if fe.fields %}has-error{% endif %}">
-                {% if schema_slots %}
-                <datalist id="fields-datalist">
-                    {% for slot in schema_slots %}
-                    <option value="{{ slot }}"></option>
-                    {% endfor %}
-                </datalist>
-                {% endif %}
                 {% if fe.fields %}<div class="field-error">{{ fe.fields }}</div>{% endif %}
                 <div class="muted" style="font-size: 12px; margin-top: 4px">
-                    Fields listed here trigger the missing-info verdict when they're
-                    blank in the extracted intake.
+                    Comma-separated <code style="font-family:JetBrains Mono,monospace">@field</code>
+                    names — same vocabulary as the criterion/exception references.
+                    When any listed field is null in the extracted intake, this rule
+                    contributes to the missing-info verdict instead of match/fail.
                 </div>
 
                 <label for="title">Title</label>
@@ -548,6 +604,34 @@
     if (VALID.indexOf(initial) !== -1) activate(initial, false);
 
     // -------------------------------------------------------------------
+    // Highlight @field tokens inside every [data-at-highlight] block on
+    // the read-only view. CSP-safe: pure DOM, no innerHTML with user
+    // data (each match is inserted as a separate text node + span).
+    document.querySelectorAll('[data-at-highlight]').forEach(function (el) {
+        var raw = el.textContent || '';
+        if (!raw) return;
+        var pat = /@([A-Za-z_][A-Za-z0-9_]*)/g;
+        var frag = document.createDocumentFragment();
+        var lastIndex = 0;
+        var m;
+        while ((m = pat.exec(raw)) !== null) {
+            if (m.index > lastIndex) {
+                frag.appendChild(document.createTextNode(raw.substring(lastIndex, m.index)));
+            }
+            var span = document.createElement('span');
+            span.className = 'at-ref';
+            span.textContent = '@' + m[1];
+            frag.appendChild(span);
+            lastIndex = pat.lastIndex;
+        }
+        if (lastIndex < raw.length) {
+            frag.appendChild(document.createTextNode(raw.substring(lastIndex)));
+        }
+        el.textContent = '';
+        el.appendChild(frag);
+    });
+
+    // -------------------------------------------------------------------
     // @-field typeahead widget for criterion + exception textareas.
     // Server-rendered a JSON slot list on the form's data-slots-json attr
     // (as a starting cache). If empty and data-slots-url is set, fetches
@@ -688,6 +772,11 @@
         var newCaret = atPos + 1 + slot.name.length;
         activeTextarea.setSelectionRange(newCaret, newCaret);
         activeTextarea.focus();
+        // Setting .value directly does NOT fire an 'input' event, so the
+        // highlight backdrop's sync listener (and any other subscribers)
+        // won't refresh. Dispatch a synthetic event so the inserted text
+        // becomes visible in the backdrop immediately.
+        activeTextarea.dispatchEvent(new Event('input', { bubbles: true }));
         closePopover();
     }
 
@@ -736,8 +825,94 @@
         if (e.key === 'Escape')    { e.preventDefault(); closePopover(); return; }
     }
 
-    var textareas = editForm.querySelectorAll('textarea[data-at-field-typeahead]');
-    textareas.forEach(function (ta) {
+    // Widget attaches to any [data-at-field-typeahead] element so the
+    // same popover works on textareas (criterion/exception) AND on the
+    // single-line Intake fields input. The walk-back-to-last-@ logic in
+    // handleInput() means multi-entry comma-separated inputs re-trigger
+    // the popover on every fresh '@' without any datalist gymnastics.
+    var typeaheadEls = editForm.querySelectorAll('[data-at-field-typeahead]');
+
+    // Highlight overlay: for each input, wrap in a .at-editor-wrap and
+    // insert a backdrop <div> that mirrors the text with @field tokens
+    // wrapped in colored+bold spans. The input's own text is CSS-
+    // transparent (caret preserved) so the backdrop is what the user
+    // sees. Sync on input + on scroll + on window resize so alignment
+    // holds through wrapping and font-load changes.
+    function escHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
+    }
+    function renderHighlight(text) {
+        // Convert @field tokens into wrapped spans; escape everything else.
+        // Trailing newline in a textarea won't render a final line; add a
+        // space so the backdrop's box grows to match the textarea.
+        if (!text) return '';
+        var out = '';
+        var lastIdx = 0;
+        var pat = /@([A-Za-z_][A-Za-z0-9_]*)/g;
+        var m;
+        while ((m = pat.exec(text)) !== null) {
+            if (m.index > lastIdx) out += escHtml(text.substring(lastIdx, m.index));
+            out += '<span class="at-ref-bg">@' + escHtml(m[1]) + '</span>';
+            lastIdx = pat.lastIndex;
+        }
+        if (lastIdx < text.length) out += escHtml(text.substring(lastIdx));
+        if (text.endsWith('\n')) out += ' ';
+        return out;
+    }
+    function attachBackdrop(el) {
+        // Skip if already wrapped (idempotent — safe to re-init).
+        if (el.parentElement && el.parentElement.classList.contains('at-editor-wrap')) return;
+        var wrap = document.createElement('div');
+        wrap.className = 'at-editor-wrap';
+        el.parentElement.insertBefore(wrap, el);
+        wrap.appendChild(el);
+        var back = document.createElement('div');
+        back.className = 'at-editor-backdrop';
+        back.setAttribute('aria-hidden', 'true');
+        wrap.insertBefore(back, el);
+
+        // Copy the computed font + box metrics off the real input so
+        // the backdrop mirrors character positions pixel-perfect.
+        // NOTE: use the individual font-* properties, NOT the `font`
+        // shorthand — getComputedStyle().font returns "" in many
+        // browsers when the source used separate font-* properties,
+        // which left the backdrop falling back to browser defaults
+        // and pushed the highlighted @-refs out of sync with the caret.
+        function syncMetrics() {
+            var cs = window.getComputedStyle(el);
+            var b = back.style;
+            b.fontFamily = cs.fontFamily;
+            b.fontSize = cs.fontSize;
+            b.fontWeight = cs.fontWeight;
+            b.fontStyle = cs.fontStyle;
+            b.lineHeight = cs.lineHeight;
+            b.letterSpacing = cs.letterSpacing;
+            b.tabSize = cs.tabSize;
+            b.padding = cs.padding;
+            b.border = cs.border;
+            b.borderColor = 'transparent';  // no visible border on backdrop
+            b.boxSizing = cs.boxSizing;
+            b.textIndent = cs.textIndent;
+        }
+        function sync() {
+            back.innerHTML = renderHighlight(el.value || '');
+            back.scrollTop = el.scrollTop;
+            back.scrollLeft = el.scrollLeft;
+        }
+        syncMetrics();
+        sync();
+        el.addEventListener('input', sync);
+        el.addEventListener('scroll', function () {
+            back.scrollTop = el.scrollTop;
+            back.scrollLeft = el.scrollLeft;
+        });
+        window.addEventListener('resize', syncMetrics);
+    }
+    typeaheadEls.forEach(attachBackdrop);
+
+    typeaheadEls.forEach(function (ta) {
         ta.addEventListener('input', function () { handleInput(ta); });
         ta.addEventListener('keydown', function (e) { handleKeydown(ta, e); });
         ta.addEventListener('blur', function () {

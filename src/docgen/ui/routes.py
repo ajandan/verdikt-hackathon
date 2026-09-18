@@ -6272,11 +6272,27 @@ _RULE_KINDS = ("financial", "insurance", "residency", "clinical", "history")
 
 
 def _parse_rule_fields(raw: str) -> list[str]:
-    """Comma or newline separated intake field names → clean list."""
+    """Comma or newline separated intake field names → clean list.
+
+    Strips a leading ``@`` on each entry so operators can paste from
+    the criterion/exception ``@field`` syntax without renaming — the
+    Intake fields input on the rule edit form displays entries prefixed
+    with ``@`` for visual parity with the textarea references, but the
+    DB storage stays as bare names since every downstream consumer
+    (reasoner "missing_fields" check, list-page hints, YAML export)
+    reads them that way.
+    """
     if not raw:
         return []
     parts = [p.strip() for p in raw.replace("\n", ",").split(",")]
-    return [p for p in parts if p]
+    cleaned: list[str] = []
+    for p in parts:
+        if not p:
+            continue
+        # Strip a single leading '@' so '@insurance_status' and
+        # 'insurance_status' both normalize to the bare name.
+        cleaned.append(p[1:] if p.startswith("@") else p)
+    return cleaned
 
 
 async def _snapshot_rule_version(
@@ -7053,8 +7069,8 @@ async def rule_update(
         if bad_fields:
             errors["fields"] = (
                 "Not on the program's schema: "
-                + ", ".join(bad_fields)
-                + ". Pick from the datalist or add the slot to the program's extraction schema."
+                + ", ".join(f"@{f}" for f in bad_fields)
+                + ". Pick from the autocomplete list or add the slot to the program's extraction schema."
             )
         # @field refs in criterion + exception: each must resolve.
         ref_errors = validate_field_refs(

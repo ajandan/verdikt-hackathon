@@ -187,6 +187,7 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_pagination_page_number",
             "test_rule_refs",
             "test_rule_mapping",
+            "test_rule_mapping_llm",
             "test_rule_copy_wizard",
         ],
     ),

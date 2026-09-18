@@ -6989,20 +6989,53 @@ async def rule_copy_wizard(
         target_program = await session.get(Program, tgt_id)
         if target_program is None or target_program.tenant_id != rule.tenant_id:
             raise HTTPException(404, "Program not found for this tenant")
-        target_slots = [s["name"] for s in (target_program.extraction_schema or [])]
+        target_schema = target_program.extraction_schema or []
+        target_slots = [s["name"] for s in target_schema]
         source_refs = parse_field_refs(rule.criterion, rule.exception)
         raw_matches = auto_map(source_refs, target_slots)
+
+        # Phase D: hand every unresolved row to the LLM for a semantic
+        # hint. Feature-gated on credential presence — deployments
+        # without Nebius creds skip the call entirely and get the same
+        # unresolved-row behavior as Phase B/C. Errors fall through to
+        # an empty suggestions dict, never blocking wizard render.
+        llm_suggestions: dict[str, Any] = {}
+        settings = get_settings()
+        unresolved_refs = [m.source for m in raw_matches if m.confidence == "unresolved"]
+        if unresolved_refs and settings.ai_base_url and settings.ai_api_key and settings.triage_model:
+            from pap_pipeline.rule_mapping_llm import suggest_unresolved
+            llm_suggestions = await suggest_unresolved(
+                unresolved_refs,
+                target_schema,
+                rule_criterion=rule.criterion or "",
+                rule_exception=rule.exception or "",
+                base_url=settings.ai_base_url,
+                api_key=settings.ai_api_key,
+                model=settings.triage_model,
+            )
+
         # Serialize to a dict-of-dicts so the Jinja template can iterate
-        # without knowing about the dataclass.
-        matches = [
-            {
+        # without knowing about the dataclass. Overlay any LLM
+        # suggestion onto the unresolved row: swap in the LLM's target
+        # + a distinct "llm" confidence label so the UI can decorate
+        # differently (blueish pill + tooltip), keeping row order intact.
+        matches = []
+        for m in raw_matches:
+            row: dict[str, Any] = {
                 "source": m.source,
                 "target": m.target or "",
                 "confidence": m.confidence,
                 "score": round(m.score, 3),
+                "reasoning": "",
             }
-            for m in raw_matches
-        ]
+            if m.confidence == "unresolved" and m.source in llm_suggestions:
+                sugg = llm_suggestions[m.source]
+                if sugg.target:
+                    row["target"] = sugg.target
+                    row["confidence"] = "llm"
+                    row["score"] = round(sugg.confidence, 3)
+                    row["reasoning"] = sugg.reasoning
+            matches.append(row)
 
     return templates.TemplateResponse(
         request,
@@ -7086,16 +7119,28 @@ async def rule_copy_execute(
             flash_kind="error",
         )
 
+    # Cache every attribute we'll read AFTER the commit into locals now,
+    # while the ORM objects are still attached and hydrated. SQLAlchemy
+    # expires attributes on commit by default; any post-commit access
+    # (log fields, redirect URL, flash message) would trigger a sync
+    # lazy-refresh and blow up inside the async handler with
+    # MissingGreenlet. Capturing up front dodges that whole class of bug.
+    source_rule_row_id = rule.id
+    source_rule_public_id = rule.rule_id
+    source_rule_title = rule.title
+    target_program_slug = target_program.slug
+    target_program_id_str = str(target_program.id)
+
     # New program-scoped rule row. rule_id gets a suffix so the (tenant,
     # rule_id) unique constraint doesn't fire — operators can rename it
     # later on the rule detail page if they want a tidier ID.
-    new_rule_id = f"{rule.rule_id}-{target_program.slug[:16]}"
+    new_rule_id = f"{source_rule_public_id}-{target_program_slug[:16]}"
     copied = Rule(
         tenant_id=rule.tenant_id,
         program_id=target_program.id,
         rule_id=new_rule_id,
         kind=rule.kind,
-        title=f"{rule.title} (copied to {target_program.slug})",
+        title=f"{source_rule_title} (copied to {target_program_slug})",
         criterion=new_criterion,
         exception=new_exception,
         fields=new_fields,
@@ -7106,28 +7151,31 @@ async def rule_copy_execute(
     session.add(copied)
     try:
         await session.flush()
+        # Cache the new row's PK now — flush assigns it, but commit
+        # would expire it. Redirect + log fields read this after commit.
+        new_rule_row_id = copied.id
         await _snapshot_rule_version(session, copied, request, "Copied from library")
         await session.commit()
     except IntegrityError:
         await session.rollback()
         return _redirect(
-            f"/ui/rules/{rule.id}/copy-to-program?target={target_id}",
+            f"/ui/rules/{source_rule_row_id}/copy-to-program?target={target_id}",
             flash=f"Rule ID '{new_rule_id}' already exists for this tenant.",
             flash_kind="error",
         )
     log.info(
         "rule_copied_to_program",
-        source_rule_row_id=str(rule.id),
-        source_rule_id=rule.rule_id,
-        target_program_id=str(target_program.id),
-        target_program_slug=target_program.slug,
-        new_rule_row_id=str(copied.id),
+        source_rule_row_id=str(source_rule_row_id),
+        source_rule_id=source_rule_public_id,
+        target_program_id=target_program_id_str,
+        target_program_slug=target_program_slug,
+        new_rule_row_id=str(new_rule_row_id),
         new_rule_id=new_rule_id,
         substitutions=mapping,
     )
     return _redirect(
-        f"/ui/rules/{copied.id}",
-        flash=f"Copied '{rule.rule_id}' into program {target_program.slug} as '{new_rule_id}'.",
+        f"/ui/rules/{new_rule_row_id}",
+        flash=f"Copied '{source_rule_public_id}' into program {target_program_slug} as '{new_rule_id}'.",
         flash_kind="success",
     )
 

@@ -43,6 +43,7 @@
     }
     .conf-exact      { background:#e5f4ec; color:#1e5f4f; }
     .conf-fuzzy      { background:#fdf4d9; color:#8a5b12; }
+    .conf-llm        { background:#e7edfd; color:#2c3e93; }
     .conf-unresolved { background:#fbe5e0; color:#9c2617; }
     .step-nav { display:flex; align-items:center; gap:10px; font-size: 13px; color: var(--text-muted); margin: 6px 0 14px; }
     .step { padding: 2px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); }
@@ -138,8 +139,8 @@ Exception: {{ rule.exception }}{% endif %}</div>
                             </select>
                         </td>
                         <td>
-                            <span class="conf-pill conf-{{ m.confidence }}">{{ m.confidence }}</span>
-                            {% if m.confidence == 'fuzzy' %}
+                            <span class="conf-pill conf-{{ m.confidence }}"{% if m.reasoning %} title="{{ m.reasoning }}"{% endif %}>{{ m.confidence }}</span>
+                            {% if m.confidence in ('fuzzy', 'llm') %}
                             <span class="muted" style="font-size:11px; margin-left:4px">{{ m.score }}</span>
                             {% endif %}
                         </td>
@@ -180,6 +181,7 @@ Exception: {{ rule.exception }}{% endif %}</div>
         <ol style="font-size: 12.5px; padding-left: 20px; margin: 6px 0">
             <li><strong>Exact</strong> — source name matches a target slot 1:1.</li>
             <li><strong>Fuzzy</strong> — strip form-vocabulary prefixes / suffixes, compare on the meaningful tokens.</li>
+            <li><strong>LLM</strong> — deterministic passes missed; a small classifier model on Nebius Token Factory suggests a semantically-closest slot. Hover the pill for its reasoning.</li>
             <li><strong>Unresolved</strong> — no confident match; you pick one from the dropdown.</li>
         </ol>
         <p class="muted" style="font-size: 12.5px; margin-top: 10px">

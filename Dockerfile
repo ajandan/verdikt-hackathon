@@ -64,3 +64,16 @@ USER 10001:10001
 EXPOSE 8000
 
 CMD ["docgen-web"]
+
+# ---- Dev image (tests + linters) ---------------------------------------------
+# Layered on top of the runtime image so prod stays lean. Wired by the `test`
+# service in docker-compose.override.yml (profile: test). Adds `pytest`,
+# `pytest-asyncio`, `ruff`, `pip-audit`, and `pip-licenses` — the same set the
+# CI `[dev]` extras install.
+FROM base AS dev
+USER root
+RUN pip install -e ".[dev]"
+# The editable reinstall may rewrite egg-info under /app owned by root.
+RUN chown -R app:app /app
+USER 10001:10001
+CMD ["pytest", "-q"]

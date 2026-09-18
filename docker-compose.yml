@@ -180,6 +180,60 @@ services:
       DOCGEN_PUBLIC_BASE_URL: ${DOCGEN_PUBLIC_BASE_URL:-}
       DOCGEN_ADMIN_BASE_URL: ${DOCGEN_ADMIN_BASE_URL:-}
 
+  # Test runner — ephemeral one-shot service that hits the same compose
+  # network as web/worker so tests reach postgres/redis/minio by service
+  # name (no host port bindings required). Built from the Dockerfile's
+  # `dev` stage which layers pytest + ruff on top of the runtime image.
+  #
+  # Run:            docker compose --profile test run --rm test
+  # Narrow subset:  docker compose --profile test run --rm \
+  #                     -e PYTEST_ARGS="tests/test_boundaries.py -q" test
+  #
+  # The `test` profile guard keeps it out of the default `docker compose
+  # up` set — nothing spins up unless the profile is explicitly named,
+  # so prod-shaped runs (`docker compose up`) are unaffected.
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      DOCGEN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-docgen}:${POSTGRES_PASSWORD:-docgen}@postgres:5432/${POSTGRES_DB:-docgen}
+      DOCGEN_DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER:-docgen}:${POSTGRES_PASSWORD:-docgen}@postgres:5432/${POSTGRES_DB:-docgen}
+      DOCGEN_REDIS_URL: redis://redis:6379/0
+      DOCGEN_S3_ENDPOINT_URL: http://minio:9000
+      DOCGEN_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      DOCGEN_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # Test secrets: match tests/conftest.py's setdefault so the HMAC-signed
+      # values (webhook body, download tokens) hash to the same digests the
+      # tests assert on. Alembic runs before conftest, so we need these at
+      # the container-env level too.
+      DOCGEN_SESSION_SECRET: test-session-secret
+      DOCGEN_WEBHOOK_SIGNING_SECRET: test-webhook-secret
+      DOCGEN_ENV: development
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+    # Migrate then run the suite. `sh -c` because compose can only take a
+    # single CMD-style array; chaining `alembic && pytest` keeps the exit
+    # code honest (a failed migration aborts the run instead of pytest
+    # reporting fixture errors from an empty schema).
+    command: >
+      sh -c "alembic upgrade head && pytest $${PYTEST_ARGS:--q}"
+
 volumes:
   pgdata:
   miniodata:

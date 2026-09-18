@@ -186,6 +186,53 @@
         color: var(--text-muted); line-height: 1.4;
     }
     .tab-panel[hidden] { display: none; }
+
+    /* Inline validation errors + at-typeahead widget --------------------- */
+    .field-error {
+        margin-top: 4px; font-size: 12.5px; line-height: 1.4;
+        color: #b64a3f; background: #fbe5e0;
+        border-left: 3px solid #b64a3f;
+        padding: 6px 10px; border-radius: 0 6px 6px 0;
+    }
+    .rule-form .has-error {
+        border-color: #b64a3f !important;
+        box-shadow: 0 0 0 1px rgba(182,74,63,0.15);
+    }
+    .rule-schema-hint code { padding: 0 3px; background: var(--surface-2); border-radius: 3px; }
+
+    /* @-typeahead popover — positioned near the caret by JS. Simple
+       floating list; keyboard driven (arrows / enter / escape). */
+    .at-typeahead-popover {
+        position: absolute; z-index: 100;
+        min-width: 220px; max-width: 320px; max-height: 240px;
+        overflow-y: auto;
+        background: white; border: 1px solid var(--border, #e5e0d3);
+        border-radius: 8px;
+        box-shadow: 0 6px 20px -8px rgba(20,20,16,0.20),
+                    0 2px 8px -4px rgba(20,20,16,0.08);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12.5px;
+    }
+    .at-typeahead-popover[hidden] { display: none; }
+    .at-typeahead-item {
+        display: flex; justify-content: space-between; align-items: baseline;
+        gap: 10px;
+        padding: 6px 10px; cursor: pointer;
+        border-bottom: 1px solid var(--surface-2, #f6f4ec);
+    }
+    .at-typeahead-item:last-child { border-bottom: none; }
+    .at-typeahead-item:hover,
+    .at-typeahead-item.active {
+        background: var(--brand-soft, #e5f4ec); color: var(--brand, #1e5f4f);
+    }
+    .at-typeahead-item .type {
+        font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted, #64748b);
+    }
+    .at-typeahead-empty {
+        padding: 10px; color: var(--text-muted, #64748b);
+        font-size: 12.5px; font-family: inherit; text-align: center;
+    }
 </style>
 
 <p class="breadcrumb">
@@ -280,23 +327,67 @@
                 </div>
             </div>
 
-            <form id="rule-edit" class="rule-form" method="post" action="/ui/rules/{{ rule.id }}" hidden>
+            {#- Pre-render helpers: form_values (from a failed POST) override
+                the persisted rule fields so operators keep their in-flight
+                edits after a validation failure. form_errors is a per-input
+                dict of user-facing strings rendered as .field-error blocks. -#}
+            {%- set fv = form_values or {} -%}
+            {%- set fe = form_errors or {} -%}
+            {%- set _kind = fv.get('kind', rule.kind) -%}
+            {%- set _title = fv.get('title', rule.title) -%}
+            {%- set _criterion = fv.get('criterion', rule.criterion) -%}
+            {%- set _exception = fv.get('exception', rule.exception or '') -%}
+            {%- set _fields = fv.get('fields', rule.fields) -%}
+            {%- set _is_active = fv.get('is_active', rule.is_active) -%}
+            {%- set _slots_url = ('/ui/programs/' ~ schema_program_id ~ '/slots.json') if schema_program_id else '' -%}
+
+            <form id="rule-edit" class="rule-form" method="post" action="/ui/rules/{{ rule.id }}"
+                  {% if not form_errors %}hidden{% endif %}
+                  data-slots-url="{{ _slots_url }}"
+                  data-slots-json="{{ schema_slots|tojson|forceescape if schema_slots else '[]' }}">
                 {{ csrf_input(request) }}
+
+                {% if schema_program_id %}
+                <div class="rule-schema-hint muted" style="font-size: 12px; margin: 0 0 12px">
+                    Vocabulary: this rule is scoped to a program with
+                    <strong>{{ schema_slots|length }}</strong> declared slots.
+                    Type <code style="font-family:JetBrains Mono,monospace">@</code>
+                    in the Criterion or Exception to pick a slot; Intake fields autocomplete from the same list.
+                </div>
+                {% else %}
+                <div class="rule-schema-hint muted" style="font-size: 12px; margin: 0 0 12px">
+                    Library rule (not scoped to a program). Field-name autocomplete is off —
+                    use the <a href="/ui/rules/{{ rule.id }}/copy-to-program">copy-to-program wizard</a>
+                    to bind this rule to a program's vocabulary.
+                </div>
+                {% endif %}
 
                 <label>Rule ID</label>
                 <div class="rid-fixed" title="Immutable — cited on decision letters">{{ rule.rule_id }}</div>
 
                 <label for="kind">Kind</label>
-                <select id="kind" name="kind">
+                <select id="kind" name="kind" class="{% if fe.kind %}has-error{% endif %}">
                     {% for k in rule_kinds %}
-                    <option value="{{ k }}" {% if rule.kind == k %}selected{% endif %}>{{ k }}</option>
+                    <option value="{{ k }}" {% if _kind == k %}selected{% endif %}>{{ k }}</option>
                     {% endfor %}
                 </select>
+                {% if fe.kind %}<div class="field-error">{{ fe.kind }}</div>{% endif %}
 
                 <label for="fields">Intake fields</label>
                 <input type="text" id="fields" name="fields"
-                       value="{{ rule.fields|join(', ') }}"
-                       placeholder="household_size, annual_household_income">
+                       value="{{ _fields|join(', ') if _fields else '' }}"
+                       {% if schema_slots %}list="fields-datalist"{% endif %}
+                       autocomplete="off"
+                       placeholder="{% if schema_slots %}Type to pick from the program's slots{% else %}Comma-separated slot names{% endif %}"
+                       class="{% if fe.fields %}has-error{% endif %}">
+                {% if schema_slots %}
+                <datalist id="fields-datalist">
+                    {% for slot in schema_slots %}
+                    <option value="{{ slot }}"></option>
+                    {% endfor %}
+                </datalist>
+                {% endif %}
+                {% if fe.fields %}<div class="field-error">{{ fe.fields }}</div>{% endif %}
                 <div class="muted" style="font-size: 12px; margin-top: 4px">
                     Fields listed here trigger the missing-info verdict when they're
                     blank in the extracted intake.
@@ -304,19 +395,27 @@
 
                 <label for="title">Title</label>
                 <input type="text" id="title" name="title" required maxlength="200"
-                       value="{{ rule.title }}"
-                       placeholder="One-line summary the LLM cites">
+                       value="{{ _title }}"
+                       placeholder="One-line summary the LLM cites"
+                       class="{% if fe.title %}has-error{% endif %}">
+                {% if fe.title %}<div class="field-error">{{ fe.title }}</div>{% endif %}
 
                 <label for="criterion">Criterion</label>
                 <textarea id="criterion" name="criterion" required maxlength="400"
-                          placeholder="The check the reason stage evaluates.">{{ rule.criterion }}</textarea>
+                          data-at-field-typeahead
+                          placeholder="The check the reason stage evaluates. Type @ to pick a slot."
+                          class="{% if fe.criterion %}has-error{% endif %}">{{ _criterion }}</textarea>
+                {% if fe.criterion %}<div class="field-error">{{ fe.criterion }}</div>{% endif %}
 
                 <label for="exception">Exception</label>
                 <textarea id="exception" name="exception" maxlength="400"
-                          placeholder="Optional carve-out or missing-info guidance.">{{ rule.exception or '' }}</textarea>
+                          data-at-field-typeahead
+                          placeholder="Optional carve-out or missing-info guidance. Type @ to pick a slot."
+                          class="{% if fe.exception %}has-error{% endif %}">{{ _exception }}</textarea>
+                {% if fe.exception %}<div class="field-error">{{ fe.exception }}</div>{% endif %}
 
                 <label style="margin-top: 14px; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0">
-                    <input type="checkbox" name="is_active" {% if rule.is_active %}checked{% endif %}>
+                    <input type="checkbox" name="is_active" {% if _is_active %}checked{% endif %}>
                     <span>Active — the retriever will consider this rule</span>
                 </label>
 
@@ -447,6 +546,209 @@
         try { initial = sessionStorage.getItem(STORAGE_KEY) || ''; } catch (e) { initial = ''; }
     }
     if (VALID.indexOf(initial) !== -1) activate(initial, false);
+
+    // -------------------------------------------------------------------
+    // @-field typeahead widget for criterion + exception textareas.
+    // Server-rendered a JSON slot list on the form's data-slots-json attr
+    // (as a starting cache). If empty and data-slots-url is set, fetches
+    // lazily on first activation. CSP-safe: pure DOM, no innerHTML with
+    // user data, no eval, no third-party libs.
+    var editForm = document.getElementById('rule-edit');
+    if (!editForm) return;
+
+    var slots = [];  // list of {name, type, description}
+    try {
+        var raw = editForm.getAttribute('data-slots-json') || '[]';
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.length) {
+            slots = parsed.map(function (name) {
+                // Server pre-renders just the name list; the /slots.json
+                // fetch (below) supplies richer per-slot metadata.
+                return typeof name === 'string' ? { name: name, type: '', description: '' } : name;
+            });
+        }
+    } catch (e) { /* fall through to lazy fetch */ }
+
+    var slotsUrl = editForm.getAttribute('data-slots-url') || '';
+    var slotsFetched = slots.length > 0;
+
+    function ensureSlots(cb) {
+        if (slotsFetched || !slotsUrl) { cb(); return; }
+        fetch(slotsUrl, { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : { slots: [] }; })
+            .then(function (data) {
+                slots = (data && data.slots) || [];
+                slotsFetched = true;
+                cb();
+            })
+            .catch(function () { slotsFetched = true; cb(); });
+    }
+
+    // Popover DOM — one shared instance, moved between textareas.
+    var pop = document.createElement('div');
+    pop.className = 'at-typeahead-popover';
+    pop.hidden = true;
+    pop.setAttribute('role', 'listbox');
+    document.body.appendChild(pop);
+
+    var activeTextarea = null;
+    var atPos = -1;           // index of the '@' in the textarea value
+    var activeIndex = 0;      // highlighted item in the popover
+    var filteredSlots = [];
+
+    function closePopover() {
+        pop.hidden = true;
+        activeTextarea = null;
+        atPos = -1;
+        filteredSlots = [];
+    }
+
+    function renderPopover(query) {
+        var q = (query || '').toLowerCase();
+        // Substring match (per user preference), preserve schema order.
+        filteredSlots = slots.filter(function (s) {
+            return !q || s.name.toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 20); // Cap render count so a huge schema doesn't jank.
+        while (pop.firstChild) pop.removeChild(pop.firstChild);
+        if (!filteredSlots.length) {
+            var empty = document.createElement('div');
+            empty.className = 'at-typeahead-empty';
+            empty.textContent = q ? ('No slot matches "' + q + '"') : 'No slots on program';
+            pop.appendChild(empty);
+            activeIndex = -1;
+            return;
+        }
+        filteredSlots.forEach(function (s, i) {
+            var item = document.createElement('div');
+            item.className = 'at-typeahead-item' + (i === 0 ? ' active' : '');
+            item.setAttribute('role', 'option');
+            item.dataset.name = s.name;
+            var name = document.createElement('span');
+            name.textContent = '@' + s.name;
+            var typ = document.createElement('span');
+            typ.className = 'type';
+            typ.textContent = s.type || '';
+            item.appendChild(name);
+            item.appendChild(typ);
+            item.addEventListener('mousedown', function (e) {
+                e.preventDefault();  // don't blur the textarea before we insert
+                insertAt(i);
+            });
+            pop.appendChild(item);
+        });
+        activeIndex = 0;
+    }
+
+    function positionPopover(ta) {
+        // Approximate caret coordinates using a hidden mirror div. Cheap
+        // technique that handles line wrapping without a full layout engine.
+        var rect = ta.getBoundingClientRect();
+        var style = window.getComputedStyle(ta);
+        var mirror = document.createElement('div');
+        var s = mirror.style;
+        s.position = 'absolute';
+        s.visibility = 'hidden';
+        s.whiteSpace = 'pre-wrap';
+        s.wordWrap = 'break-word';
+        s.top = '0';
+        s.left = '-9999px';
+        s.width = rect.width + 'px';
+        s.font = style.font;
+        s.padding = style.padding;
+        s.border = style.border;
+        s.boxSizing = style.boxSizing;
+        var before = ta.value.substring(0, ta.selectionStart);
+        mirror.textContent = before;
+        var marker = document.createElement('span');
+        marker.textContent = '\u200b';
+        mirror.appendChild(marker);
+        document.body.appendChild(mirror);
+        var markerRect = marker.getBoundingClientRect();
+        var mirrorRect = mirror.getBoundingClientRect();
+        var offsetTop = markerRect.top - mirrorRect.top;
+        var offsetLeft = markerRect.left - mirrorRect.left;
+        document.body.removeChild(mirror);
+        var lineHeight = parseInt(style.lineHeight, 10) || 18;
+        pop.style.top = (window.scrollY + rect.top + offsetTop + lineHeight + 4) + 'px';
+        pop.style.left = (window.scrollX + rect.left + offsetLeft) + 'px';
+    }
+
+    function insertAt(index) {
+        if (!activeTextarea || atPos < 0) { closePopover(); return; }
+        var slot = filteredSlots[index];
+        if (!slot) { closePopover(); return; }
+        var v = activeTextarea.value;
+        var caret = activeTextarea.selectionStart;
+        // Replace '@' + partial query with '@' + full slot name.
+        var newValue = v.substring(0, atPos) + '@' + slot.name + v.substring(caret);
+        activeTextarea.value = newValue;
+        var newCaret = atPos + 1 + slot.name.length;
+        activeTextarea.setSelectionRange(newCaret, newCaret);
+        activeTextarea.focus();
+        closePopover();
+    }
+
+    function setActive(i) {
+        var items = pop.querySelectorAll('.at-typeahead-item');
+        if (!items.length) return;
+        if (i < 0) i = items.length - 1;
+        if (i >= items.length) i = 0;
+        items.forEach(function (el, idx) {
+            el.classList.toggle('active', idx === i);
+        });
+        activeIndex = i;
+        items[i].scrollIntoView({ block: 'nearest' });
+    }
+
+    function handleInput(ta) {
+        var caret = ta.selectionStart;
+        var v = ta.value;
+        // Walk back from caret to find the most recent '@' with no
+        // whitespace between it and the caret (otherwise the user has
+        // moved past the token and the popover should close).
+        var i = caret - 1;
+        while (i >= 0 && /[A-Za-z0-9_]/.test(v[i])) i--;
+        if (i < 0 || v[i] !== '@') { closePopover(); return; }
+        // Also require the char before '@' to be a boundary (start,
+        // whitespace, or bracket) so an email address like foo@bar
+        // doesn't trigger the popover.
+        var before = i === 0 ? '' : v[i - 1];
+        if (before && /[A-Za-z0-9_]/.test(before)) { closePopover(); return; }
+        atPos = i;
+        activeTextarea = ta;
+        ensureSlots(function () {
+            var query = v.substring(atPos + 1, caret);
+            renderPopover(query);
+            positionPopover(ta);
+            pop.hidden = false;
+        });
+    }
+
+    function handleKeydown(ta, e) {
+        if (pop.hidden) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); return; }
+        if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(activeIndex - 1); return; }
+        if (e.key === 'Enter')     { e.preventDefault(); insertAt(activeIndex); return; }
+        if (e.key === 'Tab')       { e.preventDefault(); insertAt(activeIndex); return; }
+        if (e.key === 'Escape')    { e.preventDefault(); closePopover(); return; }
+    }
+
+    var textareas = editForm.querySelectorAll('textarea[data-at-field-typeahead]');
+    textareas.forEach(function (ta) {
+        ta.addEventListener('input', function () { handleInput(ta); });
+        ta.addEventListener('keydown', function (e) { handleKeydown(ta, e); });
+        ta.addEventListener('blur', function () {
+            // Delay so a click on an item can fire before we close.
+            setTimeout(closePopover, 100);
+        });
+    });
+    // Click outside → close.
+    document.addEventListener('click', function (e) {
+        if (pop.hidden) return;
+        if (e.target === pop || pop.contains(e.target)) return;
+        if (e.target === activeTextarea) return;
+        closePopover();
+    });
 })();
 </script>
 {% endblock %}

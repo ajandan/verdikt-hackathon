@@ -6225,6 +6225,46 @@ async def program_detail(
     )
 
 
+@router.get("/programs/{program_id}/slots.json", include_in_schema=False)
+async def program_slots_json(
+    program_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Return the program's extraction schema slot names for client-side
+    pickers on the rule authoring/edit forms.
+
+    Powers two widgets:
+
+    * ``@`` typeahead inside the criterion / exception textareas — user
+      types ``@ins`` and the popup filters to slots whose name contains
+      "ins".
+    * The Intake-fields chip picker, which restricts entries to declared
+      slot names so rules can only be authored against a vocabulary that
+      actually exists in the extraction.
+
+    Read-only. Scoped to the caller's effective tenant via
+    :func:`_enforce_scope`. Returns 404 when the program isn't visible
+    to this admin — mirrors the rest of ``/ui/programs/{id}/…``.
+    """
+    prog = await _load_program(session, program_id)
+    _enforce_scope(request, prog.tenant_id)
+    slots = list(prog.extraction_schema or [])
+    return {
+        "program_id": str(prog.id),
+        "slug": prog.slug,
+        "slots": [
+            {
+                "name": s.get("name"),
+                "type": s.get("type", "string"),
+                "description": s.get("description", ""),
+            }
+            for s in slots
+            if s.get("name")
+        ],
+    }
+
+
 # Kept as a tuple so the template's <select> and the write-path validator
 # read from one source. Must stay in sync with the ck_rules_kind check
 # constraint and RuleKind Literal in pap_pipeline.schemas.rule.
@@ -6827,19 +6867,30 @@ async def rules_create(
     )
 
 
-@router.get("/rules/{rule_row_id}", response_class=HTMLResponse)
-async def rule_detail(
-    rule_row_id: uuid.UUID,
+async def _rule_detail_ctx(
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession,
+    rule: Rule,
+    *,
+    form_values: dict[str, Any] | None = None,
+    form_errors: dict[str, str] | None = None,
     flash: str | None = None,
     flash_kind: str | None = None,
-) -> HTMLResponse:
-    """Edit a library rule + show the programs it's attached to."""
-    rule = await session.get(Rule, rule_row_id)
-    if rule is None:
-        raise HTTPException(404, "Rule not found")
-    _enforce_scope(request, rule.tenant_id)
+) -> dict[str, Any]:
+    """Shared context builder for the rule detail page.
+
+    Split out so both the GET and the validation-failure re-render on
+    POST can produce the same page shape (with the operator's in-flight
+    values + inline errors preserved). Also computes the program-schema
+    slots — the source of truth for the @-field typeahead + Intake
+    fields chip picker on the client, and for save-time validation on
+    the server.
+
+    ``form_values`` overrides the persisted rule values (used to re-
+    render in-flight edits after a validation failure). ``form_errors``
+    is a per-field-name dict of user-facing error strings rendered as
+    inline ``.field-error`` blocks under the offending input.
+    """
     tenant = await session.get(Tenant, rule.tenant_id)
 
     prog_stmt = (
@@ -6872,33 +6923,83 @@ async def rule_detail(
         }
         for v in (await session.execute(versions_stmt)).scalars()
     ]
+
+    # Slot vocabulary drives client-side pickers + server-side save
+    # validation. Priority: the rule's own program (program-scoped
+    # rules from the wizard), else the first attached program (library
+    # rules with a link), else empty (no typeahead — library rule
+    # authored generic).
+    schema_program_id: uuid.UUID | None = rule.program_id
+    if schema_program_id is None and attached:
+        schema_program_id = attached[0]["program_id"]
+    schema_slots: list[str] = []
+    if schema_program_id is not None:
+        prog_row = await session.get(Program, schema_program_id)
+        if prog_row is not None:
+            schema_slots = [s["name"] for s in (prog_row.extraction_schema or []) if s.get("name")]
+
+    return await _base_ctx(
+        request, session, active="rules",
+        rule=rule,
+        tenant=tenant,
+        attached_programs=attached,
+        versions=versions,
+        rule_kinds=_RULE_KINDS,
+        schema_program_id=schema_program_id,
+        schema_slots=schema_slots,
+        form_values=form_values or {},
+        form_errors=form_errors or {},
+        flash=flash, flash_kind=flash_kind,
+    )
+
+
+@router.get("/rules/{rule_row_id}", response_class=HTMLResponse)
+async def rule_detail(
+    rule_row_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    flash: str | None = None,
+    flash_kind: str | None = None,
+) -> HTMLResponse:
+    """Edit a library rule + show the programs it's attached to."""
+    rule = await session.get(Rule, rule_row_id)
+    if rule is None:
+        raise HTTPException(404, "Rule not found")
+    _enforce_scope(request, rule.tenant_id)
     return templates.TemplateResponse(
         request,
         "admin_rule_detail.html",
-        await _base_ctx(
-            request, session, active="rules",
-            rule=rule,
-            tenant=tenant,
-            attached_programs=attached,
-            versions=versions,
-            rule_kinds=_RULE_KINDS,
-            flash=flash, flash_kind=flash_kind,
+        await _rule_detail_ctx(
+            request, session, rule, flash=flash, flash_kind=flash_kind,
         ),
     )
 
 
-@router.post("/rules/{rule_row_id}")
+@router.post("/rules/{rule_row_id}", response_model=None)
 async def rule_update(
     rule_row_id: uuid.UUID,
     request: Request,
     session: AsyncSession = Depends(get_session),
-) -> RedirectResponse:
+) -> Any:
     """Update rule text / kind / fields / active state.
 
     Edits here ripple to every program that has the rule attached — that's
     the point of the library. `rule_id` (the public citation ID) is
     immutable so decision letters already cite a stable identifier.
+
+    Validation:
+
+    * Kind must be in ``_RULE_KINDS``.
+    * Title + criterion non-empty.
+    * When the rule has a schema program (via ``rule.program_id`` or a
+      linked program on the library-rule path), every Intake fields
+      entry AND every ``@field`` reference in criterion/exception must
+      match a declared slot on that program. Unknown names produce
+      per-input inline errors and the form re-renders with the
+      operator's in-flight values preserved.
     """
+    from pap_pipeline.rule_refs import parse_field_refs, validate_field_refs
+
     rule = await session.get(Rule, rule_row_id)
     if rule is None:
         raise HTTPException(404, "Rule not found")
@@ -6906,35 +7007,126 @@ async def rule_update(
     form = await request.form()
 
     kind = (form.get("kind") or rule.kind).strip()
-    if kind not in _RULE_KINDS:
-        return _redirect(
-            f"/ui/rules/{rule_row_id}",
-            flash=f"Kind must be one of {', '.join(_RULE_KINDS)}.", flash_kind="error",
-        )
     title_val = (form.get("title") or "").strip()
     criterion_val = (form.get("criterion") or "").strip()
     exception_val = (form.get("exception") or "").strip()
-    if not title_val or not criterion_val:
-        return _redirect(
-            f"/ui/rules/{rule_row_id}",
-            flash="Title and criterion cannot be empty.", flash_kind="error",
+    fields_raw = form.get("fields") or ""
+    fields_list = _parse_rule_fields(fields_raw)
+    is_active_val = form.get("is_active") == "on"
+
+    # Build the schema slot list up front — the client-side pickers on
+    # this page fetch the same list from /ui/programs/{id}/slots.json,
+    # so any drift between server + client would show as a "value not
+    # in schema" error the user can't self-diagnose. Same source-of-
+    # truth logic as _rule_detail_ctx.
+    schema_program_id: uuid.UUID | None = rule.program_id
+    schema_slots: list[str] = []
+    if schema_program_id is None:
+        # Match the GET context: fall back to the first linked program.
+        first_link = (await session.execute(
+            select(ProgramRuleLink.program_id)
+            .where(ProgramRuleLink.rule_id == rule.id)
+            .order_by(ProgramRuleLink.position)
+            .limit(1)
+        )).scalar_one_or_none()
+        if first_link is not None:
+            schema_program_id = first_link
+    if schema_program_id is not None:
+        prog_row = await session.get(Program, schema_program_id)
+        if prog_row is not None:
+            schema_slots = [s["name"] for s in (prog_row.extraction_schema or []) if s.get("name")]
+
+    errors: dict[str, str] = {}
+    if kind not in _RULE_KINDS:
+        errors["kind"] = f"Must be one of {', '.join(_RULE_KINDS)}."
+    if not title_val:
+        errors["title"] = "Title cannot be empty."
+    if not criterion_val:
+        errors["criterion"] = "Criterion cannot be empty."
+
+    # Vocabulary validation — only when we have a schema to validate
+    # against. Library rules without a linked program get free-text
+    # (the copy-to-program wizard remaps on copy).
+    if schema_slots:
+        # Intake fields entries: each must be a declared slot.
+        bad_fields = [f for f in fields_list if f not in set(schema_slots)]
+        if bad_fields:
+            errors["fields"] = (
+                "Not on the program's schema: "
+                + ", ".join(bad_fields)
+                + ". Pick from the datalist or add the slot to the program's extraction schema."
+            )
+        # @field refs in criterion + exception: each must resolve.
+        ref_errors = validate_field_refs(
+            parse_field_refs(criterion_val, exception_val), schema_slots,
         )
+        if ref_errors:
+            def _fmt(e: Any) -> str:
+                hint = f" — did you mean @{e.suggestion}?" if e.suggestion else ""
+                return f"@{e.field}{hint}"
+            joined = "; ".join(_fmt(e) for e in ref_errors)
+            # Attribute the error to whichever field the ref appeared
+            # in first — the parser preserves criterion-first order, so
+            # any error's presence in criterion means "criterion is
+            # where the user needs to look".
+            crit_refs = set(parse_field_refs(criterion_val))
+            excn_refs = set(parse_field_refs(exception_val))
+            crit_bad = [e for e in ref_errors if e.field in crit_refs]
+            excn_bad = [e for e in ref_errors if e.field in excn_refs]
+            if crit_bad and excn_bad:
+                errors["criterion"] = "Unknown @field references: " + "; ".join(_fmt(e) for e in crit_bad)
+                errors["exception"] = "Unknown @field references: " + "; ".join(_fmt(e) for e in excn_bad)
+            elif crit_bad:
+                errors["criterion"] = "Unknown @field references: " + joined
+            else:
+                errors["exception"] = "Unknown @field references: " + joined
+
+    if errors:
+        # Re-render the form with the user's in-flight values + inline
+        # error markers. 400 (not 422) — HTML forms handle 400 more
+        # gracefully in browser back/forward stacks.
+        form_values = {
+            "kind": kind,
+            "title": title_val,
+            "criterion": criterion_val,
+            "exception": exception_val,
+            "fields": fields_list,
+            "is_active": is_active_val,
+        }
+        ctx = await _rule_detail_ctx(
+            request, session, rule,
+            form_values=form_values, form_errors=errors,
+        )
+        return templates.TemplateResponse(
+            request, "admin_rule_detail.html", ctx, status_code=400,
+        )
+
     rule.kind = kind
     rule.title = title_val
     rule.criterion = criterion_val
     rule.exception = exception_val
-    rule.fields = _parse_rule_fields(form.get("fields") or "")
-    rule.is_active = form.get("is_active") == "on"
+    rule.fields = fields_list
+    # Refresh cached field_refs so downstream consumers (reasoner
+    # prompt-builder, "touches N slots" hint on the list page) see
+    # exactly what the parser extracts from the new text.
+    rule.field_refs = parse_field_refs(criterion_val, exception_val)
+    rule.is_active = is_active_val
+    # Cache pre-commit — commit expires attrs, log/redirect after would
+    # trigger MissingGreenlet in async context (same pattern as the
+    # copy-to-program handler fix).
+    saved_rule_id = rule.rule_id
+    saved_row_id = rule.id
+    saved_is_active = rule.is_active
     await session.flush()
     await _snapshot_rule_version(session, rule, request, "Edited")
     await session.commit()
     log.info(
         "rule_updated",
-        rule_row_id=str(rule.id), rule_id=rule.rule_id, is_active=rule.is_active,
+        rule_row_id=str(saved_row_id), rule_id=saved_rule_id, is_active=saved_is_active,
     )
     return _redirect(
-        f"/ui/rules/{rule_row_id}",
-        flash=f"Saved rule {rule.rule_id}.", flash_kind="success",
+        f"/ui/rules/{saved_row_id}",
+        flash=f"Saved rule {saved_rule_id}.", flash_kind="success",
     )
 
 

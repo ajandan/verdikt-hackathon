@@ -189,6 +189,7 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_rule_mapping",
             "test_rule_mapping_llm",
             "test_rule_copy_wizard",
+            "test_rule_edit_vocab_validation",
         ],
     ),
     (

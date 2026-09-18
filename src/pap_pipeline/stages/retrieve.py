@@ -17,6 +17,7 @@ rule list, get back the reranked top-k.
 """
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 
@@ -25,6 +26,14 @@ import httpx
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.intake import Intake
 from pap_pipeline.schemas.rule import Rule
+
+_log = logging.getLogger(__name__)
+
+# Above this corpus size the pure-Python cosine loop starts to add
+# noticeable latency in the async event loop. The pgvector rewrite is the
+# real fix; until then, log once so operators see the boundary being
+# crossed instead of silently paying the perf cost.
+_COSINE_CORPUS_SOFT_LIMIT = 200
 
 
 @dataclass(frozen=True)
@@ -174,8 +183,16 @@ async def _embed_and_rank(
         )
 
     q_vec = vectors[0]
+    if len(corpus) > _COSINE_CORPUS_SOFT_LIMIT:
+        _log.warning(
+            "pap_retrieve_cosine_over_soft_limit",
+            extra={"corpus": len(corpus), "limit": _COSINE_CORPUS_SOFT_LIMIT},
+        )
+    q_norm = math.sqrt(math.fsum(x * x for x in q_vec))
+    if q_norm == 0.0:
+        return []
     scored = [
-        (rule, _cosine(q_vec, rule_vec))
+        (rule, _cosine_precomputed(q_vec, q_norm, rule_vec))
         for rule, rule_vec in zip(corpus, vectors[1:], strict=True)
     ]
     scored.sort(key=lambda pair: pair[1], reverse=True)
@@ -219,6 +236,15 @@ async def _rerank(
     reranked: list[RetrievedRule] = []
     for item in results[:k]:
         idx = item["index"]
+        # Bounds-check every reranker index — a malformed response or an
+        # off-by-one in the NIM would otherwise raise IndexError with no
+        # diagnostic context. Wrap it in a RuntimeError that names both
+        # sides so the operator sees which rule set is out of sync.
+        if not isinstance(idx, int) or not (0 <= idx < len(candidates)):
+            raise RuntimeError(
+                f"Reranker returned out-of-range index {idx!r} for "
+                f"{len(candidates)} candidates; response: {data!r}"
+            )
         score = float(item["relevance_score"])
         reranked.append(RetrievedRule(rule=candidates[idx], score=score))
     return reranked
@@ -232,12 +258,30 @@ def _headers(config: RetrieveClientConfig) -> dict[str, str]:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
+    dot = math.fsum(x * y for x, y in zip(a, b, strict=True))
+    na = math.sqrt(math.fsum(x * x for x in a))
+    nb = math.sqrt(math.fsum(y * y for y in b))
     if na == 0.0 or nb == 0.0:
         return 0.0
     return dot / (na * nb)
+
+
+def _cosine_precomputed(
+    a: list[float], a_norm: float, b: list[float]
+) -> float:
+    """Cosine similarity with the query norm pre-computed.
+
+    ``_embed_and_rank`` calls this once per rule against a shared query
+    vector, so amortising the query-side sqrt across the corpus is the
+    only Python-side win available without adding numpy. The zero-norm
+    guard on ``b`` is retained so a degenerate rule embedding scores 0
+    instead of dividing by zero.
+    """
+    b_norm = math.sqrt(math.fsum(x * x for x in b))
+    if b_norm == 0.0:
+        return 0.0
+    dot = math.fsum(x * y for x, y in zip(a, b, strict=True))
+    return dot / (a_norm * b_norm)
 
 
 __all__ = [

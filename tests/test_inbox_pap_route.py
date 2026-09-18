@@ -109,7 +109,9 @@ class _FakeSession:
 def _patch_resolver(monkeypatch, tenant) -> None:
     match = SimpleNamespace(tenant=tenant, matched_by="subject_tag")
     monkeypatch.setattr(
-        agent_mod, "resolve_tenant", lambda tenants, from_addr, subject: match
+        agent_mod,
+        "resolve_tenant",
+        lambda tenants, from_addr, subject, auth_results=None: match,
     )
 
 

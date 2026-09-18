@@ -140,9 +140,11 @@ async def test_orchestrator_runs_full_slice_and_stitches_scores(monkeypatch) -> 
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_leaves_score_none_when_reason_cites_unretrieved_rule(monkeypatch) -> None:
-    """If the reason stage names a rule the retriever didn't surface, the
-    orchestrator must leave its score as None rather than fabricate one."""
+async def test_orchestrator_scrubs_reason_cite_of_unretrieved_rule(monkeypatch) -> None:
+    """A prompt-injection-flavoured Decision that cites a rule the retriever
+    didn't surface must be scrubbed of the fabricated citation before it
+    reaches the persisted JSON verdict, while still recording a critical
+    ``hallucinated_citation`` finding so HumanLoop escalates the case."""
     def _handler(request: httpx.Request) -> httpx.Response:
         p = request.url.path
         body = json.loads(request.content)
@@ -176,8 +178,16 @@ async def test_orchestrator_leaves_score_none_when_reason_cites_unretrieved_rule
         program="cardiovita-pap-2026",
         k=1,
     )
-    assert len(decision.citations) == 1
-    assert decision.citations[0].score is None
+    # The fabricated citation is removed so the downstream JSON verdict
+    # never quotes it; a critical hallucinated_citation finding remains
+    # on the Decision for the reviewer.
+    assert decision.citations == []
+    finding_types = {f.type for f in decision.verifier_findings}
+    assert "hallucinated_citation" in finding_types
+    assert any(
+        f.type == "hallucinated_citation" and f.severity == "critical"
+        for f in decision.verifier_findings
+    )
 
 
 @pytest.mark.asyncio

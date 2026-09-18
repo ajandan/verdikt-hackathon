@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import email
 import imaplib
+import re
 import ssl
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -56,6 +57,32 @@ class InboundMessage:
     references: list[str]
     attachments: list[InboundAttachment] = field(default_factory=list)
     uid: bytes | None = None  # IMAP UID, used to mark \Seen after processing
+    # Parsed top-most ``Authentication-Results`` header verdict, per RFC 8601.
+    # Populated by :func:`_parse_message`; None when the receiving MTA didn't
+    # stamp one (local test messages, direct-SMTP dev harness). Consumed by
+    # :func:`docgen.inbox.resolver.resolve_tenant` to gate tenant routing on
+    # verified sender identity — a forged ``From:`` without matching
+    # spf/dkim/dmarc PASS is refused rather than routed on the header alone.
+    auth_results: "AuthResults | None" = None
+
+
+@dataclass(frozen=True)
+class AuthResults:
+    """Parsed Authentication-Results verdict for an inbound message.
+
+    Values are the raw RFC 8601 method-result strings (``pass``, ``fail``,
+    ``neutral``, ``softfail``, ``none``, ``permerror``, ``temperror``).
+    None means the header didn't carry that method. ``header_from_domain``
+    is the domain the DMARC ``header.from`` (or DKIM ``d=``) tag names —
+    used by the resolver to confirm the passing signature actually covers
+    the visible ``From:`` header, not some unrelated domain.
+    """
+
+    spf: str | None = None
+    dkim: str | None = None
+    dmarc: str | None = None
+    header_from_domain: str | None = None
+    dkim_domain: str | None = None
 
 
 class ImapError(Exception):
@@ -182,6 +209,48 @@ def _parse_message(raw: bytes, *, uid: bytes, max_bytes: int) -> InboundMessage 
         references=references,
         attachments=attachments,
         uid=uid,
+        auth_results=_parse_auth_results(msg),
+    )
+
+
+def _parse_auth_results(msg: Message) -> AuthResults | None:
+    """Parse the top-most ``Authentication-Results`` header, if any.
+
+    Multi-hop MTAs stamp one header per hop; the receiving MX puts its
+    own verdict at the top, and downstream servers append below. Reading
+    only the top entry keeps us honest — we can't trust verdicts stamped
+    upstream of the trust boundary. ``getall`` returns headers in
+    encounter order, so index 0 is the closest hop.
+
+    Returns None when the header is absent (e.g., direct-SMTP dev
+    harness or offline test fixture); callers must decide whether to
+    allow un-authenticated messages.
+    """
+    raws = msg.get_all("Authentication-Results", [])
+    if not raws:
+        return None
+    top = _decode_header_value(raws[0])
+    if not top:
+        return None
+
+    def _method(name: str) -> str | None:
+        m = re.search(rf"\b{name}\s*=\s*([A-Za-z]+)", top, re.IGNORECASE)
+        return m.group(1).lower() if m else None
+
+    def _prop(prop: str) -> str | None:
+        m = re.search(
+            rf"{re.escape(prop)}\s*=\s*([A-Za-z0-9.\-_@]+)",
+            top,
+            re.IGNORECASE,
+        )
+        return m.group(1).lower() if m else None
+
+    return AuthResults(
+        spf=_method("spf"),
+        dkim=_method("dkim"),
+        dmarc=_method("dmarc"),
+        header_from_domain=_prop("header.from"),
+        dkim_domain=_prop("header.d"),
     )
 
 

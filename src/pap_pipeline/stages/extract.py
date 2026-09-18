@@ -17,11 +17,13 @@ from __future__ import annotations
 import base64
 import io
 import json
-import re
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+_log = logging.getLogger(__name__)
 
 _PDF_MAGIC = b"%PDF-"
 
@@ -258,20 +260,80 @@ async def _extract_from_page(
 def _parse_partial_intake(content: str, allowed_names: set[str]) -> dict[str, Any]:
     """Parse the model's response into a dict of known slot values.
 
-    Tolerant on the way in: strip a fenced ```json block if present, then
-    try `json.loads`. Anything that fails parsing → empty dict.
+    Tolerant on the way in: try `json.loads` on the trimmed content first;
+    fall back to a balanced-brace scan when the model wrapped its JSON in
+    prose or a ``<think>…</think>`` preamble. A greedy regex would splice
+    non-JSON text between the outer braces on reasoning-mode output — the
+    balanced scan finds the first well-formed object instead.
+
+    Parse failures are logged (not swallowed silently) so operators can see
+    the model returned something the pipeline had to drop.
     """
     text = content.strip()
-    m = re.search(r"\{.*\}", text, re.DOTALL)
-    if not m:
+    if not text:
         return {}
-    try:
-        parsed = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(parsed, dict):
+    parsed = _try_parse_json_object(text)
+    if parsed is None:
+        parsed = _extract_first_json_object(text)
+    if parsed is None:
+        _log.warning(
+            "pap_extract_json_parse_failed",
+            extra={"snippet": text[:200]},
+        )
         return {}
     return {k: v for k, v in parsed.items() if k in allowed_names}
+
+
+def _try_parse_json_object(text: str) -> dict[str, Any] | None:
+    """Attempt json.loads; return the dict on success, None otherwise."""
+    try:
+        val = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return val if isinstance(val, dict) else None
+
+
+def _extract_first_json_object(text: str) -> dict[str, Any] | None:
+    """Return the first balanced-brace ``{...}`` slice that parses as an object.
+
+    Walks left-to-right, tracks brace depth (ignoring braces inside strings),
+    and hands each closed candidate to :func:`json.loads`. First candidate
+    that yields a dict wins; anything else keeps scanning. Handles the
+    reasoning-mode VLM case where the model emits ``<think>{...}</think>``
+    followed by the real answer, which a greedy ``\\{.*\\}`` regex would
+    concatenate into one unparseable blob.
+    """
+    n = len(text)
+    for start in range(n):
+        if text[start] != "{":
+            continue
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, n):
+            ch = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start : i + 1]
+                    parsed = _try_parse_json_object(candidate)
+                    if parsed is not None:
+                        return parsed
+                    break  # unbalanced or invalid — restart from next `{`
+    return None
 
 
 __all__ = ["ExtractClientConfig", "extract"]

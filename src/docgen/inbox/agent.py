@@ -156,8 +156,22 @@ def _truncate_body(text: str | None) -> str | None:
 
 
 def _pick_attachment(msg: InboundMessage) -> InboundAttachment | None:
-    # First accepted attachment wins. Multi-attachment support is Phase 3+.
+    # First accepted attachment wins. Multi-attachment support is Phase 3+;
+    # senders whose message carried additional attachments see a note in the
+    # reply body listing what was ignored (see :func:`_build_reply_body`)
+    # so a docx pair uploaded together doesn't silently drop one half.
     return msg.attachments[0] if msg.attachments else None
+
+
+def _ignored_attachments(msg: InboundMessage) -> list[str]:
+    """Names of the 2nd..Nth attachments that ``_pick_attachment`` dropped.
+
+    Returned as a list so the reply body can print them; empty when
+    there's at most one attachment on the message.
+    """
+    if len(msg.attachments) <= 1:
+        return []
+    return [a.filename or "(unnamed)" for a in msg.attachments[1:]]
 
 
 def _template_name_from(msg: InboundMessage, filename: str) -> str:
@@ -656,6 +670,7 @@ def _build_reply_body(
     template_link: str | None,
     trials: list[ExecutedTrial],
     trial_download_urls: dict[int, str | None],
+    ignored_attachments: list[str] | None = None,
 ) -> tuple[str, str]:
     """Return (plain_text, html) reply bodies.
 
@@ -710,6 +725,17 @@ def _build_reply_body(
             if download_url:
                 lines.append(f"     Download: {download_url}")
     lines += [""]
+    if ignored_attachments:
+        lines.append(
+            f"Note: {len(ignored_attachments)} additional attachment(s) were "
+            "not processed — only the first attachment is ingested per email:"
+        )
+        for name in ignored_attachments:
+            lines.append(f"  • {name}")
+        lines.append(
+            "Resend each additional template as its own email if you want it ingested."
+        )
+        lines.append("")
     if trials:
         lines.append(
             "Download any trial from the table above to spot-check the field mapping."
@@ -754,6 +780,17 @@ def _build_reply_body(
 
     if trials:
         html_lines.append(_build_trials_table_html(trials, trial_download_urls))
+
+    if ignored_attachments:
+        html_lines.append(
+            "<p><b>Note:</b> "
+            f"{len(ignored_attachments)} additional attachment(s) were not "
+            "processed — only the first attachment is ingested per email:</p>"
+            "<ul>"
+            + "".join(f"<li>{_html_escape(name)}</li>" for name in ignored_attachments)
+            + "</ul>"
+            "<p>Resend each additional template as its own email if you want it ingested.</p>"
+        )
 
     if trials:
         html_lines.append(
@@ -892,7 +929,12 @@ def process_message(
     event = _record_event_row(session, msg=msg, to_addr=to_addr)
 
     tenants = list(session.query(Tenant).all())
-    match = resolve_tenant(tenants, from_addr=msg.from_addr, subject=msg.subject)
+    match = resolve_tenant(
+        tenants,
+        from_addr=msg.from_addr,
+        subject=msg.subject,
+        auth_results=msg.auth_results,
+    )
     if match is None:
         event.status = "skipped"
         event.error = "no matching tenant (sender_domain or subject_tag)"
@@ -1060,6 +1102,7 @@ def process_message(
         template_link=template_link,
         trials=executed_trials,
         trial_download_urls=trial_download_urls,
+        ignored_attachments=_ignored_attachments(msg),
     )
 
     attachments: list[Attachment] = []

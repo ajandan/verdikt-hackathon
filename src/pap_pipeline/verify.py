@@ -249,7 +249,14 @@ def verify_decision(
             )
 
     # Check 8 — outcome vocabulary. Only when the program declared its set.
-    if declared_outcomes and decision.outcome not in declared_outcomes:
+    # ``routed`` is a pipeline-internal sentinel emitted by the Triage
+    # skip-Decide path, never authored on a Program, so it's exempt from
+    # the declared-outcomes check.
+    if (
+        declared_outcomes
+        and decision.outcome != "routed"
+        and decision.outcome not in declared_outcomes
+    ):
         findings.append(
             VerifierFinding(
                 type="outcome_outside_declared_vocabulary",

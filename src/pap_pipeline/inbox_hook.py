@@ -43,14 +43,20 @@ from pap_pipeline.stages.retrieve import RetrieveClientConfig
 
 log = structlog.get_logger(__name__)
 
-# Every pipeline outcome parks in pending_review — nothing goes back to the
+# Every verdict outcome parks in pending_review — nothing goes back to the
 # applicant until a human hits Approve on the pipeline detail page. A wrong
 # auto-send (denial to an approvable case, approval to a fraudulent one)
 # cannot be un-sent, so we prefer a queue over an outbox.
-_OUTCOME_TO_REVIEW_STATE = {
+#
+# ``routed`` is the exception: Triage classified the case as off-Decide
+# (refill, appeal, missing-info-only) and dispatch is deterministic, so
+# there is nothing for a HumanLoop reviewer to release. Map it to None
+# to keep those cases out of the pending_review queue.
+_OUTCOME_TO_REVIEW_STATE: dict[str, str | None] = {
     "approve": "pending_review",
     "deny": "pending_review",
     "missing_info": "pending_review",
+    "routed": None,
 }
 
 

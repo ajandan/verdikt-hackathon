@@ -110,11 +110,22 @@ _HSTS = "max-age=31536000; includeSubDomains"
 # without a matching nonce every inline block is blocked and the dashboard
 # renders unstyled. Use a nonce-free CSP that relies on 'unsafe-inline'.
 # rsms.me is the Inter font CDN the dashboards use.
+#
+# SECURITY BOUNDARY: /engineering/* is mounted as :class:`fastapi.staticfiles.StaticFiles`
+# in `docgen.main` — no template rendering, no query-string interpolation, no
+# user-input path lands in these files. Adding ANY dynamic route under the
+# /engineering prefix would break that assumption; every future engineering
+# route must go through the base or preview CSP (both nonce-locked) instead.
+# frame-src / worker-src / connect-src are locked to 'none'/'self' so an
+# XSS foothold on a report page can't spin up a worker, embed iframes, or
+# exfiltrate via fetch to an off-origin endpoint.
 _ENGINEERING_CSP = "; ".join([
     "default-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    "frame-src 'none'",
+    "worker-src 'none'",
     "object-src 'none'",
     "img-src 'self' data:",
     "font-src 'self' https://rsms.me https://fonts.gstatic.com data:",

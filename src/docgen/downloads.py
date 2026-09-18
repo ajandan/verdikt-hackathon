@@ -112,7 +112,11 @@ async def download_case_reply(
         raise HTTPException(500, "artifact fetch failed") from e
 
     raw_outcome = (ev.pap_decision or {}).get("outcome")
-    outcome = raw_outcome if raw_outcome in {"approve", "deny", "missing_info"} else "reply"
+    outcome = (
+        raw_outcome
+        if raw_outcome in {"approve", "deny", "missing_info", "routed"}
+        else "reply"
+    )
     filename = f"case_{outcome}_{str(ev.id).replace('-', '')[:8].upper()}.pdf"
     return Response(
         content=body,

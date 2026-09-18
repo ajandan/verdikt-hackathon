@@ -5539,7 +5539,11 @@ async def inbox_reply_attachment(
     # here. Whitelist before interpolating into Content-Disposition so a
     # newline / quote in the value can't split the header.
     raw_outcome = (ev.pap_decision or {}).get("outcome")
-    outcome = raw_outcome if raw_outcome in {"approve", "deny", "missing_info"} else "reply"
+    outcome = (
+        raw_outcome
+        if raw_outcome in {"approve", "deny", "missing_info", "routed"}
+        else "reply"
+    )
     filename = f"alderwood_{outcome}_{str(ev.id).replace('-', '')[:8].upper()}.pdf"
     from fastapi.responses import Response
 

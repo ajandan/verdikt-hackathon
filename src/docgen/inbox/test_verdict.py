@@ -26,6 +26,8 @@ import httpx
 import structlog
 from lxml import etree
 
+from docgen.core.xml_safe import safe_fromstring
+
 log = structlog.get_logger(__name__)
 
 _MAX_EXTRACTED_CHARS = 12_000
@@ -73,7 +75,7 @@ def _extract_docx_text(docx_bytes: bytes) -> str:
             xml = zf.read("word/document.xml")
         except KeyError:
             return ""
-    root = etree.fromstring(xml)
+    root = safe_fromstring(xml)
     parts: list[str] = []
     for t in root.iter(f"{{{_W_NS}}}t"):
         if t.text:

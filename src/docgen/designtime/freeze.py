@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgen.config import get_settings
 from docgen.core.preflight import W_NS, preflight
+from docgen.core.xml_safe import safe_fromstring
 from docgen.core.schema_infer import FieldSpec, TemplateSchema
 from docgen.designtime.audit import record_audit_event
 from docgen.designtime.format_infer import infer_formats, merge_formats_into_schema
@@ -39,7 +40,7 @@ def _apply_replacements_to_document_xml(document_xml: str, replacements: dict[st
     if not replacements:
         return document_xml
 
-    root = etree.fromstring(document_xml.encode("utf-8"))
+    root = safe_fromstring(document_xml)
     for p in root.iter(f"{{{W_NS}}}p"):
         t_elements = p.findall(f".//{{{W_NS}}}t")
         if not t_elements:

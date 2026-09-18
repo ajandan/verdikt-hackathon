@@ -584,7 +584,19 @@ async def _execute_render(
             )
             if callback_url:
                 _enqueue_webhook(str(job.id))
-            raise HTTPException(500, f"Render failed: {e}") from e
+            # Don't leak the raw exception message to the client — it can
+            # carry SQLAlchemy schema names, jinja template paths, and other
+            # internal detail. The full string is on job.error (persisted)
+            # and in the structured log above; the client gets a job_id to
+            # correlate.
+            raise HTTPException(
+                500,
+                {
+                    "detail": "Render failed",
+                    "job_id": str(job.id),
+                    "error_class": type(e).__name__,
+                },
+            ) from e
         result_key = persist_result(tv, job.id, output, output_format, settings=settings)
         job.state = "succeeded"
         job.result_blob_key = result_key

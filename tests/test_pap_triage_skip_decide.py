@@ -44,7 +44,7 @@ async def test_decision_needed_false_skips_decide(monkeypatch: pytest.MonkeyPatc
     )
 
     assert called_run_from_intake[0] is False
-    assert decision.outcome == "missing_info"
+    assert decision.outcome == "routed"
     assert "Decide skipped" in decision.rationale
     assert decision.triage is not None
     assert decision.triage.case_type == "refill"

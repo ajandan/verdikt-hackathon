@@ -15,15 +15,26 @@ Two match rules, in priority order:
      (e.g. "acme.com" matches "billing.acme.com") so tenants don't have
      to enumerate every subdomain.
 
+     Because ``From:`` is trivially spoofable, sender-domain routing also
+     requires the receiving MX to have stamped an Authentication-Results
+     header showing at least one of DMARC/DKIM/SPF ``pass`` for the
+     visible ``From:`` domain. Messages without any Authentication-Results
+     header (test fixtures, dev harnesses) still route — the enforcement
+     is gated on the *presence* of a verdict, not its absence.
+
 Returns None on no match. The caller logs the miss (still persisted as an
 InboxEvent for auditability) and drops the message.
 """
 from __future__ import annotations
 
+import structlog
 from dataclasses import dataclass
 from typing import Any
 
+from docgen.inbox.imap_poller import AuthResults
 from docgen.store.models import Tenant
+
+log = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -55,6 +66,7 @@ def resolve_tenant(
     *,
     from_addr: str,
     subject: str | None,
+    auth_results: AuthResults | None = None,
 ) -> TenantMatch | None:
     subject_norm = (subject or "").strip()
     subject_lower = subject_norm.lower()
@@ -71,6 +83,15 @@ def resolve_tenant(
     # Rule 2: allow-listed sender domain.
     domain = _extract_domain(from_addr)
     if domain:
+        if not _sender_domain_is_authenticated(domain, auth_results):
+            log.warning(
+                "inbox_sender_domain_auth_failed",
+                from_domain=domain,
+                spf=getattr(auth_results, "spf", None),
+                dkim=getattr(auth_results, "dkim", None),
+                dmarc=getattr(auth_results, "dmarc", None),
+            )
+            return None
         for t in tenants:
             allow_list = _config_of(t).get("sender_domains") or []
             if not isinstance(allow_list, list):
@@ -80,6 +101,55 @@ def resolve_tenant(
                     return TenantMatch(tenant=t, reason="sender_domain")
 
     return None
+
+
+def _sender_domain_is_authenticated(
+    from_domain: str, auth: AuthResults | None
+) -> bool:
+    """Gate for the sender-domain routing branch of :func:`resolve_tenant`.
+
+    Passes when:
+
+      * No Authentication-Results header was stamped (test fixtures, dev
+        harness, offline flows). Sender-domain routing then behaves as it
+        did before this check — the caller accepts the trade-off by not
+        putting an authenticating MX in front of the mailbox.
+      * At least one of DMARC / DKIM / SPF returned ``pass`` AND the
+        passing signature's domain aligns with the ``From:`` domain
+        (org-level or subdomain match). Alignment closes the gap where a
+        legitimate DKIM signature on ``bounces.mailer.example`` is
+        replayed to pass ``authoritative.example.com`` routing.
+
+    Explicit fail values (``fail`` / ``permerror``) block routing even
+    if another method reports ``pass`` — a mixed verdict on a From that
+    should have consistent alignment is a stronger tampering signal than
+    it is a benign misconfiguration.
+    """
+    if auth is None:
+        return True
+    for verdict in (auth.spf, auth.dkim, auth.dmarc):
+        if verdict in {"fail", "permerror"}:
+            return False
+    from_domain = from_domain.lower()
+    header_from = (auth.header_from_domain or "").lower()
+    dkim_domain = (auth.dkim_domain or "").lower()
+
+    def _aligned(candidate: str) -> bool:
+        if not candidate:
+            return False
+        return (
+            candidate == from_domain
+            or from_domain.endswith("." + candidate)
+            or candidate.endswith("." + from_domain)
+        )
+
+    if auth.dmarc == "pass" and _aligned(header_from or from_domain):
+        return True
+    if auth.dkim == "pass" and _aligned(dkim_domain or header_from or from_domain):
+        return True
+    if auth.spf == "pass" and _aligned(header_from or from_domain):
+        return True
+    return False
 
 
 def auto_approve_threshold(tenant: Tenant, *, default: float = 99.0) -> float:

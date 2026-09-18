@@ -17,6 +17,7 @@ from typing import Any
 from lxml import etree
 
 from docgen.core.preflight import W_NS
+from docgen.core.xml_safe import safe_fromstring
 
 _DOC_XML = "word/document.xml"
 
@@ -95,7 +96,7 @@ def _extract_paragraphs(docx_bytes: bytes) -> list[str]:
     """
     with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
         xml = zf.read(_DOC_XML)
-    root = etree.fromstring(xml)
+    root = safe_fromstring(xml)
     paragraphs: list[str] = []
     for p in root.iter(f"{{{W_NS}}}p"):
         text = "".join((t.text or "") for t in p.iter(f"{{{W_NS}}}t"))

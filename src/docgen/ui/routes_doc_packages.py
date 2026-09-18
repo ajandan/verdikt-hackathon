@@ -176,10 +176,15 @@ def register(
         enforce_scope(request, doc.tenant_id)
         body = await file.read()
         filename = file.filename or "document.pdf"
+        # Env-var break-glass admins have no admin_users row and therefore no
+        # UUID to record; DB-backed admins do. Falling back to None keeps the
+        # break-glass upload path working without lying about who uploaded.
+        identity = getattr(request.state, "admin_identity", None)
+        uploader_id = getattr(identity, "user_id", None) if identity else None
         try:
             ver = await add_static_document_version(
                 session, doc, body, filename,
-                uploaded_by=None,  # admin session; TODO wire admin_user id when the field is added
+                uploaded_by=uploader_id,
             )
             await session.commit()
         except StaticDocRejected as e:

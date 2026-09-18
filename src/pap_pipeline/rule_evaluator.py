@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, Literal
 
 Verdict = Literal["matched", "unmatched", "undetermined", "unparseable"]
@@ -76,9 +77,15 @@ _STRIP_PREFIXES: list[re.Pattern[str]] = [
     re.compile(r"^\s*If\s+", re.IGNORECASE),
 ]
 _STRIP_SUFFIXES: list[re.Pattern[str]] = [
-    re.compile(r",?\s*deny\.?\s*$", re.IGNORECASE),
-    re.compile(r",?\s*approve[^.]*\.?\s*$", re.IGNORECASE),
-    re.compile(r",?\s*matched?\.?\s*$", re.IGNORECASE),
+    # Outcome directives at the tail of a rule ("..., deny — because X",
+    # "..., approve on the renewal track", "..., matched"). Word-boundary
+    # + `.*$` on each so any trailing prose after the outcome word is
+    # sliced off along with it. Real rule criteria don't use "deny" /
+    # "approve" as data operators — always as outcome markers — so a
+    # broad match is safe.
+    re.compile(r",?\s*deny\b.*$", re.IGNORECASE),
+    re.compile(r",?\s*approve\b.*$", re.IGNORECASE),
+    re.compile(r",?\s*matched?\b.*$", re.IGNORECASE),
 ]
 
 
@@ -174,6 +181,25 @@ _SET_RE = re.compile(
     re.IGNORECASE,
 )
 
+# @field is a N-digit number  — regex check on the raw value string. Common
+# in rules that assert identifier shapes (NPI = 10 digits, DEA = 9 chars,
+# SSN last-4 = 4 digits). Whitespace/dashes in the actual value are
+# stripped before counting so "555-12-3456" doesn't false-fail.
+_DIGIT_RE = re.compile(
+    r"^@([A-Za-z_][A-Za-z0-9_]*)\s+is\s+a\s+(\d+)-digit\s+number\s*$",
+    re.IGNORECASE,
+)
+
+# @field is within the last N (day|week|month|year)s of today
+# Date recency check — parses the actual value as a date and compares
+# against today - N units. Common in rules that gate on "recent
+# prescription" or "denial letter within last 6 months".
+_WITHIN_RE = re.compile(
+    r"^@([A-Za-z_][A-Za-z0-9_]*)\s+is\s+within\s+the\s+last\s+"
+    r"(\d+)\s+(day|week|month|year)s?\s+of\s+today\s*$",
+    re.IGNORECASE,
+)
+
 
 def _eval_op_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | None, Step] | None:
     field_name, op, rhs = m.group(1), m.group(2).strip().lower(), m.group(3).strip()
@@ -244,22 +270,132 @@ def _eval_set_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | N
         return None
     lits = [_parse_literal(i) for i in items]
     actual = values.get(field_name)
+    lits_repr = ", ".join(_repr(lit) for lit in lits)
     if _is_undetermined(actual):
         return (
             None,
             Step(
-                text=f"@{field_name} ∈ {{{', '.join(_repr(l) for l in lits)}}} → undetermined (no value extracted)",
+                text=(
+                    f"@{field_name} ∈ {{{lits_repr}}} "
+                    "→ undetermined (no value extracted)"
+                ),
                 result=None,
             ),
         )
-    ok = any(_eq(actual, l) for l in lits)
+    ok = any(_eq(actual, lit) for lit in lits)
     verdict_word = "matched" if ok else "did not match"
     return (
         ok,
         Step(
             text=(
-                f"@{field_name} ∈ {{{', '.join(_repr(l) for l in lits)}}} "
+                f"@{field_name} ∈ {{{lits_repr}}} "
                 f"→ {verdict_word} (actual: {_repr(actual)})"
+            ),
+            result=ok,
+        ),
+    )
+
+
+# Date parser: accepts the shapes the extractor actually emits — ISO
+# (YYYY-MM-DD) and US slash (M/D/YYYY or MM/DD/YYYY). Returns a date or
+# None if parsing fails. `date`s and `datetime`s pass through unchanged.
+_DATE_FORMATS = ("%Y-%m-%d", "%m/%d/%Y", "%m-%d-%Y", "%Y/%m/%d")
+
+
+def _parse_date_value(v: Any) -> date | None:
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    if not isinstance(v, str) or not v.strip():
+        return None
+    s = v.strip()
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+# Approximate day counts per unit — good enough for "within the last N
+# months" recency checks; real-world PAP forms don't need calendar-exact
+# semantics ("was this Rx written in the last 12 months?" is a fuzzy
+# question). A day = 1, week = 7, month = 30, year = 365.
+_UNIT_TO_DAYS = {"day": 1, "week": 7, "month": 30, "year": 365}
+
+
+def _eval_digit_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | None, Step] | None:
+    field_name = m.group(1)
+    n = int(m.group(2))
+    actual = values.get(field_name)
+    if _is_undetermined(actual):
+        return (
+            None,
+            Step(
+                text=f"@{field_name} is a {n}-digit number → undetermined (no value extracted)",
+                result=None,
+            ),
+        )
+    # "N-digit number" = the source is only digits + optional
+    # separator noise (dashes/spaces), and the digit projection is
+    # exactly N chars long. So "3167245083" (10 digits) matches
+    # "10-digit number"; "555-12-3456" (9 digits) matches "9-digit"
+    # even though the string is 11 chars.
+    src = str(actual)
+    digits_only = re.sub(r"\D", "", src)
+    only_digits_and_seps = bool(re.fullmatch(r"[\d\s\-]+", src))
+    ok = only_digits_and_seps and len(digits_only) == n
+    verdict_word = "matched" if ok else "did not match"
+    return (
+        ok,
+        Step(
+            text=(
+                f"@{field_name} is a {n}-digit number → {verdict_word} "
+                f"(actual: {_repr(actual)}, {len(digits_only)} digit(s))"
+            ),
+            result=ok,
+        ),
+    )
+
+
+def _eval_within_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | None, Step] | None:
+    field_name = m.group(1)
+    n = int(m.group(2))
+    unit = m.group(3).lower()
+    actual = values.get(field_name)
+    if _is_undetermined(actual):
+        return (
+            None,
+            Step(
+                text=(
+                    f"@{field_name} is within the last {n} {unit}(s) of today "
+                    "→ undetermined (no value extracted)"
+                ),
+                result=None,
+            ),
+        )
+    parsed = _parse_date_value(actual)
+    if parsed is None:
+        # Actual value isn't parseable as a date — the rule shape doesn't
+        # fit the data; punt so the LLM's opinion isn't overridden.
+        return None
+    today = date.today()
+    window_days = n * _UNIT_TO_DAYS[unit]
+    delta_days = (today - parsed).days
+    # "Within the last N units" = the parsed date is between today and
+    # (today - window_days), inclusive on both ends. Future-dated
+    # values count as "not within the last window" — the check is
+    # backwards-looking.
+    ok = 0 <= delta_days <= window_days
+    verdict_word = "matched" if ok else "did not match"
+    return (
+        ok,
+        Step(
+            text=(
+                f"@{field_name} is within the last {n} {unit}(s) of today "
+                f"→ {verdict_word} (actual: {parsed.isoformat()}, "
+                f"{delta_days} day(s) ago; window {window_days} day(s))"
             ),
             result=ok,
         ),
@@ -268,13 +404,25 @@ def _eval_set_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | N
 
 def _eval_clause(text: str, values: dict[str, Any]) -> tuple[bool | None, Step] | None:
     """Return (result, step) for one subclause. None means the shape
-    isn't recognised — caller treats the whole rule as unparseable."""
+    isn't recognised — caller treats the whole rule as unparseable.
+
+    Ordered try: specific patterns first (set-membership, N-digit,
+    date-recency) then the general `@field <op> literal`. Otherwise
+    `_OP_RE` would greedily match `is a 10-digit number` and reject
+    the RHS as prose.
+    """
     t = text.strip().rstrip(",.").strip()
     if not t:
         return None
     m = _SET_RE.match(t)
     if m:
         return _eval_set_clause(m, values)
+    m = _DIGIT_RE.match(t)
+    if m:
+        return _eval_digit_clause(m, values)
+    m = _WITHIN_RE.match(t)
+    if m:
+        return _eval_within_clause(m, values)
     m = _OP_RE.match(t)
     if m:
         return _eval_op_clause(m, values)

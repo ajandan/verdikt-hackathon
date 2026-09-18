@@ -301,8 +301,12 @@ def _rule_based_classify(
                 signals=signals,
             )
 
-    # 3. Intake shape — nearly-empty intake is not decidable
-    populated = _count_populated(intake)
+    # 3. Intake + extras shape — nearly-empty case is not decidable.
+    #    Count BOTH Intake and extras because program-native schemas
+    #    (which don't mirror the canonical Intake fields) would
+    #    otherwise report zero here and get short-circuited to
+    #    "not_decidable" even when the extraction dict is full.
+    populated = _count_populated(intake, extras)
     signals["populated_fields"] = populated
     if populated < _MIN_POPULATED_FIELDS:
         route, needed = _decide_for("not_decidable")
@@ -328,7 +332,8 @@ def _rule_based_classify(
     )
 
 
-_LLM_SYSTEM_PROMPT_TEMPLATE = """You are a case-triage classifier for a patient-assistance program (PAP) inbox.
+_LLM_SYSTEM_PROMPT_TEMPLATE = """\
+You are a case-triage classifier for a patient-assistance program (PAP) inbox.
 
 Your only job is to pick the correct case_type for one inbound case and estimate your confidence.
 
@@ -342,8 +347,10 @@ Allowed case_type values (from the program's configured routing table):
 {allowed_types}
 
 Guidance:
-- Signals in decreasing precedence: subject line > prior-reference fields in extras > intake completeness > body content.
-- If confidence < 0.6, still return your best guess; the pipeline will fall back to deterministic rules.
+- Signals in decreasing precedence:
+    subject line > prior-reference fields in extras > intake completeness > body content.
+- If confidence < 0.6, still return your best guess;
+    the pipeline will fall back to deterministic rules.
 - Never invent case types outside the allowed list.
 """
 
@@ -375,10 +382,17 @@ async def _llm_classify(
     system_prompt = _LLM_SYSTEM_PROMPT_TEMPLATE.format(allowed_types=allowed_types)
     allowed_vocab = set(routing.keys())
 
+    # Merge intake + extras into one "intake" view for the classifier.
+    # Programs with a form-native vocabulary (no canonical mirror slots
+    # on the schema) leave `intake` mostly-null and put everything in
+    # `extras`; sending them side-by-side would let the LLM anchor on
+    # the empty half and misclassify as ``not_decidable``. Intake keys
+    # win on collision so canonical data (when present) is authoritative.
+    merged_intake: dict[str, Any] = dict(extras or {})
+    merged_intake.update(intake.model_dump(mode="json"))
     user_payload = {
         "subject": subject or "",
-        "intake": intake.model_dump(mode="json"),
-        "extras": extras or {},
+        "intake": merged_intake,
     }
     body = {
         "model": config.model,
@@ -420,15 +434,27 @@ async def _llm_classify(
     return case_type, confidence, reason
 
 
-def _count_populated(intake: Intake) -> int:
-    """Number of intake fields with a non-empty value.
+def _count_populated(intake: Intake, extras: dict[str, Any] | None = None) -> int:
+    """Number of intake + extras fields with a non-empty value.
 
     ``None``, empty string, and empty list all count as unpopulated. A
     zero-valued field (e.g., ``annual_household_income=0``) counts as
     populated because zero income is meaningful data, not missing data.
+
+    Extras are counted here (not just Intake) because programs with a
+    form-native vocabulary — where the extraction schema doesn't mirror
+    the canonical Intake fields — would otherwise report zero and get
+    misclassified as ``not_decidable`` at the "empty intake" gate.
+    Deduplicate on key so a slot that appears in both (e.g., prescriber_npi
+    is on Intake AND on the program schema) isn't double-counted.
     """
+    seen: dict[str, Any] = {}
+    for key, value in intake.model_dump().items():
+        seen[key] = value
+    for key, value in (extras or {}).items():
+        seen.setdefault(key, value)
     count = 0
-    for value in intake.model_dump().values():
+    for value in seen.values():
         if value is None:
             continue
         if isinstance(value, (str, list, dict)) and len(value) == 0:

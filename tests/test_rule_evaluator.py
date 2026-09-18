@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from pap_pipeline.rule_evaluator import evaluate
 
-
 # ---------------------------------------------------------------------------
 # Basic single-clause verdicts.
 # ---------------------------------------------------------------------------
@@ -168,15 +167,118 @@ def test_if_approve_wrapper_stripped() -> None:
     assert r.verdict == "matched"
 
 
+def test_deny_with_trailing_prose_stripped() -> None:
+    # Real CV-HIS-01 shape: outcome directive is followed by prose that
+    # explains the decision. Suffix stripper needs to slice everything
+    # from "deny" onward, not just a literal "deny" or "deny." token.
+    r = evaluate(
+        "If @prior_enrollment_active = true, deny — the active enrollment remains in force through its renewal date.",
+        {"prior_enrollment_active": True},
+    )
+    assert r.verdict == "matched"
+
+
 # ---------------------------------------------------------------------------
 # Unparseable fallthroughs — evaluator stays out of the LLM's way.
 # ---------------------------------------------------------------------------
 
 
-def test_prose_predicate_is_unparseable() -> None:
-    # "is a 10-digit number" isn't a recognised operator.
+def test_n_digit_number_predicate_matched() -> None:
     r = evaluate("@prescriber_npi is a 10-digit number", {"prescriber_npi": "3167245083"})
+    assert r.verdict == "matched"
+
+
+def test_n_digit_number_with_separators_matches_by_digit_count() -> None:
+    # SSN-style value with dashes — the check is on digit count, not
+    # string length; separators are ignored.
+    r = evaluate("@patient_ssn is a 9-digit number", {"patient_ssn": "555-12-3456"})
+    assert r.verdict == "matched"
+
+
+def test_n_digit_number_wrong_length_unmatched() -> None:
+    r = evaluate("@prescriber_npi is a 10-digit number", {"prescriber_npi": "12345"})
+    assert r.verdict == "unmatched"
+
+
+def test_n_digit_number_with_letters_unmatched() -> None:
+    r = evaluate("@prescriber_npi is a 10-digit number", {"prescriber_npi": "ABC123"})
+    assert r.verdict == "unmatched"
+
+
+def test_n_digit_number_undetermined_when_missing() -> None:
+    r = evaluate("@prescriber_npi is a 10-digit number", {})
+    assert r.verdict == "undetermined"
+
+
+def test_within_last_months_matched_for_recent_iso_date() -> None:
+    from datetime import date, timedelta
+    recent = (date.today() - timedelta(days=30)).isoformat()
+    r = evaluate("@rx_date_written is within the last 12 months of today",
+                 {"rx_date_written": recent})
+    assert r.verdict == "matched"
+
+
+def test_within_last_months_unmatched_for_old_date() -> None:
+    from datetime import date, timedelta
+    old = (date.today() - timedelta(days=400)).isoformat()
+    r = evaluate("@rx_date_written is within the last 12 months of today",
+                 {"rx_date_written": old})
+    assert r.verdict == "unmatched"
+
+
+def test_within_last_accepts_slash_us_date_format() -> None:
+    # Extractor sometimes emits MM/DD/YYYY on scanned PDFs — the
+    # evaluator's date parser should accept either shape.
+    from datetime import date, timedelta
+    d = date.today() - timedelta(days=10)
+    slash = f"{d.month:02d}/{d.day:02d}/{d.year}"
+    r = evaluate("@rx_date_written is within the last 12 months of today",
+                 {"rx_date_written": slash})
+    assert r.verdict == "matched"
+
+
+def test_within_last_days_and_years_units() -> None:
+    from datetime import date, timedelta
+    two_days_ago = (date.today() - timedelta(days=2)).isoformat()
+    r = evaluate("@dx_primary_date is within the last 7 days of today",
+                 {"dx_primary_date": two_days_ago})
+    assert r.verdict == "matched"
+    r2 = evaluate("@dx_primary_date is within the last 1 year of today",
+                  {"dx_primary_date": two_days_ago})
+    assert r2.verdict == "matched"
+
+
+def test_within_last_undetermined_when_field_missing() -> None:
+    r = evaluate("@rx_date_written is within the last 12 months of today", {})
+    assert r.verdict == "undetermined"
+
+
+def test_within_last_unparseable_when_value_not_a_date() -> None:
+    # Evaluator punts to the LLM when the actual value can't be parsed
+    # as a date — the rule shape doesn't fit the data.
+    r = evaluate("@rx_date_written is within the last 12 months of today",
+                 {"rx_date_written": "not-a-date"})
     assert r.verdict == "unparseable"
+
+
+def test_cv_clin_01_cardio_full_criterion_matched() -> None:
+    """QC-73/74 replay — full CV-CLIN-01-cardio criterion with all three
+    predicates now parses end-to-end. This is the case that motivated
+    the grammar extension."""
+    from datetime import date, timedelta
+    recent = (date.today() - timedelta(days=90)).isoformat()
+    r = evaluate(
+        "@rx_medication is 'Cardiovita' AND @prescriber_npi is a 10-digit number "
+        "AND @rx_date_written is within the last 12 months of today",
+        {
+            "rx_medication": "Cardiovita",
+            "prescriber_npi": "1234567890",
+            "rx_date_written": recent,
+        },
+    )
+    assert r.verdict == "matched", f"expected matched, got {r.verdict} — steps: {r.steps}"
+    assert len(r.steps) == 3
+    assert all(s.result is True for s in r.steps)
 
 
 def test_mixed_and_or_without_parens_is_unparseable() -> None:

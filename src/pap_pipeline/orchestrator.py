@@ -100,7 +100,7 @@ async def run_from_intake(
     mdm_source: MdmSource | None = None,
     extras: dict[str, Any] | None = None,
     rules: list[Rule] | None = None,
-    k: int = 4,
+    k: int = 20,
 ) -> Decision:
     """Run retrieve + mdm.lookup → reason against an already-extracted Intake.
 
@@ -338,7 +338,7 @@ async def run(
     mdm_source: MdmSource | None = None,
     slots: list[dict[str, Any]] | None = None,
     rules: list[Rule] | None = None,
-    k: int = 4,
+    k: int = 20,
 ) -> Decision:
     """Full pipeline — attachments in, Decision out.
 
@@ -371,7 +371,7 @@ async def run_with_intake(
     mdm_source: MdmSource | None = None,
     slots: list[dict[str, Any]] | None = None,
     rules: list[Rule] | None = None,
-    k: int = 4,
+    k: int = 20,
     subject: str | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Same as :func:`run` but also returns the raw extraction dict + Intake.
@@ -435,7 +435,7 @@ async def run_triaged_from_intake(
     mdm_source: MdmSource | None = None,
     extras: dict[str, Any] | None = None,
     rules: list[Rule] | None = None,
-    k: int = 4,
+    k: int = 20,
     subject: str | None = None,
 ) -> Decision:
     """Triage → (Decide or skip-Decide) against an already-parsed Intake.

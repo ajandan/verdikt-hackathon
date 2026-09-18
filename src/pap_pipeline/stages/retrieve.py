@@ -65,7 +65,7 @@ async def retrieve(
     config: RetrieveClientConfig,
     program: str | None = None,
     rules: list[Rule] | None = None,
-    k: int = 4,
+    k: int = 20,
     embed_top_n: int | None = None,
 ) -> list[RetrievedRule]:
     """Retrieve the top-k eligibility rules relevant to this intake.
@@ -82,10 +82,15 @@ async def retrieve(
         Explicit rule corpus. Overrides the YAML loader — used by tests and
         by the orchestrator when the rule set has already been staged.
     k
-        Number of reranked rules to return.
+        Number of reranked rules to return. Default 20 so every rule
+        attached to a program at demo scale reaches the reasoner. A future
+        rewrite that supports much larger rule libraries can dial this
+        back once we have per-program tuning; the "no-truncation" contract
+        operators expect ("the rules I authored are the rules that run")
+        is the safer default until then.
     embed_top_n
         First-stage cut. When None, defaults to `max(k * 3, len(corpus))` so
-        the demo scale (four rules) always sees every rule in the reranker.
+        the demo scale always sees every rule in the reranker.
     """
     corpus = rules if rules is not None else load_rules(program)
     if not corpus:

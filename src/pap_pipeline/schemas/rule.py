@@ -23,6 +23,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 RuleKind = Literal["financial", "insurance", "residency", "clinical", "history"]
+OnMatch = Literal["approve", "deny", "approve_shortcircuit"]
 
 
 class Rule(BaseModel):
@@ -47,6 +48,13 @@ class Rule(BaseModel):
                   be declared in `programs.history_slots`) and by the
                   orchestrator's history-citation attacher (a rule only earns
                   a history citation when a slot it references fired).
+    - `on_match`  polarity — how a matched=true verdict influences composed
+                  outcome. 'approve' = positive gate (must match to
+                  approve); 'deny' = negative gate (matches triggers deny);
+                  'approve_shortcircuit' = fast-path (matches approves
+                  immediately). Defaults to 'approve' — the most common
+                  shape and the safer default (misdefaulted rules tighten
+                  the verdict, never loosen it).
     """
 
     id: str
@@ -57,6 +65,7 @@ class Rule(BaseModel):
     exception: str = Field(default="", max_length=400)
     fields: list[str] = Field(default_factory=list)
     references_slots: list[str] | None = None
+    on_match: OnMatch = "approve"
 
     def as_prompt_block(self) -> str:
         """Format the rule as the exact block the LLM sees.

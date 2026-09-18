@@ -379,6 +379,27 @@ class Rule(Base):
     # the picker and skipped by the retriever even for programs that link it
     # — think "retired rule" rather than "temporarily off for this program".
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Polarity — how a matched=true verdict influences the composed outcome.
+    # Three shapes cover every rule pattern in the CardioVita library and
+    # let the orchestrator derive a decision from citations mechanically
+    # instead of trusting a free-form LLM synthesis (see ADR / Chunk 3
+    # of the polarity rollout).
+    #
+    #   'approve'              positive gate — matched=true is required
+    #                          for approval; matched=false triggers deny.
+    #                          Example: CV-INC-01 (income ≤ 400% FPL).
+    #   'deny'                 negative gate — matched=true triggers deny;
+    #                          matched=false means the blocker doesn't apply.
+    #                          Example: CV-HIS-01 (active prior enrollment).
+    #   'approve_shortcircuit' fast-path override — matched=true approves
+    #                          immediately, regardless of other rules.
+    #                          Example: CV-HIS-02 (renewal fast-path).
+    #
+    # Default is 'approve' — the most common shape AND the safer default
+    # (a misdefaulted rule tightens the verdict, never loosens it).
+    on_match: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="approve", server_default="approve"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -428,6 +449,11 @@ class RuleVersion(Base):
     fields: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     references_slots: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    # Polarity snapshot — see Rule.on_match. Older snapshots default to
+    # 'approve' at the DB level.
+    on_match: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="approve", server_default="approve"
+    )
 
     # Actor context. `actor_user_id` is null when the write came from the
     # env-var break-glass super_admin (no DB user row) or from a backfill.

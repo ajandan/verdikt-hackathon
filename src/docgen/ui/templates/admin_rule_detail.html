@@ -370,6 +370,21 @@
                         {% endif %}
                     </div>
                     <div>
+                        {%- set _r_om = rule.on_match or 'approve' -%}
+                        <span class="rv-meta-label">On match</span>
+                        <div class="rv-block-body">
+                            {% if _r_om == 'approve' %}
+                                <strong>Approve gate</strong> — must match to approve
+                            {% elif _r_om == 'deny' %}
+                                <strong>Deny gate</strong> — if matched, denies
+                            {% elif _r_om == 'approve_shortcircuit' %}
+                                <strong>Fast-path</strong> — if matched, approves immediately
+                            {% else %}
+                                {{ _r_om }}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
                         <span class="rv-meta-label">Tenant</span>
                         <div class="rv-block-body">{{ tenant.name if tenant else '—' }}</div>
                     </div>
@@ -396,6 +411,7 @@
             {%- set _exception = fv.get('exception', rule.exception or '') -%}
             {%- set _fields = fv.get('fields', rule.fields) -%}
             {%- set _is_active = fv.get('is_active', rule.is_active) -%}
+            {%- set _on_match = fv.get('on_match', rule.on_match or 'approve') -%}
             {%- set _slots_url = ('/ui/programs/' ~ schema_program_id ~ '/slots.json') if schema_program_id else '' -%}
 
             <form id="rule-edit" class="rule-form" method="post" action="/ui/rules/{{ rule.id }}"
@@ -429,6 +445,26 @@
                     {% endfor %}
                 </select>
                 {% if fe.kind %}<div class="field-error">{{ fe.kind }}</div>{% endif %}
+
+                {#- Polarity picker: how a matched=true verdict influences the
+                    composed outcome. Load-bearing for deterministic outcome
+                    derivation — the orchestrator can only correctly compose
+                    approve/deny/missing_info from citations when each rule
+                    declares whether "matched" means "approve gate satisfied",
+                    "deny trigger fired", or "fast-path approve". -#}
+                <label for="on_match">On match</label>
+                <select id="on_match" name="on_match" class="{% if fe.on_match %}has-error{% endif %}">
+                    {% for v in rule_on_match_values %}
+                    <option value="{{ v }}" {% if _on_match == v %}selected{% endif %}>{{ rule_on_match_labels.get(v, v) }}</option>
+                    {% endfor %}
+                </select>
+                {% if fe.on_match %}<div class="field-error">{{ fe.on_match }}</div>{% endif %}
+                <div class="muted" style="font-size: 12px; margin-top: 4px">
+                    Positive gates (<strong>approve</strong>) must match to approve;
+                    negative gates (<strong>deny</strong>) trigger deny when they match;
+                    fast-paths (<strong>approve_shortcircuit</strong>) approve immediately
+                    regardless of other rules.
+                </div>
 
                 <label for="fields">Intake fields</label>
                 {#- data-at-field-typeahead here lets the shared widget

@@ -133,6 +133,12 @@ def _row_to_rule(rule_row: Any, program: str) -> Rule:
         exception=rule_row.exception or "",
         fields=list(rule_row.fields or []),
         references_slots=list(rule_row.references_slots) if rule_row.references_slots else None,
+        # Polarity — how matched=true influences the composed outcome.
+        # Older rows before migration 0038 default to 'approve' at the
+        # DB level; getattr fallback keeps the ORM-side round-trip safe
+        # even if a caller hydrated a Rule from a raw dict missing the
+        # column.
+        on_match=getattr(rule_row, "on_match", "approve") or "approve",
     )
 
 

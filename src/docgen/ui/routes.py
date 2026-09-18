@@ -6290,6 +6290,15 @@ async def program_slots_json(
 # read from one source. Must stay in sync with the ck_rules_kind check
 # constraint and RuleKind Literal in pap_pipeline.schemas.rule.
 _RULE_KINDS = ("financial", "insurance", "residency", "clinical", "history")
+# Polarity picker values. Kept as a plain tuple mirroring the OnMatch Literal
+# on pap_pipeline.schemas.rule so a mismatch (rule schema vs UI dropdown)
+# would show up at test time rather than as a silent 500.
+_RULE_ON_MATCH_VALUES = ("approve", "deny", "approve_shortcircuit")
+_RULE_ON_MATCH_LABELS = {
+    "approve": "Approve gate — must match to approve (positive gate)",
+    "deny": "Deny gate — if matched, denies (negative gate)",
+    "approve_shortcircuit": "Fast-path — if matched, approves immediately",
+}
 
 
 def _parse_rule_fields(raw: str) -> list[str]:
@@ -6351,6 +6360,7 @@ async def _snapshot_rule_version(
         fields=list(rule.fields or []),
         references_slots=(list(rule.references_slots) if rule.references_slots else None),
         is_active=rule.is_active,
+        on_match=rule.on_match or "approve",
         actor_user_id=(ident.user_id if ident else None),
         actor_username=(ident.username if ident else "system"),
         change_note=(change_note or "")[:200],
@@ -6982,6 +6992,8 @@ async def _rule_detail_ctx(
         attached_programs=attached,
         versions=versions,
         rule_kinds=_RULE_KINDS,
+        rule_on_match_values=_RULE_ON_MATCH_VALUES,
+        rule_on_match_labels=_RULE_ON_MATCH_LABELS,
         schema_program_id=schema_program_id,
         schema_slots=schema_slots,
         form_values=form_values or {},
@@ -7050,6 +7062,11 @@ async def rule_update(
     fields_raw = form.get("fields") or ""
     fields_list = _parse_rule_fields(fields_raw)
     is_active_val = form.get("is_active") == "on"
+    # Polarity — the load-bearing signal for composite outcome derivation.
+    # Fall back to the current DB value so operators editing a rule pre-
+    # migration don't accidentally reset it to a default just by not
+    # touching the picker.
+    on_match_val = (form.get("on_match") or rule.on_match or "approve").strip()
 
     # Build the schema slot list up front — the client-side pickers on
     # this page fetch the same list from /ui/programs/{id}/slots.json,
@@ -7080,6 +7097,10 @@ async def rule_update(
         errors["title"] = "Title cannot be empty."
     if not criterion_val:
         errors["criterion"] = "Criterion cannot be empty."
+    if on_match_val not in _RULE_ON_MATCH_VALUES:
+        errors["on_match"] = (
+            f"Must be one of {', '.join(_RULE_ON_MATCH_VALUES)}."
+        )
 
     # Vocabulary validation — only when we have a schema to validate
     # against. Library rules without a linked program get free-text
@@ -7129,6 +7150,7 @@ async def rule_update(
             "exception": exception_val,
             "fields": fields_list,
             "is_active": is_active_val,
+            "on_match": on_match_val,
         }
         ctx = await _rule_detail_ctx(
             request, session, rule,
@@ -7148,6 +7170,7 @@ async def rule_update(
     # exactly what the parser extracts from the new text.
     rule.field_refs = parse_field_refs(criterion_val, exception_val)
     rule.is_active = is_active_val
+    rule.on_match = on_match_val
     # Cache pre-commit — commit expires attrs, log/redirect after would
     # trigger MissingGreenlet in async context (same pattern as the
     # copy-to-program handler fix).

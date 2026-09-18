@@ -274,12 +274,24 @@ async def run_from_intake(
     )
     # Deterministic rule evaluator: for rules whose criterion falls
     # within the boolean subset (=, is, ≤/≥, ∈ {…}, AND/OR of the same),
-    # cross-check the reasoner's matched= against a mechanical verdict
-    # and stitch a plain-English trace onto decision.rule_traces for
-    # the UI. Disagreements land as warning-level verifier findings.
+    # cross-check the reasoner's matched= against a mechanical verdict.
+    # On disagreement the citation.matched is OVERRIDDEN to the
+    # deterministic answer (LLM's original is preserved on the finding
+    # + trace), and a plain-English step trace is attached for the UI.
     decision = _attach_rule_evaluator_traces(
         decision, reranked_rules, intake, merged_extras
     )
+    # Strip bogus missing_fields the reasoner may have invented (fields
+    # not declared on any cited rule). Runs BEFORE the composer so it
+    # doesn't override an outcome using a hallucinated required field.
+    decision = _strip_bogus_missing_fields(decision, reranked_rules)
+    # Composite outcome from citations + polarity: when every cited
+    # rule has a decisive deterministic verdict, we compose approve/
+    # deny mechanically from the rules' on_match polarity instead of
+    # trusting the LLM's synthesis. Fixes QC-0069-style errors where
+    # Nemotron said missing_info despite a fast-path approve rule
+    # matching cleanly.
+    decision = _compose_outcome_from_polarity(decision, reranked_rules)
     decision = _attach_retrieval_scores(decision, retrieved)
     decision = _attach_history_citations(decision, history, reranked_rules)
     decision = _attach_verifier_findings(
@@ -333,47 +345,195 @@ def _attach_rule_evaluator_traces(
 
     traces: dict[str, dict[str, Any]] = {}
     new_findings: list[VerifierFinding] = []
+    new_citations: list[Citation] = []
     for cit in decision.citations:
         if cit.type != "rule" or not cit.rule_id:
+            new_citations.append(cit)
             continue
         rule = rules_by_id.get(cit.rule_id)
         if rule is None:
+            new_citations.append(cit)
             continue
         result = _evaluate_rule(rule.criterion or "", values)
-        # Compare only when deterministic returned matched/unmatched —
-        # undetermined + unparseable carry no ground truth to challenge
-        # the LLM with.
         agrees: bool | None = None
+        override_applied = False
+        new_cit = cit
         if result.verdict in ("matched", "unmatched"):
             det_matched = result.verdict == "matched"
             agrees = det_matched == bool(cit.matched)
             if not agrees:
+                # Truth wins: override the citation so downstream
+                # composers see the deterministic verdict. Preserve
+                # the LLM's original on the finding for transparency.
+                new_cit = cit.model_copy(update={"matched": det_matched})
+                override_applied = True
                 new_findings.append(
                     VerifierFinding(
                         type="reason_disagrees_with_deterministic_evaluator",
                         severity="warning",
                         detail={
                             "rule_id": cit.rule_id,
-                            "reason_matched": bool(cit.matched),
+                            "reason_matched_original": bool(cit.matched),
                             "deterministic_verdict": result.verdict,
+                            "matched_after_override": det_matched,
                             "justification": result.justification,
                         },
                     )
                 )
+        new_citations.append(new_cit)
         traces[cit.rule_id] = {
             "verdict": result.verdict,
             "steps": [{"text": s.text, "result": s.result} for s in result.steps],
             "justification": result.justification,
             "agrees_with_reason": agrees,
+            "reason_matched_original": bool(cit.matched),
+            "override_applied": override_applied,
         }
 
     if not traces and not new_findings:
         return decision
-    updates: dict[str, Any] = {}
+    updates: dict[str, Any] = {"citations": new_citations}
     if traces:
         updates["rule_traces"] = traces
     if new_findings:
         updates["verifier_findings"] = [*decision.verifier_findings, *new_findings]
+    return decision.model_copy(update=updates)
+
+
+def _strip_bogus_missing_fields(
+    decision: Decision,
+    rules: list[Rule],
+) -> Decision:
+    """Remove entries from ``decision.missing_fields`` that aren't
+    declared by any cited rule.
+
+    Nemotron periodically fabricates required-field claims that no rule
+    in the citation set actually references (QC-0069 asked for
+    ``has_denial_letter`` when none of the 7 cited rules declared it).
+    A ``missing_field_not_referenced_by_cited_rule`` verifier finding
+    already fires for these; this pass takes the corrective step so
+    downstream reply letters + JSON verdicts don't propagate the
+    hallucinated ask to the applicant.
+    """
+    if not decision.missing_fields or not decision.citations:
+        return decision
+    rules_by_id = {r.id: r for r in rules or []}
+    cited_field_set: set[str] = set()
+    for cit in decision.citations:
+        if cit.type != "rule" or not cit.rule_id:
+            continue
+        rule = rules_by_id.get(cit.rule_id)
+        if rule is None:
+            continue
+        for f in rule.fields or []:
+            cited_field_set.add(f)
+    pruned = [f for f in decision.missing_fields if f in cited_field_set]
+    if pruned == list(decision.missing_fields):
+        return decision
+    return decision.model_copy(update={"missing_fields": pruned})
+
+
+def _compose_outcome_from_polarity(
+    decision: Decision,
+    rules: list[Rule],
+) -> Decision:
+    """Derive the outcome mechanically from citations + rule polarity.
+
+    Applied only when every cited rule has a decisive per-rule verdict
+    on ``decision.rule_traces`` (matched or unmatched from the
+    deterministic evaluator). Rules that fall in the ``undetermined``
+    or ``unparseable`` buckets leave uncertainty the composer can't
+    resolve — in those cases the reasoner's own outcome stays.
+
+    State machine (ordered — first match wins):
+
+      1. Any ``on_match=approve_shortcircuit`` rule matched → **approve**
+         (fast-path override, e.g. renewal-track).
+      2. Any ``on_match=deny`` rule matched → **deny**
+         (blocker fired — a "if X, deny" rule was satisfied).
+      3. Any ``on_match=approve`` rule unmatched → **deny**
+         (an approval gate failed — required condition not met).
+      4. Else (all approve-gates matched, no deny-rule fired) → **approve**.
+
+    Undetermined citations short-circuit to missing_info — an approve-gate
+    we couldn't evaluate means we can't confidently derive approve OR
+    deny. Unparseable rules leave the LLM in charge.
+
+    Rationale is rewritten to name the deciding rule(s) so the letter
+    body says something concrete instead of the LLM's opaque one-liner.
+    """
+    if not rules or not decision.citations:
+        return decision
+    rules_by_id = {r.id: r for r in rules}
+    traces = decision.rule_traces or {}
+    if not traces:
+        return decision
+
+    rule_cites = [c for c in decision.citations if c.type == "rule" and c.rule_id]
+    if not rule_cites:
+        return decision
+
+    # Require decisive verdicts on ALL cited rules with a matching
+    # trace before we override the reasoner's outcome. Any undetermined
+    # rule stays as missing_info; any unparseable rule leaves the LLM
+    # in charge.
+    for cit in rule_cites:
+        t = traces.get(cit.rule_id)
+        if t is None:
+            return decision  # no trace — trust the LLM
+        v = t.get("verdict")
+        if v == "undetermined":
+            if decision.outcome != "missing_info":
+                return decision.model_copy(update={"outcome": "missing_info"})
+            return decision
+        if v not in ("matched", "unmatched"):
+            return decision  # unparseable — LLM authoritative
+
+    # All decisive. Apply the state machine.
+    fired_shortcircuit: list[str] = []
+    fired_deny: list[str] = []
+    failed_approve: list[str] = []
+    for cit in rule_cites:
+        rule = rules_by_id.get(cit.rule_id)
+        if rule is None:
+            continue
+        pol = getattr(rule, "on_match", "approve") or "approve"
+        matched = bool(cit.matched)
+        if pol == "approve_shortcircuit" and matched:
+            fired_shortcircuit.append(cit.rule_id)
+        elif pol == "deny" and matched:
+            fired_deny.append(cit.rule_id)
+        elif pol == "approve" and not matched:
+            failed_approve.append(cit.rule_id)
+
+    if fired_shortcircuit:
+        new_outcome = "approve"
+        rationale = f"Fast-path approval: {', '.join(fired_shortcircuit)} matched."
+    elif fired_deny:
+        new_outcome = "deny"
+        rationale = f"Blocker rule(s) fired: {', '.join(fired_deny)}."
+    elif failed_approve:
+        new_outcome = "deny"
+        rationale = f"Required approval gate(s) not met: {', '.join(failed_approve)}."
+    else:
+        new_outcome = "approve"
+        rationale = "All approval gates matched; no blocker rules fired."
+
+    updates: dict[str, Any] = {"outcome": new_outcome, "rationale": rationale}
+    # An approve/deny outcome with a non-empty missing_fields is
+    # incoherent — the reasoner's earlier list becomes vestigial when
+    # the composer decides on approve/deny. Clear it so the letter
+    # doesn't ask for fields we no longer need.
+    if new_outcome != "missing_info":
+        updates["missing_fields"] = []
+    log.info(
+        "pap_outcome_composed_from_polarity",
+        original_outcome=decision.outcome,
+        new_outcome=new_outcome,
+        fired_shortcircuit=fired_shortcircuit,
+        fired_deny=fired_deny,
+        failed_approve=failed_approve,
+    )
     return decision.model_copy(update=updates)
 
 

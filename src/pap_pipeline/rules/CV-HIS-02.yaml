@@ -1,6 +1,7 @@
 id: CV-HIS-02
 program: cardiovita-pap-2026
 kind: history
+on_match: approve_shortcircuit
 fields:
   - prior_enrollment_active
   - renewal_due_within_90d

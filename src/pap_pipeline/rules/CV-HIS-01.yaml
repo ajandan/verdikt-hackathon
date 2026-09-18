@@ -1,6 +1,7 @@
 id: CV-HIS-01
 program: cardiovita-pap-2026
 kind: history
+on_match: deny
 fields:
   - prior_enrollment_active
 title: No duplicate enrollment while a prior approval is active

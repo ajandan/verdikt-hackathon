@@ -26,6 +26,15 @@
     .slot-table textarea { min-height: 46px; resize: vertical; font-family: inherit; }
     .slot-table .col-required { text-align: center; }
     .slot-table .col-drag { width: 24px; color: var(--text-muted); }
+    /* Serial-number column — narrow, tabular, muted so the eye jumps
+       straight to the slot name. Renumbers via JS whenever a row is
+       added so the count matches the row set. */
+    .slot-table .col-seq {
+        width: 42px; text-align: right; padding-right: 12px;
+        color: var(--text-muted); font-size: 12px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
     .slot-name {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
@@ -220,6 +229,7 @@
                 <table class="slot-table" id="slot-table">
                     <thead>
                         <tr>
+                            <th class="col-seq">#</th>
                             <th style="min-width: 160px">Slot name</th>
                             <th style="width: 110px">Type</th>
                             <th>Description</th>
@@ -231,6 +241,7 @@
                     <tbody id="slot-tbody">
                     {% for s in slots %}
                         <tr>
+                            <td class="col-seq">{{ loop.index }}</td>
                             <td><input type="text" name="slot_name" value="{{ s.name or '' }}" class="slot-name" required></td>
                             <td>
                                 <select name="slot_type">
@@ -889,6 +900,7 @@
 
 <template id="slot-row-template">
     <tr>
+        <td class="col-seq"></td>
         <td><input type="text" name="slot_name" class="slot-name" required></td>
         <td>
             <select name="slot_type">
@@ -912,11 +924,21 @@
     var tbody = document.getElementById('slot-tbody');
     var tmpl = document.getElementById('slot-row-template');
     if (!btn || !tbody || !tmpl) return;
+    // Renumber the "#" column in-place. Cheap enough to run on every
+    // row change — 200 slots × O(1) DOM writes.
+    function renumberSeq() {
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function (tr, i) {
+            var cell = tr.querySelector('.col-seq');
+            if (cell) cell.textContent = String(i + 1);
+        });
+    }
     btn.addEventListener('click', function() {
         var frag = tmpl.content.cloneNode(true);
         var cb = frag.querySelector('input[name="slot_required"]');
         if (cb) cb.value = String(tbody.children.length);
         tbody.appendChild(frag);
+        renumberSeq();
     });
 
     var tabs = document.querySelectorAll('.prog-tabs .tab');

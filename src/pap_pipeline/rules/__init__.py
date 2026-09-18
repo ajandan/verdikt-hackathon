@@ -40,13 +40,24 @@ def _load_yaml_rules(program: str | None) -> list[Rule]:
 
 
 def _load_db_rules(session: Any, program: str, tenant_id: Any | None) -> list[Rule] | None:
-    """Resolve the tenant's Program row for `program`, then walk its
-    `ProgramRuleLink` rows into the tenant's `Rule` library. Both the link
-    and the library rule must be active. Ordered by the link's `position`.
+    """Resolve the tenant's Program row for ``program``, then return every
+    rule that applies to it — the union of two sources:
+
+    1. **Library rules attached via `program_rule_links`** — the legacy
+       path where a tenant-shared rule is linked to N programs. Ordered
+       by the link's ``position`` field.
+    2. **Program-scoped rules** with ``rules.program_id = program.id`` —
+       introduced by 0037 as the "copy-and-remap" output of the
+       copy-to-program wizard. Ordered by ``rule_id`` after the linked
+       set. These use the program's @-field vocabulary directly.
+
+    Deduplicated by ``rule_id`` in case an operator copied a rule AND
+    also happened to link its library source — the program-scoped copy
+    wins so the wizard-authored @-refs are honored.
 
     Returns None (not empty list) when no matching program row exists —
-    signals the caller to fall back to YAML. Empty list means the program
-    exists but has no active links.
+    signals the caller to fall back to YAML. Empty list means the
+    program exists but has neither links nor scoped copies.
     """
     from docgen.store.models import Program, ProgramRuleLink
     from docgen.store.models import Rule as RuleRow
@@ -59,7 +70,9 @@ def _load_db_rules(session: Any, program: str, tenant_id: Any | None) -> list[Ru
     prog = q.first()
     if prog is None:
         return None
-    rows = (
+
+    # Legacy library-linked rules
+    linked_rows = (
         session.query(RuleRow, ProgramRuleLink)
         .join(ProgramRuleLink, ProgramRuleLink.rule_id == RuleRow.id)
         .filter(
@@ -70,19 +83,57 @@ def _load_db_rules(session: Any, program: str, tenant_id: Any | None) -> list[Ru
         .order_by(ProgramRuleLink.position, RuleRow.rule_id)
         .all()
     )
-    return [
-        Rule(
-            id=rule_row.rule_id,
-            program=program,
-            kind=rule_row.kind,
-            title=rule_row.title,
-            criterion=rule_row.criterion,
-            exception=rule_row.exception or "",
-            fields=list(rule_row.fields or []),
-            references_slots=list(rule_row.references_slots) if rule_row.references_slots else None,
+
+    # Program-scoped copies (0037). These carry the program's own
+    # @-field vocabulary in criterion/exception so the reasoner
+    # evaluates them against the raw extraction dict without needing a
+    # canonical Intake bridge.
+    scoped_rows = (
+        session.query(RuleRow)
+        .filter(
+            RuleRow.program_id == prog.id,
+            RuleRow.is_active.is_(True),
         )
-        for rule_row, _link in rows
-    ]
+        .order_by(RuleRow.rule_id)
+        .all()
+    )
+
+    # Program-scoped copies win over library links on rule_id collision.
+    # Order preserved: scoped rules first (they're the intentional
+    # per-program vocabulary), then any non-colliding linked rules.
+    out: list[Rule] = []
+    seen: set[str] = set()
+    for r in scoped_rows:
+        if r.rule_id in seen:
+            continue
+        seen.add(r.rule_id)
+        out.append(_row_to_rule(r, program))
+    for rule_row, _link in linked_rows:
+        if rule_row.rule_id in seen:
+            continue
+        seen.add(rule_row.rule_id)
+        out.append(_row_to_rule(rule_row, program))
+    return out
+
+
+def _row_to_rule(rule_row: Any, program: str) -> Rule:
+    """Convert a Rule ORM row into the pipeline's :class:`Rule` schema.
+
+    Extracted so both the scoped-copy path and the library-linked path
+    build the same shape. Deliberately drops ``program_id`` and
+    ``field_refs`` from the pipeline schema — those are storage-layer
+    concerns; the reasoner only needs the criterion text.
+    """
+    return Rule(
+        id=rule_row.rule_id,
+        program=program,
+        kind=rule_row.kind,
+        title=rule_row.title,
+        criterion=rule_row.criterion,
+        exception=rule_row.exception or "",
+        fields=list(rule_row.fields or []),
+        references_slots=list(rule_row.references_slots) if rule_row.references_slots else None,
+    )
 
 
 def load_rules(

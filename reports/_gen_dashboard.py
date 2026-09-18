@@ -73,6 +73,9 @@ SUITES: list[tuple[str, str, str, list[str]]] = [
             "test_pap_triage_llm",
             "test_pap_triage_skip_decide",
             "test_pap_config_resolver",
+            # Phase C: load_rules union + silent-drop diagnostics
+            "test_load_rules_program_scoped",
+            "test_intake_coerce_silent_drop",
         ],
     ),
     (

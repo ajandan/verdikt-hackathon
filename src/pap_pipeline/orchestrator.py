@@ -38,6 +38,10 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
+import structlog
+
+log = structlog.get_logger(__name__)
+
 from pydantic import ValidationError
 
 from pap_pipeline.schemas.decision import Citation, Decision
@@ -529,19 +533,50 @@ def _intake_from_extraction(raw: dict[str, Any]) -> Intake:
     ValidationError (e.g., the VLM returned a value that fails a field
     validator), retries field-by-field and drops the offending keys — one
     bad value from the model shouldn't wipe the rest of the intake.
+
+    Silent-drop diagnostic: every extraction key that isn't a canonical
+    Intake field OR that fails per-key validation is logged at WARN so
+    operators can immediately see program-vs-Intake vocabulary
+    mismatches. Dropped values are still available to the reasoner via
+    :func:`_extras_from_extraction`, so this log is diagnostic, not a
+    data-loss alarm.
     """
     known = set(Intake.model_fields.keys())
+    non_canonical = sorted(set((raw or {}).keys()) - known)
+    if non_canonical:
+        # Truncate the sample so the log line stays scannable when a
+        # program schema declares dozens of extras.
+        sample = non_canonical[:12]
+        log.warning(
+            "intake_coerce_dropped_non_canonical_keys",
+            dropped_count=len(non_canonical),
+            sample=sample,
+            hint="These keys are preserved in extras and visible to the reasoner; "
+                 "add matching Intake canonical slots to the program's extraction_schema "
+                 "if you want them coerced onto Intake fields.",
+        )
+
     clean: dict[str, Any] = {k: v for k, v in (raw or {}).items() if k in known}
     try:
         return Intake.model_validate(clean)
     except ValidationError:
         good: dict[str, Any] = {}
+        dropped_invalid: list[str] = []
         for k, v in clean.items():
             try:
                 Intake.model_validate({k: v})
             except ValidationError:
+                dropped_invalid.append(k)
                 continue
             good[k] = v
+        if dropped_invalid:
+            log.warning(
+                "intake_coerce_dropped_invalid_values",
+                fields=dropped_invalid,
+                hint="Extractor returned values that failed Intake field validators. "
+                     "Common causes: enum values not exactly matching the allowed set, "
+                     "date strings that aren't ISO YYYY-MM-DD.",
+            )
         return Intake.model_validate(good)
 
 

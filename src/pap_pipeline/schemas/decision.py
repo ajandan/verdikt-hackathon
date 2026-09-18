@@ -29,7 +29,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-Outcome = Literal["approve", "deny", "missing_info"]
+Outcome = Literal["approve", "deny", "missing_info", "routed"]
 CitationType = Literal["rule", "history"]
 FindingType = Literal[
     "extract_disagreement",
@@ -41,6 +41,7 @@ FindingType = Literal[
     "outcome_approve_no_matched_citation",
     "outcome_deny_no_unmatched_citation",
     "outcome_outside_declared_vocabulary",
+    "reason_disagrees_with_deterministic_evaluator",
 ]
 FindingSeverity = Literal["critical", "warning"]
 
@@ -139,6 +140,18 @@ class Decision(BaseModel):
     # (dual-VLM cross-check) and deterministic citation-consistency flags.
     # Non-empty findings escalate the case to HumanLoop.
     verifier_findings: list[VerifierFinding] = Field(default_factory=list)
+    # Per-rule deterministic evaluator output, keyed by rule_id.
+    # Populated after the reason stage by the orchestrator when a rule's
+    # criterion falls within the boolean subset the evaluator handles
+    # (see pap_pipeline.rule_evaluator). Each entry carries:
+    #   {"verdict": matched|unmatched|undetermined|unparseable,
+    #    "steps": [{"text": str, "result": bool|None}, ...],
+    #    "justification": str,
+    #    "agrees_with_reason": bool|None}
+    # "agrees_with_reason" is None when the evaluator was unparseable
+    # (no comparison possible); False cases surface as verifier
+    # findings so the reviewer sees both answers side-by-side.
+    rule_traces: dict[str, dict[str, Any]] = Field(default_factory=dict)
     # Populated by the Triage stage (runs after extract, before retrieve).
     # Optional so pre-Triage callers and stored Decisions from before the
     # Triage rollout still validate. Non-null carries the case_type +

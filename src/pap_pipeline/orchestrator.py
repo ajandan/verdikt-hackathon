@@ -121,7 +121,8 @@ log = structlog.get_logger(__name__)
 
 from pydantic import ValidationError
 
-from pap_pipeline.schemas.decision import Citation, Decision
+from pap_pipeline.rule_evaluator import evaluate as _evaluate_rule
+from pap_pipeline.schemas.decision import Citation, Decision, VerifierFinding
 from pap_pipeline.schemas.history import HistorySlice
 from pap_pipeline.schemas.intake import Intake
 from pap_pipeline.schemas.rule import Rule
@@ -271,15 +272,109 @@ async def run_from_intake(
     decision = _enforce_undetermined_outcome(
         decision, reranked_rules, intake, merged_extras
     )
+    # Deterministic rule evaluator: for rules whose criterion falls
+    # within the boolean subset (=, is, ≤/≥, ∈ {…}, AND/OR of the same),
+    # cross-check the reasoner's matched= against a mechanical verdict
+    # and stitch a plain-English trace onto decision.rule_traces for
+    # the UI. Disagreements land as warning-level verifier findings.
+    decision = _attach_rule_evaluator_traces(
+        decision, reranked_rules, intake, merged_extras
+    )
     decision = _attach_retrieval_scores(decision, retrieved)
     decision = _attach_history_citations(decision, history, reranked_rules)
-    return _attach_verifier_findings(
+    decision = _attach_verifier_findings(
         decision,
         intake=intake,
         extras=merged_extras,
         retrieved_rules=reranked_rules,
         declared_outcomes=config.declared_outcomes,
     )
+    # Prompt-injection defense: a crafted attachment can steer the
+    # reasoner to invent rule IDs. verify_decision already flags them as
+    # ``hallucinated_citation`` findings that force HumanLoop, but the
+    # citation still rides the Decision into the persisted JSON verdict
+    # and any downstream CRM consumer. Scrub them from the visible
+    # citations list so nothing external ever sees a fabricated rule_id;
+    # the audit trail keeps the finding for the reviewer.
+    return _scrub_hallucinated_rule_citations(decision, reranked_rules)
+
+
+def _attach_rule_evaluator_traces(
+    decision: Decision,
+    rules: list[Rule],
+    intake: Intake,
+    extras: dict[str, Any] | None,
+) -> Decision:
+    """Run the deterministic evaluator over each cited rule and stitch
+    its verdict + step trace onto ``decision.rule_traces``.
+
+    For rules whose criterion lands within the evaluator's boolean
+    subset the trace carries a machine-verified matched/unmatched
+    verdict plus a plain-English "here's exactly why" sentence — the UI
+    surfaces both directly under the Why? chips so operators see the
+    step-by-step reasoning without cracking the criterion open.
+
+    On disagreement (deterministic says matched, LLM said unmatched, or
+    vice versa) we emit a ``reason_disagrees_with_deterministic_evaluator``
+    verifier finding so the reviewer sees both answers side-by-side and
+    can decide which to trust. Undetermined and unparseable evaluations
+    don't disagree with anything by construction — the LLM's answer
+    stands for those.
+    """
+    if not rules or not decision.citations:
+        return decision
+
+    rules_by_id = {r.id: r for r in rules}
+    # Same merge order as _enforce_undetermined_outcome and reason's
+    # prompt builder: extras first, intake overrides on collision so
+    # applicant-submitted fields win over MDM-derived slots.
+    values: dict[str, Any] = dict(extras or {})
+    values.update(intake.model_dump(mode="json"))
+
+    traces: dict[str, dict[str, Any]] = {}
+    new_findings: list[VerifierFinding] = []
+    for cit in decision.citations:
+        if cit.type != "rule" or not cit.rule_id:
+            continue
+        rule = rules_by_id.get(cit.rule_id)
+        if rule is None:
+            continue
+        result = _evaluate_rule(rule.criterion or "", values)
+        # Compare only when deterministic returned matched/unmatched —
+        # undetermined + unparseable carry no ground truth to challenge
+        # the LLM with.
+        agrees: bool | None = None
+        if result.verdict in ("matched", "unmatched"):
+            det_matched = result.verdict == "matched"
+            agrees = det_matched == bool(cit.matched)
+            if not agrees:
+                new_findings.append(
+                    VerifierFinding(
+                        type="reason_disagrees_with_deterministic_evaluator",
+                        severity="warning",
+                        detail={
+                            "rule_id": cit.rule_id,
+                            "reason_matched": bool(cit.matched),
+                            "deterministic_verdict": result.verdict,
+                            "justification": result.justification,
+                        },
+                    )
+                )
+        traces[cit.rule_id] = {
+            "verdict": result.verdict,
+            "steps": [{"text": s.text, "result": s.result} for s in result.steps],
+            "justification": result.justification,
+            "agrees_with_reason": agrees,
+        }
+
+    if not traces and not new_findings:
+        return decision
+    updates: dict[str, Any] = {}
+    if traces:
+        updates["rule_traces"] = traces
+    if new_findings:
+        updates["verifier_findings"] = [*decision.verifier_findings, *new_findings]
+    return decision.model_copy(update=updates)
 
 
 def _enforce_undetermined_outcome(
@@ -438,6 +533,35 @@ def _attach_verifier_findings(
             "verifier_findings": [*decision.verifier_findings, *new_findings],
         }
     )
+
+
+def _scrub_hallucinated_rule_citations(
+    decision: Decision, retrieved_rules: list[Rule]
+) -> Decision:
+    """Drop rule-typed citations whose ``rule_id`` isn't in the retrieval set.
+
+    Paired with :func:`pap_pipeline.verify.verify_decision`, which already
+    records a ``hallucinated_citation`` finding for the same set — the
+    finding stays on ``decision.verifier_findings`` so the reviewer sees
+    the flag and blocks auto-approval. This function only removes the
+    fabricated citation from ``decision.citations`` so the persisted
+    JSON verdict and any downstream CRM never quotes an invented rule id.
+
+    Rule-typed citations only: history-typed citations are stitched by
+    the orchestrator itself from the trusted history slice and are
+    outside the reasoner's fabrication surface.
+    """
+    if not decision.citations:
+        return decision
+    retrieved_ids = {r.id for r in retrieved_rules}
+    kept = [
+        c
+        for c in decision.citations
+        if c.type != "rule" or (c.rule_id in retrieved_ids)
+    ]
+    if len(kept) == len(decision.citations):
+        return decision
+    return decision.model_copy(update={"citations": kept})
 
 
 def _attach_retrieval_scores(decision: Decision, retrieved) -> Decision:
@@ -756,10 +880,12 @@ async def run_triaged_from_intake(
     else:
         # Skip Decide (and Deliver — the caller sees decision.triage.route
         # and dispatches accordingly). Stub Decision keeps the audit trail
-        # complete; outcome="missing_info" is the closest existing Outcome
-        # value and the rationale explains it's a route, not missing info.
+        # complete; ``outcome="routed"`` is the dedicated sentinel so
+        # downstream branches (HumanLoop review-state assignment, verifier
+        # invariants, JSON verdict consumers) can distinguish "the pipeline
+        # dispatched this off-path" from "the pipeline asked for more info".
         decision = Decision(
-            outcome="missing_info",
+            outcome="routed",
             citations=[],
             missing_fields=[],
             rationale=(

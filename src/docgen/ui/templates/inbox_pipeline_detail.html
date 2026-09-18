@@ -264,6 +264,52 @@
     }
     .why-chip.missing .v { color: #b45309; font-style: italic; font-weight: 500; }
 
+    /* Deterministic-evaluator trace: plain-English justification +
+       per-subclause step list rendered under the Why chips. Two
+       visual signals: (a) headline sentence tinted by verdict
+       (green matched, red unmatched, amber undetermined, gray
+       unparseable/none); (b) numbered step list with per-clause
+       result glyphs. Reads as "here's exactly what the numbers
+       said" so a reviewer doesn't have to run the criterion in
+       their head. */
+    .why-verdict {
+        margin-top: 12px; padding-top: 12px;
+        border-top: 1px dashed var(--border);
+        font-size: 12.5px; line-height: 1.55; color: var(--text);
+    }
+    .why-verdict .headline { font-weight: 600; }
+    .why-verdict .headline .tag {
+        display: inline-block;
+        padding: 1px 8px; border-radius: 4px;
+        font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        vertical-align: 1px; margin-right: 8px;
+    }
+    .why-verdict.matched      .headline .tag { background: var(--success-soft); color: var(--success); }
+    .why-verdict.unmatched    .headline .tag { background: var(--danger-soft);  color: var(--danger);  }
+    .why-verdict.undetermined .headline .tag { background: rgba(245,158,11,0.14); color: #b45309; }
+    .why-verdict.unparseable  .headline .tag { background: var(--surface-2); color: var(--text-muted); }
+    .why-verdict.disagree     .headline .tag { background: var(--danger-soft);  color: var(--danger);  }
+
+    .why-verdict .steps {
+        margin: 8px 0 0; padding-left: 16px;
+        font-size: 12px; color: var(--text-muted);
+    }
+    .why-verdict .steps li { margin-bottom: 4px; line-height: 1.5; }
+    .why-verdict .steps li .glyph {
+        display: inline-block; width: 12px; text-align: center;
+        font-weight: 700; margin-right: 4px;
+    }
+    .why-verdict .steps li.step-ok .glyph  { color: var(--success); }
+    .why-verdict .steps li.step-no .glyph  { color: var(--danger);  }
+    .why-verdict .steps li.step-nd .glyph  { color: #b45309; }
+    .why-verdict .disagree-note {
+        margin-top: 6px; padding: 6px 10px;
+        background: var(--danger-soft); border-radius: 6px;
+        color: var(--danger); font-size: 11.5px; font-weight: 600;
+    }
+    .why-verdict .disagree-note .lbl { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10.5px; margin-right: 6px; }
+
     /* Kind color palette. Kept near the styles that use it so a future
        kind (e.g., "prescription") is one-stop to wire in. */
     .kind-icon.k-insurance { background: #2563eb; }
@@ -732,6 +778,53 @@
                         <p class="text-ink-muted text-[12.5px] m-0">
                             No declared fields — this rule doesn't reference any intake slots.
                         </p>
+                        {% endif %}
+
+                        {# Deterministic-evaluator trace — the "AI justification
+                           in plain English". Present only when the rule's
+                           criterion falls within the evaluator's boolean
+                           subset (=, is, ≤/≥, ∈ {…}, AND/OR of those). When
+                           the trace verdict disagrees with the LLM's
+                           matched, badge switches to "disagreement" and a
+                           red-tinted note surfaces both answers so the
+                           reviewer picks a winner. #}
+                        {% set _t = (decision.rule_traces or {}).get(c.rule_id) %}
+                        {% if _t and _t.get('verdict') and _t.get('verdict') != 'unparseable' %}
+                            {% set _verdict = _t.get('verdict') %}
+                            {% set _agrees = _t.get('agrees_with_reason') %}
+                            {% set _disagree = _agrees is sameas false %}
+                            <div class="why-verdict {{ 'disagree' if _disagree else _verdict }}">
+                                <div class="headline">
+                                    <span class="tag">
+                                        {% if _disagree %}disagreement
+                                        {% elif _verdict == 'matched' %}matched
+                                        {% elif _verdict == 'unmatched' %}not matched
+                                        {% else %}undetermined
+                                        {% endif %}
+                                    </span>
+                                    {{ _t.get('justification') or 'Deterministic verdict computed.' }}
+                                </div>
+                                {% if _t.get('steps') %}
+                                <ol class="steps">
+                                    {% for s in _t.get('steps') %}
+                                    {% set _r = s.get('result') %}
+                                    {% set _cls = 'step-ok' if _r is sameas true else ('step-no' if _r is sameas false else 'step-nd') %}
+                                    {% set _g = '✓' if _r is sameas true else ('✕' if _r is sameas false else '?') %}
+                                    <li class="{{ _cls }}"><span class="glyph">{{ _g }}</span>{{ s.get('text') }}</li>
+                                    {% endfor %}
+                                </ol>
+                                {% endif %}
+                                {% if _disagree %}
+                                <div class="disagree-note">
+                                    <span class="lbl">Heads up</span>
+                                    The LLM reasoner said
+                                    <strong>{{ 'matched' if c.matched else 'not matched' }}</strong>
+                                    but the deterministic evaluator says
+                                    <strong>{{ _verdict }}</strong>.
+                                    Reviewer decides which to trust.
+                                </div>
+                                {% endif %}
+                            </div>
                         {% endif %}
                     </div>
                 </div>

@@ -40,17 +40,28 @@ Return STRICT JSON matching this exact schema — no extra keys, no prose:
 }
 
 Decision procedure:
-- If every rule is evaluable and every citation has matched=true → "approve".
-- Else if any rule is evaluable and its citation has matched=false → "deny".
-- Otherwise (at least one rule cannot be evaluated because a required intake
-  field is null) → "missing_info". List the null intake field names in
-  "missing_fields", drawn from the rule's declared `fields`.
+- FIRST for each rule check whether every field in its declared `fields`
+  list is present AND non-null in the intake. If ANY of those fields is
+  null, "", [], or absent, the rule is UNDETERMINED — you may not decide
+  matched=true or matched=false for it. Do not confabulate a verdict
+  against data you do not have.
+- If every rule is fully evaluable AND every citation has matched=true
+  → "approve".
+- Else if every rule is fully evaluable AND at least one citation has
+  matched=false → "deny".
+- Otherwise (any rule is undetermined) → "missing_info". List every
+  null / absent intake field name (drawn from the undetermined rules'
+  declared `fields`) in "missing_fields", deduped. For undetermined
+  rules use matched=false in the citation — the outcome + missing_fields
+  are the signal that "false" means "could not evaluate", not "the rule
+  failed".
 - Emit exactly one citation per rule in the input, preserving input order.
-- For rules that cannot be evaluated, use matched=false and rely on the
-  presence of missing_fields to distinguish "deny" from "missing_info".
 - Leave "score" as null; retrieval-time reranker scores are attached by the
   pipeline after this stage, not by you.
-- "rationale" is a single human-readable sentence naming the deciding rule(s).
+- "rationale" is a single human-readable sentence. For "missing_info"
+  it names the fields the applicant still needs to provide, not the
+  rules — a denial-shaped rationale ("Rule X denied because …") on a
+  missing_info outcome misleads the reviewer.
 """
 
 

@@ -42,27 +42,247 @@
         gap: 4px 14px;
         font-size: 12.5px;
     }
-    .outcome-hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-    .outcome-hero .outcome { font-size: 26px; font-weight: 700; text-transform: capitalize; }
-    .outcome-hero .rationale { color: var(--text); font-size: 14px; }
-    .card + .card { margin-top: 16px; }
-    .cite-table {
-        width: 100%; border-collapse: collapse; font-size: 13px;
+    /* Verdict hero: outcome pill + one-line rationale + counts strip. */
+    .outcome-hero {
+        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+        margin-bottom: 8px;
     }
-    .cite-table th, .cite-table td {
-        text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
-        vertical-align: top;
+    .outcome-hero .rationale {
+        color: var(--text); font-size: 14.5px; line-height: 1.45;
+        flex: 1 1 300px; min-width: 240px;
     }
-    .cite-table th {
-        color: var(--text-muted); font-weight: 500; font-size: 11.5px;
-        text-transform: uppercase; letter-spacing: 0.05em;
+    .verdict-stats {
+        display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;
     }
-    .cite-table td.score { font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .cite-table td.rule-text { color: var(--text-muted); max-width: 640px; }
-    .cite-table td.rule-text .kind {
-        display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 3px;
-        background: var(--surface-2); color: var(--text-muted); font-size: 11px;
+    .verdict-stats .stat {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        padding: 3px 10px; border-radius: 999px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        font-size: 12px; color: var(--text-muted);
+    }
+    .verdict-stats .stat .n {
+        font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums;
+    }
+
+    /* ---------------------------------------------------------------
+       Per-rule justification tiles.
+
+       Layout goals: (a) reduce vertical scroll — 6 rules in a stacked
+       column dominates the page. Cards flow in a 2-column responsive
+       grid that collapses to 1 column at narrow widths. (b) let the
+       operator scan the verdict at a glance — a "chiclet strip" above
+       the grid summarises every rule (id + kind icon + matched dot)
+       so you see the whole picture before diving into any one card.
+       (c) keep the "content" the user liked (title + criterion + Why)
+       but arrange it inside each tile with less label noise. Kind
+       gets its own colored icon on the left rail — no repeated
+       "insurance"/"clinical" text pill needed.
+       --------------------------------------------------------------- */
+
+    /* Chiclet strip: quick-scan overview of every cited rule. */
+    .rule-strip {
+        display: flex; flex-wrap: wrap; gap: 6px;
+        margin: 4px 0 14px;
+    }
+    .rule-strip .chiclet {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 8px 3px 3px; border-radius: 999px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        text-decoration: none;
+        font-size: 11.5px; color: var(--text); font-variant-numeric: tabular-nums;
+        cursor: pointer;
+    }
+    .rule-strip .chiclet:hover { background: var(--brand-softer); border-color: var(--brand-soft); }
+    .rule-strip .chiclet .icon {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 18px; height: 18px; border-radius: 50%;
+        color: #fff; font-size: 10.5px; font-weight: 700;
+    }
+    .rule-strip .chiclet .dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        display: inline-block;
+    }
+    .rule-strip .chiclet.matched .dot { background: var(--success); }
+    .rule-strip .chiclet.unmatched .dot { background: var(--danger); }
+    .rule-strip .chiclet.undetermined .dot { background: #f59e0b; }
+    .rule-strip .chiclet.neutral .dot { background: #94a3b8; }
+
+    /* Single-column stack of full-width tiles. Inside each tile a 2-col
+       body layout puts the rule statement on the left and the Why
+       evidence chips on the right — so the eye reads "what the rule
+       says" and "what the intake said" side-by-side instead of stacked.
+       Header spans the full row.
+
+       Generous whitespace throughout — cards should feel spacious, not
+       packed. The eye needs room to distinguish six independent
+       verdicts. */
+    .rule-cards {
+        display: flex; flex-direction: column; gap: 20px;
+    }
+
+    .rule-card {
+        position: relative; overflow: hidden;
+        border: 1px solid var(--border); border-radius: 12px;
+        background: var(--surface);
+        transition: box-shadow 0.12s ease;
+    }
+    .rule-card:hover { box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.12); }
+    .rule-card.matched      { box-shadow: inset 3px 0 0 var(--success); }
+    .rule-card.unmatched    { box-shadow: inset 3px 0 0 var(--danger); }
+    .rule-card.undetermined { box-shadow: inset 3px 0 0 #f59e0b; }
+    .rule-card.neutral      { box-shadow: inset 3px 0 0 #94a3b8; }
+    .rule-card.matched:hover      { box-shadow: inset 3px 0 0 var(--success), 0 4px 12px -4px rgb(0 0 0 / 0.12); }
+    .rule-card.unmatched:hover    { box-shadow: inset 3px 0 0 var(--danger),  0 4px 12px -4px rgb(0 0 0 / 0.12); }
+    .rule-card.undetermined:hover { box-shadow: inset 3px 0 0 #f59e0b,       0 4px 12px -4px rgb(0 0 0 / 0.12); }
+
+    .rule-card-inner {
+        padding: 22px 26px 24px 30px;
+        display: flex; flex-direction: column; gap: 18px;
+    }
+    .rule-card-hdr {
+        display: flex; align-items: center; gap: 12px; min-width: 0;
+        flex-wrap: wrap;
+    }
+    /* Sequence badge (1..N) so each rule has a stable operator-referable
+       label — "look at rule 3" works even before the ids are memorised.
+       Circle matches the .stage-hdr .num style used elsewhere on the
+       page so the visual language stays consistent. */
+    .rule-card-hdr .seq {
+        flex: 0 0 auto;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 50%;
+        background: var(--brand-soft); color: var(--brand);
+        font-size: 12px; font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    .rule-card.matched      .rule-card-hdr .seq { background: var(--success-soft); color: var(--success); }
+    .rule-card.unmatched    .rule-card-hdr .seq { background: var(--danger-soft);  color: var(--danger); }
+    .rule-card.undetermined .rule-card-hdr .seq { background: rgba(245,158,11,0.14); color: #b45309; }
+
+    /* Body: 2-col split. Left = rule statement (If / Except). Right =
+       Why panel with evidence chips. On narrow screens the split
+       collapses so nothing spills off the viewport. */
+    .rule-card-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        gap: 32px;
+        align-items: start;
+    }
+    @media (max-width: 780px) {
+        .rule-card-body { grid-template-columns: 1fr; gap: 20px; }
+    }
+    .rule-card-body > .col {
+        display: flex; flex-direction: column; gap: 12px; min-width: 0;
+    }
+    .rule-card-body .col-label {
+        font-size: 10.5px; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.08em;
+        margin-bottom: 2px;
+    }
+    .rule-card-body .col.why-col {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+    }
+    .rule-card-hdr .kind-icon {
+        flex: 0 0 auto;
+        width: 24px; height: 24px; border-radius: 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 11px; font-weight: 700;
+    }
+    .rule-card-hdr code {
+        font-size: 11.5px; color: var(--text-muted);
+        background: transparent; padding: 0;
+        white-space: nowrap;
+    }
+    .rule-card-hdr .status-pill {
+        margin-left: auto;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 2px 9px; border-radius: 999px;
+        font-size: 11px; font-weight: 700;
         text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .rule-card.matched      .status-pill { background: var(--success-soft);       color: var(--success); }
+    .rule-card.unmatched    .status-pill { background: var(--danger-soft);        color: var(--danger);  }
+    .rule-card.undetermined .status-pill { background: rgba(245,158,11,0.14);     color: #b45309; }
+    .rule-card.neutral      .status-pill { background: var(--surface-2);          color: var(--text-muted); }
+    .rule-card-hdr .score {
+        font-size: 10.5px; color: var(--text-muted);
+        font-variant-numeric: tabular-nums; margin-left: 4px;
+    }
+    .rule-card-title {
+        font-size: 14.5px; font-weight: 600; color: var(--text);
+        line-height: 1.4; margin: 0 0 4px;
+    }
+
+    /* Criterion + optional exception rendered as prose blocks, one after
+       the other. No "Rule"/"Exception" heading label — the leading tag
+       chip carries the meaning and takes less room. */
+    .rule-card-criterion, .rule-card-exception {
+        font-size: 13px; line-height: 1.65; color: var(--text);
+        margin: 0;
+    }
+    .rule-card-tag {
+        display: inline-block;
+        padding: 1px 8px; border-radius: 4px;
+        background: var(--surface-2); color: var(--text-muted);
+        font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        margin-right: 10px; vertical-align: 1px;
+    }
+
+    /* Field-value evidence: inline chips instead of a bulleted list.
+       Each chip reads "@field = <value>" (or "@field · missing") so the
+       operator can scan the entire evidence set in one row. */
+    .why-chips {
+        display: flex; flex-wrap: wrap; gap: 10px;
+        margin-top: 4px;
+    }
+    .why-chip {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 12px; border-radius: 999px;
+        background: var(--brand-softer); border: 1px solid var(--brand-soft);
+        font-size: 12px;
+        max-width: 100%; overflow: hidden;
+    }
+    .why-chip .k {
+        color: var(--brand); font-weight: 700;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+        white-space: nowrap;
+    }
+    .why-chip .sep { color: var(--text-muted); }
+    .why-chip .v {
+        color: var(--text); font-weight: 600;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        max-width: 220px;
+    }
+    .why-chip.missing {
+        background: rgba(245, 158, 11, 0.10);
+        border-color: rgba(245, 158, 11, 0.35);
+    }
+    .why-chip.missing .v { color: #b45309; font-style: italic; font-weight: 500; }
+
+    /* Kind color palette. Kept near the styles that use it so a future
+       kind (e.g., "prescription") is one-stop to wire in. */
+    .kind-icon.k-insurance { background: #2563eb; }
+    .kind-icon.k-clinical  { background: #8b5cf6; }
+    .kind-icon.k-financial { background: #f59e0b; }
+    .kind-icon.k-residency { background: #14b8a6; }
+    .kind-icon.k-history   { background: #64748b; }
+    .kind-icon.k-other     { background: #475569; }
+
+    /* @field reference pill — same visual convention as the rule detail
+       page. Used inside criterion/exception prose blocks via
+       [data-at-highlight]. */
+    .at-ref {
+        color: var(--brand, #1e5f4f);
+        background: rgba(37, 99, 235, 0.10);
+        padding: 0 4px; border-radius: 4px;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+        font-weight: 700; font-size: 0.92em;
+        white-space: nowrap;
     }
     .missing-list { margin: 0; padding-left: 20px; font-size: 13.5px; }
     .missing-list li { margin-bottom: 4px; }
@@ -134,17 +354,74 @@
 {% with active='pipeline' %}{% include "_inbox_tabs.html" %}{% endwith %}
 
 <div class="card">
+    {# Verdict hero: outcome pill + one-line rationale + counts strip.
+       Rationale carries the LLM's headline reason; each cited rule
+       below carries its own justification against actual extracted
+       values. Counts speak in operator language ("6 of 6 matched")
+       instead of raw citation totals.
+
+       Per-rule state derivation (used here and by the strip + cards
+       below): a rule is "undetermined" whenever any of its declared
+       @fields is null/empty in the extraction — matched/not-matched
+       requires the reasoner to have had every value it asked for.
+       Namespaced as a dict on `ns` so we can build it in a for-loop
+       (Jinja's set inside a loop is scoped to the loop). #}
+    {% set _rule_cites = (decision.citations or []) | rejectattr('type', 'equalto', 'history') | list %}
+    {% set ns = namespace(matched=0, undetermined=0, unmatched=0, states={}) %}
+    {% for c in _rule_cites %}
+        {% set _r = rules_by_id.get(c.rule_id) %}
+        {# Nested for-loop `set` is scoped to the iteration — use another
+           namespace so the "any field null?" fold escapes the inner
+           for and reaches the state-classification block below. #}
+        {% set miss_ns = namespace(missing=false) %}
+        {% if _r and _r.fields %}
+            {% for f in _r.fields %}
+                {% set v = extraction.get(f) %}
+                {% if v is none or v == '' or v == [] %}
+                    {% set miss_ns.missing = true %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% if miss_ns.missing %}
+            {% set _st = 'undetermined' %}
+            {% set ns.undetermined = ns.undetermined + 1 %}
+        {% elif c.matched %}
+            {% set _st = 'matched' %}
+            {% set ns.matched = ns.matched + 1 %}
+        {% else %}
+            {% set _st = 'unmatched' %}
+            {% set ns.unmatched = ns.unmatched + 1 %}
+        {% endif %}
+        {% set _ = ns.states.update({c.rule_id: _st}) %}
+    {% endfor %}
+    {% set _matched_n = ns.matched %}
+    {% set _undetermined_n = ns.undetermined %}
+    {% set _unmatched_n = ns.unmatched %}
+    {% set _rules_n = _rule_cites | length %}
+    {% set _missing_n = (decision.missing_fields or []) | length %}
     <div class="outcome-hero">
-        <span class="outcome">
-            {% if decision.outcome == 'approve' %}
-                <span class="badge accept" style="font-size:14px;">approve</span>
-            {% elif decision.outcome == 'deny' %}
-                <span class="badge reject" style="font-size:14px;">deny</span>
-            {% else %}
-                <span class="badge draft" style="font-size:14px;">missing info</span>
-            {% endif %}
-        </span>
+        {% if decision.outcome == 'approve' %}
+            <span class="badge accept" style="font-size:14px;">approve</span>
+        {% elif decision.outcome == 'deny' %}
+            <span class="badge reject" style="font-size:14px;">deny</span>
+        {% else %}
+            <span class="badge draft" style="font-size:14px;">missing info</span>
+        {% endif %}
         <span class="rationale">{{ decision.rationale or '(no rationale provided)' }}</span>
+    </div>
+    <div class="verdict-stats">
+        <span class="stat"><span class="n">{{ _matched_n }}</span> of <span class="n">{{ _rules_n }}</span> rules matched</span>
+        {% if _undetermined_n %}
+        <span class="stat"><span class="n">{{ _undetermined_n }}</span> undetermined</span>
+        {% endif %}
+        {% if _unmatched_n %}
+        <span class="stat"><span class="n">{{ _unmatched_n }}</span> not matched</span>
+        {% endif %}
+        {% if _missing_n %}
+        <span class="stat"><span class="n">{{ _missing_n }}</span> field{{ '' if _missing_n == 1 else 's' }} missing</span>
+        {% else %}
+        <span class="stat">no fields missing</span>
+        {% endif %}
     </div>
 
     <div class="review-row">
@@ -311,56 +588,160 @@
 <div class="card">
     <div class="stage-hdr">
         <span class="num">2</span>
-        <h2>Retrieve → Reason — rule citations</h2>
+        <h2>Rules evaluated</h2>
     </div>
     <p class="stage-hint">
-        Every rule the reason stage evaluated against the intake. Score is the retrieval reranker's relevance; matched is the reason stage's boolean verdict.
+        Each rule the reason stage ran against the extracted intake. The
+        "Why" panel names the actual field values that drove the verdict —
+        so you can eyeball whether the reasoner interpreted the intake
+        correctly without re-reading the criterion.
     </p>
     {# Filter out history-typed citations (ADR-0004). Legacy events pre-migration
        have no `type` key on their citation dicts; those are treated as rule
-       citations for backward compat. #}
+       citations for backward compat.
+
+       Sort matched-first, undetermined next (needs-attention), unmatched last.
+       Stable within each bucket preserves reasoner-order for ties. #}
     {% set rule_citations = decision.citations | rejectattr('type', 'equalto', 'history') | list %}
-    {% if rule_citations %}
-    <table class="cite-table">
-        <thead>
-            <tr>
-                <th style="width:110px;">Rule</th>
-                <th style="width:70px;">Matched</th>
-                <th style="width:110px;" title="Retrieval reranker's relevance score for this rule against the intake — a topicality signal, not an eligibility gate. The decision is deterministic in the reason stage.">Retrieval score</th>
-                <th>Statement</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for c in rule_citations %}
-            {% set rule = rules_by_id.get(c.rule_id) %}
-            <tr>
-                <td><code>{{ c.rule_id }}</code></td>
-                <td>
-                    {% if c.matched %}
-                        <span class="badge accept">yes</span>
-                    {% else %}
-                        <span class="badge reject">no</span>
-                    {% endif %}
-                </td>
-                <td class="score">
-                    {% if c.score is not none %}{{ '%.3f'|format(c.score) }}{% else %}—{% endif %}
-                </td>
-                <td class="rule-text">
-                    {% if rule %}
-                        <strong>{{ rule.title }}</strong>
-                        <span class="kind">{{ rule.kind }}</span>
-                        <div>{{ rule.criterion }}</div>
-                        {% if rule.exception %}
-                        <div><em>Exception:</em> {{ rule.exception }}</div>
-                        {% endif %}
-                    {% else %}
-                        <span class="missing">(rule not found)</span>
-                    {% endif %}
-                </td>
-            </tr>
+    {# Explicit 3-pass bucketed sort: matched → undetermined → the rest.
+       Namespace + .append() is Jinja's escape hatch for mutating a
+       list from inside a loop; wrapping the call in `{{ ... or '' }}`
+       suppresses .append()'s None return so it doesn't render. #}
+    {% set _sort = namespace(ordered=[]) %}
+    {% for c in rule_citations %}
+        {% if ns.states.get(c.rule_id) == 'matched' %}{{ _sort.ordered.append(c) or '' }}{% endif %}
+    {% endfor %}
+    {% for c in rule_citations %}
+        {% if ns.states.get(c.rule_id) == 'undetermined' %}{{ _sort.ordered.append(c) or '' }}{% endif %}
+    {% endfor %}
+    {% for c in rule_citations %}
+        {% if ns.states.get(c.rule_id) not in ('matched', 'undetermined') %}{{ _sort.ordered.append(c) or '' }}{% endif %}
+    {% endfor %}
+    {% set _ordered = _sort.ordered %}
+    {% if _ordered %}
+
+    {# Chiclet strip: one dot per rule for at-a-glance scan. Anchors point
+       at the tile below so clicking scrolls straight to the details. #}
+    <div class="rule-strip">
+        {% for c in _ordered %}
+        {% set _rule = rules_by_id.get(c.rule_id) %}
+        {% set _kind = (_rule.kind if _rule else 'other') | lower %}
+        {% set _known_kinds = ['insurance','clinical','financial','residency','history'] %}
+        {% if _kind not in _known_kinds %}{% set _kind = 'other' %}{% endif %}
+        {% set _state = ns.states.get(c.rule_id) or ('unmatched' if _rule else 'neutral') %}
+        {% set _state_label = {'matched':'matched','unmatched':'not matched','undetermined':'undetermined','neutral':'unknown'}.get(_state, _state) %}
+        <a class="chiclet {{ _state }}" href="#rule-{{ loop.index }}"
+           title="Rule {{ loop.index }} · {{ _rule.title if _rule else c.rule_id }} · {{ _state_label }}">
+            <span class="icon kind-icon k-{{ _kind }}">{{ loop.index }}</span>
+            <code style="font-family:JetBrains Mono,ui-monospace,monospace">{{ c.rule_id }}</code>
+            <span class="dot" aria-hidden="true"></span>
+        </a>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
+
+    <div class="rule-cards">
+    {% for c in _ordered %}
+        {% set rule = rules_by_id.get(c.rule_id) %}
+        {% set matched_cls = ns.states.get(c.rule_id) or ('unmatched' if rule else 'neutral') %}
+        {% set _kind = (rule.kind if rule else 'other') | lower %}
+        {% set _known_kinds = ['insurance','clinical','financial','residency','history'] %}
+        {% if _kind not in _known_kinds %}{% set _kind = 'other' %}{% endif %}
+        <div class="rule-card {{ matched_cls }}" id="rule-{{ loop.index }}">
+            <div class="rule-card-inner">
+                <div class="rule-card-hdr">
+                    <span class="seq" aria-label="Rule {{ loop.index }}">{{ loop.index }}</span>
+                    <span class="kind-icon k-{{ _kind }}"
+                          title="{{ rule.kind if rule else 'unknown' }}"
+                          aria-label="{{ rule.kind if rule else 'unknown' }}">
+                        {{ _kind[0]|upper }}
+                    </span>
+                    <code>{{ c.rule_id }}</code>
+                    {% if c.score is not none %}
+                    <span class="score" title="Retrieval reranker's relevance — a topicality signal, not the eligibility gate.">
+                        · relevance {{ '%.2f'|format(c.score) }}
+                    </span>
+                    {% endif %}
+                    <span class="status-pill">
+                        {% if matched_cls == 'matched' %}
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8l3 3 7-7"/></svg>
+                            matched
+                        {% elif matched_cls == 'undetermined' %}
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11h0.01"/></svg>
+                            undetermined
+                        {% else %}
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                            not matched
+                        {% endif %}
+                    </span>
+                </div>
+
+                {% if rule %}
+                <div class="rule-card-title">{{ rule.title }}</div>
+                <div class="rule-card-body">
+                    {# Left column: the rule statement itself. If/Except
+                       tag chips carry the meaning; no big "Rule" heading
+                       needed. #}
+                    <div class="col">
+                        <span class="col-label">Rule</span>
+                        <p class="rule-card-criterion" data-at-highlight>
+                            <span class="rule-card-tag">If</span>{{ rule.criterion }}
+                        </p>
+                        {% if rule.exception %}
+                        <p class="rule-card-exception" data-at-highlight>
+                            <span class="rule-card-tag">Except</span>{{ rule.exception }}
+                        </p>
+                        {% endif %}
+                    </div>
+
+                    {# Right column: Why — evidence chips, one per declared
+                       field. Non-null values are the raw ingredients the
+                       reasoner used to decide; null values are the reason
+                       a rule went into missing_info territory. Booleans/
+                       ints/strings render verbatim; dicts/lists get compact
+                       JSON so nested payloads stay legible. Reads as
+                       "here's what the intake gave us for the fields this
+                       rule cares about" — the operator can eyeball the
+                       matched/unmatched call without re-reading the rule. #}
+                    <div class="col why-col">
+                        <span class="col-label">Why?</span>
+                        {% if rule.fields %}
+                        <div class="why-chips">
+                            {% for f in rule.fields %}
+                                {% set v = extraction.get(f) %}
+                                {% if v is none or v == '' or v == [] %}
+                                <span class="why-chip missing" title="Not extracted from the intake">
+                                    <span class="k">@{{ f }}</span>
+                                    <span class="v">not extracted</span>
+                                </span>
+                                {% else %}
+                                <span class="why-chip">
+                                    <span class="k">@{{ f }}</span>
+                                    <span class="sep">=</span>
+                                    {% if v is boolean %}
+                                    <span class="v">{{ 'true' if v else 'false' }}</span>
+                                    {% elif v is mapping or (v is sequence and v is not string) %}
+                                    <span class="v" title="{{ v|tojson }}">{{ v|tojson }}</span>
+                                    {% else %}
+                                    <span class="v" title="{{ v }}">{{ v }}</span>
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-ink-muted text-[12.5px] m-0">
+                            No declared fields — this rule doesn't reference any intake slots.
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="rule-card-criterion missing">Rule definition not found — cited by id only.</p>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
     {% else %}
         <p class="text-ink-muted text-[13.5px] m-0">No rules cited.</p>
     {% endif %}
@@ -479,6 +860,35 @@
       btn.textContent = 'Copy failed';
       setTimeout(() => { btn.textContent = 'Copy JSON'; }, 1400);
     }
+  });
+})();
+
+// Highlight @field tokens inside every [data-at-highlight] block —
+// same visual convention as the rule detail read-only view. Pure DOM
+// (no innerHTML on user text) so CSP + XSS-safe.
+(function () {
+  document.querySelectorAll('[data-at-highlight]').forEach(function (el) {
+    var raw = el.textContent || '';
+    if (!raw) return;
+    var pat = /@([A-Za-z_][A-Za-z0-9_]*)/g;
+    var frag = document.createDocumentFragment();
+    var lastIndex = 0;
+    var m;
+    while ((m = pat.exec(raw)) !== null) {
+      if (m.index > lastIndex) {
+        frag.appendChild(document.createTextNode(raw.substring(lastIndex, m.index)));
+      }
+      var span = document.createElement('span');
+      span.className = 'at-ref';
+      span.textContent = '@' + m[1];
+      frag.appendChild(span);
+      lastIndex = pat.lastIndex;
+    }
+    if (lastIndex < raw.length) {
+      frag.appendChild(document.createTextNode(raw.substring(lastIndex)));
+    }
+    el.textContent = '';
+    el.appendChild(frag);
   });
 })();
 </script>

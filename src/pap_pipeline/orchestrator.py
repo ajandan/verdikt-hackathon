@@ -35,10 +35,87 @@ remains too as an audit view (carries `from_events` linkage).
 from __future__ import annotations
 
 import asyncio
+import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 
 import structlog
+
+_T = TypeVar("_T")
+
+
+async def _traced(
+    trace: list[dict[str, Any]] | None,
+    *,
+    stage: str,
+    model: str | None,
+    coro: Awaitable[_T],
+    extras_fn: Callable[[_T], dict[str, Any]] | None = None,
+) -> _T:
+    """Run `coro`, appending one trace entry with model + wall timings.
+
+    When `trace` is None this is a pass-through — no bookkeeping cost. When
+    a list is provided every wrapped stage lands one dict on it in the
+    order the stage completed:
+
+        {stage, model, started_at, ended_at, duration_ms, status, error, details}
+
+    Timestamps are ISO-8601 UTC so the audit renderer can convert them to
+    the viewer's local zone the same way it does for reviewer entries.
+    ``model`` is the human-visible model id (Nemotron variant, vision
+    model, embed model, MDM provider) — the operator's "who did this
+    step" answer without cracking the pipeline config open.
+
+    ``extras_fn`` is called against the successful stage result to pull
+    the stage-specific outcome that the audit should surface — e.g.
+    extract's slot count + fill rate, triage's case_type + route,
+    reason's outcome + citation totals. Kept as an injected closure so
+    every stage's "what mattered" summary lives at its call site rather
+    than in one giant orchestrator switch. Skipped on failure (the
+    exception is what mattered).
+
+    Failures still record the trace entry (with status="failed" +
+    error string) then re-raise so the caller's error handling is
+    unchanged. This matters for the audit trail: a partial pipeline
+    should still show which stage got as far as running.
+    """
+    if trace is None:
+        return await coro
+    started = datetime.now(UTC)
+    t0 = time.monotonic()
+    status = "ok"
+    error: str | None = None
+    details: dict[str, Any] = {}
+    result: _T | None = None
+    try:
+        result = await coro
+        return result
+    except Exception as e:
+        status = "failed"
+        error = f"{type(e).__name__}: {e}"
+        raise
+    finally:
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        # Summarise on success only — on failure the error string carries
+        # what happened; a summarizer against a None/partial result would
+        # just add noise or blow up.
+        if status == "ok" and extras_fn is not None:
+            try:
+                details = extras_fn(result) or {}
+            except Exception as sum_err:  # noqa: BLE001 — never fail the pipeline for a summary
+                details = {"summary_error": f"{type(sum_err).__name__}: {sum_err}"}
+        trace.append({
+            "stage": stage,
+            "model": model,
+            "started_at": started.isoformat(),
+            "ended_at": datetime.now(UTC).isoformat(),
+            "duration_ms": duration_ms,
+            "status": status,
+            "error": error,
+            "details": details,
+        })
 
 log = structlog.get_logger(__name__)
 
@@ -101,6 +178,7 @@ async def run_from_intake(
     extras: dict[str, Any] | None = None,
     rules: list[Rule] | None = None,
     k: int = 20,
+    stage_trace: list[dict[str, Any]] | None = None,
 ) -> Decision:
     """Run retrieve + mdm.lookup → reason against an already-extracted Intake.
 
@@ -122,20 +200,76 @@ async def run_from_intake(
     source = mdm_source or build_mdm_source(config.mdm)
     family_id = program_family_id or program or ""
 
+    _corpus_size = len(rules) if rules is not None else None
+
+    def _retrieve_extras(result: list[Any]) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "rules_returned": len(result),
+            "k_requested": k,
+        }
+        if _corpus_size is not None:
+            out["rules_considered"] = _corpus_size
+        return out
+
+    def _mdm_extras(hist: Any) -> dict[str, Any]:
+        events = getattr(hist, "events", None) or []
+        slots_ = getattr(hist, "slots", None) or []
+        return {
+            "provider": config.mdm.provider,
+            "events": len(events),
+            "slots": len(slots_),
+        }
+
     retrieved, history = await asyncio.gather(
-        retrieve(intake, config=config.retrieve, program=program, rules=rules, k=k),
-        source.lookup(
-            intake=intake,
-            program_family_id=family_id,
-            tenant_id=tenant_id,
-            config=config.mdm,
+        _traced(
+            stage_trace,
+            stage="retrieve",
+            model=config.retrieve.embed_model,
+            coro=retrieve(intake, config=config.retrieve, program=program, rules=rules, k=k),
+            extras_fn=_retrieve_extras,
+        ),
+        _traced(
+            stage_trace,
+            stage="mdm_lookup",
+            model=config.mdm.provider,
+            coro=source.lookup(
+                intake=intake,
+                program_family_id=family_id,
+                tenant_id=tenant_id,
+                config=config.mdm,
+            ),
+            extras_fn=_mdm_extras,
         ),
     )
 
     reranked_rules = [rr.rule for rr in retrieved]
     merged_extras = _merge_history_slots(extras, history)
-    decision = await reason(
-        intake, reranked_rules, config=config.reason, extras=merged_extras
+
+    def _reason_extras(dec: Decision) -> dict[str, Any]:
+        rule_cites = [c for c in dec.citations if getattr(c, "type", "rule") == "rule"]
+        matched = sum(1 for c in rule_cites if getattr(c, "matched", False))
+        return {
+            "outcome": dec.outcome,
+            "citations_total": len(rule_cites),
+            "citations_matched": matched,
+            "missing_fields": len(dec.missing_fields or []),
+        }
+
+    decision = await _traced(
+        stage_trace,
+        stage="reason",
+        model=config.reason.model,
+        coro=reason(
+            intake, reranked_rules, config=config.reason, extras=merged_extras
+        ),
+        extras_fn=_reason_extras,
+    )
+    # Deterministic override: if the reasoner returned matched/unmatched
+    # against fields the extract stage never populated, force the outcome
+    # to missing_info so the applicant reply and downstream JSON verdict
+    # don't ship a confidently-wrong verdict.
+    decision = _enforce_undetermined_outcome(
+        decision, reranked_rules, intake, merged_extras
     )
     decision = _attach_retrieval_scores(decision, retrieved)
     decision = _attach_history_citations(decision, history, reranked_rules)
@@ -146,6 +280,96 @@ async def run_from_intake(
         retrieved_rules=reranked_rules,
         declared_outcomes=config.declared_outcomes,
     )
+
+
+def _enforce_undetermined_outcome(
+    decision: Decision,
+    rules: list[Rule],
+    intake: Intake,
+    extras: dict[str, Any] | None,
+) -> Decision:
+    """Deterministic guardrail: rules whose declared fields aren't all
+    present in the intake+extras dict cannot honestly be marked matched or
+    unmatched — override any confident verdict from the reasoner and
+    push the case into ``missing_info``.
+
+    Why this exists as a post-pass rather than a prompt tweak alone:
+    Nemotron intermittently confabulates a "denied because <field>=<x>"
+    rationale against fields the extract stage never populated. That
+    letter can't go out — it's factually wrong. This pass looks up
+    every cited rule against the actual data-present set and:
+
+    * collects the null / absent declared fields as ``missing_fields``,
+    * forces ``outcome="missing_info"`` when any rule is undetermined,
+    * rewrites the rationale so the reviewer + downstream letter see
+      the truthful reason ("required fields not present"), not the
+      hallucinated one.
+
+    Citation ``matched`` is left as the reasoner returned it — the
+    front-end already derives an "undetermined" visual state from the
+    same field-presence check, so keeping citations verbatim preserves
+    the model's raw signal for the audit trail. The outcome + missing
+    fields are the load-bearing lie / truth surface.
+    """
+    if not rules or not decision.citations:
+        return decision
+
+    rules_by_id = {r.id: r for r in rules}
+    # Data-present dict: intake fields + non-Intake extras. Same merge
+    # order as the reason stage's prompt builder so "what the model saw"
+    # is what we check against.
+    present: dict[str, Any] = dict(extras or {})
+    present.update(intake.model_dump(mode="json"))
+
+    def _is_null(v: Any) -> bool:
+        return v is None or v == "" or v == []
+
+    undetermined_ids: list[str] = []
+    gap_fields: list[str] = []
+    for c in decision.citations:
+        if c.type != "rule" or not c.rule_id:
+            continue
+        r = rules_by_id.get(c.rule_id)
+        if r is None or not r.fields:
+            continue
+        rule_gaps = [f for f in r.fields if _is_null(present.get(f))]
+        if rule_gaps:
+            undetermined_ids.append(c.rule_id)
+            for f in rule_gaps:
+                if f not in gap_fields:
+                    gap_fields.append(f)
+
+    if not undetermined_ids:
+        return decision
+
+    merged_missing = list(decision.missing_fields or [])
+    for f in gap_fields:
+        if f not in merged_missing:
+            merged_missing.append(f)
+
+    # Only rewrite rationale when the reasoner produced a
+    # non-missing_info outcome — if it already said missing_info, its
+    # own sentence is closer to the intent and probably names the
+    # fields; keep it.
+    new_rationale = decision.rationale
+    if decision.outcome != "missing_info":
+        listed = ", ".join(sorted(set(gap_fields)))
+        new_rationale = (
+            f"{len(undetermined_ids)} rule(s) could not be evaluated because "
+            f"required intake fields are not present: {listed}."
+        )
+
+    log.info(
+        "pap_reason_outcome_forced_missing_info",
+        original_outcome=decision.outcome,
+        undetermined_rules=undetermined_ids,
+        added_missing_fields=[f for f in gap_fields if f not in (decision.missing_fields or [])],
+    )
+    return decision.model_copy(update={
+        "outcome": "missing_info",
+        "missing_fields": merged_missing,
+        "rationale": new_rationale,
+    })
 
 
 def _merge_history_slots(
@@ -373,6 +597,7 @@ async def run_with_intake(
     rules: list[Rule] | None = None,
     k: int = 20,
     subject: str | None = None,
+    stage_trace: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
     """Same as :func:`run` but also returns the raw extraction dict + Intake.
 
@@ -389,15 +614,46 @@ async def run_with_intake(
     don't have a subject (JSON/API intake) can leave it None; Triage
     will fall back to the extras / intake-shape signals.
     """
+    def _extract_extras(result: Any) -> dict[str, Any]:
+        # dual_extract returns (raw, findings); extract returns raw.
+        raw_dict = result[0] if isinstance(result, tuple) else result
+        raw_dict = raw_dict or {}
+        total = len(raw_dict)
+        filled = sum(1 for v in raw_dict.values() if v not in (None, "", []))
+        missing = total - filled
+        summary: dict[str, Any] = {
+            "slots_total": total,
+            "slots_filled": filled,
+            "slots_missing": missing,
+            "attachments": len(attachments),
+        }
+        if isinstance(result, tuple) and len(result) > 1 and result[1]:
+            summary["verifier_findings"] = len(result[1])
+        return summary
+
     if config.extract_verifier is not None:
-        raw, extract_findings = await dual_extract(
-            attachments,
-            primary_config=config.extract,
-            verifier_config=config.extract_verifier,
-            slots=slots,
+        raw, extract_findings = await _traced(
+            stage_trace,
+            stage="extract",
+            model=(
+                f"{config.extract.vision_model} + {config.extract_verifier.vision_model} (dual)"
+            ),
+            coro=dual_extract(
+                attachments,
+                primary_config=config.extract,
+                verifier_config=config.extract_verifier,
+                slots=slots,
+            ),
+            extras_fn=_extract_extras,
         )
     else:
-        raw = await extract(attachments, config=config.extract, slots=slots)
+        raw = await _traced(
+            stage_trace,
+            stage="extract",
+            model=config.extract.vision_model,
+            coro=extract(attachments, config=config.extract, slots=slots),
+            extras_fn=_extract_extras,
+        )
         extract_findings = []
 
     intake = _intake_from_extraction(raw)
@@ -414,6 +670,7 @@ async def run_with_intake(
         rules=rules,
         k=k,
         subject=subject,
+        stage_trace=stage_trace,
     )
 
     if extract_findings:
@@ -437,6 +694,7 @@ async def run_triaged_from_intake(
     rules: list[Rule] | None = None,
     k: int = 20,
     subject: str | None = None,
+    stage_trace: list[dict[str, Any]] | None = None,
 ) -> Decision:
     """Triage → (Decide or skip-Decide) against an already-parsed Intake.
 
@@ -462,11 +720,24 @@ async def run_triaged_from_intake(
     """
     triage_decision = None
     if config.triage is not None:
-        triage_decision = await triage(
-            intake,
-            config=config.triage,
-            subject=subject,
-            extras=extras,
+        def _triage_extras(td: TriageDecision) -> dict[str, Any]:
+            return {
+                "case_type": getattr(td, "case_type", None),
+                "route": getattr(td, "route", None),
+                "decision_needed": getattr(td, "decision_needed", None),
+                "confidence": getattr(td, "confidence", None),
+            }
+        triage_decision = await _traced(
+            stage_trace,
+            stage="triage",
+            model=config.triage.model,
+            coro=triage(
+                intake,
+                config=config.triage,
+                subject=subject,
+                extras=extras,
+            ),
+            extras_fn=_triage_extras,
         )
 
     if triage_decision is None or triage_decision.decision_needed:
@@ -480,6 +751,7 @@ async def run_triaged_from_intake(
             extras=extras,
             rules=rules,
             k=k,
+            stage_trace=stage_trace,
         )
     else:
         # Skip Decide (and Deliver — the caller sees decision.triage.route

@@ -5356,24 +5356,41 @@ async def inbox_pipeline_detail(
     )
 
     # Hydrate rule text so citations can be shown as rule statements, not
-    # opaque IDs. The loader reads YAML on every call — cheap at demo scale
-    # and keeps the page in sync with any rule edits without a restart.
+    # opaque IDs. Priority: DB rules for the case's program (picks up
+    # wizard-copied program-scoped rules like ``<lib-id>-<slug>``), then
+    # YAML fallback so legacy events with no resolvable program still
+    # render.
     from docgen.inbox.agent import _pap_program_from_subject
+    from docgen.store.db import sync_session
     from pap_pipeline.rules import load_rules
     from pap_pipeline.schema_groups import bucket_slots
     from pap_pipeline.verdict_json import build_verdict
 
-    rules_by_id = {r.id: r for r in load_rules()}
+    # Re-derive program from subject at read time — the pipeline doesn't
+    # persist the resolved slug on the event row, but the subject tag is
+    # the canonical source it was resolved from.
+    _, program_slug = _pap_program_from_subject(ev.subject)
+
+    rules_by_id: dict[str, Any] = {}
+    if program_slug:
+        # Sync SQLAlchemy through a scoped short-lived session — the async
+        # session for this route is fine for the rest of the page but
+        # load_rules() is sync-only. Union order (DB first, YAML second)
+        # means a program-scoped copy wins over a same-id YAML seed.
+        with sync_session() as s:
+            db_rules = (
+                load_rules(program_slug, session=s, tenant_id=ev.tenant_id) or []
+            )
+        for r in db_rules:
+            rules_by_id[r.id] = r
+    for r in load_rules():
+        rules_by_id.setdefault(r.id, r)
 
     extraction = ev.pap_extraction or ev.pap_intake or {}
     # Group slot names into reviewer-facing sections at render time.
     # Slice 2 will consult persisted groups on the Program row when present.
     extraction_groups = bucket_slots(extraction.keys())
 
-    # Re-derive program from subject at read time — the pipeline doesn't
-    # persist the resolved slug on the event row, but the subject tag is
-    # the canonical source it was resolved from.
-    _, program_slug = _pap_program_from_subject(ev.subject)
     assembly = await _latest_assembly_for_event(session, ev.id)
     verdict = build_verdict(ev, tenant=tenant, program=program_slug, assembly=assembly)
     import json as _json

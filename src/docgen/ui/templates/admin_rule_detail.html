@@ -606,9 +606,12 @@
     function renderPopover(query) {
         var q = (query || '').toLowerCase();
         // Substring match (per user preference), preserve schema order.
+        // No render cap — the popover has max-height + overflow-y so 100+
+        // matches stay scrollable, and Alderwood-scale schemas (~120
+        // slots) fit comfortably. Cap only if we ever hit thousands.
         filteredSlots = slots.filter(function (s) {
             return !q || s.name.toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 20); // Cap render count so a huge schema doesn't jank.
+        });
         while (pop.firstChild) pop.removeChild(pop.firstChild);
         if (!filteredSlots.length) {
             var empty = document.createElement('div');

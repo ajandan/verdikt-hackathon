@@ -8,7 +8,7 @@ present fields and asks for exactly those gaps in the follow-up letter.
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -74,3 +74,31 @@ class Intake(BaseModel):
     # pipeline-generated fallback so audit trails reconcile back to the paper
     # form. Left None when the form doesn't carry one.
     referral_id: str | None = None
+
+
+def merge_intake_and_extras(
+    intake: "Intake", extras: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Return ``extras ∪ intake`` with intake winning on key collision.
+
+    Single source of truth for the "what did the model actually see"
+    merge that three separate passes rely on:
+
+    * :func:`pap_pipeline.stages.reason._build_user_message` — the
+      prompt payload sent to Nemotron.
+    * :func:`pap_pipeline.orchestrator._enforce_undetermined_outcome`
+      — the data-presence gate.
+    * :func:`pap_pipeline.orchestrator._attach_rule_evaluator_traces`
+      — the values dict passed to the deterministic evaluator.
+
+    Ordering rule (intake overrides extras) matters: applicant-submitted
+    canonical fields beat MDM-derived / program-specific slot values on
+    the rare cases both name the same key. Reversing it silently changes
+    verdicts. Sharing one helper keeps the three callers honest.
+    """
+    merged: dict[str, Any] = dict(extras or {})
+    merged.update(intake.model_dump(mode="json"))
+    return merged
+
+
+__all__ = ["Intake", "InsuranceStatus", "merge_intake_and_extras"]

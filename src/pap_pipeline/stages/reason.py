@@ -19,7 +19,7 @@ import httpx
 from pydantic import ValidationError
 
 from pap_pipeline.schemas.decision import Decision
-from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.schemas.intake import Intake, merge_intake_and_extras
 from pap_pipeline.schemas.rule import Rule
 
 _SYSTEM_PROMPT = """You are an eligibility adjudicator for a patient-assistance program.
@@ -177,10 +177,7 @@ def _build_user_message(
     by program. `extras` fields are merged onto the intake payload; Intake
     keys win on collision so canonical values remain authoritative.
     """
-    intake_payload: dict[str, Any] = {}
-    if extras:
-        intake_payload.update(extras)
-    intake_payload.update(intake.model_dump(mode="json"))
+    intake_payload = merge_intake_and_extras(intake, extras)
     return json.dumps(
         {
             "intake": intake_payload,

@@ -25,9 +25,17 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+# Maximum length of a valid ``@field`` identifier. Real schema slot
+# names top out well below this (SQL column names are 63 chars on
+# Postgres) so a 64-char cap gives us headroom without letting an
+# authored 1-MB blob become a matched identifier that later drives
+# expensive Levenshtein-matrix work in :func:`_suggest`.
+_MAX_FIELD_REF_LEN = 64
+
 # One canonical regex. Compiled at import time so hot paths (reasoner
-# prompt-build) don't re-compile every call.
-_FIELD_REF = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
+# prompt-build) don't re-compile every call. The trailing ``{0,63}``
+# caps identifier length at :data:`_MAX_FIELD_REF_LEN` (1 + 63 = 64).
+_FIELD_REF = re.compile(r"@([A-Za-z_][A-Za-z0-9_]{0,63})")
 
 
 def parse_field_refs(*texts: str) -> list[str]:
@@ -103,15 +111,21 @@ def _suggest(needle: str, haystack: list[str]) -> str | None:
     # don't get suggested.
     if not haystack:
         return None
-    best = min(haystack, key=lambda s: _levenshtein(n, s.lower()))
-    if _levenshtein(n, best.lower()) <= max(2, len(needle) // 3):
+    best = min(haystack, key=lambda s: levenshtein(n, s.lower()))
+    if levenshtein(n, best.lower()) <= max(2, len(needle) // 3):
         return best
     return None
 
 
-def _levenshtein(a: str, b: str) -> int:
+def levenshtein(a: str, b: str) -> int:
     """Small Levenshtein distance implementation. Fine for slot names
-    which are short (< 40 chars) — no need for optimized libraries."""
+    which are short (< 40 chars) — no need for optimized libraries.
+
+    Exposed as a public helper because :mod:`pap_pipeline.rule_mapping`
+    reuses the same distance for its fuzzy pass; keeping it private here
+    would force a cross-module underscore-import that the boundary tests
+    (and the linter) rightly flag as a leak.
+    """
     if a == b:
         return 0
     if not a:

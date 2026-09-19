@@ -47,7 +47,7 @@ from pydantic import ValidationError
 from pap_pipeline.rule_evaluator import evaluate as _evaluate_rule
 from pap_pipeline.schemas.decision import Citation, Decision, VerifierFinding
 from pap_pipeline.schemas.history import HistorySlice
-from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.schemas.intake import Intake, merge_intake_and_extras
 from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig, extract
 from pap_pipeline.stages.mdm_lookup import (
@@ -336,11 +336,7 @@ def _attach_rule_evaluator_traces(
         return decision
 
     rules_by_id = {r.id: r for r in rules}
-    # Same merge order as _enforce_undetermined_outcome and reason's
-    # prompt builder: extras first, intake overrides on collision so
-    # applicant-submitted fields win over MDM-derived slots.
-    values: dict[str, Any] = dict(extras or {})
-    values.update(intake.model_dump(mode="json"))
+    values: dict[str, Any] = merge_intake_and_extras(intake, extras)
 
     traces: dict[str, dict[str, Any]] = {}
     new_findings: list[VerifierFinding] = []
@@ -472,27 +468,24 @@ def _compose_outcome_from_polarity(
     if not rule_cites:
         return decision
 
-    # Require decisive verdicts on ALL cited rules with a matching
-    # trace before we override the reasoner's outcome. Any undetermined
-    # rule stays as missing_info; any unparseable rule leaves the LLM
-    # in charge.
+    # Categorise every cited rule in ONE pass so a decisive deny/shortcircuit
+    # later in the list can still fire even when an earlier gate is
+    # undetermined. Any unparseable rule leaves the LLM in charge (return
+    # unchanged); any missing trace also defers to the LLM.
+    fired_shortcircuit: list[str] = []
+    fired_deny: list[str] = []
+    failed_approve: list[str] = []
+    undetermined_ids: list[str] = []
     for cit in rule_cites:
         t = traces.get(cit.rule_id)
         if t is None:
             return decision  # no trace — trust the LLM
         v = t.get("verdict")
         if v == "undetermined":
-            if decision.outcome != "missing_info":
-                return decision.model_copy(update={"outcome": "missing_info"})
-            return decision
+            undetermined_ids.append(cit.rule_id)
+            continue
         if v not in ("matched", "unmatched"):
             return decision  # unparseable — LLM authoritative
-
-    # All decisive. Apply the state machine.
-    fired_shortcircuit: list[str] = []
-    fired_deny: list[str] = []
-    failed_approve: list[str] = []
-    for cit in rule_cites:
         rule = rules_by_id.get(cit.rule_id)
         if rule is None:
             continue
@@ -505,12 +498,23 @@ def _compose_outcome_from_polarity(
         elif pol == "approve" and not matched:
             failed_approve.append(cit.rule_id)
 
+    # State machine — a fired shortcircuit or deny outranks any undetermined
+    # gate (the case has a decisive reason to approve / deny regardless of
+    # what the gap is). Only when nothing decisive fired does an
+    # undetermined trace fall through to missing_info.
     if fired_shortcircuit:
         new_outcome = "approve"
         rationale = f"Fast-path approval: {', '.join(fired_shortcircuit)} matched."
     elif fired_deny:
         new_outcome = "deny"
         rationale = f"Blocker rule(s) fired: {', '.join(fired_deny)}."
+    elif undetermined_ids:
+        # An approve-gate we couldn't evaluate means we can't confidently
+        # derive approve OR deny from the remaining rules. Preserve the
+        # missing_info outcome (or force it if the LLM said something else).
+        if decision.outcome == "missing_info":
+            return decision
+        return decision.model_copy(update={"outcome": "missing_info"})
     elif failed_approve:
         new_outcome = "deny"
         rationale = f"Required approval gate(s) not met: {', '.join(failed_approve)}."
@@ -569,11 +573,7 @@ def _enforce_undetermined_outcome(
         return decision
 
     rules_by_id = {r.id: r for r in rules}
-    # Data-present dict: intake fields + non-Intake extras. Same merge
-    # order as the reason stage's prompt builder so "what the model saw"
-    # is what we check against.
-    present: dict[str, Any] = dict(extras or {})
-    present.update(intake.model_dump(mode="json"))
+    present: dict[str, Any] = merge_intake_and_extras(intake, extras)
 
     def _is_null(v: Any) -> bool:
         return v is None or v == "" or v == []

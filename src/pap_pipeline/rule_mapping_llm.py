@@ -35,6 +35,15 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
+# Cost/DoS bounds on the LLM assist prompt. Real rules top out at a
+# handful of unresolved refs against schemas of tens of slots; hundreds
+# of either would balloon the paid Nebius call without improving the
+# mapping. Truncation is deterministic (input order preserved) so a
+# retry against the same rule sees the same prompt.
+_MAX_UNRESOLVED_REFS = 32
+_MAX_TARGET_SLOTS = 128
+_MAX_DESCRIPTION_CHARS = 400
+
 
 @dataclass(frozen=True)
 class LLMSuggestion:
@@ -140,23 +149,42 @@ async def suggest_unresolved(
     # Cap the source-ref list at a sane size. The wizard's own auto-mapper
     # runs on rules with at most a dozen or so refs in practice; a runaway
     # rule with hundreds shouldn't blow up the prompt.
-    refs = list(dict.fromkeys(source_refs))  # dedupe, preserve order
+    refs_all = list(dict.fromkeys(source_refs))  # dedupe, preserve order
+    refs = refs_all[:_MAX_UNRESOLVED_REFS]
+    if len(refs_all) > _MAX_UNRESOLVED_REFS:
+        log.warning(
+            "rule_map_llm_refs_truncated",
+            requested=len(refs_all),
+            kept=len(refs),
+        )
     slot_names = {s["name"] for s in target_slots if s.get("name")}
+
+    # Truncate target_slots too so a 500-slot schema doesn't send a 200 KB
+    # payload per wizard-load. Descriptions carry the strongest semantic
+    # signal but are also the biggest contributor to prompt size — clip
+    # each so a rambling slot doc doesn't crowd out other slots.
+    target_slots_named = [s for s in target_slots if s.get("name")]
+    target_slots_capped = target_slots_named[:_MAX_TARGET_SLOTS]
+    if len(target_slots_named) > _MAX_TARGET_SLOTS:
+        log.warning(
+            "rule_map_llm_target_slots_truncated",
+            requested=len(target_slots_named),
+            kept=len(target_slots_capped),
+        )
 
     user_payload = {
         "source_rule": {
-            "criterion": rule_criterion or "",
-            "exception": rule_exception or "",
+            "criterion": (rule_criterion or "")[:_MAX_DESCRIPTION_CHARS],
+            "exception": (rule_exception or "")[:_MAX_DESCRIPTION_CHARS],
         },
         "unresolved_source_refs": refs,
         "target_slots": [
             {
                 "name": s.get("name"),
                 "type": s.get("type", ""),
-                "description": s.get("description", ""),
+                "description": (s.get("description") or "")[:_MAX_DESCRIPTION_CHARS],
             }
-            for s in target_slots
-            if s.get("name")
+            for s in target_slots_capped
         ],
     }
 

@@ -80,12 +80,18 @@ _STRIP_SUFFIXES: list[re.Pattern[str]] = [
     # Outcome directives at the tail of a rule ("..., deny — because X",
     # "..., approve on the renewal track", "..., matched"). Word-boundary
     # + `.*$` on each so any trailing prose after the outcome word is
-    # sliced off along with it. Real rule criteria don't use "deny" /
-    # "approve" as data operators — always as outcome markers — so a
-    # broad match is safe.
-    re.compile(r",?\s*deny\b.*$", re.IGNORECASE),
-    re.compile(r",?\s*approve\b.*$", re.IGNORECASE),
-    re.compile(r",?\s*matched?\b.*$", re.IGNORECASE),
+    # sliced off along with it.
+    #
+    # A comma before the keyword is REQUIRED. Earlier versions matched a
+    # bare word ("deny", "approve", "matched") anywhere in the tail, which
+    # would eat legitimate string RHS literals like ``@status = 'deny'`` —
+    # the pattern would strip from the ``'deny'`` onward and leave an
+    # unparseable ``@status =``. Real outcome markers on the CardioVita
+    # corpus always follow a comma ("If X, deny"), so the comma anchor is
+    # a safe tightening.
+    re.compile(r"\s*,\s*deny\b.*$", re.IGNORECASE),
+    re.compile(r"\s*,\s*approve\b.*$", re.IGNORECASE),
+    re.compile(r"\s*,\s*matched?\b.*$", re.IGNORECASE),
 ]
 
 

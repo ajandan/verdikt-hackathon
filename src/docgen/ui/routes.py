@@ -6293,6 +6293,13 @@ _RULE_ON_MATCH_LABELS = {
     "deny": "Deny gate — if matched, denies (negative gate)",
     "approve_shortcircuit": "Fast-path — if matched, approves immediately",
 }
+# Max length for the free-text criterion / exception fields. The rule
+# save handler enforces this before running the vocabulary validator,
+# which walks a full Levenshtein matrix over every unknown @-ref
+# against every schema slot — an authored 100 KB criterion behind auth
+# is otherwise a cheap DoS gadget. 4 KB is well above every real rule
+# in the CardioVita / Alderwood libraries.
+_MAX_RULE_TEXT_LEN = 4096
 
 
 def _parse_rule_fields(raw: str) -> list[str]:
@@ -7091,6 +7098,22 @@ async def rule_update(
         errors["title"] = "Title cannot be empty."
     if not criterion_val:
         errors["criterion"] = "Criterion cannot be empty."
+    # Length cap on the free-text criterion/exception fields. `_suggest`
+    # in rule_refs runs a full O(n·m) Levenshtein matrix over every
+    # unknown @-ref against every schema slot, so an authored 100 KB
+    # criterion + hundreds of unknown refs against a 500-slot program is
+    # a linear DoS gadget behind auth. 4 KB is well above every real
+    # rule in the CardioVita / Alderwood corpora.
+    if len(criterion_val) > _MAX_RULE_TEXT_LEN:
+        errors["criterion"] = (
+            f"Criterion is too long — max {_MAX_RULE_TEXT_LEN} characters "
+            f"(got {len(criterion_val)})."
+        )
+    if len(exception_val) > _MAX_RULE_TEXT_LEN:
+        errors["exception"] = (
+            f"Exception is too long — max {_MAX_RULE_TEXT_LEN} characters "
+            f"(got {len(exception_val)})."
+        )
     if on_match_val not in _RULE_ON_MATCH_VALUES:
         errors["on_match"] = (
             f"Must be one of {', '.join(_RULE_ON_MATCH_VALUES)}."
@@ -7381,6 +7404,12 @@ async def rule_copy_execute(
     # rule_id) unique constraint doesn't fire — operators can rename it
     # later on the rule detail page if they want a tidier ID.
     new_rule_id = f"{source_rule_public_id}-{target_program_slug[:16]}"
+    # Preserve on_match — the source rule's polarity is the load-bearing
+    # signal that _compose_outcome_from_polarity reads. Omitting it (the
+    # column's server_default is "approve") would silently invert the
+    # semantics of a copied deny-gate: a CV-HIS-01 "prior enrollment must
+    # not be active" blocker would become an "enrollment must be active"
+    # approve-gate. That's the exact opposite of what the source rule says.
     copied = Rule(
         tenant_id=rule.tenant_id,
         program_id=target_program.id,
@@ -7392,6 +7421,7 @@ async def rule_copy_execute(
         fields=new_fields,
         field_refs=new_refs,
         references_slots=rule.references_slots,
+        on_match=rule.on_match or "approve",
         is_active=True,
     )
     session.add(copied)

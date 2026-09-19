@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from pap_pipeline.rule_refs import _levenshtein
+from pap_pipeline.rule_refs import levenshtein
 
 # Ranked so the operator sees exact matches first, then fuzzy hints, then
 # rows that need a decision. Kept as a plain string literal instead of an
@@ -183,7 +183,7 @@ def _fuzzy(source: str, targets: list[str]) -> tuple[str | None, float]:
         overlap = (
             len(src_tokens & tgt_tokens) / max(len(src_tokens | tgt_tokens), 1)
         )
-        lev = _levenshtein(src_norm, tgt_norm)
+        lev = levenshtein(src_norm, tgt_norm)
         lev_score = 1.0 - (lev / max(len(src_norm), len(tgt_norm), 1))
         bonus = 0.15 if (src_norm and (src_norm in tgt_norm or tgt_norm in src_norm)) else 0.0
         score = 0.6 * overlap + 0.3 * max(lev_score, 0.0) + bonus

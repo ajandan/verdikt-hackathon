@@ -178,6 +178,20 @@ def test_deny_with_trailing_prose_stripped() -> None:
     assert r.verdict == "matched"
 
 
+def test_string_rhs_containing_outcome_word_is_not_stripped() -> None:
+    # Regression: earlier `,?\s*deny\b.*$` shape would greedily eat the
+    # ``'deny'`` string literal from an equality clause and leave the
+    # evaluator with `@status =` (unparseable). Real programs sometimes
+    # use "deny" / "approve" as enum values on a status field, so the
+    # suffix stripper must not fire without a comma anchor.
+    r_deny = evaluate("@status = 'deny'", {"status": "deny"})
+    assert r_deny.verdict == "matched"
+    r_approve = evaluate("@status = 'approve'", {"status": "approve"})
+    assert r_approve.verdict == "matched"
+    r_matched = evaluate("@status = 'matched'", {"status": "matched"})
+    assert r_matched.verdict == "matched"
+
+
 # ---------------------------------------------------------------------------
 # Unparseable fallthroughs — evaluator stays out of the LLM's way.
 # ---------------------------------------------------------------------------

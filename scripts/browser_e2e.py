@@ -22,23 +22,21 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import subprocess
 import sys
 import time
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
 
 import httpx
 from playwright.async_api import (
-    async_playwright,
     BrowserContext,
     ConsoleMessage,
     Page,
     Response,
+    async_playwright,
 )
 
 BASE = "http://localhost:8100"
@@ -1089,7 +1087,7 @@ def write_md(data: RunData) -> None:
     lines.append("")
 
     lines.append("## Findings\n")
-    blockers, notes, praise = [], [], []
+    blockers, notes = [], []
     for p in data.phases:
         for tag_list in (p.notes.split(";") if p.notes else []):
             t = tag_list.strip()

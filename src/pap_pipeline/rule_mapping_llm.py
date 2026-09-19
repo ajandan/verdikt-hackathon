@@ -54,7 +54,9 @@ class LLMSuggestion:
 
 _SYSTEM_PROMPT = """You are a schema-mapping assistant.
 
-Given a source rule that references certain fields by name, and a target program's schema of slot names + descriptions, map each source reference to the semantically-closest target slot. If no target slot is a reasonable fit, return null for that source.
+Given a source rule that references certain fields by name, and a target program's schema of
+slot names + descriptions, map each source reference to the semantically-closest target slot.
+If no target slot is a reasonable fit, return null for that source.
 
 Return STRICT JSON matching this exact schema — no extra keys, no prose, no markdown fences:
 
@@ -67,7 +69,8 @@ Return STRICT JSON matching this exact schema — no extra keys, no prose, no ma
 
 Guidance:
 - Prefer slots whose description or name captures the same real-world concept as the source ref.
-- Return null for target when NO slot is a reasonable fit — a bad guess is worse than an honest miss because the operator will just have to un-pick it.
+- Return null for target when NO slot is a reasonable fit — a bad guess is worse than an honest
+  miss because the operator will just have to un-pick it.
 - Every source ref from the input MUST appear exactly once in your mappings list.
 - Never invent target slot names outside the provided list.
 """

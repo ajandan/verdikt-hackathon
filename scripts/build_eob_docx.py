@@ -27,7 +27,7 @@ from docx.shared import Pt, RGBColor
 OUT_PATH = Path(__file__).resolve().parents[1] / "sample_templates" / "insurance_eob.docx"
 
 
-def _add_heading(doc: Document, text: str, size: int, *, bold: bool = True, color: RGBColor | None = None) -> None:  # noqa: E501
+def _add_heading(doc: Document, text: str, size: int, *, bold: bool = True, color: RGBColor | None = None) -> None:
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(text)

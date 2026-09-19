@@ -25,7 +25,6 @@ from docgen.main import app
 from docgen.store.db import sync_session
 from docgen.store.models import Program, Rule, RuleVersion, Tenant
 
-
 CSRF = "test-wizard-csrf"
 
 
@@ -93,7 +92,7 @@ def _teardown(tid: uuid.UUID) -> None:
 def test_wizard_get_without_target_shows_program_dropdown() -> None:
     """Step 1: no target selected — page renders with a program dropdown
     scoped to the rule's tenant."""
-    tid, pid, rid = _seed_tenant_program_and_library_rule(
+    tid, _pid, rid = _seed_tenant_program_and_library_rule(
         program_schema=[
             {"name": "ins_uninsured", "type": "boolean"},
             {"name": "rx_medication", "type": "string"},

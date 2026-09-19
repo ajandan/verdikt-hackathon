@@ -10,9 +10,8 @@ import asyncio
 import json
 import re
 import subprocess
-import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -164,7 +163,7 @@ async def measure_page(context, url_path: str, slug: str, idx: int) -> dict:
     t0 = time.perf_counter()
     try:
         await page.goto(full_url, wait_until="load", timeout=15000)
-    except Exception as e:
+    except Exception:
         pass
     goto_ms_warm = int((time.perf_counter() - t0) * 1000)
     await asyncio.sleep(0.1)
@@ -227,7 +226,7 @@ def verdict_for(cold: dict) -> tuple[str, list[str]]:
 
 
 async def main():
-    started = datetime.now(timezone.utc).isoformat()
+    started = datetime.now(UTC).isoformat()
     head = git_head()
 
     async with async_playwright() as pw:
@@ -267,7 +266,7 @@ async def main():
     md.append(f"- **HEAD:** `{head}`")
     md.append(f"- **Browser:** Chromium {chromium_version} (headless, viewport 1440x900)")
     md.append(f"- **Server:** {BASE} (Docker `quire-hackathon-web-1`, assumed warm before run)")
-    md.append(f"- **Method:** sequential, 500ms pause between pages, cold context per URL then warm re-hit")
+    md.append("- **Method:** sequential, 500ms pause between pages, cold context per URL then warm re-hit")
     md.append("")
     md.append("## Summary")
     md.append("")

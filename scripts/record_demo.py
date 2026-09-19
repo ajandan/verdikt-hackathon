@@ -161,7 +161,7 @@ async def _choreograph_2(page: Page, _event_id: str) -> None:
                 await link.scroll_into_view_if_needed()
                 await link.click()
                 return
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
         await page.evaluate(
             f"""
@@ -212,7 +212,6 @@ async def _choreograph_4(page: Page, event_id: str) -> None:
       0:13-0:16  "produces a structured verdict — approve, deny..."   -> verdict + rationale
       0:16-0:23  "with citations back to the rules that fired"       -> merged PDF scroll
     """
-    import os
 
     url = f"{BASE_URL}/ui/inbox/{event_id}/pipeline"
     await page.goto(url, wait_until="load")

@@ -415,7 +415,6 @@ async def index(
     size: str | None = None,
     show_inactive: int = 0,
 ) -> HTMLResponse:
-    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant  # local to avoid circular import issues
 
     tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
@@ -907,7 +906,6 @@ async def renders(
     batch run?". Filters: tenant, state, since (24h/7d/30d), caller substring,
     and a free-form `q` that matches job-id prefix / caller / error.
     """
-    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
 
     tenants_stmt = select(Tenant).order_by(Tenant.name.asc())
@@ -3181,7 +3179,6 @@ async def provenance_view(
     if template is None:
         raise HTTPException(404, "Template not found")
     _enforce_scope(request, template.tenant_id)
-    from docgen.pagination import PageParams, paginate_query
     prov_stmt = (
         select(Provenance)
         .join(TemplateVersion, TemplateVersion.id == Provenance.template_version_id)
@@ -3482,7 +3479,6 @@ async def admin_tenants(
     (no cookie) shows every tenant. Same rules as the templates list.
     """
     _require_super_admin(request)
-    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
     stmt = select(Tenant).order_by(Tenant.name.asc())
     cookie_tid = request.cookies.get("docgen_ui_tenant")
@@ -3535,7 +3531,6 @@ async def admin_keys(
     page: str | None = None,
 ) -> HTMLResponse:
     _enforce_scope(request, tenant_id)
-    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import Tenant
     tenant = await session.get(Tenant, tenant_id)
     if tenant is None:
@@ -4112,6 +4107,7 @@ async def admin_save_tenant_triage_routing(
 ) -> RedirectResponse:
     _require_super_admin(request)
     import json as _json
+
     from docgen.store.models import Tenant
     from pap_pipeline.stages.triage import _DEFAULT_ROUTING
 
@@ -4175,7 +4171,6 @@ async def admin_users(
     page: str | None = None,
 ) -> HTMLResponse:
     _require_super_admin(request)
-    from docgen.pagination import PageParams, paginate_query
     from docgen.store.models import AdminUser, Tenant
     users_stmt = (
         select(AdminUser, Tenant.name.label("tenant_name"))
@@ -6017,7 +6012,6 @@ async def programs_list(
     tenant-admin and picker-scoped super-admin see only the current
     tenant's programs. Same rule as the Templates/Renders lists.
     """
-    from docgen.pagination import PageParams, paginate_query
     scope = _forced_tenant_scope(request)
     stmt = (
         select(Program, Tenant.name)
@@ -6639,8 +6633,9 @@ async def program_triage_routing_save(
     overrides."
     """
     import json as _json
-    from pap_pipeline.config_resolver import resolve_pipeline_models
+
     from docgen.store.models import Tenant
+    from pap_pipeline.config_resolver import resolve_pipeline_models
 
     prog = await _load_program(session, program_id)
     _enforce_scope(request, prog.tenant_id)
@@ -6783,7 +6778,6 @@ async def rules_list(
     """Master rule library — one row per tenant rule, with an attached-programs
     hint per row so ops can see reach at a glance.
     """
-    from docgen.pagination import PageParams, paginate_query
     scope = _forced_tenant_scope(request)
     stmt = (
         select(Rule, Tenant.name)

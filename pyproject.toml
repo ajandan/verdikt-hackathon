@@ -101,11 +101,17 @@ ignore = [
     "B008",   # FastAPI's Depends(...) in default arguments is idiomatic.
     "RUF012", # SQLAlchemy's type_annotation_map / mutable class defaults are idiomatic.
     "UP037",  # Forward-ref quoted annotations sometimes required by SQLAlchemy relationship().
-    "RUF002", # En-dashes/arrows in docstrings are intentional (design-doc references).
     "RUF001", # ×, – appear intentionally in rule text (400% × FPL) and script strings.
+    "RUF002", # En-dashes/arrows in docstrings are intentional (design-doc references).
+    "RUF003", # En-dashes/‹›/× in comments match the docstring convention (RUF002).
+    "UP047",  # TypeVar-style generics kept until the whole codebase moves to PEP 695.
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B", "F401"]
-"scripts/**" = ["B"]
+# E501: fixture blobs, inline HTML snippets, and locked-string assertions
+# in tests read better on one line even when they cross the wrap column.
+"tests/**" = ["B", "F401", "E501"]
+# scripts/ are one-off ops utilities: long CLI-arg strings, inline Selenium
+# selectors, and demo prompts sit above the wrap column intentionally.
+"scripts/**" = ["B", "E501"]
 "alembic/**" = ["E", "F", "UP", "B"]  # Alembic templates and generated migrations

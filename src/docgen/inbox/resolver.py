@@ -27,9 +27,10 @@ InboxEvent for auditability) and drops the message.
 """
 from __future__ import annotations
 
-import structlog
 from dataclasses import dataclass
 from typing import Any
+
+import structlog
 
 from docgen.inbox.imap_poller import AuthResults
 from docgen.store.models import Tenant

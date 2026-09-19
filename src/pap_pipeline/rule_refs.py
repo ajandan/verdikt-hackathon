@@ -22,8 +22,8 @@ Grammar (intentionally minimal):
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 # One canonical regex. Compiled at import time so hot paths (reasoner
 # prompt-build) don't re-compile every call.

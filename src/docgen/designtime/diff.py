@@ -14,8 +14,6 @@ import zipfile
 from dataclasses import dataclass, field
 from typing import Any
 
-from lxml import etree
-
 from docgen.core.preflight import W_NS
 from docgen.core.xml_safe import safe_fromstring
 

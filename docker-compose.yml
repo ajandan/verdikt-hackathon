@@ -225,6 +225,9 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./alembic:/app/alembic
+      # `scripts/` mounted so `ruff check src tests scripts` (the CI
+      # command) can see the same file set inside the container.
+      - ./scripts:/app/scripts
       - ./alembic.ini:/app/alembic.ini:ro
       - ./pyproject.toml:/app/pyproject.toml:ro
     # Migrate then run the suite. `sh -c` because compose can only take a

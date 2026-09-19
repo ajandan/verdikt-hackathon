@@ -138,7 +138,7 @@ Return STRICT JSON:
 {{"labels": [{{"index": 0, "section": "", "label": "..."}}, ...]}}
 
 Every listed index must appear exactly once.
-"""  # noqa: E501
+"""
 
 
 def build_ocr_dump(lines: list[dict[str, Any]]) -> str:

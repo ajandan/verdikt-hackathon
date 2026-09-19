@@ -42,6 +42,25 @@ from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 import structlog
+from pydantic import ValidationError
+
+from pap_pipeline.rule_evaluator import evaluate as _evaluate_rule
+from pap_pipeline.schemas.decision import Citation, Decision, VerifierFinding
+from pap_pipeline.schemas.history import HistorySlice
+from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.schemas.rule import Rule
+from pap_pipeline.stages.extract import ExtractClientConfig, extract
+from pap_pipeline.stages.mdm_lookup import (
+    MdmSource,
+    MdmSourceConfig,
+    build_mdm_source,
+)
+from pap_pipeline.stages.reason import ReasonClientConfig, reason
+from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
+from pap_pipeline.stages.triage import TriageConfig, TriageDecision, triage
+from pap_pipeline.verify import dual_extract, verify_decision
+
+log = structlog.get_logger(__name__)
 
 _T = TypeVar("_T")
 
@@ -104,7 +123,7 @@ async def _traced(
         if status == "ok" and extras_fn is not None:
             try:
                 details = extras_fn(result) or {}
-            except Exception as sum_err:  # noqa: BLE001 — never fail the pipeline for a summary
+            except Exception as sum_err:
                 details = {"summary_error": f"{type(sum_err).__name__}: {sum_err}"}
         trace.append({
             "stage": stage,
@@ -116,26 +135,6 @@ async def _traced(
             "error": error,
             "details": details,
         })
-
-log = structlog.get_logger(__name__)
-
-from pydantic import ValidationError
-
-from pap_pipeline.rule_evaluator import evaluate as _evaluate_rule
-from pap_pipeline.schemas.decision import Citation, Decision, VerifierFinding
-from pap_pipeline.schemas.history import HistorySlice
-from pap_pipeline.schemas.intake import Intake
-from pap_pipeline.schemas.rule import Rule
-from pap_pipeline.stages.extract import ExtractClientConfig, extract
-from pap_pipeline.stages.mdm_lookup import (
-    MdmSource,
-    MdmSourceConfig,
-    build_mdm_source,
-)
-from pap_pipeline.stages.reason import ReasonClientConfig, reason
-from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
-from pap_pipeline.stages.triage import TriageConfig, TriageDecision, triage
-from pap_pipeline.verify import dual_extract, verify_decision
 
 
 @dataclass(frozen=True)

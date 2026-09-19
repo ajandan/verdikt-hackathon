@@ -18,7 +18,6 @@ from docgen.pagination import (
     _clamp_list_size,
 )
 
-
 # ---------------------------------------------------------------------------
 # PageParams.from_request — the bad-input safety net
 # ---------------------------------------------------------------------------

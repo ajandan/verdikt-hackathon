@@ -11,7 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 
-from browser_e2e import RunData, PhaseResult, write_md  # noqa: E402
+from browser_e2e import PhaseResult, RunData, write_md  # noqa: E402
 
 data_json = json.loads((REPO / "reports" / "browser-e2e-data.json").read_text(encoding="utf-8"))
 

@@ -43,7 +43,6 @@ from pap_pipeline.stages.reason import ReasonClientConfig
 from pap_pipeline.stages.retrieve import RetrieveClientConfig
 from pap_pipeline.stages.triage import TriageConfig
 
-
 # ---------------------------------------------------------------------------
 # Lens 1 — import-level regression guard
 # ---------------------------------------------------------------------------
@@ -144,7 +143,6 @@ async def test_run_triaged_from_intake_populates_triage_on_json_path(
         p = request.url.path
         body = json.loads(request.content) if request.content else {}
         if p.endswith("/chat/completions"):
-            first = body.get("messages", [{}])[0]
             system = " ".join(
                 str(m.get("content", ""))
                 for m in body.get("messages", [])

@@ -24,7 +24,6 @@ from typing import Any
 
 import httpx
 import structlog
-from lxml import etree
 
 from docgen.core.xml_safe import safe_fromstring
 

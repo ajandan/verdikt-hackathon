@@ -348,10 +348,10 @@ def _program_overview_pdf() -> bytes:
              "changes."),
             ("h2", "How the program works"),
             ("bullets", [
-                "Your approved medication is shipped to your home or your prescriber's office at no cost to you.",  # noqa: E501
+                "Your approved medication is shipped to your home or your prescriber's office at no cost to you.",
                 "Coverage runs for twelve (12) months from your approval date.",
                 "You must remain enrolled with your current prescriber and pharmacy for the coverage window.",
-                "You may need to re-enroll before the twelve months end — we'll contact you sixty (60) days before expiration.",  # noqa: E501
+                "You may need to re-enroll before the twelve months end — we'll contact you sixty (60) days before expiration.",
             ]),
             ("h2", "Your responsibilities"),
             ("p",
@@ -410,10 +410,10 @@ def _missing_docs_checklist_pdf() -> bytes:
              "the paperwork; you don't need to send anything not requested in the letter."),
             ("h2", "Commonly requested documents"),
             ("bullets", [
-                "Proof of household income — last two pay stubs, most recent tax return, or a benefits statement.",  # noqa: E501
-                "Proof of residency — a utility bill, lease agreement, or state ID with your current address.",  # noqa: E501
-                "Insurance denial letter — the most recent one from your health plan, dated within the last twelve months.",  # noqa: E501
-                "Prescriber statement — a signed note from your CardioVita prescriber confirming ongoing treatment.",  # noqa: E501
+                "Proof of household income — last two pay stubs, most recent tax return, or a benefits statement.",
+                "Proof of residency — a utility bill, lease agreement, or state ID with your current address.",
+                "Insurance denial letter — the most recent one from your health plan, dated within the last twelve months.",
+                "Prescriber statement — a signed note from your CardioVita prescriber confirming ongoing treatment.",
             ]),
             ("h2", "How to return the documents"),
             ("bullets", [

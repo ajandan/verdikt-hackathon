@@ -37,7 +37,6 @@ from pap_pipeline.stages import reason as reason_mod
 from pap_pipeline.stages import retrieve as retrieve_mod
 from pap_pipeline.stages import triage as triage_mod
 
-
 # ---------------------------------------------------------------------------
 # Fixture helpers
 # ---------------------------------------------------------------------------

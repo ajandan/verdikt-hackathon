@@ -19,7 +19,6 @@ import pytest
 from pap_pipeline import rule_mapping_llm
 from pap_pipeline.rule_mapping_llm import LLMSuggestion, suggest_unresolved
 
-
 _TARGET_SLOTS = [
     {"name": "insurance_status", "type": "enum",
      "description": "Applicant's insurance category (uninsured / medicare / commercial)."},

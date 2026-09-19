@@ -31,7 +31,6 @@ from docgen.main import app
 from docgen.store.db import sync_session
 from docgen.store.models import Program, Tenant
 
-
 CSRF_TOKEN = "test-inherit-csrf"
 
 

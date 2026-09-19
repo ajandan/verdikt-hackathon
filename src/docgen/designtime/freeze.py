@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from docgen.config import get_settings
 from docgen.core.preflight import W_NS, preflight
-from docgen.core.xml_safe import safe_fromstring
 from docgen.core.schema_infer import FieldSpec, TemplateSchema
+from docgen.core.xml_safe import safe_fromstring
 from docgen.designtime.audit import record_audit_event
 from docgen.designtime.format_infer import infer_formats, merge_formats_into_schema
 from docgen.providers.base import MappingProposal

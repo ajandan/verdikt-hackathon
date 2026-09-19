@@ -78,8 +78,8 @@ def test_ai_response_flows_through(monkeypatch) -> None:
         def post(self, url, headers, json):
             content = json_dumps({
                 "trials": [
-                    {"name": "happy",  "description": "typical", "payload": {"member_name": "Alice", "amount": 1, "is_denied": False}},  # noqa: E501
-                    {"name": "edge",   "description": "boundary", "payload": {"member_name": "B",     "amount": 999, "is_denied": True}},  # noqa: E501
+                    {"name": "happy",  "description": "typical", "payload": {"member_name": "Alice", "amount": 1, "is_denied": False}},
+                    {"name": "edge",   "description": "boundary", "payload": {"member_name": "B",     "amount": 999, "is_denied": True}},
                 ]
             })
             return _FakeResp({"choices": [{"message": {"content": content}}]})

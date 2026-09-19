@@ -29,7 +29,6 @@ from docgen.main import app
 from docgen.store.db import sync_session
 from docgen.store.models import Program, Rule, RuleVersion, Tenant
 
-
 CSRF = "test-edit-vocab-csrf"
 
 
@@ -125,7 +124,7 @@ def test_save_happy_path_persists_and_redirects() -> None:
     """Every field valid → normal 303 redirect + row updated + version
     snapshot. Regression guard for the same MissingGreenlet trap the
     copy-to-program handler had — locals cached before commit."""
-    tid, pid, rid = _seed(criterion="@ins_uninsured is true")
+    tid, _pid, rid = _seed(criterion="@ins_uninsured is true")
     try:
         with _admin_client() as c:
             r = c.post(
@@ -153,7 +152,7 @@ def test_save_unknown_intake_field_renders_inline_error() -> None:
     """Fields entry outside the schema → 400 with the form re-rendered
     and a .field-error block under the fields input. Operator's
     in-flight values (criterion/exception/title) are preserved."""
-    tid, pid, rid = _seed()
+    tid, _pid, rid = _seed()
     try:
         with _admin_client() as c:
             r = c.post(
@@ -185,7 +184,7 @@ def test_save_unknown_at_field_ref_in_criterion_renders_inline_error() -> None:
     """@field in criterion that isn't a declared slot → inline error
     attributed to criterion + "did you mean" suggestion via
     validate_field_refs."""
-    tid, pid, rid = _seed()
+    tid, _pid, rid = _seed()
     try:
         with _admin_client() as c:
             r = c.post(
@@ -214,7 +213,7 @@ def test_save_unknown_at_field_ref_in_criterion_renders_inline_error() -> None:
 
 def test_save_unknown_at_field_ref_in_exception_renders_inline_error() -> None:
     """Exception-only error attributes to the exception input, not criterion."""
-    tid, pid, rid = _seed()
+    tid, _pid, rid = _seed()
     try:
         with _admin_client() as c:
             r = c.post(
@@ -240,7 +239,7 @@ def test_library_rule_without_program_skips_vocab_validation() -> None:
     against, so any names pass. Copy-to-program wizard is the path
     where vocabulary gets bound. Regression guard against making the
     validation gate accidentally apply to library rules."""
-    tid, pid, rid = _seed(criterion="anything goes here", program_scoped=False)
+    tid, _pid, rid = _seed(criterion="anything goes here", program_scoped=False)
     try:
         with _admin_client() as c:
             r = c.post(

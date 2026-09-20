@@ -187,6 +187,38 @@
     }
     .tab-panel[hidden] { display: none; }
 
+    /* Formula tree — indented boolean AST viewer. LEAF nodes render
+       on one line (op + operands); LOGICAL nodes (AND/OR/NOT) show
+       their children indented below. Colored op badges make it easy
+       to scan structure at a glance. Read-only for now; JSON editing
+       is via the collapsible textarea beneath the tree. */
+    .formula-tree {
+        margin-top: 6px; padding: 10px 12px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 6px; font-size: 12.5px; line-height: 1.55;
+    }
+    .ftree-node {
+        margin-left: 0; padding: 2px 0;
+        display: flex; flex-direction: column; gap: 2px;
+    }
+    .ftree-depth-1, .ftree-depth-2, .ftree-depth-3, .ftree-depth-4, .ftree-depth-5 {
+        margin-left: 20px;
+        border-left: 2px solid var(--border);
+        padding-left: 10px;
+    }
+    .ftree-op {
+        display: inline-block; padding: 1px 8px;
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px; font-weight: 700;
+        border-radius: 4px; margin-right: 8px;
+    }
+    .ftree-op-logical { background: var(--brand-soft); color: var(--brand); }
+    .ftree-op-leaf    { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .ftree-operand { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+    .ftree-field   { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--brand); font-weight: 600; }
+    .ftree-literal { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--text); }
+    .ftree-regex   { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: #b45309; }
+
     /* @field references — one visual convention across read-only view,
        editor overlay, wizard, and inline text. Standalone
        <code class="at-ref"> pill (Intake fields list) and inline
@@ -390,6 +422,43 @@
                     </div>
                 </div>
 
+                {#- Formula panel — the deterministic representation the
+                    runtime evaluator walks. Two views:
+                    (a) tree, rendered server-side as an indented list so
+                        reviewers can scan structure without reading JSON;
+                    (b) raw JSON, revealed via the "Show JSON" toggle for
+                        authors who want to hand-edit before saving.
+                    Both edit the same underlying value. Absence of a
+                    formula is a visible state — the "text-only" pill
+                    reminds authors the rule falls back to pattern
+                    matching at runtime. -#}
+                <div class="rv-block" style="margin-top: 18px">
+                    <div class="rv-block-label" style="display: flex; align-items: center; gap: 8px">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M2 6h12M5 3v10"/></svg>
+                        Formula
+                        {% if rule.formula %}
+                        <span style="font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--success-soft); color: var(--success); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700">deterministic</span>
+                        {% else %}
+                        <span style="font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700">text-only</span>
+                        {% endif %}
+                    </div>
+                    {% if rule.formula %}
+                    <div class="formula-tree" id="formula-tree" data-formula='{{ rule.formula|tojson }}'>
+                        <em class="muted">Rendering tree…</em>
+                    </div>
+                    <details style="margin-top: 8px">
+                        <summary style="cursor: pointer; color: var(--text-muted); font-size: 12px">Show JSON</summary>
+                        <pre style="margin: 6px 0 0; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; overflow: auto; max-height: 320px">{{ rule.formula|tojson(indent=2) }}</pre>
+                    </details>
+                    {% else %}
+                    <div class="rv-block-body muted" style="font-style: italic">
+                        No formula persisted — the runtime evaluator falls back to text-pattern
+                        matching on the criterion. Save the rule via the editor to trigger
+                        design-time translation.
+                    </div>
+                    {% endif %}
+                </div>
+
                 <div class="card-actions">
                     <button type="button" class="primary" id="rule-edit-toggle">
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2l3 3-8 8H3v-3z"/><path d="M10 3l3 3"/></svg>
@@ -510,6 +579,37 @@
                     <input type="checkbox" name="is_active" {% if _is_active %}checked{% endif %}>
                     <span>Active — the retriever will consider this rule</span>
                 </label>
+
+                {#- Formula translator gate.
+                    On save, the design-time translator (Nemotron) converts
+                    the criterion into a structured formula the deterministic
+                    evaluator walks at runtime — cheaper + fully auditable.
+                    When it can't cover a criterion (or the operator wants
+                    to bypass), this checkbox opts out and the rule falls
+                    back to the text-pattern evaluator. fe.formula surfaces
+                    the translator's notes so the author can revise the
+                    criterion instead of just skipping. -#}
+                {%- set _skip_translator = fv.get('skip_translator', False) -%}
+                <label style="margin-top: 12px; display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0">
+                    <input type="checkbox" name="skip_translator" {% if _skip_translator %}checked{% endif %}>
+                    <span>
+                        Save without deterministic formula
+                        <span class="muted" style="display: block; font-size: 11.5px; margin-top: 2px">
+                            Falls back to the text-pattern evaluator at runtime. Only tick this if
+                            the translator can't express a clause and you don't want to reword it.
+                        </span>
+                    </span>
+                </label>
+                {% if fe.formula %}<div class="field-error">{{ fe.formula }}</div>{% endif %}
+                {%- set _tnotes = fv.get('translator_notes') -%}
+                {% if _tnotes %}
+                <div class="muted" style="font-size: 12px; margin-top: 6px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px">
+                    <strong>Translator notes:</strong>
+                    <ul style="margin: 4px 0 0; padding-left: 18px">
+                        {% for n in _tnotes %}<li>{{ n }}</li>{% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
 
                 <div style="margin-top: 20px; display: flex; gap: 8px">
                     <button class="primary" type="submit">Save changes</button>
@@ -963,6 +1063,92 @@
         if (e.target === activeTextarea) return;
         closePopover();
     });
+})();
+
+// Formula tree renderer — turns the JSON AST into an indented visual
+// so reviewers can scan the rule structure without reading JSON.
+// Pure DOM, no innerHTML with user data. Uses the same design language
+// as the pipeline detail Why-panel (mono field names, colored ops).
+(function () {
+    var root = document.getElementById('formula-tree');
+    if (!root) return;
+    var raw = root.getAttribute('data-formula');
+    if (!raw) return;
+    var formula;
+    try { formula = JSON.parse(raw); } catch (_e) {
+        root.textContent = '(formula JSON could not be parsed)';
+        return;
+    }
+    root.textContent = '';
+    root.appendChild(renderNode(formula, 0));
+
+    function renderNode(node, depth) {
+        var wrap = document.createElement('div');
+        wrap.className = 'ftree-node ftree-depth-' + Math.min(depth, 5);
+        if (!node || typeof node !== 'object') {
+            wrap.textContent = String(node);
+            return wrap;
+        }
+        var op = node.op || '?';
+        var opBadge = document.createElement('span');
+        opBadge.className = 'ftree-op ftree-op-' + (isLogical(op) ? 'logical' : 'leaf');
+        opBadge.textContent = op;
+        wrap.appendChild(opBadge);
+
+        if (isLogical(op)) {
+            if (op === 'NOT' && node.term) {
+                wrap.appendChild(renderNode(node.term, depth + 1));
+            } else if (Array.isArray(node.terms)) {
+                for (var i = 0; i < node.terms.length; i++) {
+                    wrap.appendChild(renderNode(node.terms[i], depth + 1));
+                }
+            }
+            return wrap;
+        }
+
+        // Leaf node — render operands inline
+        var operand = document.createElement('span');
+        operand.className = 'ftree-operand';
+        var parts = [];
+        if (node.field) parts.push(fieldEl(node.field));
+        if (node.left && node.right) {
+            parts.push(fieldEl(node.left));
+            parts.push(txt(' == '));
+            parts.push(fieldEl(node.right));
+        }
+        if (node.value !== undefined && node.value !== null) parts.push(literalEl(node.value));
+        if (Array.isArray(node.values)) parts.push(literalEl(node.values));
+        if (node.n !== undefined && node.n !== null) parts.push(literalEl(node.n));
+        if (node.pattern) parts.push(regexEl(node.pattern));
+        for (var j = 0; j < parts.length; j++) operand.appendChild(parts[j]);
+        wrap.appendChild(operand);
+        return wrap;
+    }
+
+    function isLogical(op) { return op === 'AND' || op === 'OR' || op === 'NOT'; }
+    function fieldEl(name) {
+        var el = document.createElement('code');
+        el.className = 'ftree-field';
+        el.textContent = '@' + name;
+        return el;
+    }
+    function literalEl(v) {
+        var el = document.createElement('code');
+        el.className = 'ftree-literal';
+        el.textContent = typeof v === 'string' ? "'" + v + "'" : JSON.stringify(v);
+        return el;
+    }
+    function regexEl(pat) {
+        var el = document.createElement('code');
+        el.className = 'ftree-regex';
+        el.textContent = '/' + pat + '/';
+        return el;
+    }
+    function txt(s) {
+        var el = document.createElement('span');
+        el.textContent = s;
+        return el;
+    }
 })();
 </script>
 {% endblock %}

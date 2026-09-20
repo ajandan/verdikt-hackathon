@@ -6283,6 +6283,56 @@ async def program_slots_json(
 # Kept as a tuple so the template's <select> and the write-path validator
 # read from one source. Must stay in sync with the ck_rules_kind check
 # constraint and RuleKind Literal in pap_pipeline.schemas.rule.
+# Form flag: when checked in the rule editor, the save proceeds without
+# calling the design-time translator. The rule then evaluates via the
+# text-pattern path at runtime (with all its "unparseable" fallbacks).
+# Logged so ops can spot rules that skipped structured translation.
+_SKIP_TRANSLATOR_FIELD = "skip_translator"
+
+
+async def _translate_rule_criterion(
+    request: Request,
+    session: AsyncSession,
+    *,
+    criterion: str,
+    exception: str,
+    fields: list[str],
+    schema_slots: list[str],
+) -> tuple[dict | None, list[str], str | None]:
+    """Call the design-time translator + return (formula, notes, error).
+
+    ``error`` is set only for infrastructure failures (missing API
+    creds, network) — a Formula-shape error goes into ``notes`` so
+    the editor can surface it inline. Callers decide whether to block
+    the save based on their own policy (Chunk 4's default: block when
+    ``formula is None`` AND the ``skip_translator`` flag isn't set).
+    """
+    from docgen.config import get_settings
+    from pap_pipeline.rule_translator import TranslatorConfig, translate_criterion_to_formula
+
+    settings = get_settings()
+    base_url = (settings.ai_base_url or "").strip()
+    api_key = (settings.ai_api_key or "").strip()
+    if not base_url or not api_key:
+        return None, [], "AI credentials not configured — translator skipped."
+    cfg = TranslatorConfig(
+        base_url=base_url,
+        api_key=api_key,
+        # Reuse the design-time verdict model; a swap to a smaller
+        # classifier is a settings-only change if the demo needs it.
+        model=settings.ai_verdict_model,
+        timeout=float(getattr(settings, "ai_timeout_seconds", 60.0)),
+    )
+    result = await translate_criterion_to_formula(
+        criterion=criterion,
+        exception=exception,
+        fields=fields,
+        schema_slots=schema_slots,
+        config=cfg,
+    )
+    return result.formula, list(result.notes), None
+
+
 _RULE_KINDS = ("financial", "insurance", "residency", "clinical", "history")
 # Polarity picker values. Kept as a plain tuple mirroring the OnMatch Literal
 # on pap_pipeline.schemas.rule so a mismatch (rule schema vs UI dropdown)
@@ -6362,6 +6412,11 @@ async def _snapshot_rule_version(
         references_slots=(list(rule.references_slots) if rule.references_slots else None),
         is_active=rule.is_active,
         on_match=rule.on_match or "approve",
+        # Snapshot the formula alongside the criterion so audit trail
+        # can reconstruct "which formula did the pipeline actually
+        # execute" at any historical point in time — critical when a
+        # denied case cites a formula that was later revised.
+        formula=(dict(rule.formula) if rule.formula else None),
         actor_user_id=(ident.user_id if ident else None),
         actor_username=(ident.username if ident else "system"),
         change_note=(change_note or "")[:200],
@@ -7177,6 +7232,60 @@ async def rule_update(
             request, "admin_rule_detail.html", ctx, status_code=400,
         )
 
+    # Design-time translator: convert the free-form criterion into a
+    # structured formula the deterministic evaluator can walk at
+    # runtime. Force-author gate — a rule save is blocked when the
+    # translator can't cover the criterion AND the operator didn't
+    # opt out via the "save without formula" checkbox. The escape
+    # hatch keeps existing text-only rules editable while giving the
+    # deterministic path a fighting chance on every new save.
+    skip_translator = form.get(_SKIP_TRANSLATOR_FIELD) == "on"
+    formula_val: dict | None = None
+    translator_notes: list[str] = []
+    translator_error: str | None = None
+    if not skip_translator:
+        formula_val, translator_notes, translator_error = await _translate_rule_criterion(
+            request, session,
+            criterion=criterion_val,
+            exception=exception_val,
+            fields=fields_list,
+            schema_slots=schema_slots,
+        )
+        if formula_val is None and translator_error is None:
+            # LLM ran but couldn't produce a valid formula. Surface
+            # the notes inline; user either edits the criterion + retries
+            # OR ticks skip_translator to save with just the text path.
+            errors["formula"] = (
+                "Deterministic formula could not be generated. "
+                + " ".join(translator_notes)
+                + " Revise the criterion, or tick 'save without formula'"
+                " to keep the existing text-only evaluation path."
+            )
+
+    if errors:
+        # Re-render with in-flight values + errors. Preserves the
+        # translator notes on the formula field so the author sees
+        # exactly what to fix.
+        form_values = {
+            "kind": kind,
+            "title": title_val,
+            "criterion": criterion_val,
+            "exception": exception_val,
+            "fields": fields_list,
+            "is_active": is_active_val,
+            "on_match": on_match_val,
+            "skip_translator": skip_translator,
+            "formula": formula_val,
+            "translator_notes": translator_notes,
+        }
+        ctx = await _rule_detail_ctx(
+            request, session, rule,
+            form_values=form_values, form_errors=errors,
+        )
+        return templates.TemplateResponse(
+            request, "admin_rule_detail.html", ctx, status_code=400,
+        )
+
     rule.kind = kind
     rule.title = title_val
     rule.criterion = criterion_val
@@ -7188,6 +7297,9 @@ async def rule_update(
     rule.field_refs = parse_field_refs(criterion_val, exception_val)
     rule.is_active = is_active_val
     rule.on_match = on_match_val
+    # Persist formula. None = author skipped translator OR translator
+    # was unavailable; runtime falls back to text-pattern evaluation.
+    rule.formula = formula_val
     # Cache pre-commit — commit expires attrs, log/redirect after would
     # trigger MissingGreenlet in async context (same pattern as the
     # copy-to-program handler fix).

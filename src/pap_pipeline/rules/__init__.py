@@ -139,6 +139,10 @@ def _row_to_rule(rule_row: Any, program: str) -> Rule:
         # even if a caller hydrated a Rule from a raw dict missing the
         # column.
         on_match=getattr(rule_row, "on_match", "approve") or "approve",
+        # Structured formula (0039). None on older rows or on rules whose
+        # author skipped the translator; runtime evaluator falls back to
+        # the text-pattern path for those.
+        formula=(dict(rule_row.formula) if getattr(rule_row, "formula", None) else None),
     )
 
 

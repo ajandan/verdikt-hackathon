@@ -66,6 +66,12 @@ class Rule(BaseModel):
     fields: list[str] = Field(default_factory=list)
     references_slots: list[str] | None = None
     on_match: OnMatch = "approve"
+    # Structured formula authored at design time (see
+    # pap_pipeline.rule_formula.Formula). None → runtime falls back to
+    # text-pattern evaluation of ``criterion``; dict → deterministic
+    # evaluator walks the formula tree and Reason stage can be skipped
+    # for this rule. Stored on the ORM row's ``rules.formula`` JSONB.
+    formula: dict | None = None
 
     def as_prompt_block(self) -> str:
         """Format the rule as the exact block the LLM sees.

@@ -44,7 +44,7 @@ from typing import Any, TypeVar
 import structlog
 from pydantic import ValidationError
 
-from pap_pipeline.rule_evaluator import evaluate as _evaluate_rule
+from pap_pipeline.rule_evaluator import evaluate_rule as _evaluate_rule
 from pap_pipeline.schemas.decision import Citation, Decision, VerifierFinding
 from pap_pipeline.schemas.history import HistorySlice
 from pap_pipeline.schemas.intake import Intake, merge_intake_and_extras
@@ -255,15 +255,43 @@ async def run_from_intake(
             "missing_fields": len(dec.missing_fields or []),
         }
 
-    decision = await _traced(
-        stage_trace,
-        stage="reason",
-        model=config.reason.model,
-        coro=reason(
-            intake, reranked_rules, config=config.reason, extras=merged_extras
-        ),
-        extras_fn=_reason_extras,
+    # Runtime Reason-stage gating: when every cited rule carries a
+    # structured formula, the LLM Reason call adds no signal — the
+    # deterministic evaluator will produce a verdict per rule from the
+    # formula tree and the composer will derive the outcome from those
+    # verdicts + rule polarity. Skip the Nemotron call in that case
+    # and synthesise a starting Decision from the formula evaluations
+    # directly. Downstream passes (evaluator override, strip bogus
+    # missing, composer) run identically on the synthetic Decision.
+    all_have_formula = bool(reranked_rules) and all(
+        getattr(r, "formula", None) is not None for r in reranked_rules
     )
+    if all_have_formula:
+        decision = _synthesise_decision_from_formulas(
+            reranked_rules, intake, merged_extras
+        )
+        # Record a stub trace entry so the audit shows the skip.
+        if stage_trace is not None:
+            stage_trace.append({
+                "stage": "reason",
+                "model": "(skipped — all rules have deterministic formula)",
+                "started_at": datetime.now(UTC).isoformat(),
+                "ended_at": datetime.now(UTC).isoformat(),
+                "duration_ms": 0,
+                "status": "ok",
+                "error": None,
+                "details": _reason_extras(decision),
+            })
+    else:
+        decision = await _traced(
+            stage_trace,
+            stage="reason",
+            model=config.reason.model,
+            coro=reason(
+                intake, reranked_rules, config=config.reason, extras=merged_extras
+            ),
+            extras_fn=_reason_extras,
+        )
     # Deterministic override: if the reasoner returned matched/unmatched
     # against fields the extract stage never populated, force the outcome
     # to missing_info so the applicant reply and downstream JSON verdict
@@ -349,7 +377,14 @@ def _attach_rule_evaluator_traces(
         if rule is None:
             new_citations.append(cit)
             continue
-        result = _evaluate_rule(rule.criterion or "", values)
+        # Dispatch: formula-backed rules go through the tree-walker,
+        # text-only rules go through the pattern matcher. Same
+        # Evaluation shape either way.
+        result = _evaluate_rule(
+            criterion=rule.criterion or "",
+            formula=getattr(rule, "formula", None),
+            values=values,
+        )
         agrees: bool | None = None
         override_applied = False
         new_cit = cit
@@ -538,6 +573,66 @@ def _compose_outcome_from_polarity(
         failed_approve=failed_approve,
     )
     return decision.model_copy(update=updates)
+
+
+def _synthesise_decision_from_formulas(
+    rules: list[Rule],
+    intake: Intake,
+    extras: dict[str, Any] | None,
+) -> Decision:
+    """Build a Decision from formula evaluations without calling the LLM.
+
+    Used when every cited rule has a structured formula — the runtime
+    Reason-stage gating path. For each rule:
+
+    * evaluate the formula against merged intake+extras
+    * map deterministic verdict → matched/false/undetermined
+    * build a Citation with matched= mapped from verdict
+    * collect declared fields as missing_fields when verdict is undetermined
+
+    Outcome + rationale are left as ``missing_info`` / empty here; the
+    downstream ``_compose_outcome_from_polarity`` pass rewrites them
+    based on the citations + rule polarity. Keeping this function's
+    scope narrow (just build citations) means the composition logic
+    stays in one place.
+    """
+    from pap_pipeline.rule_formula import evaluate_formula
+    from pap_pipeline.schemas.intake import merge_intake_and_extras
+
+    values = merge_intake_and_extras(intake, extras)
+
+    citations: list[Citation] = []
+    missing_fields: list[str] = []
+    traces: dict[str, dict[str, Any]] = {}
+    for rule in rules:
+        if rule.formula is None:
+            continue  # defensive — caller checked
+        result = evaluate_formula(rule.formula, values)
+        # Map verdict to a bool for the Citation. Undetermined maps
+        # to False so the composer sees "gate failed" — the missing
+        # fields will be picked up when the composer sees
+        # verdict=undetermined and pivots outcome to missing_info.
+        matched = result.verdict == "matched"
+        citations.append(Citation(type="rule", rule_id=rule.id, matched=matched))
+        if result.verdict == "undetermined":
+            for f in (rule.fields or []):
+                if values.get(f) in (None, "", []) and f not in missing_fields:
+                    missing_fields.append(f)
+        traces[rule.id] = {
+            "verdict": result.verdict,
+            "steps": [{"text": s.text, "result": s.result} for s in result.steps],
+            "justification": result.justification,
+            "agrees_with_reason": True,   # no LLM was called → agreement by construction
+            "reason_matched_original": matched,
+            "override_applied": False,
+        }
+    return Decision(
+        outcome="missing_info" if missing_fields else "approve",
+        citations=citations,
+        missing_fields=missing_fields,
+        rationale="Synthesised from deterministic formulas (Reason stage skipped).",
+        rule_traces=traces,
+    )
 
 
 def _enforce_undetermined_outcome(

@@ -79,7 +79,8 @@ class Intake(BaseModel):
 def merge_intake_and_extras(
     intake: "Intake", extras: dict[str, Any] | None
 ) -> dict[str, Any]:
-    """Return ``extras ∪ intake`` with intake winning on key collision.
+    """Return ``extras ∪ intake`` with intake's NON-NULL values winning
+    on key collision.
 
     Single source of truth for the "what did the model actually see"
     merge that three separate passes rely on:
@@ -91,13 +92,21 @@ def merge_intake_and_extras(
     * :func:`pap_pipeline.orchestrator._attach_rule_evaluator_traces`
       — the values dict passed to the deterministic evaluator.
 
-    Ordering rule (intake overrides extras) matters: applicant-submitted
-    canonical fields beat MDM-derived / program-specific slot values on
-    the rare cases both name the same key. Reversing it silently changes
-    verdicts. Sharing one helper keeps the three callers honest.
+    Ordering rule matters: applicant-submitted canonical fields beat
+    MDM-derived / program-specific slot values when BOTH are populated.
+    But a null on the Intake side must NOT wipe a real value in extras
+    — program-native pipelines fill extras with form data and leave the
+    canonical Intake empty; naively overwriting extras with intake
+    Nones was silently blanking every real value and breaking rule
+    evaluation. The non-null filter fixes that while preserving the
+    "intake authoritative on collision" contract for cases where both
+    sides carry data.
     """
     merged: dict[str, Any] = dict(extras or {})
-    merged.update(intake.model_dump(mode="json"))
+    for k, v in intake.model_dump(mode="json").items():
+        if v is None:
+            continue
+        merged[k] = v
     return merged
 
 

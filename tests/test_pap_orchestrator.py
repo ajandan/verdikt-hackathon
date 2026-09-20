@@ -37,6 +37,11 @@ def _config() -> PipelineConfig:
         extract=ExtractClientConfig(
             base_url="https://api.studio.nebius.com/v1",
             api_key="nb-secret",
+            # Test asserts on the strict extract→embed→rerank→reason
+            # wire sequence — retry_null_on_scan (default True) would
+            # emit a second extract call on the image-attachment path
+            # and break the count.
+            retry_null_on_scan=False,
         ),
         retrieve=RetrieveClientConfig(
             base_url="https://api.studio.nebius.com/v1",

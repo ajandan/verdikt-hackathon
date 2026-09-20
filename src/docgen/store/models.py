@@ -379,6 +379,16 @@ class Rule(Base):
     # the picker and skipped by the retriever even for programs that link it
     # — think "retired rule" rather than "temporarily off for this program".
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Structured formula — canonical machine-executable form of the
+    # criterion, authored at design time via LLM-assisted translation.
+    # Populated → the deterministic evaluator walks the tree directly
+    # and the reasoner (Nemotron) is skipped for this rule; NULL →
+    # pipeline falls back to the text-pattern evaluator on ``criterion``.
+    # Shape: pydantic ``pap_pipeline.rule_formula.Formula`` (root Node
+    # with op + operands). Snapshotted on ``rule_versions.formula`` so
+    # the audit trail reconstructs "what did the pipeline execute at
+    # decision time" independent of later edits.
+    formula: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Polarity — how a matched=true verdict influences the composed outcome.
     # Three shapes cover every rule pattern in the CardioVita library and
     # let the orchestrator derive a decision from citations mechanically
@@ -454,6 +464,9 @@ class RuleVersion(Base):
     on_match: Mapped[str] = mapped_column(
         String(32), nullable=False, default="approve", server_default="approve"
     )
+    # Formula snapshot — see Rule.formula. NULL for versions predating
+    # the formula field or when the parent rule never had one authored.
+    formula: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Actor context. `actor_user_id` is null when the write came from the
     # env-var break-glass super_admin (no DB user row) or from a backfill.

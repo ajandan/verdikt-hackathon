@@ -6311,10 +6311,14 @@ async def _translate_rule_criterion(
     from pap_pipeline.rule_translator import TranslatorConfig, translate_criterion_to_formula
 
     settings = get_settings()
-    base_url = (settings.ai_base_url or "").strip()
+    # Match the runtime pipeline's fallback (inbox_hook + backfill
+    # script): Nebius Token Factory is the platform default when
+    # DOCGEN_AI_BASE_URL isn't overridden per-deploy. Only the API
+    # key is truly required.
+    base_url = (settings.ai_base_url or "https://api.studio.nebius.com/v1").strip().rstrip("/")
     api_key = (settings.ai_api_key or "").strip()
-    if not base_url or not api_key:
-        return None, [], "AI credentials not configured — translator skipped."
+    if not api_key:
+        return None, [], "AI credentials not configured — set DOCGEN_AI_API_KEY."
     cfg = TranslatorConfig(
         base_url=base_url,
         api_key=api_key,

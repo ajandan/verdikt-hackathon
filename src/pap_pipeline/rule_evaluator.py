@@ -365,7 +365,11 @@ def _eval_digit_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool |
     )
 
 
-def _eval_within_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool | None, Step] | None:
+def _eval_within_clause(
+    m: re.Match[str],
+    values: dict[str, Any],
+    today: date,
+) -> tuple[bool | None, Step] | None:
     field_name = m.group(1)
     n = int(m.group(2))
     unit = m.group(3).lower()
@@ -386,7 +390,6 @@ def _eval_within_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool 
         # Actual value isn't parseable as a date — the rule shape doesn't
         # fit the data; punt so the LLM's opinion isn't overridden.
         return None
-    today = date.today()
     window_days = n * _UNIT_TO_DAYS[unit]
     delta_days = (today - parsed).days
     # "Within the last N units" = the parsed date is between today and
@@ -408,7 +411,11 @@ def _eval_within_clause(m: re.Match[str], values: dict[str, Any]) -> tuple[bool 
     )
 
 
-def _eval_clause(text: str, values: dict[str, Any]) -> tuple[bool | None, Step] | None:
+def _eval_clause(
+    text: str,
+    values: dict[str, Any],
+    today: date,
+) -> tuple[bool | None, Step] | None:
     """Return (result, step) for one subclause. None means the shape
     isn't recognised — caller treats the whole rule as unparseable.
 
@@ -428,7 +435,7 @@ def _eval_clause(text: str, values: dict[str, Any]) -> tuple[bool | None, Step] 
         return _eval_digit_clause(m, values)
     m = _WITHIN_RE.match(t)
     if m:
-        return _eval_within_clause(m, values)
+        return _eval_within_clause(m, values, today)
     m = _OP_RE.match(t)
     if m:
         return _eval_op_clause(m, values)
@@ -467,12 +474,24 @@ def _combine(parts_results: list[bool | None], op: str) -> bool | None:
     return False
 
 
-def evaluate(criterion: str, values: dict[str, Any]) -> Evaluation:
+def evaluate(
+    criterion: str,
+    values: dict[str, Any],
+    *,
+    today: date | None = None,
+) -> Evaluation:
     """Parse the criterion and evaluate it against the values dict.
 
     ``values`` is the merged intake + extras dict (same shape the reason
     stage was given). Returns an Evaluation with verdict, per-subclause
     trace, and a one-sentence plain-English justification.
+
+    ``today`` pins the reference date for date-recency subclauses
+    ("within the last N months of today"). Tests inject a fixed date
+    so fixtures don't drift as they age; production callers leave it
+    as None to get ``date.today()``. A single evaluation reads the
+    clock at most once so all subclauses agree on "today" even if
+    midnight passes mid-call.
 
     Never raises — a criterion this module can't parse simply lands as
     ``verdict="unparseable"`` with an empty steps list. Callers should
@@ -480,6 +499,8 @@ def evaluate(criterion: str, values: dict[str, Any]) -> Evaluation:
     """
     if not criterion or not criterion.strip():
         return Evaluation(verdict="unparseable", justification="")
+
+    reference_today = today if today is not None else date.today()
 
     core = _strip_wrappers(criterion)
 
@@ -500,7 +521,7 @@ def evaluate(criterion: str, values: dict[str, Any]) -> Evaluation:
     steps: list[Step] = []
     results: list[bool | None] = []
     for p in parts:
-        parsed = _eval_clause(p, values)
+        parsed = _eval_clause(p, values, reference_today)
         if parsed is None:
             # Whole rule punts — LLM answer stands.
             return Evaluation(verdict="unparseable")
@@ -535,4 +556,35 @@ def evaluate(criterion: str, values: dict[str, Any]) -> Evaluation:
     return Evaluation(verdict=verdict, steps=steps, justification=justification)
 
 
-__all__ = ["Evaluation", "Step", "Verdict", "evaluate"]
+def evaluate_rule(
+    *,
+    criterion: str | None,
+    formula: dict[str, Any] | None,
+    values: dict[str, Any],
+) -> Evaluation:
+    """Dispatch helper: prefer the structured formula when available,
+    fall back to the text-pattern evaluator when only the criterion is
+    populated.
+
+    Callers (the orchestrator's ``_attach_rule_evaluator_traces``, tests,
+    the future backfill script) pass whatever the rule row has. The
+    formula path always evaluates fully — it's not a text pattern-matcher,
+    so a validated formula reaches matched/unmatched/undetermined and
+    never returns ``unparseable``. That's the reason to prefer it: fewer
+    LLM re-runs at composition time.
+
+    When both ``formula`` and ``criterion`` are ``None`` (a
+    misconfigured rule), returns verdict=``unparseable`` so the LLM's
+    answer stays authoritative in the composer.
+    """
+    if formula is not None:
+        # Local import so the text path stays cheap for callers who
+        # don't need the pydantic dep pulled in at import time.
+        from pap_pipeline.rule_formula import evaluate_formula
+        return evaluate_formula(formula, values)
+    if criterion:
+        return evaluate(criterion, values)
+    return Evaluation(verdict="unparseable")
+
+
+__all__ = ["Evaluation", "Step", "Verdict", "evaluate", "evaluate_rule"]

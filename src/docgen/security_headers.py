@@ -31,11 +31,15 @@ from docgen.config import get_settings
 # templates emit `nonce="{{ csp_nonce(request) }}"` on every legitimate block,
 # so the browser only executes/applies those.
 #
-# 'unsafe-inline' stays for now as a legacy fallback: the admin UI still uses
-# inline event handlers (onclick=, onchange=), which nonces don't cover. In
-# CSP3 browsers the presence of a nonce on script-src *disables* 'unsafe-inline'
-# for scripts anyway — so modern browsers already enforce the nonce policy.
-# Full retirement waits on migrating inline handlers to addEventListener.
+# script-src: 'unsafe-inline' removed. Templates carry zero inline `on*=`
+# handlers and every <script> block is nonced, so the fallback was only ever
+# a pre-CSP3 downgrade risk. Dropping it closes that surface.
+#
+# style-src: 'unsafe-inline' retained. Templates use `style="..."` attributes
+# across the admin UI which CSP nonces do NOT cover (nonces apply to <style>
+# blocks, not attributes; only 'unsafe-inline' or 'unsafe-hashes' lets attrs
+# through). Style-based XSS is much weaker than script XSS — no code exec,
+# no exfil — so the trade-off favors keeping the attrs working.
 def _base_csp(nonce: str) -> str:
     return "; ".join([
         "default-src 'self'",
@@ -46,7 +50,7 @@ def _base_csp(nonce: str) -> str:
         "img-src 'self' data:",
         "font-src 'self' https://rsms.me data:",
         f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://rsms.me",
-        f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline'",
+        f"script-src 'self' 'nonce-{nonce}'",
         "connect-src 'self'",
     ])
 
@@ -65,7 +69,7 @@ def landing_csp(nonce: str) -> str:
         "media-src 'self'",
         "font-src 'self' https://fonts.gstatic.com data:",
         f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com",
-        f"script-src 'self' 'nonce-{nonce}' 'unsafe-inline'",
+        f"script-src 'self' 'nonce-{nonce}'",
         "connect-src 'self'",
     ])
 

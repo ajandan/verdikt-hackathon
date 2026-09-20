@@ -416,6 +416,7 @@ def run_json_intake_sync(
                 "pap_api_reply_render_failed",
                 event_id=str(event.id),
                 error=f"{type(e).__name__}: {e}",
+                exc_info=True,
             )
 
         return ApiIntakeResult(
@@ -456,12 +457,21 @@ def _payload_size(payload: Any) -> int:
     Not authoritative — the JSON we serialize may differ from what the
     caller sent (whitespace, key order). But close enough to give
     reviewers a sense of "how big was this submission" on the case row.
-    """
-    try:
-        import json as _json
 
+    Narrow except: only the two `json.dumps` failure modes are silenced
+    (non-serializable value, deep recursion). Anything else bubbles up
+    so an unexpected TypeError from somewhere else isn't hidden by a
+    reviewer-metrics helper.
+    """
+    import json as _json
+
+    try:
         return len(_json.dumps(payload).encode("utf-8"))
-    except Exception:
+    except (TypeError, ValueError) as e:
+        log.debug(
+            "pap_api_payload_size_failed",
+            error=f"{type(e).__name__}: {e}",
+        )
         return 0
 
 

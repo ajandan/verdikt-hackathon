@@ -415,6 +415,7 @@ def _persist_inbound_attachments(
                 event_id=str(event.id),
                 filename=a.filename,
                 error=f"{type(e).__name__}: {e}",
+                exc_info=True,
             )
         manifest.append(entry)
     return manifest
@@ -747,6 +748,7 @@ def _render_reply_attachment(
             template_version=str(tv.id),
             outcome=decision.outcome,
             error=f"{type(e).__name__}: {e}",
+            exc_info=True,
         )
         return None, None
     filename = f"alderwood_{decision.outcome}_{_short_id(event.id)}.pdf"
@@ -770,6 +772,7 @@ def _render_reply_attachment(
             "pap_reply_blob_persist_failed",
             event_id=str(event.id),
             error=f"{type(e).__name__}: {e}",
+            exc_info=True,
         )
         return attachment, None
     return attachment, blob_key
@@ -1143,6 +1146,7 @@ def _send_pap_reply_for_event(
                 event_id=str(event.id),
                 blob_key=event.reply_attachment_blob_key,
                 error=f"{type(e).__name__}: {e}",
+                exc_info=True,
             )
         else:
             filename = event.reply_attachment_blob_key.rsplit("/", 1)[-1]

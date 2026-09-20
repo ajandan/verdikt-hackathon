@@ -32,9 +32,8 @@ import structlog
 from docgen.config import Settings
 from docgen.store.db import SyncSessionLocal
 from docgen.store.models import InboxEvent, Program, Tenant
+from pap_pipeline.inbox_audit import AI_ACTOR, append_audit
 from pap_pipeline.inbox_hook import (
-    _AI_ACTOR,
-    _append_audit,
     _draft_reply_artifact,
     _pipeline_config,
     _score_from_decision,
@@ -223,10 +222,10 @@ def run_json_intake_sync(
         session.add(event)
         session.flush()
 
-        _append_audit(
+        append_audit(
             event,
             action="pipeline_started",
-            actor=_AI_ACTOR,
+            actor=AI_ACTOR,
             note=(
                 f"JSON intake received over {channel.upper()} from {actor!r}. "
                 f"Program: {program.slug}. "
@@ -252,10 +251,10 @@ def run_json_intake_sync(
                     "unknown keys: " + ", ".join(validation.unknown_keys)
                 )
             event.error = "json_intake_validation_failed: " + "; ".join(note_parts)
-            _append_audit(
+            append_audit(
                 event,
                 action="pipeline_failed",
-                actor=_AI_ACTOR,
+                actor=AI_ACTOR,
                 note=event.error,
             )
             session.commit()
@@ -295,10 +294,10 @@ def run_json_intake_sync(
         except Exception as e:
             event.status = "failed"
             event.error = f"pap_pipeline_failed: {type(e).__name__}: {e}"
-            _append_audit(
+            append_audit(
                 event,
                 action="pipeline_failed",
-                actor=_AI_ACTOR,
+                actor=AI_ACTOR,
                 note=f"{type(e).__name__}: {e}",
             )
             session.commit()
@@ -365,10 +364,10 @@ def run_json_intake_sync(
             verdict_note += "Auto-approved — verdict returned inline to the caller."
         else:
             verdict_note += "Queued for human review."
-        _append_audit(
+        append_audit(
             event,
             action="verdict_rendered",
-            actor=_AI_ACTOR,
+            actor=AI_ACTOR,
             note=verdict_note,
         )
         session.commit()
@@ -390,10 +389,10 @@ def run_json_intake_sync(
             )
             if blob_key:
                 event.reply_attachment_blob_key = blob_key
-                _append_audit(
+                append_audit(
                     event,
                     action="reply_drafted",
-                    actor=_AI_ACTOR,
+                    actor=AI_ACTOR,
                     note=(
                         f"Drafted {decision.outcome} reply letter and stored for "
                         f"reviewer preview."
@@ -401,10 +400,10 @@ def run_json_intake_sync(
                 )
                 session.commit()
             else:
-                _append_audit(
+                append_audit(
                     event,
                     action="reply_draft_skipped",
-                    actor=_AI_ACTOR,
+                    actor=AI_ACTOR,
                     note=(
                         "No outcome-matched template found — reply will be "
                         "text-only when sent."

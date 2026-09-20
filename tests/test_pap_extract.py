@@ -19,10 +19,15 @@ from pap_pipeline.stages import extract as extract_mod
 from pap_pipeline.stages.extract import ExtractClientConfig, extract
 
 
-def _config() -> ExtractClientConfig:
+def _config(retry_null_on_scan: bool = False) -> ExtractClientConfig:
+    """Test config with retry disabled by default — these tests exercise
+    the single-pass wire contract, not the scan-aware retry logic (that
+    has its own tests further down). Callers that want the retry-on
+    behavior pass ``retry_null_on_scan=True``."""
     return ExtractClientConfig(
         base_url="https://api.studio.nebius.com/v1",
         api_key="nb-secret",
+        retry_null_on_scan=retry_null_on_scan,
     )
 
 
@@ -224,3 +229,73 @@ async def test_extract_rasterizes_pdf_to_pages(monkeypatch) -> None:
     result = await extract([pdf], config=_config())
     assert result["patient_name"] == "Maria Chen"
     assert len(calls) == 1  # one page → one vision call
+
+
+# ---------------------------------------------------------------------------
+# Scan-aware behaviour: DPI bump, scan prompt addendum, retry pass.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_scan_page_prompt_carries_scan_addendum(monkeypatch) -> None:
+    """Non-PDF attachments (raw images) are treated as scans → the prompt
+    sent to the VLM includes the scan-specific guidance about checkboxes,
+    handwriting, and MM/DD/YYYY → ISO normalisation."""
+    def _handler(_req):
+        return httpx.Response(200, json={"choices": [{"message": {"content": "{}"}}]})
+
+    calls = _patch_async_client(monkeypatch, _handler)
+    await extract([_png_bytes()], config=_config(retry_null_on_scan=False))
+    prompt_text = calls[0]["body"]["messages"][0]["content"][0]["text"]
+    assert "scanned or photographed document" in prompt_text
+    assert "MM/DD/YYYY" in prompt_text
+    assert "Checkboxes" in prompt_text
+
+
+@pytest.mark.asyncio
+async def test_retry_null_on_scan_fires_second_call_for_missing_slots(monkeypatch) -> None:
+    """Scan page + retry enabled: first pass returns partial dict; second
+    pass targets ONLY the null slots. Second-pass non-null values fill in
+    missing fields on the merged result."""
+    responses = [
+        # First pass — leaves most slots null; fills a couple.
+        json.dumps({"patient_name": "Maria Chen"}),
+        # Second pass — recovers a field the first pass missed. Uses ONLY
+        # the subset of slots that came back null.
+        json.dumps({"insurance_status": "uninsured"}),
+    ]
+    idx = {"i": 0}
+
+    def _handler(_req):
+        r = responses[idx["i"]]
+        idx["i"] += 1
+        return httpx.Response(200, json={"choices": [{"message": {"content": r}}]})
+
+    calls = _patch_async_client(monkeypatch, _handler)
+    result = await extract([_png_bytes()], config=_config(retry_null_on_scan=True))
+
+    assert len(calls) == 2, "scan page + null slots must trigger one retry"
+    assert result["patient_name"] == "Maria Chen"
+    assert result["insurance_status"] == "uninsured"  # recovered on retry
+    # Retry prompt must be the focused variant (asks for a subset of slots +
+    # carries the "re-reading a scanned form" preamble).
+    retry_prompt = calls[1]["body"]["messages"][0]["content"][0]["text"]
+    assert "re-reading a scanned" in retry_prompt
+
+
+@pytest.mark.asyncio
+async def test_retry_skipped_when_first_pass_returns_all_slots(monkeypatch) -> None:
+    """Retry only fires when there are still-null slots after pass 1.
+    If the first pass already returned every field, no second call
+    is worth making."""
+    every_slot_filled = json.dumps({
+        s["name"]: "x" if s["type"] == "string" else 0
+        for s in extract_mod._DEFAULT_SLOTS
+    })
+    idx = {"i": 0}
+    def _handler(_req):
+        idx["i"] += 1
+        return httpx.Response(200, json={"choices": [{"message": {"content": every_slot_filled}}]})
+    calls = _patch_async_client(monkeypatch, _handler)
+    await extract([_png_bytes()], config=_config(retry_null_on_scan=True))
+    assert len(calls) == 1

@@ -793,11 +793,16 @@
                             {% set _verdict = _t.get('verdict') %}
                             {% set _agrees = _t.get('agrees_with_reason') %}
                             {% set _disagree = _agrees is sameas false %}
-                            <div class="why-verdict {{ 'disagree' if _disagree else _verdict }}">
+                            {#- Tint the panel by the FINAL verdict (the
+                                evaluator's), not by disagreement state.
+                                The disagreement is metadata for the reviewer,
+                                not the primary outcome — the citation was
+                                already overridden to the evaluator's answer
+                                by the orchestrator. -#}
+                            <div class="why-verdict {{ _verdict }}">
                                 <div class="headline">
                                     <span class="tag">
-                                        {% if _disagree %}disagreement
-                                        {% elif _verdict == 'matched' %}matched
+                                        {% if _verdict == 'matched' %}matched
                                         {% elif _verdict == 'unmatched' %}not matched
                                         {% else %}undetermined
                                         {% endif %}
@@ -815,13 +820,25 @@
                                 </ol>
                                 {% endif %}
                                 {% if _disagree %}
+                                {#- c.matched is the *overridden* value by
+                                    render time (orchestrator swaps in the
+                                    deterministic verdict on disagreement).
+                                    reason_matched_original is the LLM's
+                                    pre-override answer — that's what the
+                                    reviewer needs to see for the "who said
+                                    what" comparison. -#}
+                                {% set _llm_original = _t.get('reason_matched_original') %}
                                 <div class="disagree-note">
                                     <span class="lbl">Heads up</span>
                                     The LLM reasoner said
-                                    <strong>{{ 'matched' if c.matched else 'not matched' }}</strong>
+                                    <strong>{{ 'matched' if _llm_original else 'not matched' }}</strong>
                                     but the deterministic evaluator says
                                     <strong>{{ _verdict }}</strong>.
+                                    {% if _t.get('override_applied') %}
+                                    The citation shown is the evaluator's — the LLM's answer is preserved on the verifier finding.
+                                    {% else %}
                                     Reviewer decides which to trust.
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                             </div>

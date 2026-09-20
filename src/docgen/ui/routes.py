@@ -7251,7 +7251,26 @@ async def rule_update(
             fields=fields_list,
             schema_slots=schema_slots,
         )
-        if formula_val is None and translator_error is None:
+        log.info(
+            "rule_translator_ran",
+            rule_id=str(rule.id),
+            rule_public_id=rule.rule_id,
+            formula_produced=formula_val is not None,
+            notes_count=len(translator_notes),
+            error=translator_error,
+        )
+        if translator_error is not None:
+            # Infrastructure failure (creds missing, LLM unreachable).
+            # Block the save so the operator doesn't unknowingly wipe
+            # an existing formula. They can tick 'save without formula'
+            # to intentionally clear it or bail and fix creds first.
+            errors["formula"] = (
+                f"Translator unavailable: {translator_error} "
+                "Either fix the AI credentials and try again, or tick "
+                "'save without formula' to keep the existing text-only "
+                "evaluation path."
+            )
+        elif formula_val is None:
             # LLM ran but couldn't produce a valid formula. Surface
             # the notes inline; user either edits the criterion + retries
             # OR ticks skip_translator to save with just the text path.

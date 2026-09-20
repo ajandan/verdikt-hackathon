@@ -137,6 +137,10 @@ def test_save_happy_path_persists_and_redirects() -> None:
                     "criterion": "@ins_uninsured is true",
                     "exception": "",
                     "is_active": "on",
+                    # No AI creds in test env — the design-time translator
+                    # would fail-closed and block the save. Skip it here;
+                    # the translator + gate have their own tests.
+                    "skip_translator": "on",
                 },
             )
         assert r.status_code in (302, 303), r.text[:400]
@@ -252,6 +256,7 @@ def test_library_rule_without_program_skips_vocab_validation() -> None:
                     "criterion": "@made_up ok because no schema is bound",
                     "exception": "",
                     "is_active": "on",
+                    "skip_translator": "on",
                 },
             )
         # Happy 303 — no vocabulary check applied.

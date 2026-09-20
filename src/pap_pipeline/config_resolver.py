@@ -4,7 +4,7 @@
 
 Same pattern for ``triage_routing`` (case_type → route dict).
 
-The runtime (``pap_pipeline.inbox_hook._pipeline_config_for_program``)
+The runtime (``pap_pipeline.pipeline_config.build_pipeline_config``)
 and the admin UI's "effective chain" panel both call
 :func:`resolve_pipeline_models` so a single source of truth answers "why
 did we pick this model for this case."

@@ -73,7 +73,7 @@ def test_api_hook_imports_run_triaged_from_intake() -> None:
 
 def _config() -> PipelineConfig:
     """PipelineConfig with Triage enabled — mirrors what inbox_hook /
-    api_hook build via `_pipeline_config`. Fake sentinel URLs so a
+    api_hook build via `build_pipeline_config`. Fake sentinel URLs so a
     missing MockTransport path becomes a loud connection refusal, not
     a real Nebius hit."""
     return PipelineConfig(

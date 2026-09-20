@@ -35,9 +35,9 @@ from docgen.store.models import InboxEvent, Program, Tenant
 from pap_pipeline.inbox_audit import AI_ACTOR, append_audit
 from pap_pipeline.inbox_hook import (
     _draft_reply_artifact,
-    _pipeline_config,
     _score_from_decision,
 )
+from pap_pipeline.pipeline_config import build_pipeline_config
 from pap_pipeline.json_intake import (
     IntakeValidationError,
     validate_json_intake,
@@ -273,7 +273,7 @@ def run_json_intake_sync(
         extras = _extras_from_extraction(raw)
 
         rules = load_rules(program_slug, session=session, tenant_id=tenant_id) or None
-        config = _pipeline_config(settings, tenant, program)
+        config = build_pipeline_config(settings, tenant, program)
 
         try:
             # run_triaged_from_intake runs Triage first (honoring tenant /

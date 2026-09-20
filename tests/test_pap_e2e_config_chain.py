@@ -8,7 +8,7 @@ that model to Nebius when a real case walks the stages.
 Strategy: seed a Tenant + Program with mixed override state, patch every
 stage's ``httpx.AsyncClient`` with a single MockTransport that captures
 the ``body["model"]`` on each call, then drive the pipeline end-to-end
-via :func:`pap_pipeline.inbox_hook._pipeline_config` +
+via :func:`pap_pipeline.pipeline_config.build_pipeline_config` +
 :func:`run_with_intake`. The transport records
 ``(path, model)`` per request so the assertions can pin exact wire values
 per stage.
@@ -30,7 +30,7 @@ from sqlalchemy import delete
 from docgen.config import Settings
 from docgen.store.db import sync_session
 from docgen.store.models import Program, Tenant
-from pap_pipeline.inbox_hook import _pipeline_config
+from pap_pipeline.pipeline_config import build_pipeline_config
 from pap_pipeline.orchestrator import run_with_intake
 from pap_pipeline.stages import extract as extract_mod
 from pap_pipeline.stages import reason as reason_mod
@@ -264,7 +264,7 @@ async def test_program_overrides_win_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -296,7 +296,7 @@ async def test_all_null_falls_through_to_settings_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -329,7 +329,7 @@ async def test_tenant_override_beats_settings_when_program_null(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -371,7 +371,7 @@ async def test_program_triage_routing_skip_decide_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -411,7 +411,7 @@ async def test_tenant_verifier_wires_second_extract_call(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, _decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -440,7 +440,7 @@ async def test_program_extract_overrides_tenant_extract(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = _pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
 
         _, _, _decision = await run_with_intake(
             [_TINY_PNG], config=cfg,

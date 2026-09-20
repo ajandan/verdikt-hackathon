@@ -17,7 +17,7 @@ import types
 
 import pytest
 
-from pap_pipeline.inbox_hook import _mdm_config_for_tenant
+from pap_pipeline.pipeline_config import build_mdm_config
 from pap_pipeline.stages.mdm_lookup import (
     MdmSourceConfig,
     SimulatedMdmSource,
@@ -28,7 +28,7 @@ from pap_pipeline.stages.mdm_lookup import (
 def _fake_tenant(mdm_config: dict | None) -> types.SimpleNamespace:
     """Duck-typed stand-in for Tenant.
 
-    `_mdm_config_for_tenant` only reads `.id` and `.mdm_config`, so
+    `build_mdm_config` only reads `.id` and `.mdm_config`, so
     SimpleNamespace is enough — avoids spinning up a DB session just to
     exercise the mapper.
     """
@@ -38,7 +38,7 @@ def _fake_tenant(mdm_config: dict | None) -> types.SimpleNamespace:
 def test_missing_tenant_falls_back_to_simulated() -> None:
     """No tenant in scope (API path before resolution, or a bare unit
     test) resolves to simulated — same code path a fresh tenant hits."""
-    cfg = _mdm_config_for_tenant(None)
+    cfg = build_mdm_config(None)
     assert cfg.provider == "simulated"
     assert isinstance(build_mdm_source(cfg), SimulatedMdmSource)
 
@@ -47,7 +47,7 @@ def test_empty_mdm_config_falls_back_to_simulated() -> None:
     """New tenant, no operator setup → still gets a working MDM slice.
     The 'MDM is always on' invariant is what lets the ledger carry
     `mdm_snapshot_hash` for every case."""
-    cfg = _mdm_config_for_tenant(_fake_tenant({}))
+    cfg = build_mdm_config(_fake_tenant({}))
     assert cfg.provider == "simulated"
 
 
@@ -55,7 +55,7 @@ def test_explicit_null_provider_opts_out() -> None:
     """Operators disable MDM by wiring `{"provider": "null"}` explicitly.
     The reason "why is history not showing up" answers to a config value,
     not a silent fallback."""
-    cfg = _mdm_config_for_tenant(_fake_tenant({"provider": "null"}))
+    cfg = build_mdm_config(_fake_tenant({"provider": "null"}))
     assert cfg.provider == "null"
 
 
@@ -63,7 +63,7 @@ def test_http_provider_reads_transport_fields() -> None:
     """The provider-specific fields (base_url, timeout, window, cap) are
     lifted onto the :class:`MdmSourceConfig` dataclass so the connector
     doesn't have to re-parse the JSON at request time."""
-    cfg = _mdm_config_for_tenant(_fake_tenant({
+    cfg = build_mdm_config(_fake_tenant({
         "provider": "state-mdm-v1",
         "base_url": "https://mdm.example.com/api",
         "program_families": ["cardiovita", "oncobridge"],
@@ -83,7 +83,7 @@ def test_api_key_env_resolves_from_environment(monkeypatch) -> None:
     """`api_key_env` names an env var — the raw secret never sits in
     the DB. Same pattern as the existing `Tenant.key_ref` for AI creds."""
     monkeypatch.setenv("TENANT_ACME_MDM_KEY", "s3cret")
-    cfg = _mdm_config_for_tenant(_fake_tenant({
+    cfg = build_mdm_config(_fake_tenant({
         "provider": "state-mdm-v1",
         "base_url": "https://x",
         "api_key_env": "TENANT_ACME_MDM_KEY",
@@ -96,7 +96,7 @@ def test_missing_env_leaves_api_key_none(monkeypatch) -> None:
     bearer token. Leave api_key=None so the connector's own guard
     surfaces the error at lookup time."""
     monkeypatch.delenv("TENANT_ACME_MDM_KEY", raising=False)
-    cfg = _mdm_config_for_tenant(_fake_tenant({
+    cfg = build_mdm_config(_fake_tenant({
         "provider": "state-mdm-v1",
         "base_url": "https://x",
         "api_key_env": "TENANT_ACME_MDM_KEY",
@@ -108,7 +108,7 @@ def test_bad_numeric_field_falls_back_to_dataclass_default() -> None:
     """A stray string in a numeric field (bad admin form, hand-edited
     JSON) shouldn't crash the whole pipeline. The mapper logs + keeps
     the dataclass default so the case still runs."""
-    cfg = _mdm_config_for_tenant(_fake_tenant({
+    cfg = build_mdm_config(_fake_tenant({
         "provider": "simulated",
         "max_events": "not-a-number",
     }))
@@ -120,7 +120,7 @@ def test_provider_string_is_normalized_lowercase() -> None:
     """Provider strings are matched case-insensitively by
     `build_mdm_source` — normalize at the tenant seam so a
     `"Simulated"` typed by an operator still routes right."""
-    cfg = _mdm_config_for_tenant(_fake_tenant({"provider": "  SIMULATED "}))
+    cfg = build_mdm_config(_fake_tenant({"provider": "  SIMULATED "}))
     assert cfg.provider == "simulated"
     assert isinstance(build_mdm_source(cfg), SimulatedMdmSource)
 
@@ -130,7 +130,7 @@ def test_mdm_source_config_is_a_frozen_dataclass_clone() -> None:
     tenant's JSON dict later can't reach back and mutate a live config
     object elsewhere in the process."""
     tenant = _fake_tenant({"provider": "simulated"})
-    cfg = _mdm_config_for_tenant(tenant)
+    cfg = build_mdm_config(tenant)
     tenant.mdm_config["provider"] = "http"
     assert cfg.provider == "simulated"
     # And the returned config is a real MdmSourceConfig.

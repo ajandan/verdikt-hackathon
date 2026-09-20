@@ -31,6 +31,10 @@ from pap_pipeline.assembler import (
     AssemblyResult,
     assemble_reply_package,
 )
+from pap_pipeline.inbox_attachments import (
+    attachments_from_message,
+    persist_inbound_attachments,
+)
 from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
@@ -361,64 +365,6 @@ def _mdm_config_for_tenant(tenant: Tenant | None) -> MdmSourceConfig:
         api_key=api_key,
         **numeric,
     )
-
-
-def _pap_attachments(msg: InboundMessage) -> list[bytes]:
-    """Every attachment goes to the pipeline — a claim often spans a pay stub,
-    an insurance card, and a prescription across separate files."""
-    return [a.content for a in msg.attachments if a.content]
-
-
-# InboundAttachment.kind is docx|pdf; the poller filters everything else,
-# so this map covers the only two we ever land on. Falls back to the
-# generic bytestream MIME so a future third kind still gets served.
-_KIND_TO_CONTENT_TYPE = {
-    "pdf": "application/pdf",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-}
-
-
-def _persist_inbound_attachments(
-    event: InboxEvent, msg: InboundMessage, settings: Settings
-) -> list[dict[str, Any]]:
-    """Upload each inbound attachment to the documents bucket and return a
-    manifest the UI can render as preview links.
-
-    Blob-store failures don't abort the pipeline — a missing preview is less
-    bad than dropping the claim. Each failed upload just gets its blob_key
-    left null in the manifest so the UI renders it as "(upload failed)".
-    """
-    manifest: list[dict[str, Any]] = []
-    for idx, a in enumerate(msg.attachments):
-        if not a.content:
-            continue
-        content_type = _KIND_TO_CONTENT_TYPE.get(a.kind, "application/octet-stream")
-        safe_name = (a.filename or f"attachment-{idx}").replace("/", "_").replace("\\", "_")
-        blob_key = f"inbox-inbound/{event.id}/{idx:02d}-{safe_name}"
-        entry: dict[str, Any] = {
-            "filename": a.filename or safe_name,
-            "content_type": content_type,
-            "size": len(a.content),
-            "blob_key": None,
-        }
-        try:
-            put_object(
-                settings.s3_bucket_documents,
-                blob_key,
-                a.content,
-                content_type=content_type,
-            )
-            entry["blob_key"] = blob_key
-        except Exception as e:
-            log.warning(
-                "pap_inbound_attachment_persist_failed",
-                event_id=str(event.id),
-                filename=a.filename,
-                error=f"{type(e).__name__}: {e}",
-                exc_info=True,
-            )
-        manifest.append(entry)
-    return manifest
 
 
 def _score_from_decision(decision: Decision) -> float | None:
@@ -968,7 +914,7 @@ def _handler(
     settings: Settings,
 ) -> ProcessResult:
     """PAP handler entry point. Signature is fixed by docgen.inbox.agent."""
-    attachments = _pap_attachments(msg)
+    attachments = attachments_from_message(msg)
     if not attachments:
         event.status = "skipped"
         event.error = "pap: no attachments to process"
@@ -986,7 +932,7 @@ def _handler(
     event.attachment_name = msg.attachments[0].filename if msg.attachments else None
     # Persist raw inbound files up-front so the reviewer can preview them
     # even if the pipeline itself blows up mid-run.
-    event.inbound_attachments = _persist_inbound_attachments(event, msg, settings)
+    event.inbound_attachments = persist_inbound_attachments(event, msg, settings)
     program_row = _load_program_row(session, tenant, program)
     slots = list(program_row.extraction_schema) if program_row and program_row.extraction_schema else None
     # Resolve the rule corpus on this side of the boundary so pap_pipeline

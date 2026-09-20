@@ -88,24 +88,6 @@ def _score_from_decision(decision: Decision) -> float | None:
     return round(max(scores) * 100.0, 1)
 
 
-def _lookup_program_row(
-    session: Any, tenant: Tenant, program: str | None
-) -> Program | None:
-    """Fetch the Program row for this tenant + slug, if any."""
-    slug = (program or "").strip().lower()
-    if not slug:
-        return None
-    return (
-        session.query(Program)
-        .filter(
-            Program.tenant_id == tenant.id,
-            Program.slug == slug,
-            Program.is_active.is_(True),
-        )
-        .first()
-    )
-
-
 def _draft_reply_artifact(
     session: Any,
     tenant: Tenant,
@@ -135,7 +117,8 @@ def _draft_reply_artifact(
     preferable to blocking the reply entirely. Bindings are configuration;
     a config error shouldn't stall an approved case.
     """
-    prog = _lookup_program_row(session, tenant, program)
+    prog = _load_program_row(session, tenant, program)
+    fallback_reason: str | None = None
     if prog is not None and (prog.package_bindings or {}).get(decision.outcome):
         try:
             data = build_render_data(intake, decision, program, event, extras=extras)
@@ -157,6 +140,7 @@ def _draft_reply_artifact(
                 outcome=decision.outcome,
                 error=str(e),
             )
+            fallback_reason = f"assembler binding disappeared: {e}"
         except AssemblerError as e:
             # Item missing / render failed. Log with enough detail for the
             # operator to fix the package, then fall through to legacy.
@@ -166,8 +150,25 @@ def _draft_reply_artifact(
                 outcome=decision.outcome,
                 error=f"{type(e).__name__}: {e}",
             )
+            fallback_reason = f"{type(e).__name__}: {e}"
         else:
             return result.blob_key
+
+    # When the assembler was expected but bailed, tell the reviewer.
+    # Otherwise the timeline shows "reply drafted" and hides that the
+    # enriched package (approval letter + guides + forms) degraded to
+    # a bare single-template reply — the operator loses the signal that
+    # the tenant's package config needs fixing.
+    if fallback_reason is not None:
+        append_audit(
+            event,
+            action="reply_assembler_degraded",
+            actor=AI_ACTOR,
+            note=(
+                f"Package assembler failed for outcome={decision.outcome}; "
+                f"falling back to single-template reply. Reason: {fallback_reason}"
+            ),
+        )
 
     _, blob_key = render_reply_attachment(
         session, tenant, intake, decision, program, event, settings,

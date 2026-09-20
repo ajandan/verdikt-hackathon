@@ -12,6 +12,7 @@ the upload runs, so an S3 outage does not break the extraction step.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import structlog
@@ -31,6 +32,30 @@ _KIND_TO_CONTENT_TYPE = {
     "pdf": "application/pdf",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+
+
+# Anything that isn't [alnum . _ -] gets collapsed to `_`. Blob stores
+# tolerate `..` in keys but any future filesystem-backed driver would
+# read it as a path-traversal segment, and control chars / NUL crash
+# some object-store SDKs outright. Restricting to a conservative
+# allowlist keeps the key portable across S3, GCS, and local disk.
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+_MAX_SAFE_NAME_LEN = 128
+
+
+def _sanitize_attachment_filename(raw: str, idx: int) -> str:
+    """Return a blob-key-safe rendering of an attachment filename.
+
+    Strips path separators, `..`, control chars, and other non-portable
+    characters. Empty or purely-unsafe inputs fall back to
+    ``attachment-<idx>``. Length-capped so a rogue 4 KB filename can't
+    balloon the key.
+    """
+    base = raw or f"attachment-{idx}"
+    # Collapse any run of unsafe chars (including `/`, `\`, `..` runs,
+    # control chars, NUL, unicode oddities) to a single underscore.
+    cleaned = _UNSAFE_FILENAME_CHARS.sub("_", base).strip("._") or f"attachment-{idx}"
+    return cleaned[:_MAX_SAFE_NAME_LEN]
 
 
 def attachments_from_message(msg: InboundMessage) -> list[bytes]:
@@ -54,7 +79,7 @@ def persist_inbound_attachments(
         if not a.content:
             continue
         content_type = _KIND_TO_CONTENT_TYPE.get(a.kind, "application/octet-stream")
-        safe_name = (a.filename or f"attachment-{idx}").replace("/", "_").replace("\\", "_")
+        safe_name = _sanitize_attachment_filename(a.filename or "", idx)
         blob_key = f"inbox-inbound/{event.id}/{idx:02d}-{safe_name}"
         entry: dict[str, Any] = {
             "filename": a.filename or safe_name,

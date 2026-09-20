@@ -23,11 +23,25 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import pypdf
+import structlog
 
 from docgen.core.preflight import Finding, Severity
 
+log = structlog.get_logger(__name__)
+
 MAX_PDF_BYTES = 20 * 1024 * 1024
 MAX_PAGES = 100
+
+# pypdf raises this on ref-cycle / malformed-dictionary lookups. Bundled
+# with the stdlib parse errors so each field-walk except can catch the
+# actual "the PDF's AcroForm tree is malformed" surface without also
+# swallowing programmer errors (NameError, AttributeError on _our_ code).
+_PDF_PARSE_ERRORS: tuple[type[Exception], ...] = (
+    pypdf.errors.PdfReadError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
 
 
 @dataclass
@@ -184,7 +198,8 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
     def _walk_field(field_ref: Any, parent_name: str, inherited_ft: Any, inherited_tu: Any) -> None:
         try:
             field = field_ref.get_object() if hasattr(field_ref, "get_object") else field_ref
-        except Exception:
+        except _PDF_PARSE_ERRORS as e:
+            log.debug("preflight_pdf_field_ref_unresolvable", error=f"{type(e).__name__}: {e}")
             return
         t = field.get("/T")
         # PDF spec: fully-qualified name is parent.T when both present.
@@ -211,7 +226,8 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
             for kid_ref in kids:
                 try:
                     kid = kid_ref.get_object()
-                except Exception:
+                except _PDF_PARSE_ERRORS as e:
+                    log.debug("preflight_pdf_kid_ref_unresolvable", error=f"{type(e).__name__}: {e}")
                     continue
                 if kid.get("/Subtype") == "/Widget" and kid.get("/T") is None:
                     # Kid is a pure widget under this field → emit.
@@ -241,7 +257,8 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
         try:
             page_w = float(page.mediabox.width)
             page_h = float(page.mediabox.height)
-        except Exception:
+        except _PDF_PARSE_ERRORS as e:
+            log.debug("preflight_pdf_page_mediabox_unreadable", error=f"{type(e).__name__}: {e}")
             return
         # /TU (tooltip) is the human label the AI-map step slugs into a
         # payload key. In the tree-shaped AcroForm the tooltip lives on the
@@ -262,12 +279,14 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
     try:
         root = reader.trailer["/Root"]
         acro_form = root.get("/AcroForm") if root is not None else None
-    except Exception:
+    except _PDF_PARSE_ERRORS as e:
+        log.debug("preflight_pdf_no_acroform_root", error=f"{type(e).__name__}: {e}")
         acro_form = None
     if acro_form is not None:
         try:
             acro_form = acro_form.get_object() if hasattr(acro_form, "get_object") else acro_form
-        except Exception:
+        except _PDF_PARSE_ERRORS as e:
+            log.debug("preflight_pdf_acroform_unresolvable", error=f"{type(e).__name__}: {e}")
             acro_form = None
     if acro_form is not None:
         fields = acro_form.get("/Fields")
@@ -281,7 +300,8 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
         try:
             page_w = float(page.mediabox.width)
             page_h = float(page.mediabox.height)
-        except Exception:
+        except _PDF_PARSE_ERRORS as e:
+            log.debug("preflight_pdf_annot_page_mediabox_unreadable", error=f"{type(e).__name__}: {e}")
             continue
         annots = page.get("/Annots")
         if annots is None:
@@ -289,7 +309,8 @@ def _harvest_widget_placements(reader: pypdf.PdfReader) -> list[dict[str, Any]]:
         for annot_ref in annots:
             try:
                 annot = annot_ref.get_object()
-            except Exception:
+            except _PDF_PARSE_ERRORS as e:
+                log.debug("preflight_pdf_annot_ref_unresolvable", error=f"{type(e).__name__}: {e}")
                 continue
             try:
                 annot_id = annot_ref.idnum
@@ -377,7 +398,8 @@ def preflight_pdf(pdf_bytes: bytes) -> PdfPreflightReport:
                 if (page.extract_text() or "").strip():
                     has_text = True
                     break
-            except Exception:
+            except _PDF_PARSE_ERRORS as e:
+                log.debug("preflight_pdf_extract_text_failed", error=f"{type(e).__name__}: {e}")
                 continue
         if not has_text:
             return _reject_no_text_layer(reader)
@@ -404,8 +426,8 @@ def _reject_no_text_layer(reader: pypdf.PdfReader) -> PdfPreflightReport:
     producer = ""
     try:
         producer = str((reader.metadata or {}).get("/Producer") or "")
-    except Exception:
-        pass
+    except _PDF_PARSE_ERRORS as e:
+        log.debug("preflight_pdf_metadata_unreadable", error=f"{type(e).__name__}: {e}")
     if "Print To PDF" in producer or "Print to PDF" in producer:
         message = (
             f"PDF was generated by '{producer}' — the print driver "

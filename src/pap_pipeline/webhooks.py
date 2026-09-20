@@ -27,6 +27,7 @@ import httpx
 import structlog
 
 from docgen.config import Settings
+from docgen.net_safety import UrlNotAllowed, validate_public_url
 from docgen.store.db import sync_session
 from docgen.store.models import InboxEvent
 from docgen.webhooks import sign_body
@@ -99,17 +100,26 @@ def deliver_verdict_webhook(
 
     delivered = False
     error: str | None = None
+    # Re-validate at the delivery boundary against DNS rebinding between
+    # intake and firing (the intake-time check happens in api_hook, but
+    # a resolver flip in the interim would let an attacker still land
+    # the callback on an internal host). Same helper, same rules.
     try:
-        with httpx.Client(
-            timeout=settings.webhook_timeout_seconds, follow_redirects=False
-        ) as client:
-            resp = client.post(callback_url, content=body, headers=headers)
-        if 200 <= resp.status_code < 300:
-            delivered = True
-        else:
-            error = f"HTTP {resp.status_code}"
-    except Exception as e:
-        error = f"{type(e).__name__}: {e}"
+        validate_public_url(callback_url)
+    except UrlNotAllowed as e:
+        error = f"UrlNotAllowed: {e}"
+    else:
+        try:
+            with httpx.Client(
+                timeout=settings.webhook_timeout_seconds, follow_redirects=False
+            ) as client:
+                resp = client.post(callback_url, content=body, headers=headers)
+            if 200 <= resp.status_code < 300:
+                delivered = True
+            else:
+                error = f"HTTP {resp.status_code}"
+        except Exception as e:
+            error = f"{type(e).__name__}: {e}"
 
     with sync_session() as session:
         ev = session.get(InboxEvent, event_id)

@@ -30,6 +30,7 @@ from typing import Any
 import structlog
 
 from docgen.config import Settings
+from docgen.net_safety import UrlNotAllowed, validate_public_url
 from docgen.store.db import SyncSessionLocal
 from docgen.store.models import InboxEvent, Program, Tenant
 from pap_pipeline.inbox_audit import AI_ACTOR, append_audit
@@ -165,17 +166,20 @@ def run_json_intake_sync(
     if not program_slug:
         raise ProgramNotFound("program slug is required")
 
-    # Validate callback_url shape early so a malformed value doesn't crash
-    # the webhook worker later. Accept plain http(s) only — we're not going
-    # to POST to arbitrary schemes.
+    # Validate callback_url at the intake boundary so bad URLs never reach
+    # the DB. `validate_public_url` covers scheme, userinfo, loopback
+    # hostnames, and DNS resolution to non-public IPs — closes the SSRF
+    # surface where a caller could point the webhook at 169.254.169.254
+    # (cloud metadata) or 127.0.0.1:5432 (in-cluster services). The
+    # webhook dispatcher re-validates just before the outbound POST as
+    # defense against DNS rebinding between intake and delivery.
     if callback_url is not None:
         callback_url = callback_url.strip() or None
-    if callback_url is not None and not (
-        callback_url.startswith("http://") or callback_url.startswith("https://")
-    ):
-        raise ValueError(
-            f"callback_url must be an http(s) URL, got {callback_url!r}"
-        )
+    if callback_url is not None:
+        try:
+            validate_public_url(callback_url)
+        except UrlNotAllowed as e:
+            raise ValueError(f"callback_url rejected: {e}") from e
 
     with SyncSessionLocal() as session:
         tenant = session.get(Tenant, tenant_id)

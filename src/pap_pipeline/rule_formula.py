@@ -82,6 +82,21 @@ from pap_pipeline.rule_evaluator import Evaluation, Step
 # ---------------------------------------------------------------------------
 
 _LOGICAL_OPS = {"AND", "OR", "NOT"}
+# Bounds on the matches_regex op — tenant admins author these patterns,
+# and Python's `re` engine has no timeout, so a pathological pattern
+# (nested quantifiers, back-references) would let one admin DoS their
+# own tenant. Two-layer cap:
+#
+#   - _MAX_REGEX_PATTERN_LEN caps the pattern authored on the rule row.
+#     500 chars fits every realistic identifier check (NPI, DEA, dates)
+#     while rejecting the multi-KB nested-group patterns that produce
+#     catastrophic backtracking.
+#   - _MAX_REGEX_INPUT_LEN caps the value being matched. Intake string
+#     fields top out at hundreds of chars in practice; 4 KB is a
+#     generous ceiling that still bounds worst-case backtracking time.
+_MAX_REGEX_PATTERN_LEN = 500
+_MAX_REGEX_INPUT_LEN = 4096
+
 _COMPARISON_OPS = {"==", "!=", "<", "<=", ">", ">="}
 _SET_OPS = {"in", "not_in"}
 _RECENCY_OPS = {"within_days", "within_weeks", "within_months", "within_years"}
@@ -198,6 +213,12 @@ class Node(BaseModel):
         elif op == "matches_regex":
             if not self.field or not self.pattern:
                 raise ValueError("op 'matches_regex' requires 'field' + 'pattern'")
+            if len(self.pattern) > _MAX_REGEX_PATTERN_LEN:
+                raise ValueError(
+                    f"op 'matches_regex' pattern exceeds {_MAX_REGEX_PATTERN_LEN} "
+                    f"chars (got {len(self.pattern)}); shorten the regex or split "
+                    "the rule — long patterns risk catastrophic backtracking"
+                )
             try:
                 re.compile(self.pattern)
             except re.error as e:
@@ -486,7 +507,11 @@ def _eval_regex(node: Node, values: dict[str, Any]) -> tuple[bool | None, list[S
             text=f"@{field_name} matches /{pattern}/ → undetermined (no value extracted)",
             result=None,
         )]
-    ok = bool(re.fullmatch(pattern, str(actual)))
+    # Cap the input so a pathological pattern + long value can't burn
+    # the reason-stage budget on catastrophic backtracking. Python's re
+    # engine has no timeout — bounded input is the only defense.
+    actual_str = str(actual)[:_MAX_REGEX_INPUT_LEN]
+    ok = bool(re.fullmatch(pattern, actual_str))
     verdict_word = "matched" if ok else "did not match"
     return ok, [Step(
         text=f"@{field_name} matches /{pattern}/ → {verdict_word} (actual: {_repr(actual)})",

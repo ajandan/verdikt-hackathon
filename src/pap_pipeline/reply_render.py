@@ -22,6 +22,7 @@ the reply half.
 """
 from __future__ import annotations
 
+import html
 from datetime import date, timedelta
 from typing import Any
 
@@ -44,6 +45,15 @@ def build_reply(decision: Decision) -> tuple[str, str, str]:
     Only rule-typed citations are rendered as the "rules considered"
     list. History-typed citations (ADR-0004) belong in the outcome-bound
     template body, not this evidence summary.
+
+    HTML output escapes every LLM-derived string (rationale, rule_id,
+    missing_fields entries). The LLM is instructed to emit data, not
+    markup, but the escape is the load-bearing defense: framing shapes
+    behavior, escaping enforces it. Applicant email clients render this
+    body verbatim, so a raw <script> or <img onerror=…> in a hostile
+    rationale would fire otherwise. `outcome` is a Pydantic Literal
+    (approve / deny / missing_info) — enum-constrained so no escape
+    needed, but the label doesn't hurt.
     """
     outcome = decision.outcome
     rule_cites = [c for c in decision.citations if c.type == "rule"]
@@ -66,24 +76,25 @@ def build_reply(decision: Decision) -> tuple[str, str, str]:
         text_parts += ["", "Missing information:", *missing_lines]
     text = "\n".join(text_parts) + "\n"
 
+    rationale_html = html.escape(decision.rationale or "(no rationale provided)")
     html_parts = [
-        f"<p><b>Decision:</b> {outcome}</p>",
-        f"<p>{decision.rationale or '(no rationale provided)'}</p>",
+        f"<p><b>Decision:</b> {html.escape(outcome)}</p>",
+        f"<p>{rationale_html}</p>",
     ]
     if cite_lines:
         html_parts.append(
             "<p><b>Rules considered:</b></p><ul>"
-            + "".join(f"<li>{line[2:]}</li>" for line in cite_lines)
+            + "".join(f"<li>{html.escape(line[2:])}</li>" for line in cite_lines)
             + "</ul>"
         )
     if missing_lines:
         html_parts.append(
             "<p><b>Missing information:</b></p><ul>"
-            + "".join(f"<li>{line[2:]}</li>" for line in missing_lines)
+            + "".join(f"<li>{html.escape(line[2:])}</li>" for line in missing_lines)
             + "</ul>"
         )
-    html = "".join(html_parts)
-    return outcome, text, html
+    body_html = "".join(html_parts)
+    return outcome, text, body_html
 
 
 def reply_subject(original: str | None, outcome: str) -> str:
@@ -209,6 +220,15 @@ def extras_only(raw_extraction: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in (raw_extraction or {}).items() if k not in known}
 
 
+# Coordinator identity on the reply letter. Tenant-specific but the
+# Program model doesn't yet carry a `reply_letter_config` column — see
+# the note on :func:`build_render_data`. Callers can override via
+# `extras["_coordinator_name"]` etc. until the config column ships.
+_DEFAULT_COORDINATOR_NAME = "Alderwood PAP Care Coordinator"
+_DEFAULT_COORDINATOR_TITLE = "Patient Assistance Care Coordinator"
+_DEFAULT_COORDINATOR_PHONE = "1-877-555-0100"
+
+
 def build_render_data(
     intake: Intake,
     decision: Decision,
@@ -222,6 +242,15 @@ def build_render_data(
     branches (`application_has_*`, `we_not_*`, `we_need_*`) add the fields
     the specific letter uses. Missing template fields are simply left as
     empty strings — the renderer treats them as blanks rather than failing.
+
+    Coordinator name / title / phone come from `extras` when present
+    (`_coordinator_name`, `_coordinator_title`, `_coordinator_phone`) so
+    a second program with its own signatory can override without touching
+    this file. When absent, the Alderwood defaults win — a hardcoded
+    fallback that will produce the wrong signatory on any non-Alderwood
+    tenant. A future migration should surface these three fields as a
+    `reply_letter_config` JSONB column on Program; until then the extras
+    override is the multi-tenant escape hatch.
     """
     today = date.today()
     patient = intake.patient_name or "Applicant"
@@ -235,9 +264,10 @@ def build_render_data(
     # reconciles back to the applicant's file. Fall back to a pipeline-
     # invented `ALD-{short-uuid}` only when the form didn't carry one.
     referral = (intake.referral_id or "").strip() or f"ALD-{short_id(event.id)}"
-    coordinator = "Alderwood PAP Care Coordinator"
-    direct_line = "1-877-555-0100"
-    coord_title = "Patient Assistance Care Coordinator"
+    extras_dict = extras or {}
+    coordinator = str(extras_dict.get("_coordinator_name") or _DEFAULT_COORDINATOR_NAME)
+    coord_title = str(extras_dict.get("_coordinator_title") or _DEFAULT_COORDINATOR_TITLE)
+    direct_line = str(extras_dict.get("_coordinator_phone") or _DEFAULT_COORDINATOR_PHONE)
     med = intake.prescribed_drug or ""
 
     # Program-specific slots seed the render dict first — a template field

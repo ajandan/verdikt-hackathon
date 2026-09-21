@@ -22,7 +22,7 @@ from typing import Any
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from docgen.api.deps import get_tenant_id
 from docgen.config import get_settings
@@ -43,12 +43,44 @@ router = APIRouter(prefix="/pap", tags=["pap"])
 
 # Hard cap on the JSON intake body. Real payloads are ~few KB (structured
 # form fields, not attachments); anything much larger is either a caller
-# bug or an attempt to burn the Pydantic parser budget on unbounded input.
-# Enforced by inspecting Content-Length before FastAPI hands the body to
-# the pydantic model — a chunked upload with no Content-Length still gets
-# capped implicitly because Uvicorn's default h11_max_incomplete_event
-# rejects oversize frames.
+# bug or an attempt to burn parser + memory budget on unbounded input.
+# Enforced by streaming the body and refusing to buffer past the cap —
+# checked BEFORE Pydantic sees it and independent of the Content-Length
+# header, so a chunked upload (no Content-Length) is also bounded.
 _MAX_INTAKE_BODY_BYTES = 512 * 1024  # 512 KB
+
+
+async def _read_capped_body(request: Request, cap: int) -> bytes:
+    """Stream the request body, refusing to buffer past ``cap`` bytes.
+
+    Runs before Pydantic parses so an oversized upload never lands in
+    memory. Fast-paths on the Content-Length header when present (the
+    honest happy path); otherwise counts bytes as chunks arrive. A
+    chunked-encoding upload that lies about its size gets the same cap
+    applied by the byte count.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            if int(declared) > cap:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"intake body exceeds {cap // 1024} KB cap",
+                )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="malformed content-length") from None
+
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > cap:
+            raise HTTPException(
+                status_code=413,
+                detail=f"intake body exceeds {cap // 1024} KB cap",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 class PapIntakeRequest(BaseModel):
@@ -154,7 +186,6 @@ class PapIntakeValidationErrorResponse(BaseModel):
 )
 async def submit_pap_intake(
     slug: str,
-    body: PapIntakeRequest,
     request: Request,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ) -> PapIntakeResponse:
@@ -166,23 +197,16 @@ async def submit_pap_intake(
     the failed attempt is auditable — the response includes its
     ``event_id`` for follow-up.
 
-    Rejects bodies larger than :data:`_MAX_INTAKE_BODY_BYTES` with a 413.
-    The cap runs on the Content-Length header so an oversized upload is
-    refused before it lands in memory. Chunked uploads without a
-    Content-Length are handled by Starlette's own request-body limits.
+    Rejects bodies larger than :data:`_MAX_INTAKE_BODY_BYTES` with a 413,
+    checked before Pydantic parses so oversized uploads never land in
+    memory. The body is streamed, so a chunked upload without a
+    Content-Length header still gets bounded by the running byte count.
     """
-    content_length = request.headers.get("content-length")
-    if content_length is not None:
-        try:
-            if int(content_length) > _MAX_INTAKE_BODY_BYTES:
-                raise HTTPException(
-                    status_code=413,
-                    detail=(
-                        f"intake body exceeds {_MAX_INTAKE_BODY_BYTES // 1024} KB cap"
-                    ),
-                )
-        except ValueError:
-            raise HTTPException(status_code=400, detail="malformed content-length") from None
+    raw_body = await _read_capped_body(request, _MAX_INTAKE_BODY_BYTES)
+    try:
+        body = PapIntakeRequest.model_validate_json(raw_body)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors()) from e
 
     actor = body.actor or _actor_from_request(request)
     settings = get_settings()

@@ -118,6 +118,40 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 log = structlog.get_logger(__name__)
 
 
+# Hard cap on any single UploadFile.read() in the admin UI. Templates
+# top out at a few hundred KB (docx) or a couple MB (image-heavy PDF);
+# 20 MB covers every realistic template while capping the OOM surface
+# for an authenticated tenant admin. Matches the existing PDF preflight
+# limit (`docgen.designtime.preflight_pdf.MAX_PDF_BYTES`) so the two
+# gates agree on "how big is too big."
+_MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+
+
+async def _read_upload_capped(file: UploadFile, cap: int = _MAX_UPLOAD_BYTES) -> bytes:
+    """Read an UploadFile in chunks, refusing to buffer past ``cap`` bytes.
+
+    UploadFile.read() with no argument reads the whole file into memory.
+    We loop over 64 KB chunks and track the running byte count so an
+    oversized upload raises 413 before it exhausts memory. The caller's
+    error-rendering path is preserved because the exception surfaces as
+    a normal HTTPException.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > cap:
+            raise HTTPException(
+                status_code=413,
+                detail=f"upload exceeds {cap // (1024 * 1024)} MB cap",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def _csrf_input(request: Request) -> str:
     """Jinja global: render the hidden CSRF field inside a <form>."""
     from markupsafe import Markup
@@ -1065,7 +1099,7 @@ async def upload_submit(
 
     if not (is_docx or is_pdf):
         return await _rerender("Upload must be a .docx or .pdf file.")
-    file_bytes = await file.read()
+    file_bytes = await _read_upload_capped(file)
     tid = await _get_or_default_tenant_id(session, tenant_id, request=request)
     try:
         await check_active_template_quota(session, tid)
@@ -1207,7 +1241,7 @@ async def upload_new_version(
             flash=f"New versions of this template must be {expected_ext} files.",
             flash_kind="error",
         )
-    file_bytes = await file.read()
+    file_bytes = await _read_upload_capped(file)
     try:
         if template.kind == "pdf":
             _template, tv, report = await upload_pdf_template(
@@ -1278,7 +1312,7 @@ async def upload_new_locale(
             f"/ui/templates/{template_id}",
             flash="Upload must be a .docx file.", flash_kind="error",
         )
-    docx_bytes = await file.read()
+    docx_bytes = await _read_upload_capped(file)
     try:
         _tv, report = await upload_locale_variant(
             session,

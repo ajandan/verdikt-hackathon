@@ -358,7 +358,22 @@ def _handler(
         return ProcessResult(event.id, "failed", event.error)
 
     event.score = _score_from_decision(decision)
-    event.review_state = _OUTCOME_TO_REVIEW_STATE.get(decision.outcome, "pending_review")
+    # Explicit `in` check rather than .get(default): the map documents
+    # `"routed" → None` as an invariant (keeps those cases out of the
+    # review queue), and a .get() default would silently absorb any
+    # future Outcome literal into pending_review — masking a bug where
+    # the map isn't in sync with the Decision schema. A missing entry
+    # here is an operator signal.
+    if decision.outcome in _OUTCOME_TO_REVIEW_STATE:
+        event.review_state = _OUTCOME_TO_REVIEW_STATE[decision.outcome]
+    else:
+        log.warning(
+            "pap_unknown_outcome_review_state",
+            outcome=decision.outcome,
+            event_id=str(event.id),
+            note="review_state map has no entry — defaulting to pending_review; add the outcome to _OUTCOME_TO_REVIEW_STATE",
+        )
+        event.review_state = "pending_review"
     event.status = "succeeded"
     event.pap_intake = intake.model_dump(mode="json")
     # Persist the full extraction dict so the pipeline detail page and reply

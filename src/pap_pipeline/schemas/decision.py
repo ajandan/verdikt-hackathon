@@ -29,6 +29,22 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# DoS bounds — every field a runaway Nemotron response could inflate
+# gets capped at the schema boundary so downstream consumers (audit
+# log, reply subject, PDF slot dict) can trust the shape. Numbers
+# chosen an order of magnitude above realistic use: a typical decision
+# has 1–5 citations against ~10 rules; 128 is a hard ceiling nothing
+# legitimate hits. Module-level rather than class-level so the
+# @field_validator classmethods can reference them without going
+# through Pydantic's class-attribute machinery (which turns
+# underscore-prefixed class attrs into PrivateAttr descriptors).
+_MAX_RATIONALE_CHARS = 2048
+_MAX_CITATIONS = 128
+_MAX_MISSING_FIELDS = 128
+_MAX_MISSING_FIELD_CHARS = 200
+_MAX_RULE_TRACES = 128
+
+
 Outcome = Literal["approve", "deny", "missing_info", "routed"]
 CitationType = Literal["rule", "history"]
 FindingType = Literal[
@@ -135,11 +151,11 @@ class Decision(BaseModel):
     outcome: Outcome
     citations: list[Citation] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
-    # See _cap_rationale below — capped at 2 KB (well above the "one
-    # sentence" this field is documented as) to bound the DoS surface
-    # when the value flows into audit notes, reply subjects, and PDF
-    # slots. A validator truncates instead of raising so a runaway
-    # model output is trimmed rather than failing the case.
+    # See the _cap_* validators below. The four Nemotron-authored fields
+    # (rationale, citations, missing_fields, rule_traces) all flow into
+    # audit notes, reply subjects, and PDF template slots — each has a
+    # length cap that truncates silently rather than raising so a runaway
+    # model output degrades usefully rather than failing the whole case.
     rationale: str = ""
     # Populated post-hoc by pap_pipeline.verify — extraction disagreements
     # (dual-VLM cross-check) and deterministic citation-consistency flags.
@@ -167,20 +183,43 @@ class Decision(BaseModel):
     @field_validator("rationale", mode="before")
     @classmethod
     def _cap_rationale(cls, v: Any) -> str:
-        """Silently truncate the rationale to 2 KB.
-
-        Rationale is authored by Nemotron and flows into audit notes,
-        reply subjects, and PDF template slots. Bounded input at the
-        schema boundary keeps every downstream consumer safe from a
-        runaway model response — a truncated one-sentence rationale is
-        still useful; a 200 KB one is an outage in every consumer that
-        embeds it. Truncate rather than raise so a slightly-overflowing
-        response doesn't fail the whole case.
-        """
         if v is None:
             return ""
-        text = str(v)
-        return text[:2048]
+        return str(v)[:_MAX_RATIONALE_CHARS]
+
+    @field_validator("citations", mode="before")
+    @classmethod
+    def _cap_citations(cls, v: Any) -> Any:
+        """Drop citations past a sanity cap so a runaway response can't
+        emit a 10k-item citation list that then rides into every
+        audit entry and the JSON verdict. Truncate rather than raise —
+        the first N citations are still useful evidence."""
+        if isinstance(v, list) and len(v) > _MAX_CITATIONS:
+            return v[:_MAX_CITATIONS]
+        return v
+
+    @field_validator("missing_fields", mode="before")
+    @classmethod
+    def _cap_missing_fields(cls, v: Any) -> Any:
+        """Cap list length + per-entry char count. Legitimate missing_fields
+        are Intake field names (~20 chars); a model that emits 500-char
+        prose strings here is misbehaving and the letter body would render
+        it verbatim otherwise."""
+        if not isinstance(v, list):
+            return v
+        capped = v[:_MAX_MISSING_FIELDS]
+        return [str(item)[:_MAX_MISSING_FIELD_CHARS] for item in capped]
+
+    @field_validator("rule_traces", mode="before")
+    @classmethod
+    def _cap_rule_traces(cls, v: Any) -> Any:
+        """Cap the number of rule_traces entries. A trace-per-rule map
+        that grew to thousands would balloon the persisted Decision JSON
+        — 128 rules per case is already a huge corpus by demo standards."""
+        if isinstance(v, dict) and len(v) > _MAX_RULE_TRACES:
+            keys = list(v.keys())[:_MAX_RULE_TRACES]
+            return {k: v[k] for k in keys}
+        return v
 
 
 class TriageResult(BaseModel):

@@ -417,8 +417,24 @@ async def _extract_from_page(
         json=body,
     )
     resp.raise_for_status()
-    content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-    return _parse_partial_intake(content or "", allowed_names)
+    # Emit a warning when the well-formed HTTP 200 carries no usable
+    # content. The prior silent-empty-string chain would return an
+    # empty dict and the case would eventually ship as missing_info
+    # with no operator signal that the VLM endpoint is misbehaving —
+    # this log gives the audit trail a hook to notice a broken model.
+    payload = resp.json()
+    choices = payload.get("choices") or []
+    message = (choices[0] if choices else {}).get("message") or {}
+    content = message.get("content") or ""
+    if not content:
+        _log.warning(
+            "pap_extract_empty_vlm_content",
+            model=config.vision_model,
+            has_choices=bool(choices),
+            has_message=bool(message),
+            payload_keys=list(payload.keys()),
+        )
+    return _parse_partial_intake(content, allowed_names)
 
 
 def _parse_partial_intake(content: str, allowed_names: set[str]) -> dict[str, Any]:

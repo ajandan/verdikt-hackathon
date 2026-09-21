@@ -159,26 +159,46 @@ _PROGRAM_CODE_SHORT = {
     "cardiovita-pap-2026": "CV-PAP-2026",
 }
 
+# Generic placeholder rendered on the letter header when the program slug
+# is missing or unknown. Chosen deliberately to look wrong at a glance —
+# a reviewer sees "PAP-PROGRAM" and knows to check the program config,
+# rather than a plausible-looking-but-wrong tenant name (the prior
+# behavior branded every unknown tenant as "cardiovita-pap-2026" upper-
+# cased, which read as legitimate output on the letter).
+_UNKNOWN_PROGRAM_CODE_PLACEHOLDER = "PAP-PROGRAM"
+
 
 def short_program_code(program: str | None) -> str:
     """Return the header-band-safe program code for the reply letter.
 
     Known slugs (see :data:`_PROGRAM_CODE_SHORT`) render as their curated
-    short form; unknown slugs fall back to an upper-cased version of the
-    input and emit a warning so a mis-branded letter is at least traceable
-    in the log stream. The default slug for a None/empty input matches
-    the demo program's canonical slug — that fallback is a hackathon
-    convenience, not a multi-tenant guarantee.
+    short form. Missing / empty / unknown slugs render as a generic
+    placeholder plus a warning log — never a demo-tenant brand, so a
+    misconfigured multi-tenant deployment produces an obviously-generic
+    letter rather than a mis-attributed one.
     """
-    slug = (program or "cardiovita-pap-2026").lower()
+    if not program or not program.strip():
+        log.warning(
+            "reply_render_missing_program_slug",
+            note=(
+                f"no program slug supplied; rendering placeholder "
+                f"{_UNKNOWN_PROGRAM_CODE_PLACEHOLDER!r}. Populate the "
+                "program column or pass a slug into the pipeline."
+            ),
+        )
+        return _UNKNOWN_PROGRAM_CODE_PLACEHOLDER
+    slug = program.lower()
     if slug in _PROGRAM_CODE_SHORT:
         return _PROGRAM_CODE_SHORT[slug]
     log.warning(
         "reply_render_unknown_program_code",
         slug=slug,
-        note="fallback to slug.upper(); add an entry to _PROGRAM_CODE_SHORT for a curated short form",
+        note=(
+            f"rendering placeholder {_UNKNOWN_PROGRAM_CODE_PLACEHOLDER!r}; "
+            "add an entry to _PROGRAM_CODE_SHORT to brand this program"
+        ),
     )
-    return slug.upper()
+    return _UNKNOWN_PROGRAM_CODE_PLACEHOLDER
 
 
 def compose_salutation(intake: Intake) -> str:

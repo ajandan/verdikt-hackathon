@@ -2,13 +2,21 @@
 
 Key format: `ratelimit:{tenant_id}:{action}:{window_start_epoch}`.
 
-Only rate-limits routes that have known limits (render, upload). All other routes
-pass through untouched. Requires `request.state.tenant_id` to have been set by
-`ApiKeyAuthMiddleware`; if absent (e.g. bypassed route), pass through.
+Only rate-limits routes that have known limits (render, upload, intake).
+All other routes pass through untouched. Requires `request.state.tenant_id`
+to have been set by `ApiKeyAuthMiddleware`; if absent (e.g. bypassed
+route), pass through.
+
+Route matching uses exact ``(method, path)`` for the static routes and
+one regex fallback for the parameterised PAP intake route
+(``POST /pap/programs/{slug}/intake``) so the pipeline-execution path —
+which fires 2-3 LLM calls per request — cannot be dodged by a caller
+who picks an unusual slug value.
 """
 from __future__ import annotations
 
 import ipaddress
+import re
 import secrets
 import time
 from functools import lru_cache
@@ -57,17 +65,40 @@ def _limits() -> dict[tuple[str, str], tuple[str, int, int]]:
     s = get_settings()
     r = s.rate_limit_renders_per_minute
     u = s.rate_limit_uploads_per_hour
+    i = s.rate_limit_intake_per_minute
     return {
         ("POST", "/render"): ("render", r, 60),
         ("POST", "/render/mapped"): ("render", r, 60),
         ("POST", "/templates"): ("upload", u, 3600),
+        # PAP JSON intake has a variable slug in the path — see the
+        # regex fallback below. This entry is a marker for the
+        # settings-driven limit; the actual (method, path) match happens
+        # via _match_intake_route.
     }
 
 
+# Parameterised routes that carry a path variable (currently just the
+# PAP intake slug) match through this pattern instead of exact dict
+# lookup. Kept as a small list so future parameterised rate-limited
+# routes can be added without further scaffolding.
+_INTAKE_ROUTE_PATTERN = re.compile(r"^/pap/programs/[^/]+/intake/?$")
+
+
+def _match_intake_route(method: str, path: str) -> tuple[str, int, int] | None:
+    """Return ``(action, limit, window_seconds)`` for the PAP intake
+    route regardless of the slug value, else None."""
+    if method != "POST":
+        return None
+    if _INTAKE_ROUTE_PATTERN.match(path) is None:
+        return None
+    return ("intake", get_settings().rate_limit_intake_per_minute, 60)
+
+
 # Actions where failing open on a Redis outage would be worse than a brief
-# outage of the endpoint (unbounded render volume can wedge the worker pool
-# and rack up cost). Everything else falls back to pass-through.
-_FAIL_CLOSED_ACTIONS = frozenset({"render"})
+# outage of the endpoint (unbounded render / intake volume can wedge the
+# worker pool and rack up Nemotron/VLM cost). Everything else falls back
+# to pass-through.
+_FAIL_CLOSED_ACTIONS = frozenset({"render", "intake"})
 
 
 def _bucket_key(tenant_id: str, action: str, window: int) -> str:
@@ -78,7 +109,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Applies fixed-window limits per (tenant, action)."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        rule = _limits().get((request.method, request.url.path))
+        method = request.method
+        path = request.url.path
+        rule = _limits().get((method, path)) or _match_intake_route(method, path)
         if rule is None:
             return await call_next(request)
 

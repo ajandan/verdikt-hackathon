@@ -131,6 +131,12 @@ class Settings(BaseSettings):
     # Rate limits per tenant
     rate_limit_renders_per_minute: int = 60
     rate_limit_uploads_per_hour: int = 60
+    # PAP JSON intake bucket — bounds Nemotron + VLM budget burn per
+    # tenant. Each intake fires 2-3 LLM calls (extract, reason, and
+    # sometimes the triage classifier) so a lower per-minute cap than
+    # renders keeps token spend predictable. Fails closed on Redis
+    # outage — a wedged limiter must not open the spending flood.
+    rate_limit_intake_per_minute: int = 30
 
     # First-run dev experience — when true, generate a bootstrap API key at startup.
     bootstrap_key: bool = False

@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from docgen.api.deps import get_tenant_id
 from docgen.config import get_settings
+from docgen.upload_limits import read_capped_body
 from pap_pipeline.api_hook import (
     CHANNEL_REST,
     ApiIntakeResult,
@@ -41,46 +42,13 @@ log = structlog.get_logger(__name__)
 router = APIRouter(prefix="/pap", tags=["pap"])
 
 
-# Hard cap on the JSON intake body. Real payloads are ~few KB (structured
-# form fields, not attachments); anything much larger is either a caller
-# bug or an attempt to burn parser + memory budget on unbounded input.
-# Enforced by streaming the body and refusing to buffer past the cap —
-# checked BEFORE Pydantic sees it and independent of the Content-Length
-# header, so a chunked upload (no Content-Length) is also bounded.
+# Hard cap on the JSON intake body — 512 KB. Real payloads are ~few
+# KB (structured form fields, not attachments); anything much larger
+# is either a caller bug or an attempt to burn parser + memory budget
+# on unbounded input. Enforced via :func:`read_capped_body` before
+# Pydantic parses; see :mod:`docgen.upload_limits` for the streaming
+# + slowloris-deadline machinery.
 _MAX_INTAKE_BODY_BYTES = 512 * 1024  # 512 KB
-
-
-async def _read_capped_body(request: Request, cap: int) -> bytes:
-    """Stream the request body, refusing to buffer past ``cap`` bytes.
-
-    Runs before Pydantic parses so an oversized upload never lands in
-    memory. Fast-paths on the Content-Length header when present (the
-    honest happy path); otherwise counts bytes as chunks arrive. A
-    chunked-encoding upload that lies about its size gets the same cap
-    applied by the byte count.
-    """
-    declared = request.headers.get("content-length")
-    if declared is not None:
-        try:
-            if int(declared) > cap:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"intake body exceeds {cap // 1024} KB cap",
-                )
-        except ValueError:
-            raise HTTPException(status_code=400, detail="malformed content-length") from None
-
-    chunks: list[bytes] = []
-    total = 0
-    async for chunk in request.stream():
-        total += len(chunk)
-        if total > cap:
-            raise HTTPException(
-                status_code=413,
-                detail=f"intake body exceeds {cap // 1024} KB cap",
-            )
-        chunks.append(chunk)
-    return b"".join(chunks)
 
 
 class PapIntakeRequest(BaseModel):
@@ -202,7 +170,7 @@ async def submit_pap_intake(
     memory. The body is streamed, so a chunked upload without a
     Content-Length header still gets bounded by the running byte count.
     """
-    raw_body = await _read_capped_body(request, _MAX_INTAKE_BODY_BYTES)
+    raw_body = await read_capped_body(request, _MAX_INTAKE_BODY_BYTES)
     try:
         body = PapIntakeRequest.model_validate_json(raw_body)
     except ValidationError as e:

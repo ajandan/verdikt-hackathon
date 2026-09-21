@@ -179,7 +179,17 @@ def run_json_intake_sync(
         try:
             validate_public_url(callback_url)
         except UrlNotAllowed as e:
-            raise ValueError(f"callback_url rejected: {e}") from e
+            # Server-side log carries the specific reason ("unresolvable
+            # host 'internal.corp.local'", "non-public IP 10.0.0.1", …).
+            # The caller-visible error is deliberately generic so an
+            # SSRF-recon caller can't distinguish "host doesn't exist"
+            # from "host exists but resolves to a private IP" by
+            # comparing 400 detail strings across many probes.
+            log.warning(
+                "pap_intake_callback_url_rejected",
+                reason=str(e),
+            )
+            raise ValueError("callback_url is not an allowed URL") from e
 
     with SyncSessionLocal() as session:
         tenant = session.get(Tenant, tenant_id)

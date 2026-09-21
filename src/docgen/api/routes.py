@@ -38,6 +38,7 @@ from docgen.api.schemas import (
 )
 from docgen.config import get_settings
 from docgen.core.docx_sanitize import InvalidDocxError
+from docgen.upload_limits import read_capped_upload
 from docgen.core.mapping import MappingError, apply_mapping
 from docgen.core.render_pipeline import (
     execute_merge,
@@ -102,7 +103,7 @@ async def create_template(
     is_pdf = fname.endswith(".pdf")
     if not (is_docx or is_pdf):
         raise HTTPException(400, "Upload must be a .docx or .pdf file")
-    file_bytes = await file.read()
+    file_bytes = await read_capped_upload(file)
     try:
         if is_pdf:
             template, version, report = await upload_pdf_template(

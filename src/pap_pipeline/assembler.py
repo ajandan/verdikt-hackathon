@@ -319,7 +319,7 @@ def _merge_pdfs(parts: list[bytes], *, package_name: str) -> tuple[bytes, int | 
     for i, blob in enumerate(parts):
         try:
             reader = pypdf.PdfReader(io.BytesIO(blob))
-        except Exception as e:
+        except (pypdf.errors.PdfReadError, ValueError, TypeError, OSError) as e:
             raise AssemblerRenderFailed(
                 f"package {package_name!r} item #{i + 1} is not a valid PDF: "
                 f"{type(e).__name__}: {e}"

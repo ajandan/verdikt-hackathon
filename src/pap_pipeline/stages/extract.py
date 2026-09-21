@@ -322,6 +322,18 @@ def _to_pages(
 # stamp or watermark.
 _SCAN_TEXT_THRESHOLD = 30
 
+# Hard cap on the number of pages we'll rasterize per attachment at
+# runtime. Preflight rejects at design time (see
+# ``docgen.designtime.preflight_pdf.MAX_PAGES``); the runtime intake
+# path needs its own bound because email attachments don't run
+# preflight — a 500-page adversarial PDF would otherwise fire 500 VLM
+# calls per intake and burn the Token Factory budget. Kept in sync
+# with the design-time constant by import.
+try:
+    from docgen.designtime.preflight_pdf import MAX_PAGES as _MAX_PAGES
+except Exception:  # pragma: no cover - defensive against circular-import edge
+    _MAX_PAGES = 100
+
 
 def _rasterize_pdf(
     pdf_bytes: bytes, *, native_scale: float, scan_scale: float
@@ -331,13 +343,26 @@ def _rasterize_pdf(
     Text-layer probe classifies each page; scans get the higher DPI
     treatment. Native (text-layer) pages stay at ``native_scale`` so
     we don't 4x the token bill on cases that don't need it.
+
+    Bounded at :data:`_MAX_PAGES` pages per attachment — anything past
+    the cap is dropped with a warning. Legitimate intake PDFs are
+    single-digit pages; anything hitting the cap is either malformed
+    or adversarial.
     """
     import pypdfium2  # type: ignore[import-untyped]
 
     out: list[tuple[bytes, bool]] = []
     doc = pypdfium2.PdfDocument(pdf_bytes)
     try:
-        for i in range(len(doc)):
+        total_pages = len(doc)
+        if total_pages > _MAX_PAGES:
+            _log.warning(
+                "pap_extract_page_cap_hit",
+                total_pages=total_pages,
+                rendered_pages=_MAX_PAGES,
+                note="pages past cap dropped; increase _MAX_PAGES only after auditing the intake corpus",
+            )
+        for i in range(min(total_pages, _MAX_PAGES)):
             page = doc[i]
             is_scan = _page_looks_scanned(page)
             scale = scan_scale if is_scan else native_scale

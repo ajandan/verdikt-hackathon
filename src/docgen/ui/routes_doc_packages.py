@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from docgen.api.deps import get_session
 from docgen.config import get_settings
 from docgen.store.blob import get_object
+from docgen.upload_limits import read_capped_upload
 from docgen.store.doc_packages import (
     DocPackageValidationError,
     StaticDocRejected,
@@ -174,7 +175,7 @@ def register(
         if doc is None:
             raise HTTPException(404, "Static document not found")
         enforce_scope(request, doc.tenant_id)
-        body = await file.read()
+        body = await read_capped_upload(file)
         filename = file.filename or "document.pdf"
         # Env-var break-glass admins have no admin_users row and therefore no
         # UUID to record; DB-backed admins do. Falling back to None keeps the

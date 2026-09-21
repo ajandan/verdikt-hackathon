@@ -156,6 +156,8 @@ class Decision(BaseModel):
     # audit notes, reply subjects, and PDF template slots — each has a
     # length cap that truncates silently rather than raising so a runaway
     # model output degrades usefully rather than failing the whole case.
+    # When any cap fires, the field name lands in :attr:`truncation_flags`
+    # so the reviewer sees the runaway signal in the audit trail.
     rationale: str = ""
     # Populated post-hoc by pap_pipeline.verify — extraction disagreements
     # (dual-VLM cross-check) and deterministic citation-consistency flags.
@@ -179,47 +181,65 @@ class Decision(BaseModel):
     # downstream route the classifier chose; downstream systems that want
     # to short-circuit off the Decide path read this field.
     triage: "TriageResult | None" = None
+    # Names of fields whose cap fired during model construction. Empty in
+    # the happy path; a non-empty list is the operator signal that the
+    # upstream model emitted more than the schema tolerates — the
+    # truncated field is still safe to consume, but the case may be worth
+    # a review.
+    truncation_flags: list[str] = Field(default_factory=list)
 
-    @field_validator("rationale", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def _cap_rationale(cls, v: Any) -> str:
-        if v is None:
-            return ""
-        return str(v)[:_MAX_RATIONALE_CHARS]
+    def _cap_and_flag(cls, data: Any) -> Any:
+        """Cap the four runaway-model fields and record any cap-hits.
 
-    @field_validator("citations", mode="before")
-    @classmethod
-    def _cap_citations(cls, v: Any) -> Any:
-        """Drop citations past a sanity cap so a runaway response can't
-        emit a 10k-item citation list that then rides into every
-        audit entry and the JSON verdict. Truncate rather than raise —
-        the first N citations are still useful evidence."""
-        if isinstance(v, list) and len(v) > _MAX_CITATIONS:
-            return v[:_MAX_CITATIONS]
-        return v
+        Runs before per-field validation so the caps see the raw input
+        (a per-field ``mode="before"`` validator can't cross-populate
+        ``truncation_flags`` on the model, which is why the caps moved
+        up to model-level). Each cap silently truncates and appends the
+        field name to ``truncation_flags``; downstream consumers can
+        surface the list on the reviewer UI without a schema change.
+        """
+        if not isinstance(data, dict):
+            return data
+        flags: list[str] = list(data.get("truncation_flags") or [])
 
-    @field_validator("missing_fields", mode="before")
-    @classmethod
-    def _cap_missing_fields(cls, v: Any) -> Any:
-        """Cap list length + per-entry char count. Legitimate missing_fields
-        are Intake field names (~20 chars); a model that emits 500-char
-        prose strings here is misbehaving and the letter body would render
-        it verbatim otherwise."""
-        if not isinstance(v, list):
-            return v
-        capped = v[:_MAX_MISSING_FIELDS]
-        return [str(item)[:_MAX_MISSING_FIELD_CHARS] for item in capped]
+        rationale = data.get("rationale")
+        if rationale is not None:
+            text = str(rationale)
+            if len(text) > _MAX_RATIONALE_CHARS:
+                data["rationale"] = text[:_MAX_RATIONALE_CHARS]
+                flags.append("rationale")
+            else:
+                data["rationale"] = text
 
-    @field_validator("rule_traces", mode="before")
-    @classmethod
-    def _cap_rule_traces(cls, v: Any) -> Any:
-        """Cap the number of rule_traces entries. A trace-per-rule map
-        that grew to thousands would balloon the persisted Decision JSON
-        — 128 rules per case is already a huge corpus by demo standards."""
-        if isinstance(v, dict) and len(v) > _MAX_RULE_TRACES:
-            keys = list(v.keys())[:_MAX_RULE_TRACES]
-            return {k: v[k] for k in keys}
-        return v
+        citations = data.get("citations")
+        if isinstance(citations, list) and len(citations) > _MAX_CITATIONS:
+            data["citations"] = citations[:_MAX_CITATIONS]
+            flags.append("citations")
+
+        missing = data.get("missing_fields")
+        if isinstance(missing, list):
+            over_count = len(missing) > _MAX_MISSING_FIELDS
+            capped = missing[:_MAX_MISSING_FIELDS]
+            trimmed = [str(item)[:_MAX_MISSING_FIELD_CHARS] for item in capped]
+            over_len = any(
+                isinstance(item, str) and len(item) > _MAX_MISSING_FIELD_CHARS
+                for item in capped
+            )
+            data["missing_fields"] = trimmed
+            if over_count or over_len:
+                flags.append("missing_fields")
+
+        traces = data.get("rule_traces")
+        if isinstance(traces, dict) and len(traces) > _MAX_RULE_TRACES:
+            keys = list(traces.keys())[:_MAX_RULE_TRACES]
+            data["rule_traces"] = {k: traces[k] for k in keys}
+            flags.append("rule_traces")
+
+        if flags:
+            data["truncation_flags"] = flags
+        return data
 
 
 class TriageResult(BaseModel):

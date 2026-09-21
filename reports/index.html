@@ -88,6 +88,77 @@
     </section>
 
     <section class="block">
+      <span class="kicker">Review passes</span>
+      <h2>Eight rounds. <em>One convergence.</em></h2>
+      <p class="subhead">Each row is a full external code + security review pass on this codebase. Grade shifts trace the fix trajectory: security lifted from B- to A, code held between B- and Approve. The latest row is the current state; earlier rows are historical.</p>
+      <style>
+        .review-passes {
+          margin-top: 20px; border: 1px solid var(--hair); border-radius: 12px;
+          background: #fff; overflow: hidden;
+          box-shadow: 0 1px 3px rgba(20,20,16,0.04);
+        }
+        .review-passes table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .review-passes thead th {
+          text-align: left; font-weight: 600; font-size: 11px;
+          text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--ink-500); padding: 12px 18px;
+          background: var(--ink-50); border-bottom: 1px solid var(--hair);
+        }
+        .review-passes tbody td {
+          padding: 13px 18px; border-bottom: 1px solid var(--hair-soft);
+          color: var(--ink-700); vertical-align: middle;
+        }
+        .review-passes tbody tr:last-child td { border-bottom: none; }
+        .review-passes .round {
+          font-variant-numeric: tabular-nums; color: var(--ink-500);
+          font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+        }
+        .review-passes .grade {
+          font-weight: 600; font-variant-numeric: tabular-nums;
+          color: var(--ink-700); letter-spacing: -0.005em;
+        }
+        .review-passes .note { color: var(--ink-700); font-size: 13.5px; }
+        .review-passes tbody tr.current {
+          background: linear-gradient(90deg, rgba(47,143,118,0.10), transparent 90%);
+        }
+        .review-passes tbody tr.current td { color: var(--ink-900); }
+        .review-passes tbody tr.current .round { color: var(--seal-700); font-weight: 600; }
+        .review-passes tbody tr.current .grade { color: var(--seal-700); }
+        .review-passes .current-chip {
+          display: inline-block; margin-left: 10px;
+          padding: 2px 9px; font-size: 10.5px; font-weight: 700;
+          letter-spacing: 0.06em; text-transform: uppercase;
+          color: #fff; background: var(--seal-700);
+          border-radius: 999px; vertical-align: middle;
+          font-family: 'Inter', system-ui, sans-serif;
+        }
+        .review-passes-meta {
+          margin-top: 12px; font-size: 12.5px; color: var(--ink-500);
+          font-family: 'JetBrains Mono', ui-monospace, monospace;
+        }
+        .review-passes-meta b { color: var(--seal-700); }
+      </style>
+      <div class="review-passes">
+        <table>
+          <thead>
+            <tr><th>Round</th><th>Code</th><th>Security</th><th>Notable finding</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="round">#1</td><td class="grade">B</td><td class="grade">B-</td><td class="note">Silent excepts, prompt injection, CSP <code>unsafe-inline</code></td></tr>
+            <tr><td class="round">#2</td><td class="grade">B-</td><td class="grade">B-</td><td class="note">HTML injection into outbound email, SSRF, path traversal</td></tr>
+            <tr><td class="round">#3</td><td class="grade">B-</td><td class="grade">B</td><td class="note">Clock injection, Feb-29 crash, CSP hardened on <code>script-src</code></td></tr>
+            <tr><td class="round">#4</td><td class="grade">B-</td><td class="grade">B-</td><td class="note">Content-Length cap placement was cosmetic; sibling caps missing</td></tr>
+            <tr><td class="round">#5</td><td class="grade">B-</td><td class="grade">B+</td><td class="note">Missed upload sites wired to cap helper; <code>MAX_PAGES</code> shared</td></tr>
+            <tr><td class="round">#6</td><td class="grade">B-</td><td class="grade">B</td><td class="note">SMTP CRLF injection, PIL bomb guard, no-mutation refactor</td></tr>
+            <tr><td class="round">#7</td><td class="grade">B</td><td class="grade">A-</td><td class="note">PAP intake rate-limit gap closed</td></tr>
+            <tr class="current"><td class="round">#8<span class="current-chip">Current</span></td><td class="grade">Approve</td><td class="grade">A</td><td class="note">Open-redirect on <code>?next=</code> guarded (CWE-601)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="review-passes-meta"><b>27</b> concrete fixes · <b>2</b> documented deferrals (SSRF TOCTOU, coordinator hardcode) · Both round-8 agents ruled "further passes grasping unless threat model expands"</p>
+    </section>
+
+    <section class="block">
       <div class="verdict-wrap" style="margin-top:0;align-items:start">
         <div>
           <span class="kicker">Aggregate</span>

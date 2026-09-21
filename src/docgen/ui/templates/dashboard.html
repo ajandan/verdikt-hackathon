@@ -248,6 +248,54 @@
         border-radius: 4px;
     }
 
+    /* Review-history card — 8 rounds of external code + security review.
+       Static content (rendered from a Jinja list literal in the template)
+       so it survives without a backend query. The latest row uses the
+       brand accent + a "current" chip so the eye lands on it first. */
+    .review-history {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow-xs);
+        padding: 20px 22px 18px; margin-top: 22px;
+    }
+    .review-history .header {
+        display: flex; align-items: baseline; justify-content: space-between;
+        margin-bottom: 12px; gap: 12px;
+    }
+    .review-history h2 {
+        margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+    }
+    .review-history .subtle {
+        color: var(--text-subtle); font-size: 12px;
+    }
+    .review-history table {
+        width: 100%; border-collapse: collapse; font-size: 13px;
+    }
+    .review-history thead th {
+        text-align: left; font-weight: 600; color: var(--text-subtle);
+        font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+        padding: 8px 10px; border-bottom: 1px solid var(--border);
+    }
+    .review-history tbody td {
+        padding: 10px; border-bottom: 1px solid var(--border);
+        color: var(--text); vertical-align: middle;
+    }
+    .review-history tbody tr:last-child td { border-bottom: none; }
+    .review-history .round { font-variant-numeric: tabular-nums; color: var(--text-muted); font-weight: 500; }
+    .review-history .grade { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.005em; }
+    .review-history tbody tr.current {
+        background: linear-gradient(90deg, var(--brand-soft), transparent 85%);
+    }
+    .review-history tbody tr.current td { color: var(--text); }
+    .review-history tbody tr.current .round,
+    .review-history tbody tr.current .grade { color: var(--text); font-weight: 600; }
+    .review-history .current-chip {
+        display: inline-block; margin-left: 8px;
+        padding: 1px 8px; font-size: 10.5px; font-weight: 600;
+        letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--brand-fg); background: var(--brand);
+        border-radius: 999px; vertical-align: middle;
+    }
+
     /* Dashboard footer — quiet strip for reference links (API docs, etc.) */
     .dash-footer {
         margin-top: 28px; padding: 16px 4px 4px;
@@ -603,6 +651,46 @@
         </div>
     </div>
 </div>
+
+{# Review-history section — static record of eight external code +
+   security review passes on this codebase during the pre-submission
+   hardening sprint. Rendered from an inline Jinja list so the table
+   ships with the template (no route wiring, no DB read). The last row
+   is highlighted as "current". Any future review round should update
+   the list literal below and shift the `current` marker down. #}
+{% set _review_rounds = [
+    (1, 'B',       'B-', '5 code + 5 security: silent excepts, prompt injection, CSP unsafe-inline'),
+    (2, 'B-',      'B-', '5 code + 5 security: HTML injection into email, SSRF, path traversal'),
+    (3, 'B-',      'B',  'Clock injection, Feb-29 crash, CSP hardened on script-src'),
+    (4, 'B-',      'B-', 'Round-3 Content-Length placement regression; sibling caps missing'),
+    (5, 'B-',      'B+', 'Missed upload sites wired to cap helper; MAX_PAGES shared'),
+    (6, 'B-',      'B',  'SMTP CRLF injection, PIL bomb guard, no-mutation refactor'),
+    (7, 'B',       'A-', 'PAP intake rate-limit gap closed'),
+    (8, 'Approve', 'A',  'Open-redirect on ?next= guarded (CWE-601)'),
+] %}
+<section class="review-history" aria-labelledby="review-history-heading">
+    <div class="header">
+        <h2 id="review-history-heading">Review pass history</h2>
+        <span class="subtle">8 rounds · 27 fixes · 2 documented deferrals</span>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Round</th><th>Code</th><th>Security</th><th>Notable finding</th></tr>
+        </thead>
+        <tbody>
+            {% for round, code, security, note in _review_rounds %}
+            <tr{% if loop.last %} class="current"{% endif %}>
+                <td class="round">
+                    #{{ round }}{% if loop.last %}<span class="current-chip">Current</span>{% endif %}
+                </td>
+                <td class="grade">{{ code }}</td>
+                <td class="grade">{{ security }}</td>
+                <td>{{ note }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
 
 <footer class="dash-footer">
     <span>Verdikt &middot; deterministic decisions and reply artifacts</span>

@@ -21,7 +21,6 @@ The design mirrors the email path deliberately:
 """
 from __future__ import annotations
 
-import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -33,6 +32,7 @@ from docgen.config import Settings
 from docgen.net_safety import UrlNotAllowed, validate_public_url
 from docgen.store.db import SyncSessionLocal
 from docgen.store.models import InboxEvent, Program, Tenant
+from pap_pipeline._async_bridge import run_pipeline_sync
 from pap_pipeline.inbox_audit import AI_ACTOR, append_audit
 from pap_pipeline.inbox_hook import (
     _draft_reply_artifact,
@@ -285,7 +285,7 @@ def run_json_intake_sync(
             # dispatches to run_from_intake for the Decide path. Prior to
             # this, the JSON channel bypassed Triage entirely — every case
             # ran straight through Decide with decision.triage=None.
-            decision: Decision = asyncio.run(
+            decision: Decision = run_pipeline_sync(
                 run_triaged_from_intake(
                     intake,
                     config=config,

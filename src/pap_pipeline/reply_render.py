@@ -161,8 +161,24 @@ _PROGRAM_CODE_SHORT = {
 
 
 def short_program_code(program: str | None) -> str:
+    """Return the header-band-safe program code for the reply letter.
+
+    Known slugs (see :data:`_PROGRAM_CODE_SHORT`) render as their curated
+    short form; unknown slugs fall back to an upper-cased version of the
+    input and emit a warning so a mis-branded letter is at least traceable
+    in the log stream. The default slug for a None/empty input matches
+    the demo program's canonical slug — that fallback is a hackathon
+    convenience, not a multi-tenant guarantee.
+    """
     slug = (program or "cardiovita-pap-2026").lower()
-    return _PROGRAM_CODE_SHORT.get(slug, slug.upper())
+    if slug in _PROGRAM_CODE_SHORT:
+        return _PROGRAM_CODE_SHORT[slug]
+    log.warning(
+        "reply_render_unknown_program_code",
+        slug=slug,
+        note="fallback to slug.upper(); add an entry to _PROGRAM_CODE_SHORT for a curated short form",
+    )
+    return slug.upper()
 
 
 def compose_salutation(intake: Intake) -> str:
@@ -235,6 +251,8 @@ def build_render_data(
     program: str | None,
     event: InboxEvent,
     extras: dict[str, Any] | None = None,
+    *,
+    today: date | None = None,
 ) -> dict[str, Any]:
     """Map Intake + Decision onto the ASP-20x template field schema.
 
@@ -242,6 +260,13 @@ def build_render_data(
     branches (`application_has_*`, `we_not_*`, `we_need_*`) add the fields
     the specific letter uses. Missing template fields are simply left as
     empty strings — the renderer treats them as blanks rather than failing.
+
+    ``today`` pins the reference date used for the letter date and the
+    approve/deny/missing-info deadline math. Tests inject a fixed date so
+    fixture output doesn't drift as they age; production callers leave it
+    None to get ``date.today()``. The clock is read at most once per
+    call so every downstream date stays consistent even if midnight
+    passes mid-render.
 
     Coordinator name / title / phone come from `extras` when present
     (`_coordinator_name`, `_coordinator_title`, `_coordinator_phone`) so
@@ -252,7 +277,7 @@ def build_render_data(
     `reply_letter_config` JSONB column on Program; until then the extras
     override is the multi-tenant escape hatch.
     """
-    today = date.today()
+    today = today if today is not None else date.today()
     patient = intake.patient_name or "Applicant"
     salutation = compose_salutation(intake)
     dob = intake.date_of_birth.strftime("%m/%d/%Y") if intake.date_of_birth else ""
@@ -288,7 +313,12 @@ def build_render_data(
     })
 
     if decision.outcome == "approve":
-        approval_end = today.replace(year=today.year + 1)
+        # +365 days rather than year=today.year+1: today.replace() raises
+        # ValueError on Feb 29 when next year isn't a leap year, and the
+        # letter's approval period is descriptive prose rather than a
+        # legal-precise anniversary — one day of drift near Feb 29 is
+        # acceptable, an intermittent Feb-29 crash is not.
+        approval_end = today + timedelta(days=365)
         common.update({
             "application_has_salutation": salutation,
             "application_has_med": med,

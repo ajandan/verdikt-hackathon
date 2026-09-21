@@ -590,11 +590,15 @@ def _synthesise_decision_from_formulas(
     * build a Citation with matched= mapped from verdict
     * collect declared fields as missing_fields when verdict is undetermined
 
-    Outcome + rationale are left as ``missing_info`` / empty here; the
-    downstream ``_compose_outcome_from_polarity`` pass rewrites them
-    based on the citations + rule polarity. Keeping this function's
-    scope narrow (just build citations) means the composition logic
-    stays in one place.
+    Outcome starts as ``missing_info`` unconditionally — the composer
+    rewrites it based on citations + rule polarity. ``missing_info`` is
+    the safe placeholder because a premature read (via a future short-
+    circuit, exception between synthesis and composition, or a stray
+    log statement) can never ship a false approval / denial; the worst
+    case is "we didn't finish deciding yet," which is honest. The prior
+    ``"approve" if not missing_fields else "missing_info"`` heuristic
+    silently shipped ``approve`` on cases that the composer would have
+    marked ``deny`` from polarity.
     """
     from pap_pipeline.rule_formula import evaluate_formula
     from pap_pipeline.schemas.intake import merge_intake_and_extras
@@ -627,7 +631,7 @@ def _synthesise_decision_from_formulas(
             "override_applied": False,
         }
     return Decision(
-        outcome="missing_info" if missing_fields else "approve",
+        outcome="missing_info",
         citations=citations,
         missing_fields=missing_fields,
         rationale="Synthesised from deterministic formulas (Reason stage skipped).",

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 Outcome = Literal["approve", "deny", "missing_info", "routed"]
 CitationType = Literal["rule", "history"]
@@ -135,6 +135,11 @@ class Decision(BaseModel):
     outcome: Outcome
     citations: list[Citation] = Field(default_factory=list)
     missing_fields: list[str] = Field(default_factory=list)
+    # See _cap_rationale below — capped at 2 KB (well above the "one
+    # sentence" this field is documented as) to bound the DoS surface
+    # when the value flows into audit notes, reply subjects, and PDF
+    # slots. A validator truncates instead of raising so a runaway
+    # model output is trimmed rather than failing the case.
     rationale: str = ""
     # Populated post-hoc by pap_pipeline.verify — extraction disagreements
     # (dual-VLM cross-check) and deterministic citation-consistency flags.
@@ -158,6 +163,24 @@ class Decision(BaseModel):
     # downstream route the classifier chose; downstream systems that want
     # to short-circuit off the Decide path read this field.
     triage: "TriageResult | None" = None
+
+    @field_validator("rationale", mode="before")
+    @classmethod
+    def _cap_rationale(cls, v: Any) -> str:
+        """Silently truncate the rationale to 2 KB.
+
+        Rationale is authored by Nemotron and flows into audit notes,
+        reply subjects, and PDF template slots. Bounded input at the
+        schema boundary keeps every downstream consumer safe from a
+        runaway model response — a truncated one-sentence rationale is
+        still useful; a 200 KB one is an outage in every consumer that
+        embeds it. Truncate rather than raise so a slightly-overflowing
+        response doesn't fail the whole case.
+        """
+        if v is None:
+            return ""
+        text = str(v)
+        return text[:2048]
 
 
 class TriageResult(BaseModel):

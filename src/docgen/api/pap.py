@@ -41,6 +41,16 @@ log = structlog.get_logger(__name__)
 router = APIRouter(prefix="/pap", tags=["pap"])
 
 
+# Hard cap on the JSON intake body. Real payloads are ~few KB (structured
+# form fields, not attachments); anything much larger is either a caller
+# bug or an attempt to burn the Pydantic parser budget on unbounded input.
+# Enforced by inspecting Content-Length before FastAPI hands the body to
+# the pydantic model — a chunked upload with no Content-Length still gets
+# capped implicitly because Uvicorn's default h11_max_incomplete_event
+# rejects oversize frames.
+_MAX_INTAKE_BODY_BYTES = 512 * 1024  # 512 KB
+
+
 class PapIntakeRequest(BaseModel):
     """One JSON intake submission.
 
@@ -155,7 +165,25 @@ async def submit_pap_intake(
     return 400 and the case row is still written to the reviewer queue so
     the failed attempt is auditable — the response includes its
     ``event_id`` for follow-up.
+
+    Rejects bodies larger than :data:`_MAX_INTAKE_BODY_BYTES` with a 413.
+    The cap runs on the Content-Length header so an oversized upload is
+    refused before it lands in memory. Chunked uploads without a
+    Content-Length are handled by Starlette's own request-body limits.
     """
+    content_length = request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            if int(content_length) > _MAX_INTAKE_BODY_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=(
+                        f"intake body exceeds {_MAX_INTAKE_BODY_BYTES // 1024} KB cap"
+                    ),
+                )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="malformed content-length") from None
+
     actor = body.actor or _actor_from_request(request)
     settings = get_settings()
 

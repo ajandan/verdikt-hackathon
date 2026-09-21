@@ -187,21 +187,31 @@ def _build_prompt(slots: list[dict[str, Any]], *, scan: bool = False) -> str:
     consistently helps VLMs on scanned intake forms.
     """
     lines = [_slot_schema_line(s) for s in slots]
-    # Trim the trailing comma on the last line — strict JSON.
-    if lines:
-        base_line = lines[-1]
-        comment_split = base_line.find("//")
-        if comment_split >= 0:
-            head, tail = base_line[:comment_split].rstrip(), base_line[comment_split:]
-            if head.endswith(","):
-                head = head[:-1]
-            lines[-1] = head + "  " + tail
-        else:
-            if base_line.endswith(","):
-                lines[-1] = base_line[:-1]
+    _trim_trailing_slot_comma(lines)
     body = "\n".join(lines)
     footer = _PROMPT_FOOTER + (_SCAN_PROMPT_ADDENDUM if scan else "")
     return f"{_PROMPT_HEADER}\n{{\n{body}\n}}\n{footer}"
+
+
+def _trim_trailing_slot_comma(lines: list[str]) -> None:
+    """Strip the trailing comma on the last slot line so the emitted
+    schema is strict JSON. The last line either ends in a bare comma
+    (``"field": <type> | null,``) or has a comment tail
+    (``"field": <type> | null,  // description``); the two shapes need
+    slightly different handling and both callers (primary + retry
+    prompt) need to do this, so it lives here.
+    """
+    if not lines:
+        return
+    base_line = lines[-1]
+    comment_split = base_line.find("//")
+    if comment_split >= 0:
+        head, tail = base_line[:comment_split].rstrip(), base_line[comment_split:]
+        if head.endswith(","):
+            head = head[:-1]
+        lines[-1] = head + "  " + tail
+    elif base_line.endswith(","):
+        lines[-1] = base_line[:-1]
 
 
 async def extract(
@@ -365,18 +375,7 @@ def _build_retry_prompt(slots: list[dict[str, Any]]) -> str:
     still applies since retry only fires on scans.
     """
     lines = [_slot_schema_line(s) for s in slots]
-    if lines and lines[-1].rstrip().endswith(","):
-        # Trim the trailing comma on the last line (strict JSON).
-        base_line = lines[-1]
-        comment_split = base_line.find("//")
-        if comment_split >= 0:
-            head, tail = base_line[:comment_split].rstrip(), base_line[comment_split:]
-            if head.endswith(","):
-                head = head[:-1]
-            lines[-1] = head + "  " + tail
-        else:
-            if base_line.endswith(","):
-                lines[-1] = base_line[:-1]
+    _trim_trailing_slot_comma(lines)
     body = "\n".join(lines)
     return f"{_RETRY_PROMPT_HEADER}\n{{\n{body}\n}}\n{_SCAN_PROMPT_ADDENDUM}\n{_PROMPT_FOOTER}"
 

@@ -292,12 +292,17 @@
 {% if _needs_attention %}
 <div class="attention-rail" role="status">
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11h.01"/></svg>
+    {# Emit each fragment as its own escaped tag so the counts stay bold
+       without a `|safe` on a composed string — a future change that adds
+       a tenant name (or any non-int) into these parts would otherwise
+       render raw. Counts are integers today; keeping the escape on
+       ensures they stay safe under future edits. #}
     <div class="msg">
-        {% set _parts = [] %}
-        {% if failing_jobs %}{% set _ = _parts.append('<strong>' ~ failing_jobs|length ~ '</strong> failing job' ~ ('s' if failing_jobs|length != 1 else '')) %}{% endif %}
-        {% if stats.pending_drafts %}{% set _ = _parts.append('<strong>' ~ stats.pending_drafts ~ '</strong> pending draft' ~ ('s' if stats.pending_drafts != 1 else '')) %}{% endif %}
-        {% if stats.warnings_count %}{% set _ = _parts.append('<strong>' ~ stats.warnings_count ~ '</strong> warning' ~ ('s' if stats.warnings_count != 1 else '')) %}{% endif %}
-        {{ _parts|join(' · ')|safe }} need attention.
+        {% set _fragments = [] %}
+        {% if failing_jobs %}{% set _ = _fragments.append((failing_jobs|length, 'failing job', 'failing jobs')) %}{% endif %}
+        {% if stats.pending_drafts %}{% set _ = _fragments.append((stats.pending_drafts, 'pending draft', 'pending drafts')) %}{% endif %}
+        {% if stats.warnings_count %}{% set _ = _fragments.append((stats.warnings_count, 'warning', 'warnings')) %}{% endif %}
+        {% for count, singular, plural in _fragments %}<strong>{{ count }}</strong> {{ singular if count == 1 else plural }}{% if not loop.last %} · {% endif %}{% endfor %} need attention.
     </div>
     {% if failing_jobs %}
         <a class="btn sm" href="/ui/renders?state=failed{% if selected_tenant %}&tenant={{ selected_tenant }}{% endif %}">Triage failures</a>

@@ -227,11 +227,12 @@ def _run_pipeline(
     subject: str | None = None,
     stage_trace: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], Intake, Decision]:
-    """Sync wrapper — the inbox actor is sync (asyncio.run per call is fine
-    here; each call gets its own loop and NullPool means no cross-loop DB
-    reuse). Returns the raw extraction dict, the Intake coerced from it, and
-    the Decision — the raw dict is what the UI and reply mapper read to see
-    program-specific slots that Intake doesn't carry.
+    """Sync wrapper — the inbox actor is sync (each call gets its own
+    event loop via :func:`run_pipeline_sync`, and NullPool means no
+    cross-loop DB reuse). Returns the raw extraction dict, the Intake
+    coerced from it, and the Decision — the raw dict is what the UI
+    and reply mapper read to see program-specific slots that Intake
+    doesn't carry.
 
     `rules` is the tenant/program-scoped corpus resolved from the DB (with
     a YAML fallback baked in). Passing it here rather than letting the
@@ -249,10 +250,10 @@ def _run_pipeline(
     (or when the program isn't registered) can leave it None to fall
     back to the settings-wide defaults.
     """
-    import asyncio
+    from pap_pipeline._async_bridge import run_pipeline_sync
 
     config = build_pipeline_config(settings, tenant, program_row)
-    return asyncio.run(
+    return run_pipeline_sync(
         run_with_intake(
             attachments,
             config=config,

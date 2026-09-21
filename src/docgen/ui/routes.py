@@ -186,6 +186,32 @@ def _normalize_flash_kind(v: str | None) -> str | None:
     return v if v in _FLASH_KINDS else "info"
 
 
+def _is_safe_local_redirect(dest: str | None) -> bool:
+    """Return True iff ``dest`` is a same-origin path safe for redirect.
+
+    Guards the ``?next=`` parameter on login and tenant-picker submits
+    against open-redirect abuse (CWE-601). A caller pointing ``next``
+    at ``//evil.example/steal`` or ``/\\evil.example`` would otherwise
+    have their browser resolve the destination as an external host
+    after login — turning our login page into a phishing amplifier.
+
+    Accept only:
+      * non-empty strings that start with a single ``/``
+      * NOT followed by another ``/`` (blocks ``//host`` protocol-relative)
+      * NOT followed by a backslash (blocks ``/\\host`` browser quirks)
+
+    Fully-qualified URLs, javascript: schemes, and empty inputs all
+    fall through to the caller's default landing page instead.
+    """
+    if not dest:
+        return False
+    if not dest.startswith("/"):
+        return False
+    if len(dest) >= 2 and dest[1] in ("/", "\\"):
+        return False
+    return True
+
+
 async def _base_ctx(
     request: Request, session: AsyncSession | None = None, **extra: Any
 ) -> dict[str, Any]:
@@ -3364,9 +3390,7 @@ async def login_submit(
     await reset_login_attempts(ip, username)
 
     cookie_value = sign_session(username)
-    dest = next or "/ui/dashboard"
-    if not dest.startswith("/"):
-        dest = "/ui/dashboard"
+    dest = next if _is_safe_local_redirect(next) else "/ui/dashboard"
     resp = RedirectResponse(dest, status_code=303)
     cookie_secure = secure_cookie_flag(request)
     resp.set_cookie(
@@ -3433,7 +3457,7 @@ async def select_tenant(
     if ident is not None and ident.role == "tenant_admin" and ident.tenant_id is not None:
         tenant_id = str(ident.tenant_id)
 
-    dest = next if next.startswith("/") else "/ui/"
+    dest = next if _is_safe_local_redirect(next) else "/ui/"
 
     # Rewrite/strip ?tenant= in the query string to match the picker.
     parts = urlsplit(dest)

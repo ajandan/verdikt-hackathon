@@ -5,7 +5,303 @@
     .kv { display: grid; grid-template-columns: 200px 1fr; gap: 6px 20px; font-size: 13.5px; }
     .kv dt { color: var(--text-muted); font-weight: 500; }
     .kv dd { margin: 0; word-break: break-word; }
-    .kv dd.missing { color: var(--text-muted); font-style: italic; }
+    /* Missing slot: red for the value cell + darker red for the label
+       so a row with an unextracted field stands out visually. Uses
+       the same danger tone the deny badges use so the palette stays
+       consistent across the page. */
+    .kv dd.missing { color: var(--danger); font-style: italic; font-weight: 600; }
+    .kv dt.missing { color: var(--danger); font-weight: 600; }
+
+    /* Extract page-tabs — identical tokens to .inbox-tabs / .prog-tabs
+       so the tab strip feels the same as every other tab strip on the
+       site. Only Extract-specific addition is the small danger dot
+       that signals "this page has un-extracted slots" (full count in
+       the title attribute + aggregate in the header summary). */
+    .extract-tabs {
+        display: flex; gap: 0; align-items: baseline; flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        margin: 14px 0 0;
+    }
+    .extract-tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 10px 16px 11px;
+        background: transparent; border: none; cursor: pointer;
+        font-family: inherit;
+        font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color 120ms, border-color 120ms;
+    }
+    .extract-tab:hover { color: var(--text); }
+    .extract-tab.active {
+        color: var(--brand); font-weight: 600;
+        border-bottom-color: var(--brand);
+    }
+    .extract-tab .tab-count {
+        display: inline-flex; align-items: center;
+        padding: 1px 6px;
+        background: var(--surface-2); font-size: 11px; font-weight: 600;
+        color: var(--text-muted); line-height: 1.4;
+        font-variant-numeric: tabular-nums;
+    }
+    .extract-tab .tab-gap-dot {
+        width: 6px; height: 6px;
+        background: var(--danger);
+        display: inline-block;
+    }
+    /* Inline preview icon inside each tab. Sits at the right edge of
+       the tab's content; hover-brightens on its own. Not its own
+       clickable — the whole tab handles click and switches to preview
+       when the click landed on the icon. */
+    .extract-tab .tab-preview-icon {
+        display: inline-flex; align-items: center;
+        margin-left: 2px; padding: 2px;
+        color: var(--text-muted);
+        opacity: 0.65;
+        transition: color 120ms, opacity 120ms;
+    }
+    .extract-tab:hover .tab-preview-icon { opacity: 1; }
+    .extract-tab .tab-preview-icon:hover { color: var(--brand); opacity: 1; }
+    .extract-tab .tab-preview-icon svg { display: block; }
+
+    /* PDF preview side-panel — fixed to the right edge of the viewport.
+       When open, the whole page content shifts left (via body class +
+       padding-right) so nothing gets hidden behind the panel. Reviewer
+       gets true side-by-side: extract + rule tiles on the left half,
+       source PDF on the right half. */
+    .pdf-overlay {
+        position: fixed; top: 0; right: 0; bottom: 0;
+        width: min(50vw, 820px);
+        z-index: 90;
+        display: flex;
+        pointer-events: none;   /* let clicks pass through empty space */
+    }
+    .pdf-overlay[hidden] { display: none; }
+    .pdf-overlay-panel {
+        width: 100%; height: 100vh;
+        background: var(--surface); border-left: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        box-shadow: -8px 0 24px -8px rgba(0, 0, 0, 0.25);
+        animation: pdf-overlay-slide 180ms ease-out;
+        pointer-events: auto;
+    }
+    /* When the overlay is open, push the main content column so its
+       right edge stops where the panel begins. Applied to <body> via
+       JS so the rest of the site (nav, header) stays untouched. */
+    body.pdf-overlay-open {
+        padding-right: min(50vw, 820px);
+        transition: padding-right 180ms ease-out;
+    }
+    /* On narrow viewports the side-by-side split isn't practical —
+       let the panel take the full width and dim the underlying page
+       via the panel's own shadow. */
+    @media (max-width: 900px) {
+        .pdf-overlay { width: 100vw; }
+        body.pdf-overlay-open { padding-right: 0; }
+        /* Beef up the shadow so the underlying page reads as dimmed
+           even though the panel now covers it edge-to-edge. */
+        .pdf-overlay-panel { box-shadow: -12px 0 48px -4px rgba(0, 0, 0, 0.55); }
+    }
+    @keyframes pdf-overlay-slide {
+        from { transform: translateX(30px); opacity: 0.6; }
+        to   { transform: translateX(0); opacity: 1; }
+    }
+    .pdf-overlay-hdr {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-2);
+    }
+    .pdf-overlay-title { display: flex; align-items: baseline; gap: 10px; }
+    .pdf-overlay-title strong { font-size: 14px; font-weight: 600; color: var(--text); }
+    .pdf-overlay-page { font-size: 12.5px; color: var(--text-muted); }
+    .pdf-overlay-actions { display: flex; gap: 8px; }
+    .pdf-overlay-actions .btn {
+        font-size: 12.5px; padding: 5px 10px;
+    }
+    /* PDF.js viewer. We own the render pipeline: each page is drawn
+       to a <canvas> stacked in .pdf-frame-scroll, and .pdf-page-overlay
+       is an absolutely-positioned layer on top of each page holding
+       highlight rects. Coord system: percent-of-page (0-1) → pixels =
+       pct * canvas size, so overlays stay pixel-perfect at any zoom. */
+    .pdf-frame-wrap {
+        position: relative; flex: 1 1 auto;
+        background: var(--surface-2);
+        overflow: hidden;
+    }
+    .pdf-frame-scroll {
+        position: absolute; inset: 0;
+        overflow: auto;
+        padding: 12px;
+        display: flex; flex-direction: column; align-items: center;
+        gap: 10px;
+        scroll-behavior: smooth;
+    }
+    .pdf-page {
+        position: relative;
+        display: block;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        background: #fff;
+    }
+    .pdf-page canvas {
+        display: block; width: 100%; height: auto;
+    }
+    .pdf-page-overlay {
+        position: absolute; inset: 0;
+        pointer-events: none;
+    }
+    .pdf-hl {
+        /* Scan tolerance: bboxes come from the design-time labeled PDF,
+           so scanned inbounds can drift by a few pixels. We visually
+           expand the highlight ~14px in every direction using padding-
+           via-transform, plus a soft outer glow, so "close enough" still
+           reads as a hit even when the scan is slightly offset.
+           pointer-events:none so the underlying .pdf-hit still receives
+           clicks even when the reviewer clicks on top of the yellow. */
+        position: absolute;
+        pointer-events: none;
+        background: rgba(250, 204, 21, 0.22);
+        border: 2px solid rgba(202, 138, 4, 0.85);
+        border-radius: 4px;
+        padding: 14px;
+        margin: -14px;
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.15),
+                    0 0 18px 4px rgba(250, 204, 21, 0.25);
+        transition: opacity 200ms ease-out, transform 120ms ease-out;
+    }
+    .pdf-page-overlay.nudge-mode {
+        outline: 1px dashed rgba(202, 138, 4, 0.4);
+        outline-offset: -1px;
+    }
+    .pdf-nudge-hint {
+        position: absolute; bottom: 14px; left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.92); color: #fff;
+        padding: 7px 14px; border-radius: 6px;
+        font-size: 12.5px; font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+        pointer-events: none; white-space: nowrap;
+        z-index: 3; opacity: 0;
+        transition: opacity 200ms ease-out;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .pdf-nudge-hint.visible { opacity: 1; }
+    /* Invisible hit-box for each labeled slot — lets the reviewer click
+       *on the PDF* and jump to the matching field cell on the left. */
+    .pdf-hit {
+        position: absolute;
+        cursor: pointer;
+        pointer-events: auto;
+        background: transparent;
+        border-radius: 3px;
+        transition: background 120ms;
+    }
+    .pdf-hit:hover {
+        background: rgba(37, 99, 235, 0.12);
+        outline: 1.5px solid rgba(37, 99, 235, 0.5);
+    }
+    .pdf-hit:focus-visible {
+        background: rgba(37, 99, 235, 0.16);
+        outline: 2px solid rgb(37, 99, 235);
+        outline-offset: 1px;
+    }
+    .pdf-frame-loading {
+        position: absolute; inset: 0;
+        display: none;
+        align-items: center; justify-content: center;
+        background: var(--surface-2);
+        z-index: 2;
+        pointer-events: none;
+    }
+    .pdf-frame-loading.active { display: flex; }
+    .pdf-spinner {
+        width: 32px; height: 32px;
+        border: 3px solid var(--border);
+        border-top-color: var(--brand);
+        border-radius: 50%;
+        animation: pdf-spin 0.7s linear infinite;
+    }
+    @keyframes pdf-spin { to { transform: rotate(360deg); } }
+
+    /* Click-to-highlight affordance on field cells with known coords. */
+    .field-cell[data-slot-name] { cursor: pointer; }
+    .field-cell[data-slot-name]:hover {
+        border-color: var(--brand);
+        box-shadow: 0 0 0 2px var(--brand-soft);
+    }
+    .field-cell.field-active {
+        /* Box-shadow (not border) so the ring stacks cleanly over
+           .missing which owns the border-color slot. Higher-contrast
+           background so the highlight actually reads on white. */
+        background: rgba(250, 204, 21, 0.22) !important;
+        border-color: rgb(202, 138, 4) !important;
+        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.55),
+                    0 0 12px 2px rgba(250, 204, 21, 0.35);
+        animation: field-flash 600ms ease-out;
+    }
+    @keyframes field-flash {
+        0%   { box-shadow: 0 0 0 8px rgba(250, 204, 21, 0.7),
+                            0 0 24px 6px rgba(250, 204, 21, 0.55); }
+        100% { box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.55),
+                            0 0 12px 2px rgba(250, 204, 21, 0.35); }
+    }
+
+    .extract-panel { padding: 16px 0 20px; }
+    .extract-panel.hidden { display: none; }
+    /* Full-JSON dropdown — dashed divider + moderate breathing room
+       so the eye reads it as a separate "advanced" affordance. */
+    .extract-json-toggle {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px dashed var(--border);
+    }
+    .extract-json-toggle > summary {
+        cursor: pointer; color: var(--text-muted);
+        font-size: 12.5px; padding: 4px 0;
+    }
+    .extract-json-toggle > summary:hover { color: var(--text); }
+    .extract-json-toggle > .json-pre { margin-top: 10px; }
+
+    /* Per-field cards inside each tab panel. Grid of 2/3 columns
+       depending on viewport. Label on top (muted, small, uppercase),
+       value below (bold, larger). Missing values keep the red-italic
+       treatment for high visual contrast. */
+    .field-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px 20px;
+    }
+    @media (max-width: 900px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .field-grid { grid-template-columns: 1fr; } }
+    .field-cell {
+        display: flex; flex-direction: column; gap: 3px;
+        padding: 8px 12px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 8px;
+        min-width: 0;
+    }
+    .field-cell.missing {
+        background: rgba(220, 38, 38, 0.04);
+        border-color: rgba(220, 38, 38, 0.22);
+    }
+    .field-cell .field-label {
+        font-size: 10.5px; font-weight: 500;
+        text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+    .field-cell .field-value {
+        font-size: 14px; font-weight: 700; color: var(--text);
+        line-height: 1.4;
+        word-break: break-word;
+    }
+    .field-cell.missing .field-value {
+        color: var(--danger); font-style: italic; font-weight: 600;
+    }
+    .field-cell .field-value code {
+        font-size: 12px; font-weight: 600;
+    }
     .slot-groups-cols {
         column-count: 2;
         column-gap: 28px;
@@ -341,6 +637,17 @@
         color: var(--text-muted); font-size: 12px; font-weight: 600;
     }
     .stage-hdr h2 { font-size: 15px; font-weight: 600; margin: 0; }
+    /* Lightweight inline caption for aggregate counts on the stage
+       header (e.g. "25/107 program slots extracted"). Flat text with
+       no pill chrome so it defers to the h2. Pushed to the right of
+       the header row on wider viewports; wraps under on narrow. */
+    .stage-hdr-meta {
+        margin-left: auto;
+        color: var(--text-muted); font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
+    }
+    .stage-hdr-meta .stage-hdr-meta-n { color: var(--text); font-weight: 600; }
+    .stage-hdr-meta .stage-hdr-meta-sep { color: var(--text-muted); margin: 0 1px; }
     .stage-hint { color: var(--text-muted); font-size: 12.5px; margin: 0 0 12px 32px; }
     .review-row {
         display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
@@ -585,51 +892,175 @@
 </div>
 {% endif %}
 
+{#- Resolve the first inbound PDF attachment's index once, at
+    template top-level, so both the extract-tabs section and the
+    PDF-preview overlay below can share the same base URL. -#}
+{% set _pdf = namespace(idx=None) %}
+{% for a in (event.inbound_attachments or []) %}
+    {% if _pdf.idx is none and (a.content_type == 'application/pdf' or (a.filename or '').lower().endswith('.pdf')) %}
+        {% set _pdf.idx = loop.index0 %}
+    {% endif %}
+{% endfor %}
+{% set _pdf_preview_base = ('/ui/inbox/' ~ event.id ~ '/inbound-attachment/' ~ _pdf.idx) if _pdf.idx is not none else '' %}
+
 <div class="card">
+    {#- Extract badge: <populated> of <program schema total>. Populated
+        counts non-null values (bool False is real data, not blank).
+        Program schema total comes from the route handler — that's the
+        "expected" ceiling; if the extractor missed slots entirely,
+        this ratio surfaces the gap immediately. -#}
+    {% set _extract_filled = extraction.values() | reject('none') | reject('equalto', '') | reject('equalto', []) | list | length %}
+    {% set _extract_total = schema_slot_count | default(extraction | length) %}
     <div class="stage-hdr">
         <span class="num">1</span>
         <h2>Extract — structured intake</h2>
+        <span class="stage-hdr-meta">
+            <span class="stage-hdr-meta-n">{{ _extract_filled }}</span>
+            <span class="stage-hdr-meta-sep">/</span>
+            <span class="stage-hdr-meta-n">{{ _extract_total }}</span>
+            program slots extracted
+        </span>
     </div>
     <p class="stage-hint">
         Every slot the program schema defined, populated by the extract stage from the inbound attachments. Blanks are the raw signal for the missing-info verdict.
     </p>
     {% if extraction %}
-    <div class="slot-groups-cols">
+    {#- Extraction tabs — one tab per page group. The tab strip shows
+        each group's name + populated/total counts so the reviewer can
+        eyeball which page has the most gaps before clicking in. Pure
+        CSS/JS pattern matching the tab strip used on the Program
+        detail page. Only one panel is visible at a time. -#}
+    {% set _extract_ns = namespace(idx=0) %}
+    <div class="extract-tabs" role="tablist" data-tabs-root="extract-tabs">
         {% for group_name, group_slots in extraction_groups %}
-        <div class="slot-group">
-            <div class="slot-group-hdr">
-                <h3>{{ group_name }}</h3>
-                <span class="slot-count">{{ group_slots|length }} slot{% if group_slots|length != 1 %}s{% endif %}</span>
-            </div>
-            <dl class="kv">
-                {% for key in group_slots %}
-                {% set value = extraction[key] %}
-                <dt>{{ key.replace('_', ' ')|capitalize }}</dt>
-                {% if value is none or value == '' or value == [] %}
-                    <dd class="missing">—</dd>
-                {% elif value is mapping or (value is sequence and value is not string) %}
-                    <dd><code>{{ value|tojson }}</code></dd>
-                {% elif value is boolean %}
-                    <dd>{{ 'yes' if value else 'no' }}</dd>
-                {% else %}
-                    <dd>{{ value }}</dd>
+            {#- Namespace so the counter escapes the inner-for scope
+                (Jinja for-loop `set` is loop-local). -#}
+            {% set _grp = namespace(populated=0) %}
+            {% for k in group_slots %}
+                {% set v = extraction[k] %}
+                {% if not (v is none or v == '' or v == []) %}
+                    {% set _grp.populated = _grp.populated + 1 %}
                 {% endif %}
-                {% endfor %}
-            </dl>
-        </div>
+            {% endfor %}
+            {% set _grp_populated = _grp.populated %}
+            {% set _grp_total = group_slots|length %}
+            {% set _grp_missing = _grp_total - _grp_populated %}
+            {#- Parse "Page N" out of the group name so the preview
+                link can deep-anchor into the PDF. Unassigned / bucket
+                groups don't have a page number → no preview link. -#}
+            {% set _page_num = None %}
+            {% if group_name.startswith('Page ') %}
+                {% set _page_num = group_name[5:] %}
+            {% endif %}
+            <button type="button"
+                    class="extract-tab {% if _extract_ns.idx == 0 %}active{% endif %}"
+                    role="tab"
+                    aria-selected="{% if _extract_ns.idx == 0 %}true{% else %}false{% endif %}"
+                    data-tab-target="extract-panel-{{ loop.index }}"
+                    {% if _pdf_preview_base and _page_num %}
+                    data-pdf-src="{{ _pdf_preview_base }}#page={{ _page_num }}"
+                    data-pdf-page="{{ _page_num }}"
+                    {% endif %}>
+                <span class="tab-name">{{ group_name }}</span>
+                <span class="tab-count">{{ _grp_populated }}/{{ _grp_total }}</span>
+                {% if _grp_missing %}
+                <span class="tab-gap-dot" role="img"
+                      aria-label="{{ _grp_missing }} slot{% if _grp_missing != 1 %}s{% endif %} not extracted"
+                      title="{{ _grp_missing }} slot{% if _grp_missing != 1 %}s{% endif %} not extracted"></span>
+                {% endif %}
+                {% if _pdf_preview_base and _page_num %}
+                {#- Inline preview icon — visually part of the tab, not
+                    a separate tab. Click delegates to the JS handler
+                    which opens the overlay AND switches the panel. -#}
+                <span class="tab-preview-icon"
+                      title="Preview {{ group_name }} of the source PDF"
+                      aria-hidden="true">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"
+                         stroke="currentColor" stroke-width="1.8"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+                        <circle cx="8" cy="8" r="2.5"/>
+                    </svg>
+                </span>
+                {% endif %}
+            </button>
+            {% set _extract_ns.idx = _extract_ns.idx + 1 %}
         {% endfor %}
     </div>
+
+    {% set _extract_ns.idx = 0 %}
+    {% for group_name, group_slots in extraction_groups %}
+    <div class="extract-panel {% if _extract_ns.idx > 0 %}hidden{% endif %}"
+         id="extract-panel-{{ loop.index }}" role="tabpanel">
+        <div class="field-grid">
+            {% for key in group_slots %}
+            {% set value = extraction[key] %}
+            {% set _missing = value is none or value == '' or value == [] %}
+            {% set _has_placement = (slot_placements or {}).get(key) %}
+            <div class="field-cell{% if _missing %} missing{% endif %}"
+                 {% if _has_placement %}data-slot-name="{{ key }}"
+                 title="Click to locate this field on the source PDF"{% endif %}>
+                <span class="field-label">{{ key.replace('_', ' ') }}</span>
+                {% if _missing %}
+                    <span class="field-value">not extracted</span>
+                {% elif value is mapping or (value is sequence and value is not string) %}
+                    <span class="field-value"><code>{{ value|tojson }}</code></span>
+                {% elif value is boolean %}
+                    <span class="field-value">{{ 'yes' if value else 'no' }}</span>
+                {% else %}
+                    <span class="field-value">{{ value }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% set _extract_ns.idx = _extract_ns.idx + 1 %}
+    {% endfor %}
     {% else %}
     <p class="text-ink-muted text-[13px] m-0">No fields extracted.</p>
     {% endif %}
 
-    <details style="margin-top:14px">
-        <summary style="cursor:pointer;color:var(--text-muted);font-size:12.5px">
-            Show full extracted JSON
-        </summary>
+    <details class="extract-json-toggle">
+        <summary>Show full extracted JSON</summary>
         <pre class="json-pre">{{ extraction|tojson(indent=2) }}</pre>
     </details>
 </div>
+
+{#- PDF preview overlay. Fixed-position side-panel that slides in from
+    the right when a reviewer clicks a tab's preview icon. Iframe src
+    is set imperatively from the clicked element's data-pdf-src so
+    the same panel serves every page. The panel dims the background
+    but leaves the extract card visible to the left for side-by-side
+    comparison. -#}
+{% set _has_pdf_preview = (event.inbound_attachments or []) | selectattr('content_type', 'equalto', 'application/pdf') | list | length > 0 %}
+{% if _has_pdf_preview %}
+<div id="pdf-preview-overlay" class="pdf-overlay" hidden aria-hidden="true">
+    <div class="pdf-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="pdf-preview-title">
+        <header class="pdf-overlay-hdr">
+            <div class="pdf-overlay-title">
+                <strong id="pdf-preview-title">Source PDF preview</strong>
+                <span class="pdf-overlay-page muted"></span>
+            </div>
+            <div class="pdf-overlay-actions">
+                <a class="btn ghost" href="" target="_blank" rel="noopener" id="pdf-preview-open-new"
+                   title="Open the PDF in a full browser tab">Open in new tab ↗</a>
+                <button type="button" class="btn" id="pdf-preview-close" title="Close preview (Esc)">Close ✕</button>
+            </div>
+        </header>
+        <div class="pdf-frame-wrap">
+            <div class="pdf-frame-scroll" id="pdf-preview-scroll"
+                 role="document" aria-label="Source PDF"></div>
+            <div class="pdf-frame-loading" id="pdf-preview-loading" aria-hidden="true">
+                <div class="pdf-spinner" aria-label="Loading PDF"></div>
+            </div>
+        </div>
+        {#- Data payload for the PDF.js driver — kept out of inline
+            attributes so CSP doesn't have to allow inline event JSON. -#}
+        <script id="pdf-slot-placements" type="application/json">{{ (slot_placements or {}) | tojson }}</script>
+        <script id="pdf-preview-url" type="text/plain">{{ _pdf_preview_base or '' }}</script>
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="stage-hdr">
@@ -1000,6 +1431,395 @@
     el.textContent = '';
     el.appendChild(frag);
   });
+})();
+
+// Extract page-tab switcher. Clicking a tab shows its panel and
+// hides all others. Pure DOM, no framework — matches the same style
+// as the other tab switchers on the site.
+(function () {
+    var tabs = document.querySelectorAll('.extract-tab');
+    if (tabs.length === 0) return;
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            var target = tab.getAttribute('data-tab-target');
+            tabs.forEach(function (t) {
+                var on = (t === tab);
+                t.classList.toggle('active', on);
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            document.querySelectorAll('.extract-panel').forEach(function (p) {
+                p.classList.toggle('hidden', p.id !== target);
+            });
+        });
+    });
+})();
+
+// PDF.js lazy-loaded first so the IIFE below can use it.
+</script>
+<script src="/static/pdfjs/pdf.min.js" nonce="{{ csp_nonce(request) }}" defer></script>
+<script nonce="{{ csp_nonce(request) }}" defer>
+// PDF preview overlay — PDF.js-driven side-panel. Reviewer clicks:
+//   - a tab's preview icon → open the PDF, jump to that page
+//   - a field cell         → open the PDF, jump to the page + draw a
+//                            highlight rect over the field's bbox
+// We render every page to a <canvas> we own, so overlays sit in the
+// same coordinate space and there's zero drift.
+(function () {
+    var overlay = document.getElementById('pdf-preview-overlay');
+    if (!overlay) return;
+    var scrollEl = document.getElementById('pdf-preview-scroll');
+    var loadingEl = document.getElementById('pdf-preview-loading');
+    var pageLabel = overlay.querySelector('.pdf-overlay-page');
+    var openNew = document.getElementById('pdf-preview-open-new');
+    var closeBtn = document.getElementById('pdf-preview-close');
+
+    // Read the placement map + PDF URL emitted by the server.
+    var placementsEl = document.getElementById('pdf-slot-placements');
+    var slotPlacements = {};
+    try { slotPlacements = JSON.parse(placementsEl.textContent || '{}'); }
+    catch (_e) { slotPlacements = {}; }
+    var pdfUrl = (document.getElementById('pdf-preview-url') || {}).textContent || '';
+    pdfUrl = pdfUrl.trim();
+
+    var pdfDoc = null;          // pdfjs document proxy (loaded once)
+    var pdfLoadPromise = null;  // in-flight load, so parallel opens dedupe
+    var pageEls = {};           // pageNum → wrapper <div class="pdf-page">
+    var lastHighlight = null;   // {slot, el} of the currently-drawn rect
+    var workerConfigured = false;
+    // Per-document nudge offset (px) — corrects for scan drift. Applied
+    // as CSS transform to every page's overlay layer so both the hit-
+    // boxes and the highlight rect move together. Persisted in
+    // localStorage keyed by PDF URL so the reviewer only calibrates
+    // once per document.
+    var nudge = { x: 0, y: 0 };
+    var nudgeStorageKey = 'pdf-nudge:' + pdfUrl;
+    try {
+        var saved = JSON.parse(localStorage.getItem(nudgeStorageKey) || '{}');
+        if (typeof saved.x === 'number') nudge.x = saved.x;
+        if (typeof saved.y === 'number') nudge.y = saved.y;
+    } catch (_e) {}
+
+    function configureWorker() {
+        if (workerConfigured || !window.pdfjsLib) return;
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdfjs/pdf.worker.min.js';
+        workerConfigured = true;
+    }
+
+    function showLoading(on) {
+        if (!loadingEl) return;
+        loadingEl.classList.toggle('active', !!on);
+    }
+
+    function waitForPdfjs() {
+        // pdf.min.js is a deferred external script — inline `defer` is
+        // ignored by browsers, so this IIFE parses before pdfjsLib
+        // arrives. Poll briefly (max ~2s) so first-click after load
+        // still works even on cold caches.
+        if (window.pdfjsLib) return Promise.resolve();
+        return new Promise(function (resolve, reject) {
+            var tries = 0;
+            var iv = setInterval(function () {
+                if (window.pdfjsLib) { clearInterval(iv); resolve(); return; }
+                if (++tries > 40) { clearInterval(iv); reject('pdfjs failed to load'); }
+            }, 50);
+        });
+    }
+
+    function loadPdfOnce() {
+        if (pdfDoc) return Promise.resolve(pdfDoc);
+        if (pdfLoadPromise) return pdfLoadPromise;
+        if (!pdfUrl) return Promise.reject('no pdf');
+        showLoading(true);
+        pdfLoadPromise = waitForPdfjs()
+            .then(function () {
+                configureWorker();
+                return window.pdfjsLib.getDocument({ url: pdfUrl }).promise;
+            })
+            .then(function (doc) {
+                pdfDoc = doc;
+                return renderAllPages();
+            })
+            .then(function () { showLoading(false); return pdfDoc; })
+            .catch(function (err) { showLoading(false); throw err; });
+        return pdfLoadPromise;
+    }
+
+    function renderAllPages() {
+        // Render pages serially — pdf.js is fast enough on modern
+        // hardware, and serial rendering keeps memory bounded on
+        // long forms (some bundles run to 12 pages).
+        scrollEl.innerHTML = '';
+        pageEls = {};
+        // Fit width to the scrollable container, minus its 12px padding.
+        var viewportWidth = scrollEl.clientWidth - 24;
+        var chain = Promise.resolve();
+        for (var i = 1; i <= pdfDoc.numPages; i++) {
+            (function (pageNum) {
+                chain = chain.then(function () {
+                    return pdfDoc.getPage(pageNum).then(function (page) {
+                        var unscaledViewport = page.getViewport({ scale: 1 });
+                        var scale = viewportWidth / unscaledViewport.width;
+                        var viewport = page.getViewport({ scale: scale });
+                        var wrap = document.createElement('div');
+                        wrap.className = 'pdf-page';
+                        wrap.style.width = viewport.width + 'px';
+                        wrap.style.height = viewport.height + 'px';
+                        wrap.dataset.pageNum = pageNum;
+                        var canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        var overlayLayer = document.createElement('div');
+                        overlayLayer.className = 'pdf-page-overlay';
+                        wrap.appendChild(canvas);
+                        wrap.appendChild(overlayLayer);
+                        scrollEl.appendChild(wrap);
+                        pageEls[pageNum] = wrap;
+                        // Populate transparent hit-boxes for every
+                        // labeled slot on this page. Reverse click
+                        // path: user clicks on the PDF → we jump the
+                        // left panel to the matching field cell.
+                        Object.keys(slotPlacements).forEach(function (name) {
+                            var p = slotPlacements[name];
+                            if (p.page !== pageNum) return;
+                            var hit = document.createElement('div');
+                            hit.className = 'pdf-hit';
+                            hit.style.left   = (p.x * 100) + '%';
+                            hit.style.top    = (p.y * 100) + '%';
+                            hit.style.width  = (p.w * 100) + '%';
+                            hit.style.height = (p.h * 100) + '%';
+                            hit.dataset.slotName = name;
+                            var label = name.replace(/_/g, ' ');
+                            hit.title = label + ' — click to jump to field';
+                            hit.setAttribute('role', 'button');
+                            hit.setAttribute('aria-label', 'Locate ' + label + ' in extract panel');
+                            overlayLayer.appendChild(hit);
+                        });
+                        return page.render({
+                            canvasContext: canvas.getContext('2d'),
+                            viewport: viewport,
+                        }).promise;
+                    });
+                });
+            })(i);
+        }
+        return chain.then(applyNudge);
+    }
+
+    function applyNudge() {
+        // Apply the persisted nudge as a translate transform on every
+        // overlay layer, so highlight + hit-boxes shift together over
+        // the (unmoved) PDF canvas underneath.
+        Object.keys(pageEls).forEach(function (pn) {
+            var layer = pageEls[pn].querySelector('.pdf-page-overlay');
+            if (!layer) return;
+            layer.style.transform = 'translate(' + nudge.x + 'px,' + nudge.y + 'px)';
+        });
+    }
+
+    function persistNudge() {
+        try { localStorage.setItem(nudgeStorageKey, JSON.stringify(nudge)); }
+        catch (_e) {}
+    }
+
+    // Small toast that fades in when the user starts nudging so they
+    // know the arrow keys are wired. Auto-hides after 1.5s of no keys.
+    var nudgeToast = null;
+    var nudgeToastTimer = null;
+    function showNudgeHint() {
+        if (!nudgeToast) {
+            nudgeToast = document.createElement('div');
+            nudgeToast.className = 'pdf-nudge-hint';
+            overlay.querySelector('.pdf-frame-wrap').appendChild(nudgeToast);
+        }
+        // Explicit "+"/"-" prefix so 0 vs positive vs negative is
+        // unambiguous at a glance. e.g. "Nudge  x +4  y -2  px".
+        var sx = (nudge.x > 0 ? '+' : '') + nudge.x;
+        var sy = (nudge.y > 0 ? '+' : '') + nudge.y;
+        nudgeToast.textContent = 'Nudge  x ' + sx + '  y ' + sy + '  px';
+        nudgeToast.classList.add('visible');
+        clearTimeout(nudgeToastTimer);
+        nudgeToastTimer = setTimeout(function () {
+            if (nudgeToast) nudgeToast.classList.remove('visible');
+        }, 1500);
+    }
+
+    function clearHighlight() {
+        // Only clears the PDF-side yellow rect. Cell `.field-active`
+        // is managed by the click handlers so callers can freely
+        // reorder "add active class" vs "draw rect" without one
+        // stripping the other. Earlier version stripped `.field-active`
+        // here, which meant the reverse-click handler (add active →
+        // drawHighlight sync) silently erased the class it had just
+        // added, so the cell never lit up.
+        if (!lastHighlight) return;
+        if (lastHighlight.el && lastHighlight.el.parentNode) {
+            lastHighlight.el.parentNode.removeChild(lastHighlight.el);
+        }
+        lastHighlight = null;
+    }
+
+    function clearActiveCell() {
+        document.querySelectorAll('.field-cell.field-active').forEach(function (el) {
+            el.classList.remove('field-active');
+        });
+    }
+
+    function drawHighlight(pageNum, box, slotName) {
+        clearHighlight();
+        var wrap = pageEls[pageNum];
+        if (!wrap) return;
+        var layer = wrap.querySelector('.pdf-page-overlay');
+        var rect = document.createElement('div');
+        rect.className = 'pdf-hl';
+        rect.style.left   = (box.x * 100) + '%';
+        rect.style.top    = (box.y * 100) + '%';
+        rect.style.width  = (box.w * 100) + '%';
+        rect.style.height = (box.h * 100) + '%';
+        layer.appendChild(rect);
+        lastHighlight = { slot: slotName, el: rect };
+    }
+
+    function scrollToPage(pageNum, box) {
+        var wrap = pageEls[pageNum];
+        if (!wrap) return;
+        // Compute scroll target: top of the page, biased toward the
+        // bbox's y so the field lands roughly in the middle of the
+        // viewport rather than at the very top.
+        var targetOffset = wrap.offsetTop - 12;
+        if (box) {
+            var pageMid = wrap.offsetHeight * box.y;
+            targetOffset = wrap.offsetTop + pageMid - (scrollEl.clientHeight / 3);
+        }
+        scrollEl.scrollTo({ top: Math.max(0, targetOffset), behavior: 'smooth' });
+    }
+
+    function openPdf() {
+        if (openNew) openNew.setAttribute('href', pdfUrl);
+        overlay.hidden = false;
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('pdf-overlay-open');
+        return loadPdfOnce();
+    }
+
+    function gotoPage(pageNum) {
+        if (pageLabel) pageLabel.textContent = pageNum ? 'Page ' + pageNum : '';
+        openPdf().then(function () { scrollToPage(pageNum, null); }).catch(function () {});
+    }
+
+    function highlightSlot(slotName) {
+        var p = slotPlacements[slotName];
+        if (!p) return;
+        if (pageLabel) pageLabel.textContent = 'Page ' + p.page;
+        openPdf().then(function () {
+            drawHighlight(p.page, p, slotName);
+            scrollToPage(p.page, p);
+        }).catch(function () {});
+    }
+
+    function close() {
+        overlay.hidden = true;
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('pdf-overlay-open');
+        clearHighlight();
+        clearActiveCell();
+    }
+
+    // Tab preview icon → open + jump to that page.
+    document.querySelectorAll('.extract-tab').forEach(function (tab) {
+        tab.addEventListener('click', function (e) {
+            if (!e.target.closest('.tab-preview-icon')) return;
+            var page = parseInt(tab.getAttribute('data-pdf-page') || '0', 10);
+            if (page) gotoPage(page);
+        });
+    });
+
+    // Field-cell click → highlight that field on the PDF. Delegated so
+    // it works across every tab panel without per-cell listeners.
+    document.addEventListener('click', function (e) {
+        var cell = e.target.closest('.field-cell[data-slot-name]');
+        if (!cell) return;
+        var slot = cell.getAttribute('data-slot-name');
+        clearActiveCell();
+        // Force reflow so the flash animation restarts on re-click of
+        // the same cell (CSS animations don't retrigger on re-added
+        // class without a reflow between).
+        void cell.offsetWidth;
+        cell.classList.add('field-active');
+        highlightSlot(slot);
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', close);
+
+    // Keyboard handling: Esc closes, arrow keys nudge the overlay
+    // layer (2px per press, 10px with shift). Only active while the
+    // panel is open and the user isn't focused inside an input.
+    document.addEventListener('keydown', function (e) {
+        if (overlay.hidden) return;
+        if (e.key === 'Escape') { close(); return; }
+        var isArrow = (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                       e.key === 'ArrowUp' || e.key === 'ArrowDown');
+        if (!isArrow) return;
+        var tag = (e.target && e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+        e.preventDefault();
+        var step = e.shiftKey ? 10 : 2;
+        if (e.key === 'ArrowLeft')  nudge.x -= step;
+        if (e.key === 'ArrowRight') nudge.x += step;
+        if (e.key === 'ArrowUp')    nudge.y -= step;
+        if (e.key === 'ArrowDown')  nudge.y += step;
+        applyNudge();
+        persistNudge();
+        showNudgeHint();
+    });
+
+    // Reverse click: user clicks on a hit-box drawn over the PDF →
+    // switch to the tab containing the matching field cell, scroll
+    // it into view, mark it active, and draw the highlight rect too.
+    scrollEl.addEventListener('click', function (e) {
+        var hit = e.target.closest('.pdf-hit');
+        if (!hit) return;
+        var slot = hit.dataset.slotName;
+        if (!slot) return;
+        // Draw the PDF-side highlight first. clearHighlight() (called
+        // from inside drawHighlight) only removes the previous yellow
+        // rect — it no longer touches `.field-active`, so the class
+        // we add below survives.
+        var p = slotPlacements[slot];
+        if (p) drawHighlight(p.page, p, slot);
+        var cell = document.querySelector('.field-cell[data-slot-name="' + CSS.escape(slot) + '"]');
+        if (!cell) return;
+        // Switch to the panel that contains this cell.
+        var panel = cell.closest('.extract-panel');
+        if (panel && panel.classList.contains('hidden')) {
+            var targetId = panel.id;
+            var tabBtn = document.querySelector('.extract-tab[data-tab-target="' + CSS.escape(targetId) + '"]');
+            if (tabBtn) tabBtn.click();
+        }
+        clearActiveCell();
+        // Force reflow so the flash animation restarts even when
+        // the same cell is re-clicked (CSS animations don't
+        // retrigger on re-added class without a reflow between).
+        void cell.offsetWidth;
+        cell.classList.add('field-active');
+        // `nearest` avoids yanking the whole page when the cell is
+        // already on screen — reviewers mostly click hit-boxes for
+        // fields they can already see, so a big scroll feels jumpy.
+        cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    // Re-render on viewport resize (debounced) so the pages track the
+    // panel width. Preserves highlight if one was active.
+    var resizeTimer = null;
+    window.addEventListener('resize', function () {
+        if (!pdfDoc || overlay.hidden) return;
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+            var slot = lastHighlight ? lastHighlight.slot : null;
+            renderAllPages().then(function () {
+                if (slot) highlightSlot(slot);
+            });
+        }, 200);
+    });
 })();
 </script>
 

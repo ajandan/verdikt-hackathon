@@ -5406,10 +5406,88 @@ async def inbox_pipeline_detail(
     for r in load_rules():
         rules_by_id.setdefault(r.id, r)
 
-    extraction = ev.pap_extraction or ev.pap_intake or {}
-    # Group slot names into reviewer-facing sections at render time.
-    # Slice 2 will consult persisted groups on the Program row when present.
-    extraction_groups = bucket_slots(extraction.keys())
+    extraction = dict(ev.pap_extraction or ev.pap_intake or {})
+
+    # Total slots the program's schema declared — needed for the
+    # "N / M extracted" badge on the Extract stage header AND to fill
+    # in "not extracted" rows for slots the extractor omitted entirely
+    # (vs slots it returned as null). Falls back to the extraction
+    # dict's key count when the program row can't be resolved (legacy
+    # events or ad-hoc intakes).
+    schema_slot_count = len(extraction)
+    prog = None
+    slot_to_page: dict[str, int] = {}
+    slot_placements: dict[str, dict] = {}
+    if program_slug:
+        prog = (await session.execute(
+            select(Program).where(Program.slug == program_slug).limit(1)
+        )).scalar_one_or_none()
+        if prog and prog.extraction_schema:
+            schema_slot_count = len(prog.extraction_schema)
+            # Backfill every declared slot into the extraction dict as
+            # None if the extractor omitted it. Downstream template
+            # iterates every slot and shows "not extracted" in red for
+            # any null — makes the schema-vs-extraction gap visible.
+            for slot in prog.extraction_schema:
+                name = slot.get("name")
+                if name and name not in extraction:
+                    extraction[name] = None
+
+    # Page-based grouping: pull slot→page mapping from the program's
+    # frozen enrollment template's pdf_field_placements (the labeler's
+    # output). Every slot has a page number when the template was
+    # design-time labeled, so we can display extraction results in
+    # the same page order the reviewer sees on the PDF.
+    if prog is not None and prog.enrollment_template_version_id is not None:
+        from docgen.store.models import TemplateVersion
+        tv = await session.get(TemplateVersion, prog.enrollment_template_version_id)
+        if tv is not None and tv.pdf_field_placements:
+            placements = (tv.pdf_field_placements or {}).get("placements") or []
+            for p in placements:
+                name = p.get("name")
+                page = p.get("page")
+                if name and isinstance(page, int):
+                    slot_to_page[name] = page
+                    # Keep the percent bbox so the front-end can draw a
+                    # highlight rectangle on the PDF.js canvas when the
+                    # reviewer clicks a field cell. Origin is top-left,
+                    # units are page-fraction (0-1).
+                    x, y = p.get("x_pct"), p.get("y_pct")
+                    w, h = p.get("w_pct"), p.get("h_pct")
+                    if all(isinstance(v, (int, float)) for v in (x, y, w, h)):
+                        slot_placements[name] = {
+                            "page": page,
+                            "x": x, "y": y, "w": w, "h": h,
+                        }
+
+    # Group slots by page (when placements available) or fall back to
+    # semantic buckets. Page groups are sorted ascending; slots within
+    # a page keep schema definition order for stability.
+    if slot_to_page:
+        # Preserve schema order within each page group so the reviewer's
+        # top-to-bottom reading order matches the physical form.
+        schema_order: list[str] = []
+        if prog and prog.extraction_schema:
+            schema_order = [s.get("name") for s in prog.extraction_schema if s.get("name")]
+        else:
+            schema_order = list(extraction.keys())
+        by_page: dict[int, list[str]] = {}
+        unassigned: list[str] = []
+        for name in schema_order:
+            if name not in extraction:
+                continue
+            page = slot_to_page.get(name)
+            if page is None:
+                unassigned.append(name)
+            else:
+                by_page.setdefault(page, []).append(name)
+        extraction_groups = [(f"Page {p}", by_page[p]) for p in sorted(by_page)]
+        if unassigned:
+            extraction_groups.append(("Unassigned", unassigned))
+    else:
+        # No labeled template → fall back to semantic bucketing (used
+        # for programs without an enrollment template on file).
+        extraction_groups = bucket_slots(extraction.keys())
 
     assembly = await _latest_assembly_for_event(session, ev.id)
     verdict = build_verdict(ev, tenant=tenant, program=program_slug, assembly=assembly)
@@ -5431,6 +5509,8 @@ async def inbox_pipeline_detail(
             # back to pap_intake for pre-migration events.
             extraction=extraction,
             extraction_groups=extraction_groups,
+            schema_slot_count=schema_slot_count,
+            slot_placements=slot_placements,
             decision=ev.pap_decision or {},
             rules_by_id=rules_by_id,
             verdict_json=verdict_pretty,
@@ -5641,7 +5721,20 @@ async def inbox_inbound_attachment(
         media_type=content_type,
         headers={
             "Content-Disposition": f'{disposition}; filename="{safe_name}"',
-            "Cache-Control": "private, no-store",
+            # Short-lived private cache so the preview overlay's page-
+            # switching (reload iframe with a new #page fragment) doesn't
+            # re-download the full PDF each time. 5 min TTL is enough for
+            # a review session; must-revalidate keeps the auth check honest.
+            "Cache-Control": "private, max-age=300, must-revalidate",
+            # Allow the pipeline detail page's PDF-preview overlay to
+            # frame this response in-line. Middleware defaults to DENY
+            # / frame-ancestors 'none' for clickjacking protection;
+            # explicit self-only overrides here are safe because the
+            # whole app is same-origin. Both header + CSP needed —
+            # CSP's frame-ancestors supersedes X-Frame-Options in
+            # browsers that support both.
+            "X-Frame-Options": "SAMEORIGIN",
+            "Content-Security-Policy": "frame-ancestors 'self'",
         },
     )
 

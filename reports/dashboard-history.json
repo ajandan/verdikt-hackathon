@@ -1,6 +1,129 @@
 {
-  "generated_at": "2026-09-21T03:31:00.947981+00:00",
+  "generated_at": "2026-09-21T03:45:00.183386+00:00",
   "runs": [
+    {
+      "timestamp": "2026-09-21T03:39:33.539618+00:00",
+      "generated_at": "2026-09-21T03:45:00.183386+00:00",
+      "commit": "5ee0352",
+      "tests": 921,
+      "passed": 914,
+      "failed": 2,
+      "errored": 0,
+      "skipped": 5,
+      "duration": 303.6,
+      "suites": [
+        {
+          "id": "auth",
+          "name": "Auth & session",
+          "tests": 66,
+          "passed": 64,
+          "failed": 2,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 114.04
+        },
+        {
+          "id": "pipeline",
+          "name": "PAP pipeline",
+          "tests": 183,
+          "passed": 183,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 11.54
+        },
+        {
+          "id": "inbox",
+          "name": "Inbox agent",
+          "tests": 79,
+          "passed": 79,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 2.6
+        },
+        {
+          "id": "templates",
+          "name": "Templates & rendering",
+          "tests": 155,
+          "passed": 155,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 46.45
+        },
+        {
+          "id": "boundaries",
+          "name": "Boundaries & policy",
+          "tests": 37,
+          "passed": 37,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 12.99
+        },
+        {
+          "id": "mcp",
+          "name": "MCP surface",
+          "tests": 5,
+          "passed": 5,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 3.26
+        },
+        {
+          "id": "data",
+          "name": "Mapping & schema",
+          "tests": 81,
+          "passed": 76,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 5,
+          "duration": 6.59
+        },
+        {
+          "id": "infra",
+          "name": "Workers & providers",
+          "tests": 43,
+          "passed": 43,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 16.1
+        },
+        {
+          "id": "admin_ui",
+          "name": "Admin UI write-paths",
+          "tests": 87,
+          "passed": 87,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 13.16
+        },
+        {
+          "id": "e2e",
+          "name": "End-to-end",
+          "tests": 11,
+          "passed": 11,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 12.45
+        },
+        {
+          "id": "other",
+          "name": "Other",
+          "tests": 174,
+          "passed": 174,
+          "failed": 0,
+          "errored": 0,
+          "skipped": 0,
+          "duration": 3.03
+        }
+      ]
+    },
     {
       "timestamp": "2026-09-21T03:27:22.914323+00:00",
       "generated_at": "2026-09-21T03:31:00.947981+00:00",

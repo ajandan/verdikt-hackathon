@@ -255,26 +255,28 @@ def test_super_admin_cannot_delete_own_account() -> None:
 # Env-var break-glass keeps working after DB users exist
 # ---------------------------------------------------------------------------
 
-def test_env_admin_still_authenticates_when_db_users_exist() -> None:
-    """Once real users exist in admin_users, the env-var identity ('admin' in
-    tests, per conftest) must still resolve as super_admin — otherwise a
-    wedged DB row could lock the operator out.
+def test_env_admin_still_authenticates_when_db_users_exist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Once real users exist in admin_users, the env-var identity must still
+    resolve as super_admin — otherwise a wedged DB row could lock the
+    operator out.
 
-    Note: the first-boot seeder in main._startup_checks may have already
-    written an 'admin' row from the env-var creds. We evict it up-front so
-    this test exercises the env-var break-glass path exclusively; the
-    seeder is idempotent, so future startups will reseed if needed.
+    Uses a per-worker unique env-var admin username so parallel pytest
+    processes don't race on the shared "admin" row (the original test
+    deleted the "admin" row up-front, which broke when a sibling worker
+    was resolving "admin" concurrently). The env-var branch in
+    resolve_admin_identity keys off ``settings.admin_user``, so patching
+    that value + passing the same username exercises the same code path.
     """
-    from docgen.auth import resolve_admin_identity
+    from docgen.auth import get_settings, resolve_admin_identity
 
-    # Drop any pre-seeded 'admin' row so we exercise the env-var branch.
-    with sync_session() as s:
-        existing = s.execute(
-            select(AdminUser).where(AdminUser.username == "admin")
-        ).scalar_one_or_none()
-        if existing is not None:
-            s.delete(existing)
-            s.commit()
+    unique_admin = f"env-admin-{uuid.uuid4().hex[:8]}"
+    real = get_settings()
+    monkeypatch.setattr(
+        "docgen.auth.get_settings",
+        lambda: type(real)(**{**real.model_dump(), "admin_user": unique_admin}),
+    )
 
     # Guarantee at least one DB row exists so the "table is empty" fast-path
     # in resolve_admin_identity isn't the reason env-var still works.
@@ -293,7 +295,7 @@ def test_env_admin_still_authenticates_when_db_users_exist() -> None:
         async def _resolve():
             try:
                 async with AsyncSessionLocal() as s:
-                    return await resolve_admin_identity(s, "admin")
+                    return await resolve_admin_identity(s, unique_admin)
             finally:
                 await async_engine.dispose()
 

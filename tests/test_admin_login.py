@@ -41,6 +41,17 @@ from docgen.store.models import AdminUser, Tenant
 # Helpers
 # ---------------------------------------------------------------------------
 
+import os
+
+# Per-worker IP subnet so parallel pytest processes don't share Redis
+# rate-limit buckets. See test_login_ratelimit.py for the same pattern.
+_TEST_IP_SUBNET = f"198.51.{(os.getpid() % 250) + 1}"
+
+
+def _ip(last_octet: int) -> str:
+    return f"{_TEST_IP_SUBNET}.{last_octet}"
+
+
 
 def _hash(pw: str) -> str:
     return bcrypt.hashpw(pw.encode(), bcrypt.gensalt()).decode()
@@ -52,7 +63,7 @@ def _post_login(
     username: str = "admin",
     password: str = "testpass",
     next_: str = "",
-    ip: str = "203.0.113.100",
+    ip: str = _ip(100),
 ):
     """Post /ui/login with a unique-ish IP so parallel tests don't collide on
     the rate-limit bucket (conftest wipes login_rl:* between tests, so this
@@ -224,7 +235,7 @@ def test_login_post_with_wrong_password_returns_401_with_error(_trust_xff) -> No
     401 and the flash message is rendered into the response body."""
     with TestClient(app, follow_redirects=False) as client:
         r = _post_login(
-            client, username="admin", password="wrong", ip="203.0.113.101"
+            client, username="admin", password="wrong", ip=_ip(101)
         )
     assert r.status_code == 401, r.text[:200]
     assert "Invalid credentials" in r.text
@@ -236,7 +247,7 @@ def test_login_post_with_unknown_username_returns_401(_trust_xff) -> None:
             client,
             username=f"nobody-{uuid.uuid4().hex[:6]}",
             password="testpass",
-            ip="203.0.113.102",
+            ip=_ip(102),
         )
     assert r.status_code == 401
     assert "Invalid credentials" in r.text
@@ -249,7 +260,7 @@ def test_login_post_with_empty_password_is_rejected(_trust_xff) -> None:
     would be a regression."""
     with TestClient(app, follow_redirects=False) as client:
         r = _post_login(
-            client, username="admin", password="", ip="203.0.113.103"
+            client, username="admin", password="", ip=_ip(103)
         )
     assert r.status_code in (401, 422), r.text[:200]
 
@@ -258,7 +269,7 @@ def test_login_post_with_empty_username_is_rejected(_trust_xff) -> None:
     """Same story as the empty-password case: 401 or 422, never a success."""
     with TestClient(app, follow_redirects=False) as client:
         r = _post_login(
-            client, username="", password="testpass", ip="203.0.113.104"
+            client, username="", password="testpass", ip=_ip(104)
         )
     assert r.status_code in (401, 422), r.text[:200]
 
@@ -272,7 +283,7 @@ def test_failed_login_preserves_next_in_rendered_form(_trust_xff) -> None:
             username="admin",
             password="wrong",
             next_="/ui/upload",
-            ip="203.0.113.105",
+            ip=_ip(105),
         )
     assert r.status_code == 401
     assert 'value="/ui/upload"' in r.text
@@ -290,7 +301,7 @@ def test_login_success_redirects_to_dashboard_by_default(_trust_xff) -> None:
     try:
         _patch_admin_settings(enabled=True)
         with TestClient(app, follow_redirects=False) as client:
-            r = _post_login(client, ip="203.0.113.110")
+            r = _post_login(client, ip=_ip(110))
         assert r.status_code == 303, r.text[:200]
         assert r.headers["location"] == "/ui/dashboard"
     finally:
@@ -303,7 +314,7 @@ def test_login_success_redirects_to_next_when_safe_path(_trust_xff) -> None:
         _patch_admin_settings(enabled=True)
         with TestClient(app, follow_redirects=False) as client:
             r = _post_login(
-                client, next_="/ui/upload", ip="203.0.113.111"
+                client, next_="/ui/upload", ip=_ip(111)
             )
         assert r.status_code == 303
         assert r.headers["location"] == "/ui/upload"
@@ -318,7 +329,7 @@ def test_login_success_rejects_absolute_url_next(_trust_xff) -> None:
         _patch_admin_settings(enabled=True)
         with TestClient(app, follow_redirects=False) as client:
             r = _post_login(
-                client, next_="http://evil.example/steal", ip="203.0.113.112"
+                client, next_="http://evil.example/steal", ip=_ip(112)
             )
         assert r.status_code == 303
         assert r.headers["location"] == "/ui/dashboard"
@@ -332,7 +343,7 @@ def test_login_sets_signed_httponly_lax_session_cookie(_trust_xff) -> None:
     try:
         _patch_admin_settings(enabled=True)
         with TestClient(app, follow_redirects=False) as client:
-            r = _post_login(client, ip="203.0.113.113")
+            r = _post_login(client, ip=_ip(113))
         assert r.status_code == 303
         cookies = r.headers.get_list("set-cookie")
         session_cookie = next(
@@ -359,7 +370,7 @@ def test_valid_session_cookie_grants_access_to_protected_route(_trust_xff) -> No
     try:
         _patch_admin_settings(enabled=True)
         with TestClient(app, follow_redirects=False) as client:
-            r_login = _post_login(client, ip="203.0.113.120")
+            r_login = _post_login(client, ip=_ip(120))
             assert r_login.status_code == 303
             r_dash = client.get("/ui/dashboard")
         assert r_dash.status_code == 200
@@ -461,7 +472,7 @@ def test_db_backed_super_admin_can_login_and_last_login_at_is_stamped(
             client,
             username=db_super_admin["username"],
             password=db_super_admin["password"],
-            ip="203.0.113.130",
+            ip=_ip(130),
         )
     assert r.status_code == 303, r.text[:200]
     assert r.headers["location"] == "/ui/dashboard"
@@ -489,7 +500,7 @@ def test_db_backed_tenant_admin_can_login(db_tenant_admin, _trust_xff) -> None:
             client,
             username=db_tenant_admin["username"],
             password=db_tenant_admin["password"],
-            ip="203.0.113.131",
+            ip=_ip(131),
         )
         assert r.status_code == 303, r.text[:200]
         # Reuse the same client so the session cookie sticks.
@@ -505,7 +516,7 @@ def test_db_user_wrong_password_returns_401(db_super_admin, _trust_xff) -> None:
             client,
             username=db_super_admin["username"],
             password="definitely-not-the-real-one",
-            ip="203.0.113.132",
+            ip=_ip(132),
         )
     assert r.status_code == 401
     assert "Invalid credentials" in r.text

@@ -12,6 +12,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+import os
 from unittest.mock import patch
 
 import pytest
@@ -25,6 +26,23 @@ from docgen.ratelimit import (
     close_redis,
     get_redis,
 )
+
+
+# Every test in this file drives the login-throttle sliding window keyed
+# on (ip, username) → Redis. Under parallel pytest runs (multiple worker
+# processes hitting the same Redis instance) hard-coded IPs across
+# unrelated test files collide, and one bucket's rate-limit trip
+# corrupts another's assertions.
+#
+# Give each pytest process its own /24 in the RFC-5737 test range so
+# the Redis keys never overlap. The last octet stays as the per-test
+# discriminator (10, 11, 12, …) so the tests keep reading naturally.
+_TEST_IP_SUBNET = f"198.51.{(os.getpid() % 250) + 1}"
+
+
+def _ip(last_octet: int) -> str:
+    """Compose a test IP in this worker's private /24."""
+    return f"{_TEST_IP_SUBNET}.{last_octet}"
 
 
 @pytest.fixture(autouse=True)
@@ -76,7 +94,7 @@ def _clear_bucket(ip: str, username: str) -> None:
     asyncio.run(_go())
 
 
-def _post(client: TestClient, password: str, ip: str = "203.0.113.7"):
+def _post(client: TestClient, password: str, ip: str = _ip(7)):
     return client.post(
         "/ui/login",
         data={"username": "admin", "password": password, "next": ""},
@@ -89,7 +107,7 @@ def _post(client: TestClient, password: str, ip: str = "203.0.113.7"):
 
 def test_correct_password_within_window_still_succeeds() -> None:
     """LOGIN_MAX_ATTEMPTS-1 bad attempts followed by a good one → 303 success."""
-    ip = "203.0.113.10"
+    ip = _ip(10)
     _clear_bucket(ip, "admin")
     try:
         _patch_admin()
@@ -105,7 +123,7 @@ def test_correct_password_within_window_still_succeeds() -> None:
 
 
 def test_exceeding_limit_returns_429_even_with_correct_password() -> None:
-    ip = "203.0.113.11"
+    ip = _ip(11)
     _clear_bucket(ip, "admin")
     try:
         _patch_admin()
@@ -125,7 +143,7 @@ def test_exceeding_limit_returns_429_even_with_correct_password() -> None:
 
 def test_successful_login_resets_bucket() -> None:
     """After a successful login, the bucket is wiped so old typos don't count."""
-    ip = "203.0.113.12"
+    ip = _ip(12)
     _clear_bucket(ip, "admin")
     try:
         _patch_admin()
@@ -147,7 +165,7 @@ def test_successful_login_resets_bucket() -> None:
 
 def test_separate_ips_have_independent_buckets() -> None:
     """Two IPs guessing the same username don't share a bucket."""
-    ip_a, ip_b = "203.0.113.20", "203.0.113.21"
+    ip_a, ip_b = _ip(20), _ip(21)
     _clear_bucket(ip_a, "admin")
     _clear_bucket(ip_b, "admin")
     try:
@@ -168,7 +186,7 @@ def test_separate_ips_have_independent_buckets() -> None:
 
 def test_fail_open_when_redis_unavailable() -> None:
     """If Redis raises, we let login proceed. Rationale in the module docstring."""
-    ip = "203.0.113.30"
+    ip = _ip(30)
     try:
         _patch_admin()
         # Point get_redis at a client whose zremrangebyscore raises.
@@ -187,7 +205,7 @@ def test_failed_login_logs_include_ip_and_username(caplog) -> None:
     spot brute-force sources."""
     import logging as _log
 
-    ip = "203.0.113.40"
+    ip = _ip(40)
     _clear_bucket(ip, "admin")
     caplog.set_level(_log.INFO, logger="docgen.ui.routes")
     try:

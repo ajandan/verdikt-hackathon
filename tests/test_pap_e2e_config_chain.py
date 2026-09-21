@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -30,12 +31,38 @@ from sqlalchemy import delete
 from docgen.config import Settings
 from docgen.store.db import sync_session
 from docgen.store.models import Program, Tenant
+from pap_pipeline.orchestrator import PipelineConfig, run_with_intake
 from pap_pipeline.pipeline_config import build_pipeline_config
-from pap_pipeline.orchestrator import run_with_intake
 from pap_pipeline.stages import extract as extract_mod
 from pap_pipeline.stages import reason as reason_mod
 from pap_pipeline.stages import retrieve as retrieve_mod
 from pap_pipeline.stages import triage as triage_mod
+
+
+def _disable_scan_retry(cfg: PipelineConfig) -> PipelineConfig:
+    """Turn off the scan-page null-slot retry pass on the extract stages.
+
+    The retry (see ``ExtractClientConfig.retry_null_on_scan``, added in
+    the round-3 scan-aware extract commit) fires a second vision call
+    on scan pages when any slot came back null on the first pass. The
+    ``_TINY_PNG`` fixture used by these tests has no text layer, so
+    every intake here would be classified as a scan and trigger the
+    retry — doubling the extract wire-capture and breaking the
+    single-call-per-stage assertions these tests were designed around.
+
+    The e2e config-chain tests care about which MODEL each stage
+    sends on the wire, not about the retry mechanism itself (that
+    lives in test_pap_extract). Disabling retry here keeps the
+    assertions focused on the resolver chain without weakening them
+    to accept N calls of the same model.
+    """
+    new_extract = replace(cfg.extract, retry_null_on_scan=False)
+    new_verifier = (
+        replace(cfg.extract_verifier, retry_null_on_scan=False)
+        if cfg.extract_verifier is not None
+        else None
+    )
+    return replace(cfg, extract=new_extract, extract_verifier=new_verifier)
 
 # ---------------------------------------------------------------------------
 # Fixture helpers
@@ -264,7 +291,7 @@ async def test_program_overrides_win_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -296,7 +323,7 @@ async def test_all_null_falls_through_to_settings_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -329,7 +356,7 @@ async def test_tenant_override_beats_settings_when_program_null(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -371,7 +398,7 @@ async def test_program_triage_routing_skip_decide_end_to_end(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -411,7 +438,7 @@ async def test_tenant_verifier_wires_second_extract_call(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, _decision = await run_with_intake(
             [_TINY_PNG], config=cfg,
@@ -440,7 +467,7 @@ async def test_program_extract_overrides_tenant_extract(
         tenant, program = _load(pid)
         cap = _StageWireCapture()
         _patch_all(monkeypatch, cap)
-        cfg = build_pipeline_config(_settings(), tenant=tenant, program=program)
+        cfg = _disable_scan_retry(build_pipeline_config(_settings(), tenant=tenant, program=program))
 
         _, _, _decision = await run_with_intake(
             [_TINY_PNG], config=cfg,

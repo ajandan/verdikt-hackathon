@@ -13,11 +13,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from docgen import ratelimit
 from docgen.auth import hash_password
 from docgen.main import app
 from docgen.ratelimit import (
@@ -39,10 +41,43 @@ from docgen.ratelimit import (
 # discriminator (10, 11, 12, …) so the tests keep reading naturally.
 _TEST_IP_SUBNET = f"198.51.{(os.getpid() % 250) + 1}"
 
+# Per-worker Redis DB number. IPs alone give us unique KEYS, but a
+# parallel bucket runner still contends on the same Redis DB — under
+# load, ZADD retries can drop entries and a sliding window under 10
+# attempts silently allows the (LIMIT+1)th to succeed instead of 429.
+# Route each worker to a dedicated DB (1-15; skip 0 which the app
+# uses) so parallel test runs are fully isolated at the DB level.
+_WORKER_REDIS_DB = (os.getpid() % 15) + 1
+
 
 def _ip(last_octet: int) -> str:
     """Compose a test IP in this worker's private /24."""
     return f"{_TEST_IP_SUBNET}.{last_octet}"
+
+
+@pytest.fixture(autouse=True)
+def _isolated_redis_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Route ratelimit's Redis client to a per-worker DB number.
+
+    The module caches its client at ``ratelimit._client``; we rewrite
+    the settings URL so the cached client (once rebuilt) points at
+    our worker DB, and force a rebuild by clearing the cache.
+    """
+    real_settings = ratelimit.get_settings()
+    original_url = real_settings.redis_url
+    # Replace ``…/N`` with ``…/{worker_db}``; append if no /db suffix.
+    if re.search(r"/\d+$", original_url):
+        new_url = re.sub(r"/\d+$", f"/{_WORKER_REDIS_DB}", original_url)
+    else:
+        new_url = original_url.rstrip("/") + f"/{_WORKER_REDIS_DB}"
+    worker_settings = type(real_settings)(
+        **{**real_settings.model_dump(), "redis_url": new_url}
+    )
+    monkeypatch.setattr(ratelimit, "get_settings", lambda: worker_settings)
+    # Reset the cached client so the next get_redis() rebuilds with the
+    # worker URL. Restored to None on teardown so no stale client
+    # leaks into other test files.
+    monkeypatch.setattr(ratelimit, "_client", None)
 
 
 @pytest.fixture(autouse=True)

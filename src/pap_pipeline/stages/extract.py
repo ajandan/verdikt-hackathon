@@ -328,10 +328,16 @@ _SCAN_TEXT_THRESHOLD = 30
 # path needs its own bound because email attachments don't run
 # preflight — a 500-page adversarial PDF would otherwise fire 500 VLM
 # calls per intake and burn the Token Factory budget. Kept in sync
-# with the design-time constant by import.
+# with the design-time constant by import; a genuine ImportError
+# (missing package, refactor) surfaces via warning so the fallback
+# isn't a silent divergence.
 try:
     from docgen.designtime.preflight_pdf import MAX_PAGES as _MAX_PAGES
-except Exception:  # pragma: no cover - defensive against circular-import edge
+except ImportError:
+    _log.warning(
+        "pap_extract_max_pages_import_failed",
+        note="docgen.designtime.preflight_pdf.MAX_PAGES unavailable; using local default 100",
+    )
     _MAX_PAGES = 100
 
 

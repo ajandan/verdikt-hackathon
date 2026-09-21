@@ -398,6 +398,16 @@ def _handler(
             f"Verifier flagged {len(critical_findings)} issue(s) "
             f"({', '.join(types)}). "
         )
+    # Surface schema-side truncation so a runaway Nemotron response
+    # (a rationale over 2KB, more than 128 citations, etc.) shows up
+    # on the reviewer timeline. Silently trimming is fine for
+    # downstream safety but the operator still needs the signal that
+    # the model went off the rails.
+    if decision.truncation_flags:
+        verdict_note += (
+            f"Model output truncated by schema caps: "
+            f"{', '.join(sorted(decision.truncation_flags))}. "
+        )
     verdict_note += "Queued for human review."
     append_audit(
         event,

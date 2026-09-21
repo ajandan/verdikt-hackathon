@@ -199,13 +199,27 @@ class Decision(BaseModel):
         up to model-level). Each cap silently truncates and appends the
         field name to ``truncation_flags``; downstream consumers can
         surface the list on the reviewer UI without a schema change.
+
+        Operates on a shallow copy of the input so a caller that passed
+        a shared dict (e.g., ``Decision(**shared_state)``) doesn't get
+        their dict mutated in place. The nested containers (citations
+        list, rule_traces dict, missing_fields list) are also copied
+        when the cap fires so callers holding the original see the
+        untrimmed values.
         """
         if not isinstance(data, dict):
             return data
+        data = dict(data)
         flags: list[str] = list(data.get("truncation_flags") or [])
 
         rationale = data.get("rationale")
-        if rationale is not None:
+        if rationale is None:
+            # Nemotron occasionally emits null for the rationale field;
+            # normalize to empty string here so downstream consumers
+            # never have to guard against None (the field is typed str,
+            # not str | None, and Pydantic would otherwise reject).
+            data["rationale"] = ""
+        else:
             text = str(rationale)
             if len(text) > _MAX_RATIONALE_CHARS:
                 data["rationale"] = text[:_MAX_RATIONALE_CHARS]
@@ -215,20 +229,21 @@ class Decision(BaseModel):
 
         citations = data.get("citations")
         if isinstance(citations, list) and len(citations) > _MAX_CITATIONS:
-            data["citations"] = citations[:_MAX_CITATIONS]
+            data["citations"] = list(citations[:_MAX_CITATIONS])
             flags.append("citations")
 
         missing = data.get("missing_fields")
         if isinstance(missing, list):
             over_count = len(missing) > _MAX_MISSING_FIELDS
             capped = missing[:_MAX_MISSING_FIELDS]
-            trimmed = [str(item)[:_MAX_MISSING_FIELD_CHARS] for item in capped]
             over_len = any(
                 isinstance(item, str) and len(item) > _MAX_MISSING_FIELD_CHARS
                 for item in capped
             )
-            data["missing_fields"] = trimmed
             if over_count or over_len:
+                data["missing_fields"] = [
+                    str(item)[:_MAX_MISSING_FIELD_CHARS] for item in capped
+                ]
                 flags.append("missing_fields")
 
         traces = data.get("rule_traces")

@@ -102,7 +102,17 @@ async def read_capped_upload(
     file: UploadFile,
     cap: int = DEFAULT_UPLOAD_CAP_BYTES,
 ) -> bytes:
-    """Read an :class:`UploadFile` with a byte-count cap + slowloris deadline."""
+    """Read an :class:`UploadFile` with a byte-count cap + slowloris deadline.
+
+    Precondition: the caller must not have pre-read from ``file`` (no
+    prior ``await file.read()`` / ``await file.seek()``). This helper
+    reads from the current stream position; a partially-consumed file
+    yields only the remaining bytes and the cap check passes on fewer
+    bytes than the caller uploaded. Every route in this codebase either
+    routes the raw ``UploadFile`` here or reads the whole body via this
+    helper; if a future caller needs both patterns it must ``seek(0)``
+    first.
+    """
 
     async def _chunks() -> AsyncIterator[bytes]:
         while True:

@@ -42,6 +42,21 @@ from docgen.designtime.pdf_text import (
 
 log = logging.getLogger(__name__)
 
+
+# Cap the Pillow decompression-bomb surface. A hostile PDF with an
+# enormous MediaBox rasterises to a gigantic PIL bitmap at our
+# scale=3.125; without this cap Pillow's default (~89 MPx) only emits
+# a warning and still allocates the buffer. 50 MPx = ~7000×7000 which
+# covers every realistic scanned/native template page while capping
+# per-image memory to ~200 MB (50M × 3 channels).
+try:
+    from PIL import Image as _PIL_Image
+
+    _PIL_Image.MAX_IMAGE_PIXELS = 50_000_000
+except ImportError:
+    log.warning("pdf_field_detector_pil_missing")
+
+
 _BATCH_SIZE = 20
 _BATCH_CONCURRENCY = 4
 # Max fields per vision-labeling API call. Dense pages (36+ boxes) trigger a

@@ -37,6 +37,23 @@ class MailerError(Exception):
     pass
 
 
+def _reject_crlf(value: str, *, kind: str) -> str:
+    """Refuse any address / subject / header value that carries CR or LF.
+
+    Python's :class:`email.message.EmailMessage` folds long headers but
+    does not scrub embedded newlines when a header value is set as a
+    plain string. A caller that lets attacker-controlled text
+    (an email subject, an applicant-supplied CC address) reach this
+    module verbatim could otherwise inject an extra ``Bcc:`` or
+    similar header via ``\\r\\n``. Raising is proportionate: legitimate
+    values never contain CR/LF; if one shows up it's a bug or an
+    attack.
+    """
+    if "\r" in value or "\n" in value:
+        raise MailerError(f"{kind} contains illegal newline")
+    return value
+
+
 def _unique(addrs: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
@@ -44,6 +61,7 @@ def _unique(addrs: Iterable[str]) -> list[str]:
         a = (a or "").strip()
         if not a:
             continue
+        _reject_crlf(a, kind="address")
         key = a.lower()
         if key in seen:
             continue
@@ -73,6 +91,10 @@ def send_reply(
     sender = (from_addr or settings.smtp_from or settings.smtp_username or "").strip()
     if not sender:
         raise MailerError("No sender address (set DOCGEN_SMTP_FROM or DOCGEN_SMTP_USERNAME)")
+    _reject_crlf(sender, kind="sender")
+    _reject_crlf(subject or "", kind="subject")
+    if in_reply_to:
+        _reject_crlf(in_reply_to, kind="in_reply_to")
 
     to_final = _unique(to_addrs)
     cc_final = _unique(a for a in cc_addrs if a not in to_final)

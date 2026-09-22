@@ -150,22 +150,48 @@
     .pdf-page-overlay {
         position: absolute; inset: 0;
         pointer-events: none;
+        /* Clip the 14px-expanded highlight rect + glow to the page's
+           own bounds — otherwise fields near the top/bottom/edges spill
+           into the gap between pages. Page's own drop-shadow is on
+           .pdf-page itself so it stays visible. */
+        overflow: hidden;
     }
     .pdf-hl {
-        /* Scan tolerance: bboxes come from the design-time labeled PDF,
-           so scanned inbounds can drift by a few pixels. We visually
-           expand the highlight ~14px in every direction using padding-
-           via-transform, plus a soft outer glow, so "close enough" still
-           reads as a hit even when the scan is slightly offset.
-           pointer-events:none so the underlying .pdf-hit still receives
-           clicks even when the reviewer clicks on top of the yellow. */
+        /* Scan tolerance: bboxes come from the design-time labeled
+           template PDF, so scanned inbounds can drift by a few pixels
+           relative to that reference. We visually expand the highlight
+           outward using padding + matching negative margin, so "close
+           enough" still reads as a hit even when the scan is slightly
+           offset. The expansion amount is set per-instance via the
+           `--pdf-hl-pad` custom property (JS sets it based on the
+           field's rendered pixel size — see drawHighlight): small
+           radios/checkboxes get a modest 4-6px, big text banners get
+           the full 14px. Uniform 14px on a 12px radio made the visible
+           highlight ~4x the field — technically covered it, but looked
+           like a shotgun blast.
+
+           pointer-events: none so the underlying .pdf-hit still
+           receives clicks even when the reviewer clicks on top of
+           the yellow.
+
+           box-sizing MUST be content-box here — base.html sets a
+           global `* { box-sizing: border-box }` reset, and under
+           border-box the padding is *subtracted* from the declared
+           width/height instead of adding to it. That collapses tiny
+           fields into a floor of ~2*pad px whose left edge sits `pad`
+           px offset from the field's actual left edge — the "close
+           but consistently off" bug reviewers reported. content-box
+           restores the outward-expansion semantics: padding grows the
+           visible box, margin re-centers it on the field. */
         position: absolute;
+        box-sizing: content-box;
         pointer-events: none;
         background: rgba(250, 204, 21, 0.22);
         border: 2px solid rgba(202, 138, 4, 0.85);
         border-radius: 4px;
-        padding: 14px;
-        margin: -14px;
+        --pdf-hl-pad: 14px;
+        padding: var(--pdf-hl-pad);
+        margin: calc(-1 * var(--pdf-hl-pad));
         box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.15),
                     0 0 18px 4px rgba(250, 204, 21, 0.25);
         transition: opacity 200ms ease-out, transform 120ms ease-out;
@@ -188,6 +214,40 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
     .pdf-nudge-hint.visible { opacity: 1; }
+    /* Persistent chip in the header showing the current per-PDF nudge
+       offset. Only rendered when x or y is non-zero so it stays quiet
+       for the common well-aligned case, and calls attention to itself
+       (with the amber accent) when calibration is active. */
+    .pdf-nudge-readout {
+        display: inline-flex; align-items: center;
+        font-size: 12px; font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.01em;
+        /* Use the design-system `--warn` tone so the chip stays legible
+           in both light AND dark mode. Hard-coded amber (rgb(146,64,14)
+           on 18%-opacity yellow) composited to ~1.2:1 on the dark
+           `--surface-2` background, well under WCAG AA. `--warn` /
+           `--warn-soft` are tuned per theme in base.html. */
+        color: var(--warn);
+        background: var(--warn-soft);
+        border: 1px solid rgb(var(--warn-rgb) / 0.45);
+        padding: 3px 9px; border-radius: 999px;
+        white-space: nowrap;
+    }
+    /* base.html sets `.btn { display: inline-flex }` and this file sets
+       `.pdf-nudge-readout { display: inline-flex }` — both are author
+       rules that beat the UA `[hidden] { display: none }` default at the
+       same specificity. Without these overrides the Reset button and the
+       calibration chip stay VISIBLE even when JS sets `hidden = true`,
+       which broke the "self-serve reset" affordance: reviewers saw the
+       button pre-nudge, clicked it, and the handler's identity-guard
+       early-returned — the button silently did nothing. Explicit
+       author-rule overrides bring back the intended hide-until-active
+       behavior. Same pattern used elsewhere in the codebase — see
+       placement_editor.html `.realign-banner[hidden]` and base.html
+       `.modal-backdrop[hidden]`. */
+    #pdf-nudge-reset[hidden],
+    .pdf-nudge-readout[hidden] { display: none; }
     /* Invisible hit-box for each labeled slot — lets the reviewer click
        *on the PDF* and jump to the matching field cell on the left. */
     .pdf-hit {
@@ -1042,9 +1102,32 @@
                 <span class="pdf-overlay-page muted"></span>
             </div>
             <div class="pdf-overlay-actions">
+                {#- Nudge readout: hidden while offset is (0,0), shown as
+                    a small chip once the reviewer has calibrated. Gives
+                    the persisted-in-localStorage nudge a visible surface
+                    so "why are the highlights off?" has a self-serve
+                    answer — press Reset. The `title` documents the same
+                    shortcuts the "Align?" button surfaces, so a reviewer
+                    who hovers the chip (the natural first thing to hover
+                    when they notice drift) sees what to do next. -#}
+                <span id="pdf-nudge-readout" class="pdf-nudge-readout" hidden
+                      title="Highlight alignment offset for this PDF.&#10;&#10;Arrow keys — shift by 2px (Shift = 10px)&#10;+ / − — zoom by 1% (Shift = 5%)&#10;, / . — tilt by 0.2° (Shift = 1°)"></span>
+                <button type="button" class="btn ghost" id="pdf-nudge-reset" hidden
+                        title="Zero the alignment offset for this PDF">Reset alignment</button>
+                {#- Discoverability affordance: on pure-image scans the
+                    reviewer has no way to learn that arrow keys nudge
+                    the overlay. A dedicated "Align?" button carries the
+                    shortcut docs in its `title` — closer to the reviewer's
+                    mental question ("how do I fix this alignment?") than
+                    the Close button's tooltip was. Cheap, always visible,
+                    doesn't take real estate away from the primary actions. -#}
+                <button type="button" class="btn ghost" id="pdf-nudge-help"
+                        aria-label="How to align highlights"
+                        title="Align highlights on scanned PDFs:&#10;&#10;Arrow keys — shift by 2px (Shift = 10px)&#10;+ / − — zoom by 1% (Shift = 5%)&#10;, / . — tilt by 0.2° (Shift = 1°)&#10;&#10;Offset is saved per PDF.">Align?</button>
                 <a class="btn ghost" href="" target="_blank" rel="noopener" id="pdf-preview-open-new"
                    title="Open the PDF in a full browser tab">Open in new tab ↗</a>
-                <button type="button" class="btn" id="pdf-preview-close" title="Close preview (Esc)">Close ✕</button>
+                <button type="button" class="btn" id="pdf-preview-close"
+                        title="Close preview (Esc)">Close ✕</button>
             </div>
         </header>
         <div class="pdf-frame-wrap">
@@ -1486,17 +1569,27 @@
     var pageEls = {};           // pageNum → wrapper <div class="pdf-page">
     var lastHighlight = null;   // {slot, el} of the currently-drawn rect
     var workerConfigured = false;
+    var lastRenderedWidth = 0;  // guard against re-render loops from RO
+    var rerenderInFlight = false;
     // Per-document nudge offset (px) — corrects for scan drift. Applied
     // as CSS transform to every page's overlay layer so both the hit-
     // boxes and the highlight rect move together. Persisted in
     // localStorage keyed by PDF URL so the reviewer only calibrates
     // once per document.
-    var nudge = { x: 0, y: 0 };
+    // Full affine-ish calibration: translate (x,y), scale (s), rotate (r).
+    // Scans differ from the design-time template in all three — DPI ≠
+    // template DPI (scale), sheet-feed rotation (rotate), page-registration
+    // drift (translate). A translate-only nudge can only align the sweet
+    // spot; adding scale + rotate lets one calibration line up the whole
+    // page. Persisted per PDF URL so the reviewer only tunes once.
+    var nudge = { x: 0, y: 0, s: 1, r: 0 };
     var nudgeStorageKey = 'pdf-nudge:' + pdfUrl;
     try {
         var saved = JSON.parse(localStorage.getItem(nudgeStorageKey) || '{}');
         if (typeof saved.x === 'number') nudge.x = saved.x;
         if (typeof saved.y === 'number') nudge.y = saved.y;
+        if (typeof saved.s === 'number' && saved.s > 0) nudge.s = saved.s;
+        if (typeof saved.r === 'number') nudge.r = saved.r;
     } catch (_e) {}
 
     function configureWorker() {
@@ -1525,33 +1618,66 @@
         });
     }
 
+    function waitForContainerWidth() {
+        // Panel-open animation can race renderAllPages: clientWidth is
+        // 0 while the flex layout catches up, and rendering at scale 0
+        // produces blank pages. If width isn't ready, wait for the
+        // ResizeObserver / RAF loop to report a real value, so the
+        // caller's `.then(drawHighlight)` doesn't fire before pages
+        // exist. Bounded (~2s) so a truly hidden panel doesn't hang.
+        if (targetRenderWidth()) return Promise.resolve();
+        return new Promise(function (resolve) {
+            var tries = 0;
+            var iv = setInterval(function () {
+                if (targetRenderWidth()) { clearInterval(iv); resolve(); return; }
+                if (++tries > 60) { clearInterval(iv); resolve(); }
+            }, 50);
+        });
+    }
+
     function loadPdfOnce() {
-        if (pdfDoc) return Promise.resolve(pdfDoc);
+        if (pdfDoc && Object.keys(pageEls).length) return Promise.resolve(pdfDoc);
         if (pdfLoadPromise) return pdfLoadPromise;
         if (!pdfUrl) return Promise.reject('no pdf');
         showLoading(true);
         pdfLoadPromise = waitForPdfjs()
             .then(function () {
                 configureWorker();
+                if (pdfDoc) return pdfDoc;
                 return window.pdfjsLib.getDocument({ url: pdfUrl }).promise;
             })
             .then(function (doc) {
                 pdfDoc = doc;
-                return renderAllPages();
+                return waitForContainerWidth();
             })
+            .then(function () { return renderAllPages(); })
             .then(function () { showLoading(false); return pdfDoc; })
             .catch(function (err) { showLoading(false); throw err; });
         return pdfLoadPromise;
+    }
+
+    function targetRenderWidth() {
+        // Container width minus its 12px padding on each side. If the
+        // panel is still animating in or hasn't been laid out yet,
+        // clientWidth may be 0 — return 0 so the caller can defer to
+        // the ResizeObserver instead of rendering pages at scale 0.
+        var raw = scrollEl.clientWidth - 24;
+        return raw > 60 ? raw : 0;
     }
 
     function renderAllPages() {
         // Render pages serially — pdf.js is fast enough on modern
         // hardware, and serial rendering keeps memory bounded on
         // long forms (some bundles run to 12 pages).
+        var viewportWidth = targetRenderWidth();
+        if (!viewportWidth) {
+            // Container has no width yet (panel animating in, or hidden).
+            // The ResizeObserver will re-invoke us once layout settles.
+            return Promise.resolve();
+        }
         scrollEl.innerHTML = '';
         pageEls = {};
-        // Fit width to the scrollable container, minus its 12px padding.
-        var viewportWidth = scrollEl.clientWidth - 24;
+        lastRenderedWidth = viewportWidth;
         var chain = Promise.resolve();
         for (var i = 1; i <= pdfDoc.numPages; i++) {
             (function (pageNum) {
@@ -1606,13 +1732,31 @@
     }
 
     function applyNudge() {
-        // Apply the persisted nudge as a translate transform on every
-        // overlay layer, so highlight + hit-boxes shift together over
-        // the (unmoved) PDF canvas underneath.
+        // Apply the persisted calibration as a full affine transform on
+        // every overlay layer: translate first, then scale, then rotate
+        // around the page center (so rotation pivots on the middle of
+        // each page, not the top-left corner — matches how a reviewer
+        // thinks about "tilting the sheet"). Order matters: order below
+        // reads right-to-left in CSS terms, i.e. rotate then scale then
+        // translate applied to each child element.
+        // At identity (post-reset) we CLEAR the inline transform entirely
+        // rather than writing `translate(0px,0px) scale(1) rotate(0deg)` —
+        // a non-empty transform still creates a stacking context, and
+        // leaving one behind after Reset was masking the visual snap-back
+        // ("nothing happens when I click Reset"). Empty inline transform
+        // = layer falls back to its natural position with no stacking
+        // context, so the reset is unambiguous.
+        var isIdentity = (nudge.x === 0 && nudge.y === 0 &&
+                          nudge.s === 1 && nudge.r === 0);
+        var xform = isIdentity ? '' :
+                    'translate(' + nudge.x + 'px,' + nudge.y + 'px) ' +
+                    'scale(' + nudge.s + ') ' +
+                    'rotate(' + nudge.r + 'deg)';
         Object.keys(pageEls).forEach(function (pn) {
             var layer = pageEls[pn].querySelector('.pdf-page-overlay');
             if (!layer) return;
-            layer.style.transform = 'translate(' + nudge.x + 'px,' + nudge.y + 'px)';
+            layer.style.transformOrigin = isIdentity ? '' : '50% 50%';
+            layer.style.transform = xform;
         });
     }
 
@@ -1621,26 +1765,117 @@
         catch (_e) {}
     }
 
+    // Header chip + Reset button. Both are hidden while nudge is (0,0)
+    // so the common well-aligned case has zero chrome. Once the reviewer
+    // starts nudging (or lands on a PDF with a persisted non-zero offset
+    // from a previous session), the chip appears with a live readout and
+    // the Reset button becomes clickable — so "why are my highlights
+    // off?" always has a self-serve answer.
+    var nudgeReadoutEl = document.getElementById('pdf-nudge-readout');
+    var nudgeResetBtn  = document.getElementById('pdf-nudge-reset');
+    // Normalize `-0` -> `0` so tilt readouts don't display "-0.0°"
+    // after toggling past zero. `Object.is(-0, 0)` is false, so a
+    // straight `x || 0` doesn't catch it; `+(x.toFixed(n)) + 0` does.
+    function fx(n, digits) {
+        var r = digits ? +n.toFixed(digits) : n;
+        return Object.is(r, -0) ? 0 : r;
+    }
+    function renderNudgeChip() {
+        var active = (nudge.x !== 0 || nudge.y !== 0 ||
+                      nudge.s !== 1 || nudge.r !== 0);
+        if (nudgeReadoutEl) {
+            if (active) {
+                var nx = fx(nudge.x);
+                var ny = fx(nudge.y);
+                var nr = fx(nudge.r, 1);
+                var sx = (nx > 0 ? '+' : '') + nx;
+                var sy = (ny > 0 ? '+' : '') + ny;
+                var ss = (nudge.s * 100).toFixed(0);
+                var sr = (nr > 0 ? '+' : '') + nr.toFixed(1);
+                nudgeReadoutEl.textContent =
+                    'Align  x ' + sx + '  y ' + sy + ' px  ·  ' +
+                    'zoom ' + ss + '%  ·  tilt ' + sr + '°';
+                // Spoken form for screen readers: proper words instead
+                // of glyph-by-glyph readouts ("plus two pixels" not
+                // "plus, two, space, px").
+                nudgeReadoutEl.setAttribute('aria-label',
+                    'Highlight alignment offset: ' +
+                    'x ' + sx + ' pixels, y ' + sy + ' pixels, ' +
+                    'zoom ' + ss + ' percent, tilt ' + sr + ' degrees.');
+                nudgeReadoutEl.hidden = false;
+            } else {
+                nudgeReadoutEl.hidden = true;
+                nudgeReadoutEl.removeAttribute('aria-label');
+            }
+        }
+        if (nudgeResetBtn) nudgeResetBtn.hidden = !active;
+    }
+    if (nudgeResetBtn) {
+        nudgeResetBtn.addEventListener('click', function () {
+            // Zero all four dimensions. applyNudge() snaps hit-boxes and
+            // any active highlight to identity (instantly visible), toast
+            // confirms the action even when no highlight is on screen.
+            if (nudge.x === 0 && nudge.y === 0 &&
+                nudge.s === 1 && nudge.r === 0) return;
+            nudge.x = 0; nudge.y = 0; nudge.s = 1; nudge.r = 0;
+            persistNudge();
+            applyNudge();
+            showNudgeToast('Alignment reset');
+            renderNudgeChip();
+        });
+    }
+    // Reflect any persisted-from-prior-session offset the moment the
+    // panel opens, before the reviewer touches an arrow key.
+    renderNudgeChip();
+
     // Small toast that fades in when the user starts nudging so they
     // know the arrow keys are wired. Auto-hides after 1.5s of no keys.
+    // Also used by the Reset button to confirm "Alignment reset" — the
+    // toast is the primary "yes, I did something" affordance when no
+    // highlight is on screen to visibly slide back to zero.
     var nudgeToast = null;
     var nudgeToastTimer = null;
-    function showNudgeHint() {
+    function showNudgeToast(text, aria) {
         if (!nudgeToast) {
+            // Guard against missing mount point — if the frame-wrap
+            // isn't in the DOM for any reason (mid-swap, template
+            // variant), fail silently instead of throwing a TypeError
+            // inside the Reset click handler and aborting the rest of
+            // the reset sequence (chip update, hidden toggle, etc.).
+            var mount = overlay.querySelector('.pdf-frame-wrap');
+            if (!mount) return;
             nudgeToast = document.createElement('div');
             nudgeToast.className = 'pdf-nudge-hint';
-            overlay.querySelector('.pdf-frame-wrap').appendChild(nudgeToast);
+            // Announce toast updates for screen-reader users so the
+            // Reset confirmation is not sight-only feedback.
+            nudgeToast.setAttribute('role', 'status');
+            nudgeToast.setAttribute('aria-live', 'polite');
+            mount.appendChild(nudgeToast);
         }
-        // Explicit "+"/"-" prefix so 0 vs positive vs negative is
-        // unambiguous at a glance. e.g. "Nudge  x +4  y -2  px".
-        var sx = (nudge.x > 0 ? '+' : '') + nudge.x;
-        var sy = (nudge.y > 0 ? '+' : '') + nudge.y;
-        nudgeToast.textContent = 'Nudge  x ' + sx + '  y ' + sy + '  px';
+        nudgeToast.textContent = text;
+        if (aria) nudgeToast.setAttribute('aria-label', aria);
+        else nudgeToast.removeAttribute('aria-label');
         nudgeToast.classList.add('visible');
         clearTimeout(nudgeToastTimer);
         nudgeToastTimer = setTimeout(function () {
             if (nudgeToast) nudgeToast.classList.remove('visible');
         }, 1500);
+    }
+    function showNudgeHint() {
+        // Show all four dimensions in the toast so the reviewer sees
+        // which one just changed. Explicit "+"/"-" prefixes so 0 vs
+        // positive vs negative is unambiguous at a glance. `fx` above
+        // normalizes `-0` -> `0` for the tilt readout.
+        var nx = fx(nudge.x);
+        var ny = fx(nudge.y);
+        var nr = fx(nudge.r, 1);
+        var sx = (nx > 0 ? '+' : '') + nx;
+        var sy = (ny > 0 ? '+' : '') + ny;
+        var ss = (nudge.s * 100).toFixed(0);
+        var sr = (nr > 0 ? '+' : '') + nr.toFixed(1);
+        showNudgeToast(
+            'x ' + sx + '  y ' + sy + ' px  ·  zoom ' + ss + '%  ·  tilt ' + sr + '°'
+        );
     }
 
     function clearHighlight() {
@@ -1675,6 +1910,18 @@
         rect.style.top    = (box.y * 100) + '%';
         rect.style.width  = (box.w * 100) + '%';
         rect.style.height = (box.h * 100) + '%';
+        // Dynamic outward-expansion padding: the constant 14px looked
+        // absurd on radios/checkboxes (a 12px widget with 14px pad on
+        // every side is ~4x the field). Scale the pad to the smaller
+        // rendered dimension, clamped to [3, 14]px. Big text banners
+        // still get the full expansion; tiny widgets get a snug ring.
+        var pageW = wrap.clientWidth  || 1;
+        var pageH = wrap.clientHeight || 1;
+        var pxW = box.w * pageW;
+        var pxH = box.h * pageH;
+        var minDim = Math.min(pxW, pxH);
+        var pad = Math.max(3, Math.min(14, Math.round(minDim / 2.5)));
+        rect.style.setProperty('--pdf-hl-pad', pad + 'px');
         layer.appendChild(rect);
         lastHighlight = { slot: slotName, el: rect };
     }
@@ -1695,9 +1942,36 @@
 
     function openPdf() {
         if (openNew) openNew.setAttribute('href', pdfUrl);
+        var wasHidden = overlay.hidden;
         overlay.hidden = false;
         overlay.setAttribute('aria-hidden', 'false');
         document.body.classList.add('pdf-overlay-open');
+        // Move focus to the Close button on first open, so keyboard-only
+        // users enter the modal context (this panel is `role="dialog"
+        // aria-modal="true"` — without a focus move, tab-order stays on
+        // the page underneath and screen-reader mode never announces
+        // the dialog). Close is the least-destructive default; Tab from
+        // there reaches Reset / Align? / Open in new tab.
+        if (wasHidden && closeBtn) {
+            // Defer to next frame so the slide-in animation has started
+            // before focus lands — avoids the caret jumping mid-animation.
+            requestAnimationFrame(function () {
+                try { closeBtn.focus({ preventScroll: true }); } catch (_e) {}
+            });
+            // If we opened onto a PDF with a persisted non-identity
+            // calibration, quietly announce it — so a returning reviewer
+            // knows why their highlights are pre-shifted before they
+            // start pressing arrow keys "to make it work".
+            var hasPersisted = (nudge.x !== 0 || nudge.y !== 0 ||
+                                nudge.s !== 1 || nudge.r !== 0);
+            if (hasPersisted) {
+                // Wait a beat so the toast mount point exists (panel
+                // just became visible; frame-wrap may not have laid out).
+                setTimeout(function () {
+                    showNudgeToast('Restored saved alignment for this PDF');
+                }, 250);
+            }
+        }
         return loadPdfOnce();
     }
 
@@ -1756,20 +2030,35 @@
     document.addEventListener('keydown', function (e) {
         if (overlay.hidden) return;
         if (e.key === 'Escape') { close(); return; }
-        var isArrow = (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
-                       e.key === 'ArrowUp' || e.key === 'ArrowDown');
-        if (!isArrow) return;
+        // Skip when the reviewer is typing in a form control.
         var tag = (e.target && e.target.tagName || '').toLowerCase();
         if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+        var isArrow = (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+                       e.key === 'ArrowUp' || e.key === 'ArrowDown');
+        // Zoom: +/= for zoom-in, -/_ for zoom-out. Shift for 5x step.
+        var isZoomIn  = (e.key === '+' || e.key === '=');
+        var isZoomOut = (e.key === '-' || e.key === '_');
+        // Tilt: , (left) / . (right). Shift for 5x step.
+        var isTiltCcw = (e.key === ',' || e.key === '<');
+        var isTiltCw  = (e.key === '.' || e.key === '>');
+        if (!isArrow && !isZoomIn && !isZoomOut && !isTiltCcw && !isTiltCw) return;
         e.preventDefault();
-        var step = e.shiftKey ? 10 : 2;
-        if (e.key === 'ArrowLeft')  nudge.x -= step;
-        if (e.key === 'ArrowRight') nudge.x += step;
-        if (e.key === 'ArrowUp')    nudge.y -= step;
-        if (e.key === 'ArrowDown')  nudge.y += step;
+        var tstep = e.shiftKey ? 10 : 2;           // translate px
+        var sstep = e.shiftKey ? 0.05 : 0.01;      // scale delta
+        var rstep = e.shiftKey ? 1.0 : 0.2;        // rotate degrees
+        if (e.key === 'ArrowLeft')  nudge.x -= tstep;
+        if (e.key === 'ArrowRight') nudge.x += tstep;
+        if (e.key === 'ArrowUp')    nudge.y -= tstep;
+        if (e.key === 'ArrowDown')  nudge.y += tstep;
+        if (isZoomIn)  nudge.s = Math.min(2.0, +(nudge.s + sstep).toFixed(3));
+        if (isZoomOut) nudge.s = Math.max(0.5, +(nudge.s - sstep).toFixed(3));
+        if (isTiltCcw) nudge.r = +(nudge.r - rstep).toFixed(2);
+        if (isTiltCw)  nudge.r = +(nudge.r + rstep).toFixed(2);
         applyNudge();
         persistNudge();
         showNudgeHint();
+        renderNudgeChip();
     });
 
     // Reverse click: user clicks on a hit-box drawn over the PDF →
@@ -1807,19 +2096,45 @@
         cell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
 
-    // Re-render on viewport resize (debounced) so the pages track the
-    // panel width. Preserves highlight if one was active.
+    // Fit-to-width via ResizeObserver — pattern lifted from pharmascan's
+    // DocumentViewer. Two cases it handles that a plain resize listener
+    // couldn't:
+    //   1. First open: scrollEl.clientWidth is often 0 while the panel
+    //      is animating in. Initial renderAllPages() returns without
+    //      drawing; the RO fires as soon as layout settles and re-runs
+    //      the render at the real width — scans no longer stay stuck at
+    //      the pre-layout scale.
+    //   2. Any user-driven resize (window, panel width via media query,
+    //      dev-tools open) — re-render at the new width so pages always
+    //      fill the panel.
+    // Debounced + width-threshold-guarded so rapid resize doesn't
+    // trigger a cascade of re-renders.
     var resizeTimer = null;
-    window.addEventListener('resize', function () {
-        if (!pdfDoc || overlay.hidden) return;
+    function scheduleFitRender() {
+        if (!pdfDoc || overlay.hidden || rerenderInFlight) return;
+        var target = targetRenderWidth();
+        if (!target) return;
+        // Skip if the width hasn't meaningfully changed since last
+        // render — RO fires for every 1px change, and re-rasterizing
+        // 12 pages just to gain 3px isn't worth the CPU.
+        if (Math.abs(target - lastRenderedWidth) < 20) return;
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(function () {
             var slot = lastHighlight ? lastHighlight.slot : null;
-            renderAllPages().then(function () {
-                if (slot) highlightSlot(slot);
-            });
-        }, 200);
-    });
+            rerenderInFlight = true;
+            renderAllPages()
+                .then(function () { if (slot) highlightSlot(slot); })
+                .finally(function () { rerenderInFlight = false; });
+        }, 150);
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+        var ro = new ResizeObserver(function () { scheduleFitRender(); });
+        ro.observe(scrollEl);
+    }
+    // Belt-and-suspenders: also listen on window resize in case the RO
+    // misses (e.g., panel visibility toggles via display:none which
+    // some old ROs don't re-observe on).
+    window.addEventListener('resize', scheduleFitRender);
 })();
 </script>
 

@@ -5332,6 +5332,29 @@ def _resolve_inbox_models(*, tenant, tv) -> list[dict[str, str]]:
     return rows
 
 
+def _first_inbound_pdf_bytes(ev) -> bytes | None:
+    """Fetch the first inbound-PDF attachment's raw bytes from blob storage.
+
+    Returns None if the event has no PDF attachment or the blob fetch
+    fails. Used by the pipeline-detail view to feed the bbox snapper.
+    """
+    manifest = ev.inbound_attachments or []
+    for entry in manifest:
+        ct = (entry.get("content_type") or "").lower()
+        fn = (entry.get("filename") or "").lower()
+        if ct != "application/pdf" and not fn.endswith(".pdf"):
+            continue
+        blob_key = entry.get("blob_key")
+        if not blob_key:
+            continue
+        try:
+            settings = get_settings()
+            return get_object(settings.s3_bucket_documents, blob_key)
+        except Exception:
+            return None
+    return None
+
+
 @router.get("/inbox/{event_id}/pipeline", response_class=HTMLResponse)
 async def inbox_pipeline_detail(
     event_id: uuid.UUID,
@@ -5459,6 +5482,32 @@ async def inbox_pipeline_detail(
                             "page": page,
                             "x": x, "y": y, "w": w, "h": h,
                         }
+
+    # Snap placements to actual text positions in the intake PDF.
+    # Template placements come from the design-time labeled PDF, so they
+    # drift when the intake is a different document (typed reply, e-fax,
+    # OCR-preserved scan). For any intake with a text layer, we search
+    # the PDF for each extracted value and use the found bbox instead —
+    # highlights land on the actual typed value, no client-side calibration
+    # needed. Falls back cleanly to template bboxes on pure image scans
+    # (no text layer → snapper returns empty).
+    try:
+        pdf_bytes = _first_inbound_pdf_bytes(ev)
+    except Exception:
+        pdf_bytes = None
+    if pdf_bytes and extraction:
+        try:
+            from docgen.inbox.pdf_bbox_snap import snap_placements_to_pdf_text
+            snapped = snap_placements_to_pdf_text(pdf_bytes, extraction)
+            for name, box in snapped.items():
+                slot_placements[name] = box
+                # Keep slot_to_page in sync so page grouping uses the
+                # snapped page number (relevant if the intake has a
+                # different page order than the template).
+                slot_to_page[name] = box["page"]
+        except Exception:
+            # Snapping is best-effort — never fail the page over it.
+            pass
 
     # Group slots by page (when placements available) or fall back to
     # semantic buckets. Page groups are sorted ascending; slots within

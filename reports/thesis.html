@@ -229,6 +229,14 @@
   @media (max-width: 700px) {
     .primer-callout { flex-direction: column; align-items: flex-start; }
   }
+
+  /* Progressive disclosure: headline stays visible, detail folds away. */
+  details.more { margin-top: 10px; }
+  details.more > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--seal-700); }
+  details.more[open] > summary { margin-bottom: 10px; }
+  .tldr { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .tldr li { font-size: 14px; color: var(--ink-800); line-height: 1.5; padding-left: 14px; border-left: 3px solid var(--seal-500); }
+  .tldr li b { color: var(--ink-900); }
 </style>
 </head>
 <body>
@@ -287,7 +295,9 @@
     <span class="kicker">The three defaults</span>
     <h2>How most operations wire this today</h2>
     <p class="subhead">There are three shapes an intake-to-fulfillment operation usually takes. Each one works. Each one costs something the others don't. Verdikt is a fourth shape, made possible by AI carrying context that used to be a human's job.</p>
+    <p class="subhead"><b>The cost in one line each:</b> inside the CRM, every change is a build; one-off per channel, five codepaths instead of one; siloed teams, humans re-read the same documents at every hand-off.</p>
 
+    <details class="more"><summary>See each default in full</summary>
     <div class="defaults-grid">
       <div class="default-card">
         <h4>Default 1</h4>
@@ -308,15 +318,14 @@
         <span class="cost"><b>Costs:</b> humans re-read the same documents at every step. Turnaround measured in days, not seconds.</span>
       </div>
     </div>
+    </details>
   </section>
 
   <!-- SECTION 2 · Why now -->
   <section class="block">
     <span class="kicker">Why now</span>
     <h2>The bit that used to be the human's job</h2>
-    <p>All three defaults exist because <em>context</em>, what does this case actually mean, is it decidable, which rules apply, what should happen next, used to be something only a human could produce reliably. So every architecture pushed context work to the humans and let the systems be dumb pipes.</p>
-    <p>Modern extraction, retrieval, and reasoning models change what a machine can carry across a seam. The intake documents can be read into structured fields with fidelity. The program rules can be retrieved and cited. The verdict can be produced with an explanation attached. Not perfectly, but reliably enough that the downstream systems can trust <em>context has been established</em> and act on it.</p>
-    <p>Once that's true, the shape of the operation can change. The pipeline in the middle stops being aspirational.</p>
+    <p>All three defaults exist because <em>context</em> (what does this case mean, is it decidable, which rules apply, what happens next) used to be something only a human could produce reliably, so every architecture pushed that work to people and left the systems as dumb pipes. Modern extraction, retrieval, and reasoning models change what a machine can carry across a seam: documents read into structured fields, rules retrieved and cited, a verdict produced with its explanation. Not perfectly, but reliably enough that downstream systems can trust <em>context has been established</em> and act on it. The pipeline in the middle stops being aspirational.</p>
   </section>
 
   <!-- SECTION 3 · The line we drew -->
@@ -393,27 +402,27 @@
     <div class="unlocks-grid">
       <div class="unlock">
         <h4>Every request enters analyzed</h4>
-        <p>The pipeline reads the case, cites the rules, and produces the verdict before anything downstream sees it. Downstream systems act on <em>meaning</em>, not raw attachments.</p>
+        <details class="more"><summary>How</summary><p>The pipeline reads the case, cites the rules, and produces the verdict before anything downstream sees it. Downstream systems act on <em>meaning</em>, not raw attachments.</p></details>
         <span class="before"><b>Before:</b> CRM stored PDFs; a human opened each one to decide.</span>
       </div>
       <div class="unlock">
         <h4>Context flows across the seam</h4>
-        <p>The verdict, the rationale, the rule citations, and the byte-identical reply travel together as one payload. When a CRM ticket opens, it's already annotated. When Pharmacy OMS receives a dispense order, it knows why.</p>
+        <details class="more"><summary>How</summary><p>The verdict, the rationale, the rule citations, and the byte-identical reply travel together as one payload. When a CRM ticket opens, it's already annotated. When Pharmacy OMS receives a dispense order, it knows why.</p></details>
         <span class="before"><b>Before:</b> humans re-explained the case at every hand-off.</span>
       </div>
       <div class="unlock">
         <h4>New channels plug in without a rebuild</h4>
-        <p>Fax, mail, portal, EHR all normalize into the same case shape before the pipeline runs. Adding a channel means writing one adapter, not rewriting the whole decision path.</p>
+        <details class="more"><summary>How</summary><p>Fax, mail, portal, EHR all normalize into the same case shape before the pipeline runs. Adding a channel means writing one adapter, not rewriting the whole decision path.</p></details>
         <span class="before"><b>Before:</b> each channel had its own extract-and-map codepath.</span>
       </div>
       <div class="unlock">
         <h4>New programs onboard as data</h4>
-        <p>Program rules, extraction schemas, and reply templates are configuration, not code. A second program with a stricter cap and a different template is a folder, not a project.</p>
+        <details class="more"><summary>How</summary><p>Program rules, extraction schemas, and reply templates are configuration, not code. A second program with a stricter cap and a different template is a folder, not a project.</p></details>
         <span class="before"><b>Before:</b> each new program was a CRM release cycle.</span>
       </div>
       <div class="unlock">
         <h4>Triage is a pipeline stage, not a human job</h4>
-        <p>The pipeline classifies each case (<em>new intake · refill · appeal · missing-info · not-decidable</em>) and routes on what's actually inside. Refills short-circuit to Pharmacy OMS; missing-info goes straight to CRM outreach; fresh intakes continue down the full Decide → Deliver path.</p>
+        <details class="more"><summary>How</summary><p>The pipeline classifies each case (<em>new intake · refill · appeal · missing-info · not-decidable</em>) and routes on what's actually inside. Refills short-circuit to Pharmacy OMS; missing-info goes straight to CRM outreach; fresh intakes continue down the full Decide → Deliver path.</p></details>
         <span class="before"><b>Before:</b> a human opened every envelope just to know what the case was.</span>
       </div>
     </div>

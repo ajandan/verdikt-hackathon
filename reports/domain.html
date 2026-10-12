@@ -245,6 +245,14 @@
     font-size: 13px;
   }
   .primer-callout a:hover { background: var(--seal-700); }
+
+  /* Progressive disclosure: headline stays visible, detail folds away. */
+  details.more { margin-top: 10px; }
+  details.more > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--seal-700); }
+  details.more[open] > summary { margin-bottom: 10px; }
+  .tldr { margin: 18px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .tldr li { font-size: 14px; color: var(--ink-800); line-height: 1.5; padding-left: 14px; border-left: 3px solid var(--seal-500); }
+  .tldr li b { color: var(--ink-900); }
 </style>
 </head>
 <body>
@@ -299,6 +307,11 @@
     <span class="eyebrow"><span class="dot"></span> Domain primer · ~2 minutes</span>
     <h1 class="display">PAPs, <em>in plain terms</em></h1>
     <p class="lede-strong">Patient Assistance Programs (PAPs) are grants that <em>pay for medication</em> when insurance won't. A pharmaceutical manufacturer funds the program, a pharmacy or hub service administers it, and eligible patients receive the drug at no cost. This page explains the roles, the paperwork, and where Verdikt fits, so the demo video makes sense even if you don't work in pharma.</p>
+    <ul class="tldr">
+      <li><b>The money:</b> a manufacturer funds the program, a pharmacy or hub screens applicants, and approved patients get the drug free.</li>
+      <li><b>The paperwork:</b> four documents go in; one of three letters comes out (approve, deny, missing info).</li>
+      <li><b>Verdikt:</b> reads the case, triages it, decides against the rules, delivers a byte-identical reply, and remembers the trail.</li>
+    </ul>
   </section>
 
   <!-- SECTION 1 · money + medication flow -->
@@ -342,8 +355,9 @@
   <section class="block">
     <span class="kicker">The motive</span>
     <h2>Why manufacturers fund PAPs</h2>
-    <p class="subhead">A PAP is not pure charity. It's a legitimate access program that also protects the manufacturer's most important asset: a patient staying on their drug. Three reasons usually drive it.</p>
+    <p class="subhead">A PAP is not pure charity. It's a legitimate access program that also protects the manufacturer's most important asset: a patient staying on their drug. Three reasons usually drive it: it keeps patients on therapy, fills the gap payers leave, and builds long-term prescriber trust.</p>
 
+    <details class="more"><summary>Read the three reasons</summary>
     <div class="outcome-grid">
       <div class="outcome-card">
         <h4>Access &amp; adherence</h4>
@@ -358,6 +372,7 @@
         <p>Patients who start on a brand through a PAP often stay on it after they gain coverage. Prescribers who trust a manufacturer's safety net keep prescribing. The program pays back over years, not months.</p>
       </div>
     </div>
+    </details>
   </section>
 
   <!-- SECTION 2 · intake stack -->
@@ -723,21 +738,26 @@
                up-slope diagonal. -->
           <line x1="1330" y1="97" x2="1400" y2="140" stroke="#a26a1e" stroke-width="1.8" marker-end="url(#arr-amber)"/>
 
-          <!-- All dotted boxes below (Feeders + External Verifiers) converge on
-               the DECIDE stage. Decide's bottom-centre in the 5-stage layout is
-               at x≈780, y=220. -->
+          <!-- MDM, Rules Library and the External Verifiers converge on the
+               DECIDE stage. Decide's bottom-centre in the 5-stage layout is
+               at x≈780, y=220. Template Library and Audit Log do NOT feed
+               Decide: Template Library is read by DELIVER (frozen template),
+               Audit Log is written by REMEMBER — see the two lines below. -->
           <g stroke="#6c6858" stroke-width="1.2" stroke-dasharray="4 3" fill="none" opacity="0.75">
             <!-- Feeders (short lines, ~220px climb) -->
-            <line x1="540"  y1="440" x2="774" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="695"  y1="440" x2="778" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="850"  y1="440" x2="782" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="1002" y1="440" x2="786" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="540"  y1="440" x2="774" y2="220"/>
+            <line x1="695"  y1="440" x2="778" y2="220"/>
+            <!-- Template Library → Deliver (Deliver bottom-centre x≈900) -->
+            <line x1="850"  y1="440" x2="898" y2="220"/>
+            <!-- Remember → Audit Log · S3 (Remember bottom-centre x≈1020;
+                 arrowhead lands on the log box, since Remember writes to it) -->
+            <line x1="1018" y1="220" x2="1004" y2="440"/>
             <!-- External Verifiers (longer climb, pass through the Feeder-row
                  vertical band — the muted opacity keeps the crossing subtle). -->
-            <line x1="540"  y1="620" x2="774" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="695"  y1="620" x2="778" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="850"  y1="620" x2="782" y2="220" marker-end="url(#arr-mut)"/>
-            <line x1="1002" y1="620" x2="786" y2="220" marker-end="url(#arr-mut)"/>
+            <line x1="540"  y1="620" x2="774" y2="220"/>
+            <line x1="695"  y1="620" x2="778" y2="220"/>
+            <line x1="850"  y1="620" x2="782" y2="220"/>
+            <line x1="1002" y1="620" x2="786" y2="220"/>
           </g>
           <text x="780" y="242" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="#6c6858" letter-spacing="0.14em">READ BY DECIDE</text>
         </g>
@@ -800,8 +820,8 @@
   <!-- SECTION 5 · where Verdikt fits -->
   <section class="block">
     <span class="kicker">Where Verdikt fits</span>
-    <h2>The four stages, mapped onto the domain</h2>
-    <p class="subhead">Verdikt is the pipeline that reads the case, decides against the program's rules, delivers a byte-identical reply package, and remembers the trail. Here's how each of the four stages maps onto the flow above, the <b>same four stages</b> the timeline pill in the demo video walks through.</p>
+    <h2>The five stages, mapped onto the domain</h2>
+    <p class="subhead">Verdikt is the pipeline that reads the case, decides against the program's rules, delivers a byte-identical reply package, and remembers the trail. Here's how each of the five stages maps onto the flow above, the <b>same five stages</b> the timeline pill in the demo video walks through.</p>
 
     <div class="pipeline-map">
       <div>
@@ -837,6 +857,7 @@
     <h2>Glossary</h2>
     <p class="subhead">Terms that show up in the demo, the templates, and the code.</p>
 
+    <details class="more"><summary>Show the glossary</summary>
     <dl class="glossary">
       <dt>PAP</dt>
       <dd>Patient Assistance Program. Manufacturer-funded grant that covers the cost of a specific medication for eligible patients.</dd>
@@ -880,6 +901,7 @@
       <dt>Freeze</dt>
       <dd>Marking a template version as immutable and production-ready. Frozen versions are the only ones that can render outbound letters.</dd>
     </dl>
+    </details>
   </section>
 
   <footer class="foot">

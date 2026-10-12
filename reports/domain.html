@@ -413,7 +413,7 @@
         <p>Meets income, medical, and insurance criteria.</p>
         <ul>
           <li>Approval letter + first ship date</li>
-          <li>Refill schedule (typically every 30 days)</li>
+          <li>Refill schedule</li>
           <li>Benefits guide + re-attestation reminder</li>
         </ul>
       </div>
@@ -422,7 +422,7 @@
         <p>Fails at least one hard rule (usually income cap, commercial coverage, or wrong indication).</p>
         <ul>
           <li>Denial letter citing the specific rule that failed</li>
-          <li>Appeals notice (30-day window)</li>
+          <li>Appeals notice (60-day window)</li>
           <li>Resubmission form if circumstances change</li>
         </ul>
       </div>
@@ -442,7 +442,7 @@
   <section class="block">
     <span class="kicker">The reply</span>
     <h2>Why the outbound letter isn't just a letter</h2>
-    <p>Because it's the record that leaves the building. Regulators, sponsors, and internal audit teams all reference the same PDF for years. The letter has to reproduce <em>bit-for-bit</em> from the audit log (same input, same output) long after the AI models that helped produce it have changed versions.</p>
+    <p>Because it's the record that leaves the building. Regulators, sponsors, and internal audit teams all reference the same PDF for years. The letter has to be <em>reproducible</em> from the audit log (same frozen template, same input, same render stack, same output) long after the AI models that helped produce it have changed versions.</p>
 
     <p style="margin-top: 10px">And the reply is rarely a single letter. Depending on the outcome it may be an <b>ordered document package</b>: outcome letter → appeals notice → benefits guide → whatever blank forms the applicant needs next. The administrator declares the package composition in advance; it never changes at render time.</p>
   </section>
@@ -451,7 +451,7 @@
   <section class="block">
     <span class="kicker">The full picture</span>
     <h2>From every channel to the patient's door</h2>
-    <p class="subhead">Verdikt is the AI + deterministic-render pipeline in the middle of a much larger operation. The intake channels on the left all normalize into one case; the pipeline (highlighted) reads, decides, and produces the byte-identical reply; downstream systems dispatch the physical order to fulfillment. Outbound is via pharmacy OMS + carrier + case management, not email.</p>
+    <p class="subhead">Verdikt is the AI + deterministic-render pipeline in the middle of a much larger operation. The intake channels on the left all normalize into one case; the pipeline (highlighted) reads, decides, and produces the byte-identical reply; downstream systems dispatch the physical order to fulfillment. In production, outbound goes via pharmacy OMS + carrier + case management; the demo mailbox also replies by email so the result is visible.</p>
 
     <div class="e2e-wrap">
       <svg class="e2e" viewBox="0 0 1520 820" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PAP end-to-end operational flow with Verdikt pipeline highlighted">
@@ -683,7 +683,7 @@
             <use href="#i-portal" x="15" y="15" width="24" height="24" color="#1e5f4f"/>
             <text x="85" y="56" text-anchor="middle" font-size="13" font-weight="600" fill="#141410">Patient Portal</text>
             <text x="85" y="74" text-anchor="middle" font-size="10" fill="#6c6858">signed letter &middot; status</text>
-            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">no email outbound</text>
+            <text x="85" y="86" text-anchor="middle" font-size="10" fill="#6c6858">delivered in-portal</text>
           </g>
 
           <!-- Internal arrows: CRM → Pharmacy (short UP) and CRM → Portal
@@ -764,7 +764,7 @@
 
         <!-- === EXTERNAL VERIFIERS (real-time third-party APIs) === -->
         <g transform="translate(470,620)" font-family="'Inter', sans-serif">
-          <text x="0" y="-8" font-family="'JetBrains Mono', monospace" font-size="10" fill="#6c6858" letter-spacing="0.14em">EXTERNAL VERIFIERS &middot; THIRD-PARTY APIS</text>
+          <text x="0" y="-8" font-family="'JetBrains Mono', monospace" font-size="10" fill="#6c6858" letter-spacing="0.14em">EXTERNAL VERIFIERS &middot; THIRD-PARTY APIS &middot; ILLUSTRATIVE</text>
           <!-- Identity bureau -->
           <g>
             <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
@@ -778,16 +778,16 @@
             <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
             <use href="#i-pin" x="10" y="10" width="22" height="22" color="#6c6858"/>
             <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Address validation</text>
-            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">USPS &middot; Melissa</text>
-            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">SmartyStreets</text>
+            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">postal service &middot;</text>
+            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">standardization APIs</text>
           </g>
           <!-- EBV vendors -->
           <g transform="translate(310,0)">
             <rect width="140" height="82" rx="8" fill="#fafaf5" stroke="#6c6858" stroke-width="1" stroke-dasharray="3 3"/>
             <use href="#i-ebv" x="10" y="10" width="22" height="22" color="#6c6858"/>
-            <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">EBV vendors</text>
-            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">RxHub &middot; CoverMyMeds</text>
-            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">Change Healthcare</text>
+            <text x="70" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#141410">Benefits verification</text>
+            <text x="70" y="62" text-anchor="middle" font-size="10" fill="#6c6858">eligibility vendors &middot;</text>
+            <text x="70" y="74" text-anchor="middle" font-size="10" fill="#6c6858">payer clearinghouses</text>
           </g>
           <!-- NPI Registry -->
           <g transform="translate(465,0)">
@@ -831,7 +831,7 @@
         </div>
         <div class="pipeline-row">
           <span class="stage">Triage</span>
-          <div class="maps-to"><b>Nemotron Nano</b> on Nebius classifies the case (<b>new intake · refill · appeal · missing info · not decidable</b> — plus any program-specific case type the operator adds) and picks a route. Each row carries a <em>decision needed?</em> flag: when off, the pipeline <strong>skips the Decide stage entirely</strong> and dispatches straight to the target (refills to Pharmacy OMS, not-decidable to reject, etc.). Rule-based classifier is the safety net when the LLM call fails or returns low confidence.</div>
+          <div class="maps-to"><b>Nemotron Nano</b> on Nebius classifies the case (<b>new intake · refill · appeal · missing-info reply · not decidable</b> — plus any program-specific case type the operator adds) and picks a route. Each row carries a <em>decision needed?</em> flag: when off, the pipeline <strong>skips the Decide stage entirely</strong> and dispatches straight to the target (refills to Pharmacy OMS, not-decidable to reject, etc.). Rule-based classifier is the safety net when the LLM call fails or returns low confidence.</div>
         </div>
         <div class="pipeline-row">
           <span class="stage">Decide</span>
@@ -845,7 +845,7 @@
         </div>
         <div class="pipeline-row">
           <span class="stage">Remember</span>
-          <div class="maps-to">Every stage's output is written to the audit log with a sha256 hash. Years later, a reviewer can reproduce the exact PDF that left the building.</div>
+          <div class="maps-to">Every stage is recorded in the audit trail (model, timing, outcome), and each render is stamped with the frozen template's sha256 and a render-stack fingerprint. Years later, a reviewer can trace exactly what produced the PDF that left the building.</div>
         </div>
       </div>
     </div>
@@ -884,7 +884,7 @@
       <dd>The patient's out-of-pocket share of a prescription cost, after insurance pays its portion.</dd>
 
       <dt>Enrollment form</dt>
-      <dd>The intake application. In the demo it's Alderwood's ASP-100, a 4-page fillable PDF.</dd>
+      <dd>The intake application. In the demo it's Alderwood's ASP-100, a 2-page fillable PDF.</dd>
 
       <dt>Outcome letter</dt>
       <dd>The compliance-audited reply that documents the administrator's decision. In the demo it's ASP-201 (approval), ASP-202 (denial), or ASP-203 (missing info).</dd>

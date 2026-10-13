@@ -81,6 +81,10 @@ BEAT_XFADE=0.30
 # crops read as a camera move the piece does not otherwise have, so every beat
 # renders as its whole slide. USE_SHOTS=1 brings them back.
 USE_SHOTS=${USE_SHOTS:-0}
+# Narration-synced spotlights (scripts/make_highlights.py): on a beat that has a
+# manifest, the slide dims everywhere except the element the voice is naming.
+# USE_HIGHLIGHTS=0 renders the slides flat.
+USE_HIGHLIGHTS=${USE_HIGHLIGHTS:-1}
 
 BEAT_TITLES=(
     "VERDIKT"
@@ -310,6 +314,52 @@ build_shot_base() {
         "${inputs[@]}" \
         -filter_complex "$filter" \
         -map "$chain" \
+        -c:v libx264 -pix_fmt yuv420p -preset medium -crf 18 \
+        -t "$duration" \
+        "$out"
+    echo "$out"
+}
+
+# Build a beat's visual as the whole slide plus the narration-synced spotlight
+# scrims rendered by scripts/make_highlights.py: everything dims except the
+# element the voice is naming. Each scrim is looped for the whole beat and its
+# alpha faded up and down inside its own window, so no frame is ever waiting on
+# an input that has not started yet. Video only — the caller adds audio and the
+# lower-left overlays.
+HL_DIR="$SCREENSHOTS_DIR/highlights"
+
+build_highlight_base() {
+    local beat=$1 duration=$2 image=$3
+    local manifest="$HL_DIR/beat${beat}.txt"
+    local out="$SEG_DIR/.beat${beat}_hl.mp4"
+
+    local inputs=(-loop 1 -t "$duration" -i "$image")
+    local filter="[0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
+                       pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
+                       setsar=1,fps=${FPS}[c0];"
+    local idx=1 chain="c0" n=0 name start end fade fade_out
+
+    while read -r name start end fade; do
+        [[ -z "$name" ]] && continue
+        [[ -f "$HL_DIR/$name" ]] || { echo "warn: $HL_DIR/$name missing" >&2; continue; }
+        inputs+=(-loop 1 -t "$duration" -i "$HL_DIR/$name")
+        fade_out=$(awk -v e="$end" -v f="$fade" 'BEGIN{ printf "%.2f", e - f }')
+        filter+="[${idx}:v]format=rgba,fps=${FPS},
+                     fade=t=in:st=${start}:d=${fade}:alpha=1,
+                     fade=t=out:st=${fade_out}:d=${fade}:alpha=1[h${idx}];"
+        filter+="[${chain}][h${idx}]overlay=0:0:format=auto[m${idx}];"
+        chain="m${idx}"
+        idx=$((idx + 1))
+        n=$((n + 1))
+    done < <(tr -d '\r' < "$manifest")
+
+    filter="${filter%;}"
+    echo "[assemble] beat${beat}: ${n} highlights -> $out" >&2
+    ffmpeg -y -hide_banner -loglevel error \
+        "${inputs[@]}" \
+        -filter_complex "$filter" \
+        -map "[${chain}]" \
+        -an \
         -c:v libx264 -pix_fmt yuv420p -preset medium -crf 18 \
         -t "$duration" \
         "$out"
@@ -679,6 +729,10 @@ for i in "${!BEAT_IDS[@]}"; do
         render_capture_beat "$beat" "$dur" "$timeline_variant"
     elif [[ "$USE_SHOTS" == "1" && -f "$SHOTS_DIR/beat${beat}.txt" ]]; then
         base=$(build_shot_base "$beat" "$dur" | tail -1)
+        BASE_OVERRIDE="$base" render_capture_beat "$beat" "$dur" "$timeline_variant"
+    elif [[ "$USE_HIGHLIGHTS" == "1" && -f "$HL_DIR/beat${beat}.txt" ]] \
+         && image_path=$(find_beat_image "$beat"); then
+        base=$(build_highlight_base "$beat" "$dur" "$image_path" | tail -1)
         BASE_OVERRIDE="$base" render_capture_beat "$beat" "$dur" "$timeline_variant"
     elif image_path=$(find_beat_image "$beat"); then
         render_image_beat "$beat" "$dur" "$image_path" "$timeline_variant"

@@ -1,6 +1,6 @@
 # Assembling the submission video
 
-Stitches ElevenLabs voice-over audio, hand-composed beat slides, and Playwright captures of the live UI into a single MP4 that matches the story in [`video-3min.md`](video-3min.md). Beats with none of these fall back to a placeholder card.
+Stitches ElevenLabs voice-over audio, hand-composed beat slides (spotlit in step with the narration), and Playwright captures of the live UI into a single MP4 that matches the story in [`video-3min.md`](video-3min.md). Beats with none of these fall back to a placeholder card.
 
 Driver: [`scripts/assemble_video.sh`](../../scripts/assemble_video.sh) — bash, uses `ffmpeg` + `ffprobe`. Works on Windows via git-bash / WSL and on Linux/macOS unchanged.
 
@@ -84,6 +84,47 @@ hand-set `BEAT_DURATIONS` array is now only the fallback for a beat that has no
 audio yet. The script prints each beat's fitted slot and warns if the total
 crosses 179.8 s.
 
+## Narration-synced highlights
+
+A slide holds more than the voice is talking about at any one moment, so the eye
+has nowhere to go. `scripts/make_highlights.py` renders, per beat, a set of
+full-frame transparent scrims — everything dimmed except the element being named,
+soft rounded cut-out, seal-green edge — and the assembler fades each one up and
+down over the still. The slide gets movement without a camera move, and the
+screen points at what the script is saying.
+
+```bash
+python scripts/make_highlights.py          # all beats
+python scripts/make_highlights.py 1 3b     # just these
+USE_HIGHLIGHTS=0 bash scripts/assemble_video.sh   # render the slides flat
+```
+
+Targets are **CSS selectors** resolved against the real design page (`"div.row@4"`
+picks the 5th match; several selectors in one moment punch several holes in the
+same scrim), so a scrim can't drift out of register with the layout — edit the
+HTML, re-run, done.
+
+The windows are measured, not guessed. ElevenLabs renders every `<break>` in the
+voiceover script as real silence, so
+
+```bash
+ffmpeg -i assets/video/audio/beat3b.mp3 -af silencedetect=n=-42dB:d=0.18 -f null -
+```
+
+prints the exact boundary between one phrase and the next. `MOMENTS` holds those
+numbers divided by the beat's `BEAT_TEMPO`. **Re-run silencedetect and re-time
+the windows after regenerating any audio** — the highlights are the one part of
+the build that will visibly drift if the narration changes under them.
+
+When one phrase runs straight into the next (`CHAIN_GAP`), the first scrim is
+held until the second has faded up, so the slide never flashes back to full
+brightness between two spotlights — the hole slides instead. Beat 0d names five
+stages in four seconds; without that it strobes.
+
+Each scrim is looped for the whole beat with its alpha faded up and down inside
+its own window, rather than being switched on with `enable`, so no frame is ever
+waiting on an input that hasn't started.
+
 ## Close-up shots — off by default
 
 `scripts/make_shots.py` can cut a slide into a sequence of 16:9 close-ups timed
@@ -133,9 +174,10 @@ families are transparent PNGs rendered by `scripts/render_overlays.py` from
 1. Run the recorder once to produce initial Beat 2 captures (`python scripts/record_demo.py`).
 2. Run the assembler with only the audio and captures you have so far — placeholder cards fill the gaps. Watch the output in VLC / any player.
 3. Regenerate any beat that isn't landing — audio in ElevenLabs, capture via `--beat 2c --headed` — then re-run the assembler with `RENDER_BEATS="<beat>"` to update just that segment.
-4. After editing a beat's HTML, re-render the 1x slide (`--scale 1`). Only with
-   `USE_SHOTS=1` do you also need `--scale 2` and a `make_shots.py` re-run, or
-   the close-ups will still be cut from the previous design.
+4. After editing a beat's HTML, re-render the 1x slide (`--scale 1`) and re-run
+   `make_highlights.py` for that beat so the scrims match the new geometry.
+   Only with `USE_SHOTS=1` do you also need `--scale 2` and a `make_shots.py`
+   re-run.
 5. When every beat lands, delete `assets/video/segments/` and run a clean full build for the final upload.
 
 > `RENDER_BEATS="none"` re-joins the existing segments without re-rendering any
@@ -154,6 +196,6 @@ families are transparent PNGs rendered by `scripts/render_overlays.py` from
 
 ## What the assembly does NOT do
 
-- **Animate anything beyond a cross-dissolve.** Beat visuals are whole stills and live-UI captures. For real motion, produce a clip and drop it in `assets/video/captures/` as `beat{N}.webm` — the assembler prefers it over the slide.
+- **Animate anything beyond a cross-dissolve and the highlight fades.** Beat visuals are whole stills and live-UI captures; nothing moves inside the frame. For real motion, produce a clip and drop it in `assets/video/captures/` as `beat{N}.webm` — the assembler prefers it over the slide.
 - **Color-grade or normalize audio.** Every beat is encoded at CRF 20 with AAC 192 kbps; if you need more, run a mastering pass over `verdikt-submission.mp4` in your editor of choice.
 - **Upload.** YouTube + Devpost are still manual.

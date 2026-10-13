@@ -1,6 +1,6 @@
 # Assembling the submission video
 
-Stitches ElevenLabs voice-over audio + Beat 2 Playwright captures + placeholder cards for the motion-graphics beats into a single MP4 that matches the timecodes in [`video-3min.md`](video-3min.md).
+Stitches ElevenLabs voice-over audio, hand-composed beat slides, and Playwright captures of the live UI into a single MP4 that matches the story in [`video-3min.md`](video-3min.md). Beats with none of these fall back to a placeholder card.
 
 Driver: [`scripts/assemble_video.sh`](../../scripts/assemble_video.sh) — bash, uses `ffmpeg` + `ffprobe`. Works on Windows via git-bash / WSL and on Linux/macOS unchanged.
 
@@ -41,7 +41,7 @@ Every file is optional. Missing audio → silence for that beat (with a stderr w
 bash scripts/assemble_video.sh
 ```
 
-Reads all inputs under `assets/video/`, writes eight per-beat MP4s under `assets/video/segments/`, concatenates them into `assets/video/verdikt-submission.mp4` (~2:55, 1920×1080, H.264 + AAC 192kbps stereo).
+Reads all inputs under `assets/video/`, writes one MP4 per beat under `assets/video/segments/`, then cross-dissolves them into `assets/video/verdikt-submission.mp4` (1920x1080, H.264 + AAC 192 kbps stereo) and loudness-normalises to -14 LUFS. Run-time is whatever the narration fits into — just under 3:00 at the time of writing.
 
 **Just rebuild one beat** (keep the others from a previous run):
 
@@ -63,30 +63,83 @@ RENDER_BEATS="3 4 5" bash scripts/assemble_video.sh
 DEMO_BASE_DIR=/tmp/verdikt-video DEMO_OUTPUT=/tmp/submission.mp4 bash scripts/assemble_video.sh
 ```
 
-## Beat timing (why exactly 2:55)
+## Beat timing — fitted to the narration, not fixed
 
-The script uses **fixed** beat durations from the voice-over script. Audio longer than a beat's target is trimmed; shorter audio is silence-padded. This keeps total run-time deterministic regardless of ElevenLabs pacing drift.
+Each beat's slot is measured from its own audio rather than hand-set. For every
+`beat*.mp3` the script finds where the **last spoken word ends** (silencedetect,
+ignoring the trailing silence ElevenLabs leaves on every render) and sizes the
+slot as:
 
-| Beat | Start | Duration |
-| :-: | :-: | :-: |
-| 1 | 0:00 | 18 s |
-| 2a | 0:18 | 14 s |
-| 2b | 0:32 | 22 s |
-| 2c | 0:54 | 20 s |
-| 2d | 1:14 | 18 s |
-| 3 | 1:32 | 52 s |
-| 4 | 2:24 | 16 s |
-| 5 | 2:40 | 15 s |
-| **Total** | | **175 s = 2:55** |
+```
+slot = speech_end / tempo + TAIL_GAP     (rounded up to 50 ms)
+```
 
-If a beat's audio is more than 0.3 s over its target, the script prints a stderr warning. Regenerate that beat in ElevenLabs with tighter pacing (slightly lower Stability, or trim break-tag durations) rather than letting the trim clip the tail.
+`TAIL_GAP` is 0.40 s, so the voice never runs into the cut, and the per-beat
+audio chain fades out over the last 300 ms — entirely inside that silence, so
+the fade is inaudible and there is no click at the boundary.
+
+`BEAT_TEMPO` carries a per-beat tempo multiplier for beats whose narration would
+otherwise push the total over the 3:00 cap; 1.0 leaves the audio untouched. The
+hand-set `BEAT_DURATIONS` array is now only the fallback for a beat that has no
+audio yet. The script prints each beat's fitted slot and warns if the total
+crosses 179.8 s.
+
+## Close-up shots — off by default
+
+`scripts/make_shots.py` can cut a slide into a sequence of 16:9 close-ups timed
+to the narration, cropped out of `beat{N}_primary@2x.png` so they stay 1:1
+pixels at 1080p rather than upscaling. It is **off**: the zoom reads as a camera
+move the rest of the piece doesn't have, so every beat renders as its whole
+slide.
+
+```bash
+USE_SHOTS=1 bash scripts/assemble_video.sh     # bring the close-ups back
+```
+
+With the flag on, any beat that has a `screenshots/shots/beat{N}.txt` manifest
+is built as a chain of cross-dissolved stills; the manifest's durations already
+carry the transition overlap, so the chain lands exactly on the beat's slot.
+Rects live in `SHOTS` in `make_shots.py`, authored in 1x slide coordinates and
+taken from the real element geometry of each design. Frame a crop so it **stops
+at a column boundary** — cutting through a column mid-word reads as a broken
+layout rather than a deliberate close-up.
+
+## Transitions
+
+Beat boundaries cross-dissolve rather than hard-cut (`BEAT_XFADE`, 0.30 s; set
+it to 0 to restore hard cuts). Every segment after the first is padded at the
+**start** with a frozen copy of its first frame, one transition long, and the
+dissolve is laid over that pad — so a beat's own content still begins on its
+original cut point and stays in sync with its narration. Audio is
+plain-concatenated and never overlapped, which is safe because every beat
+already ends in silence.
+
+## Overlays
+
+The five-stage pipeline pill sits **lower-left**, and it is deliberately not
+persistent — `BEAT_TIMELINE` is empty for every beat that isn't walking through
+a stage, so the pill reads as a stage marker instead of wallpaper. It shows on
+beat 4 (sweeping ingest → triage → decide), beat 5 (*Deliver*) and beat 7
+(*Remember*). `BEAT_TIMELINE_IN` holds it back a beat-relative number of seconds
+so it can land on the spoken stage name rather than at the cut.
+
+The model chips (beat 4) share that left edge, stacked just above the pill. Both
+families are transparent PNGs rendered by `scripts/render_overlays.py` from
+`stage-timeline.html` and `nvidia-chips.html`. `common.css` reserves the bottom
+120 px of every hand-composed beat so slide content never collides with them.
 
 ## Iteration workflow
 
 1. Run the recorder once to produce initial Beat 2 captures (`python scripts/record_demo.py`).
 2. Run the assembler with only the audio and captures you have so far — placeholder cards fill the gaps. Watch the output in VLC / any player.
 3. Regenerate any beat that isn't landing — audio in ElevenLabs, capture via `--beat 2c --headed` — then re-run the assembler with `RENDER_BEATS="<beat>"` to update just that segment.
-4. When every beat lands, delete `assets/video/segments/` and run a clean full build for the final upload.
+4. After editing a beat's HTML, re-render the 1x slide (`--scale 1`). Only with
+   `USE_SHOTS=1` do you also need `--scale 2` and a `make_shots.py` re-run, or
+   the close-ups will still be cut from the previous design.
+5. When every beat lands, delete `assets/video/segments/` and run a clean full build for the final upload.
+
+> `RENDER_BEATS="none"` re-joins the existing segments without re-rendering any
+> of them — useful when only the transition or the join step changed.
 
 ## Common failures
 
@@ -101,6 +154,6 @@ If a beat's audio is more than 0.3 s over its target, the script prints a stderr
 
 ## What the assembly does NOT do
 
-- **Add motion graphics.** Beats 1, 3, 4, 5 render as placeholder cards. Build the polished visuals in a video editor (or produce them as separate MP4/WEBM clips and drop them in `assets/video/captures/` with matching `beat{N}.webm` names — the assembler will use them).
+- **Animate anything beyond a cross-dissolve.** Beat visuals are whole stills and live-UI captures. For real motion, produce a clip and drop it in `assets/video/captures/` as `beat{N}.webm` — the assembler prefers it over the slide.
 - **Color-grade or normalize audio.** Every beat is encoded at CRF 20 with AAC 192 kbps; if you need more, run a mastering pass over `verdikt-submission.mp4` in your editor of choice.
 - **Upload.** YouTube + Devpost are still manual.

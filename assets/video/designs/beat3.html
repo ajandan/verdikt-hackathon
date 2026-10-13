@@ -1,0 +1,296 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 3 — Doc package (real PDFs)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { background: #ece7d9; }
+  .stage { background: #ece7d9; padding: 60px 100px; }
+  .package-fan {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 32px;
+    flex: 1;
+    padding-top: 10px;
+    align-items: stretch;
+  }
+  .pdf-card {
+    background-color: #ffffff;
+    background-size: cover;
+    background-position: top center;
+    background-repeat: no-repeat;
+    border: 1px solid rgba(20,20,16,0.14);
+    box-shadow:
+      0 40px 80px -40px rgba(20,20,16,0.32),
+      0 12px 20px -12px rgba(20,20,16,0.18);
+    position: relative;
+    display: flex; flex-direction: column;
+    min-height: 455px;
+  }
+  .pdf-card.rot-1 { transform: rotate(-1.6deg); }
+  .pdf-card.rot-2 { transform: rotate(0.8deg); }
+  .pdf-card.rot-3 { transform: rotate(-0.6deg); }
+  .pdf-card.rot-4 { transform: rotate(1.4deg); }
+  .pdf-card .marker {
+    position: absolute; top: -14px; left: 20px;
+    padding: 6px 10px;
+    background: var(--ink-900); color: var(--ink-50);
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .pdf-card .badge-pdf {
+    position: absolute; top: 12px; right: 12px;
+    padding: 3px 8px; border-radius: 3px;
+    background: rgba(122, 20, 20, 0.94); color: #fefdf9;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    z-index: 2;
+  }
+  .pdf-card .frozen-strip {
+    margin-top: auto;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.94);
+    border-top: 1px solid rgba(47,143,118,0.35);
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.10em;
+    color: var(--seal-700);
+    text-transform: uppercase;
+  }
+  .pdf-card .frozen-strip b { color: var(--ink-500); font-weight: 400; letter-spacing: 0.14em; }
+  .approval { background-image: url('../screenshots/pdfs/alderwood-pap-approval-ASP-201-1.png'); }
+  /* Inline Alderwood-branded mock pages for cards 2, 3, 4. Mirrors the
+     structure of the rendered ASP-201 approval letter used for card 1:
+     brand header + nav strip + green title bar + teal info box + body +
+     signature block + footer. Marker label lives outside the clipped inner. */
+  .card-inline { background-color: #fefdf9; padding: 0; overflow: visible;
+                 display: flex; flex-direction: column; }
+  .mock-page { padding: 18px 18px 8px; display: flex; flex-direction: column; flex: 1;
+               gap: 4px; overflow: hidden; font-family: 'Inter', sans-serif; color: var(--ink-900); }
+  .mock-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .mock-brand { font-family: 'Playfair Display', 'Georgia', serif; font-size: 14px; color: #175F5B;
+                font-weight: 700; letter-spacing: 0.01em; line-height: 1.05; }
+  .mock-contact { font-family: 'IBM Plex Mono', monospace; font-size: 6.5px; color: var(--ink-700);
+                  letter-spacing: 0.04em; text-align: right; line-height: 1.55; }
+  .mock-contact .hi { color: #175F5B; font-weight: 500; font-size: 7px; display: block; }
+  .mock-nav { font-family: 'IBM Plex Mono', monospace; font-size: 6px; color: var(--ink-500);
+              letter-spacing: 0.10em; text-transform: uppercase; padding: 4px 0 5px;
+              border-bottom: 1px solid rgba(20,20,16,0.15); }
+  .mock-title-bar { background: #175F5B; color: #fefdf9; padding: 5px 8px;
+                    font-family: 'IBM Plex Mono', monospace; font-size: 7.5px;
+                    letter-spacing: 0.14em; text-transform: uppercase; font-weight: 500;
+                    margin: 4px 0 4px; }
+  .mock-infobox { border: 1.5px solid #175F5B; padding: 5px 6px;
+                  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+                  margin: 2px 0 5px; }
+  .mock-infobox .col { display: flex; flex-direction: column; }
+  .mock-infobox .lbl { font-family: 'IBM Plex Mono', monospace; font-size: 5.5px;
+                       letter-spacing: 0.10em; color: var(--ink-500);
+                       text-transform: uppercase; margin-bottom: 2px; }
+  .mock-infobox .val { font-family: 'IBM Plex Mono', monospace; font-size: 7px;
+                       color: var(--ink-900); font-weight: 500; }
+  .mock-h2 { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 17px;
+             color: #175F5B; font-weight: 400; line-height: 1.15; padding-top: 2px;
+             margin-bottom: 4px; }
+  .mock-body { flex: 1; font-size: 8.5px; color: var(--ink-700); line-height: 1.42;
+               overflow: hidden; }
+  .mock-body p { margin: 3px 0; }
+  .mock-section-hd { font-family: 'IBM Plex Mono', monospace; font-size: 6.5px;
+                     letter-spacing: 0.14em; color: #175F5B; text-transform: uppercase;
+                     margin: 6px 0 3px; padding-bottom: 2px;
+                     border-bottom: 1px solid rgba(23,95,91,0.35); }
+  .mock-fieldgrid { width: 100%; border-collapse: collapse; }
+  .mock-fieldgrid td { padding: 3px 0; vertical-align: top;
+                       border-bottom: 1px dashed rgba(20,20,16,0.15); }
+  .mock-fieldgrid td:first-child { color: var(--ink-500); font-family: 'IBM Plex Mono', monospace;
+                                    font-size: 6px; letter-spacing: 0.10em;
+                                    text-transform: uppercase; width: 45%; padding-right: 6px; }
+  .mock-fieldgrid td:last-child { font-weight: 500; color: var(--ink-900);
+                                   font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; }
+  .mock-list, .mock-bullets { padding-left: 12px; margin: 3px 0; }
+  .mock-list li, .mock-bullets li { margin-bottom: 2px; font-size: 8px; }
+  .mock-list li b, .mock-bullets li b { font-weight: 600; color: var(--ink-900); }
+  .mock-checklist { display: flex; flex-direction: column; gap: 3px; margin: 3px 0; font-size: 8px; }
+  .mock-check .box { display: inline-block; width: 9px; height: 9px;
+                     border: 1.5px solid var(--ink-700); vertical-align: -1px; margin-right: 6px; }
+  .mock-signblock { margin-top: 6px; }
+  .mock-signblock .sincerely { font-family: 'Instrument Serif', serif; font-style: italic;
+                                font-size: 10px; color: var(--ink-700); margin-bottom: 2px; }
+  .mock-sig-line { border-bottom: 1px solid var(--ink-700); height: 14px; width: 60%;
+                   margin-bottom: 3px; }
+  .mock-sig-labels { display: flex; gap: 10px; font-family: 'IBM Plex Mono', monospace;
+                      font-size: 5.5px; color: var(--ink-500); letter-spacing: 0.12em;
+                      text-transform: uppercase; }
+  .mock-footer { font-family: 'IBM Plex Mono', monospace; font-size: 5px; color: var(--ink-500);
+                 letter-spacing: 0.06em; padding-top: 4px;
+                 border-top: 1px solid rgba(20,20,16,0.15); margin-top: 4px;
+                 display: flex; justify-content: space-between; }
+  .package-callout {
+    background: var(--ink-900); color: var(--ink-50);
+    padding: 22px 32px; border-radius: 6px;
+    margin-top: 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 40px;
+  }
+  .package-callout .lhs { font-family: 'Playfair Display', 'Georgia', serif; font-size: 28px; letter-spacing: 0.01em; }
+  .package-callout .lhs em { color: var(--seal-300); font-style: italic; }
+  .package-callout .rhs {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--seal-300);
+    text-align: right;
+  }
+  .package-callout .rhs b { display: block; color: var(--ink-50); font-size: 13px; letter-spacing: 0.10em; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main class="stage col gap-24">
+  <div class="eyebrow">Reply · Real Alderwood templates · human-approved · frozen</div>
+  <h1 class="hero" style="color:#1a1a16;">Not one letter. An <em>ordered doc package.</em></h1>
+  <div class="package-fan">
+    <div class="pdf-card rot-1 approval">
+      <div class="marker">01 · Outcome letter</div>
+      <div class="badge-pdf">PDF</div>
+      <div class="frozen-strip"><b>ASP-201 · Approval</b><span>Frozen · v3</span></div>
+    </div>
+    <div class="pdf-card rot-2 card-inline">
+      <div class="marker">02 · Appeals notice</div>
+      <div class="badge-pdf">PDF</div>
+      <div class="mock-page">
+        <div class="mock-header">
+          <div class="mock-brand">Alderwood<br>Specialty Pharmacy</div>
+          <div class="mock-contact">
+            <span class="hi">Appeals · 1-877-555-0101</span>
+            Fax · 1-877-555-0102<br>
+            appeals@alderwoodrx.example
+          </div>
+        </div>
+        <div class="mock-nav">Hub Services · Benefits Investigation · Copay &amp; Patient Assistance · Home Delivery</div>
+        <div class="mock-title-bar">PATIENT ASSISTANCE PROGRAM · APPEALS NOTICE</div>
+        <div class="mock-infobox">
+          <div class="col"><span class="lbl">LETTER DATE</span><span class="val">09.14.26</span></div>
+          <div class="col"><span class="lbl">PATIENT</span><span class="val">Okafor, D.</span></div>
+          <div class="col"><span class="lbl">DATE OF BIRTH</span><span class="val">12/03/55</span></div>
+          <div class="col"><span class="lbl">REFERRAL ID</span><span class="val">ASP-4821</span></div>
+          <div class="col"><span class="lbl">PROGRAM CODE</span><span class="val">PAP-CV-40</span></div>
+        </div>
+        <div class="mock-h2">Right to appeal this decision.</div>
+        <div class="mock-body">
+          <p>If your application was denied or partially approved, you may request a reconsideration under the Alderwood PAP policy.</p>
+          <div class="mock-section-hd">HOW TO APPEAL</div>
+          <ol class="mock-list">
+            <li>Submit within <b>30 days</b> of the decision date.</li>
+            <li>Include updated financial documentation and a physician statement.</li>
+            <li>Fax 1-877-555-0102 or email appeals@alderwoodrx.example.</li>
+          </ol>
+          <div class="mock-signblock">
+            <div class="sincerely">Sincerely,</div>
+            <div class="mock-sig-line"></div>
+            <div class="mock-sig-labels"><span>COORDINATOR</span><span>TITLE</span><span>DIRECT LINE</span></div>
+          </div>
+        </div>
+        <div class="mock-footer">
+          <span>CONFIDENTIAL — HIPAA-protected. ASP-Appeals (Rev. 05/26).</span>
+          <span>Page 1 of 1</span>
+        </div>
+      </div>
+      <div class="frozen-strip"><b>ASP-Appeals · v2</b><span>Frozen · sha256:c1a4…</span></div>
+    </div>
+    <div class="pdf-card rot-3 card-inline">
+      <div class="marker">03 · Benefits guide</div>
+      <div class="badge-pdf">PDF</div>
+      <div class="mock-page">
+        <div class="mock-header">
+          <div class="mock-brand">Alderwood<br>Specialty Pharmacy</div>
+          <div class="mock-contact">
+            <span class="hi">Member Services · 1-877-555-0100</span>
+            Fax · 1-877-555-0142<br>
+            alderwoodrx.example
+          </div>
+        </div>
+        <div class="mock-nav">Hub Services · Benefits Investigation · Copay &amp; Patient Assistance · Home Delivery</div>
+        <div class="mock-title-bar">PATIENT ASSISTANCE PROGRAM · BENEFITS GUIDE</div>
+        <div class="mock-infobox">
+          <div class="col"><span class="lbl">LETTER DATE</span><span class="val">09.14.26</span></div>
+          <div class="col"><span class="lbl">PATIENT</span><span class="val">Okafor, D.</span></div>
+          <div class="col"><span class="lbl">DATE OF BIRTH</span><span class="val">12/03/55</span></div>
+          <div class="col"><span class="lbl">REFERRAL ID</span><span class="val">ASP-4821</span></div>
+          <div class="col"><span class="lbl">PROGRAM CODE</span><span class="val">PAP-CV-40</span></div>
+        </div>
+        <div class="mock-h2">Your benefits at a glance.</div>
+        <div class="mock-body">
+          <div class="mock-section-hd">WHAT'S COVERED</div>
+          <table class="mock-fieldgrid">
+            <tr><td>Copay per fill</td><td>$0.00</td></tr>
+            <tr><td>Delivery</td><td>Home · standard</td></tr>
+            <tr><td>Refill schedule</td><td>Every 30 days</td></tr>
+            <tr><td>Prior authorization</td><td>Handled by Alderwood</td></tr>
+          </table>
+          <div class="mock-signblock">
+            <div class="sincerely">Questions?</div>
+            <div class="mock-sig-line"></div>
+            <div class="mock-sig-labels"><span>MEMBER SERVICES</span><span>1-877-555-0100</span></div>
+          </div>
+        </div>
+        <div class="mock-footer">
+          <span>CONFIDENTIAL — HIPAA-protected. ASP-Benefits (Rev. 03/26).</span>
+          <span>Page 1 of 2</span>
+        </div>
+      </div>
+      <div class="frozen-strip"><b>ASP-Benefits · v1</b><span>Frozen · sha256:e7f2…</span></div>
+    </div>
+    <div class="pdf-card rot-4 card-inline">
+      <div class="marker">04 · Rx follow-up form</div>
+      <div class="badge-pdf">PDF</div>
+      <div class="mock-page">
+        <div class="mock-header">
+          <div class="mock-brand">Alderwood<br>Specialty Pharmacy</div>
+          <div class="mock-contact">
+            <span class="hi">Refill line · 1-877-555-0102</span>
+            Fax · 1-877-555-0142<br>
+            refills@alderwoodrx.example
+          </div>
+        </div>
+        <div class="mock-nav">Hub Services · Refill · Adherence · Home Delivery</div>
+        <div class="mock-title-bar">PATIENT ASSISTANCE PROGRAM · RX ATTESTATION</div>
+        <div class="mock-infobox">
+          <div class="col"><span class="lbl">LETTER DATE</span><span class="val">09.14.26</span></div>
+          <div class="col"><span class="lbl">PATIENT</span><span class="val">Okafor, D.</span></div>
+          <div class="col"><span class="lbl">DATE OF BIRTH</span><span class="val">12/03/55</span></div>
+          <div class="col"><span class="lbl">REFERRAL ID</span><span class="val">ASP-4821</span></div>
+          <div class="col"><span class="lbl">PROGRAM CODE</span><span class="val">PAP-CV-40</span></div>
+        </div>
+        <div class="mock-h2">Cardiovita 40 mg — refill confirmation.</div>
+        <div class="mock-body">
+          <table class="mock-fieldgrid">
+            <tr><td>Medication</td><td>Cardiovita 40 mg · Tablet</td></tr>
+            <tr><td>Prescriber</td><td>Priya Ramaswamy, MD</td></tr>
+            <tr><td>NPI</td><td>1548217384</td></tr>
+            <tr><td>Refills remaining</td><td>5</td></tr>
+          </table>
+          <div class="mock-section-hd">PLEASE CONFIRM</div>
+          <div class="mock-checklist">
+            <div class="mock-check"><span class="box"></span> Still taking as prescribed</div>
+            <div class="mock-check"><span class="box"></span> No new side effects</div>
+            <div class="mock-check"><span class="box"></span> Dosing unchanged</div>
+          </div>
+          <div class="mock-signblock">
+            <div class="mock-sig-line"></div>
+            <div class="mock-sig-labels"><span>PATIENT SIGNATURE</span><span>DATE</span></div>
+          </div>
+        </div>
+        <div class="mock-footer">
+          <span>CONFIDENTIAL — HIPAA-protected. ASP-RxFU (Rev. 02/26).</span>
+          <span>Page 1 of 1</span>
+        </div>
+      </div>
+      <div class="frozen-strip"><b>ASP-RxFU · v1</b><span>Frozen · Cardiovita 40mg</span></div>
+    </div>
+  </div>
+  <div class="package-callout">
+    <div class="lhs">Every template <em>human-approved.</em> Once frozen — <em>no model can change it.</em></div>
+    <div class="rhs"><b>Doc package · v3</b>sha256:8a3f4c…9b2e</div>
+  </div>
+  <div class="footer-brand">Verdikt</div>
+</main>
+</body>
+</html>

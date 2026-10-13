@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 8 — QR overlay card</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; font-family: 'Inter', sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; padding: 40px; }
+  .qr-panel {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px 34px 30px;
+    box-shadow:
+      0 40px 90px -20px rgba(0, 0, 0, 0.65),
+      0 16px 30px -8px rgba(0, 0, 0, 0.45);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 18px;
+    min-width: 440px;
+  }
+  .qr-panel .qr-head {
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #1e5f4f;
+  }
+  .qr-panel .qr-head::before {
+    content: ""; width: 12px; height: 12px; border-radius: 50%;
+    background: #2f8f76;
+    box-shadow: 0 0 0 5px rgba(47,143,118,0.15);
+  }
+  .qr-panel .qr-img {
+    width: 360px; height: 360px;
+    display: block;
+    border: 1px solid rgba(20,20,16,0.06);
+    border-radius: 6px;
+  }
+  .qr-panel .qr-cta {
+    font-family: 'Instrument Serif', serif;
+    font-size: 34px;
+    color: #141410;
+    letter-spacing: -0.005em;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .qr-panel .qr-cta em { color: #1e5f4f; font-style: italic; }
+  .qr-panel .qr-url {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 17px;
+    color: #3a382f;
+    letter-spacing: 0.03em;
+  }
+  .qr-panel .qr-meta {
+    display: flex; align-items: center; gap: 14px;
+    margin-top: 2px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    color: #6c6858;
+  }
+  .qr-panel .qr-meta .dot { color: #2f8f76; }
+</style>
+</head>
+<body>
+<div class="qr-panel" id="panel">
+  <div class="qr-head">▸ Scan to open</div>
+  <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=720x720&margin=0&data=https%3A%2F%2Fgithub.com%2Fajandan%2Fquire-hackathon" alt="Scan for repo">
+  <div class="qr-cta"><em>Verdikt</em> on GitHub.</div>
+  <div class="qr-url">github.com/ajandan/quire-hackathon</div>
+  <div class="qr-meta"><span>Repo</span><span class="dot">·</span><span>Docker compose</span><span class="dot">·</span><span>MIT</span></div>
+</div>
+</body>
+</html>

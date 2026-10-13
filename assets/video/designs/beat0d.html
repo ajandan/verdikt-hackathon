@@ -1,0 +1,295 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 0d — End-to-end architecture (Ingest · Triage · Decide · Deliver · Remember)</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { background: #f6f5f1; }
+  .stage { background: #f6f5f1; padding: 42px 90px 32px; }
+
+  h1.hero { font-size: 68px; margin: 4px 0 12px; }
+
+  /* --- Channels -> Intake bus --- */
+  .intake-strip {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 40px;
+    align-items: center;
+    margin: 12px 0 18px;
+  }
+  .channels {
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 10px;
+    padding: 14px 18px;
+    box-shadow: 0 12px 24px -14px rgba(20,20,16,0.20);
+  }
+  .channels .ch-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 5px 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-900);
+    letter-spacing: 0.02em;
+  }
+  .channels .ch-row .icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 5px;
+    background: rgba(47,143,118,0.10);
+    color: var(--seal-700);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid rgba(47,143,118,0.30);
+  }
+  .channels .ch-row .kind { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-500); letter-spacing: 0.16em; text-transform: uppercase; margin-left: auto; }
+
+  .bus {
+    display: flex; align-items: center; gap: 24px;
+    padding-left: 20px;
+  }
+  .bus .arrows {
+    flex: 0 0 auto;
+    display: flex; flex-direction: column; gap: 2px;
+    font-family: var(--font-mono); font-size: 20px;
+    color: var(--seal-500);
+    line-height: 0.9;
+  }
+  .bus .intake-bus {
+    background: var(--ink-900);
+    color: var(--ink-50);
+    padding: 22px 28px;
+    border-radius: 10px;
+    box-shadow: 0 20px 40px -18px rgba(20,20,16,0.45);
+    display: flex; flex-direction: column;
+    gap: 4px;
+    min-width: 300px;
+  }
+  .bus .intake-bus .name {
+    font-family: var(--font-serif);
+    font-size: 26px;
+    letter-spacing: 0.01em;
+  }
+  .bus .intake-bus .meta {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.24em;
+    color: var(--seal-300);
+    text-transform: uppercase;
+  }
+  .bus .caption {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-500);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1.55;
+    max-width: 350px;
+  }
+
+  /* --- Zone label bands --- */
+  .zone-bands {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    margin-top: 6px;
+  }
+  .zone-label {
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: rgba(47,143,118,0.06);
+    border: 1px dashed rgba(47,143,118,0.38);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: var(--seal-700);
+    text-align: center;
+  }
+  .zone-label.det {
+    background: rgba(30,95,79,0.06);
+    border-color: rgba(30,95,79,0.42);
+    color: var(--seal-700);
+  }
+
+  /* --- 4 stage columns --- */
+  .stages {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    gap: 22px;
+    margin-top: 12px;
+    flex: 1;
+  }
+  .stage-col {
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 12px;
+    padding: 22px 22px 20px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 40px -22px rgba(20,20,16,0.22);
+  }
+  .stage-col .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--seal-700);
+    margin-bottom: 6px;
+  }
+  .stage-col h3 {
+    font-family: var(--font-serif);
+    font-size: 40px;
+    line-height: 1;
+    color: var(--ink-900);
+    margin: 0 0 14px;
+    letter-spacing: -0.005em;
+  }
+  .stage-col .lead {
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    color: var(--ink-500);
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+  .sub-stage {
+    padding: 10px 12px;
+    background: var(--paper);
+    border-left: 2px solid var(--seal-500);
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .sub-stage .sub-name {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: var(--ink-900);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .sub-stage .sub-body {
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    color: var(--ink-700);
+    line-height: 1.4;
+  }
+  .stage-col.det .sub-stage { border-left-color: var(--seal-700); }
+
+  .outcome-strip {
+    margin-top: 18px;
+    padding: 12px 24px;
+    background: var(--ink-900); color: var(--ink-50);
+    border-radius: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .outcome-strip b { color: var(--seal-300); font-weight: 500; }
+</style>
+</head>
+<body>
+<main class="stage col gap-12">
+  <div class="eyebrow">End-to-end · one pipeline · every outcome traced</div>
+  <h1 class="hero">Every channel. <em>One pipeline.</em></h1>
+
+  <div class="intake-strip">
+    <div class="channels">
+      <div class="ch-row"><span class="icon">≡</span>Fax<span class="kind">scan · PDF</span></div>
+      <div class="ch-row"><span class="icon">✉</span>Postal mail<span class="kind">scan · PDF</span></div>
+      <div class="ch-row"><span class="icon">⌘</span>Web form<span class="kind">JSON</span></div>
+      <div class="ch-row"><span class="icon">@</span>Email<span class="kind">attachments</span></div>
+      <div class="ch-row"><span class="icon">≥</span>REST<span class="kind">JSON</span></div>
+      <div class="ch-row"><span class="icon">▲</span>MCP<span class="kind">tool call</span></div>
+    </div>
+    <div class="bus">
+      <div class="arrows">→<br>→<br>→<br>→<br>→<br>→</div>
+      <div class="intake-bus">
+        <div class="name">Intake bus</div>
+        <div class="meta">normalize · tag · route</div>
+      </div>
+      <div class="caption">Six channels, one shape.<br>Tenant + program resolved before extract runs.</div>
+    </div>
+  </div>
+
+  <div class="zone-bands">
+    <div class="zone-label">◂ AI Zone · pipeline · human-authored rules &amp; templates ▸</div>
+    <div class="zone-label det">◂ Deterministic Zone · reply time · no model, ever ▸</div>
+  </div>
+
+  <div class="stages">
+    <div class="stage-col">
+      <div class="num">Stage I</div>
+      <h3>Ingest</h3>
+      <div class="lead">Every channel normalizes into one inbox event and routes to tenant + program.</div>
+      <div class="sub-stage">
+        <div class="sub-name">Extract</div>
+        <div class="sub-body">A VLM reads fax, postal mail, and email attachments into structured intake slots. Web forms, REST, and MCP arrive as JSON — straight to Retrieve.</div>
+      </div>
+    </div>
+
+    <div class="stage-col">
+      <div class="num">Stage II</div>
+      <h3>Triage</h3>
+      <div class="lead">Classify the case type; route it accordingly.</div>
+      <div class="sub-stage">
+        <div class="sub-name">Classify</div>
+        <div class="sub-body">New intake, refill, appeal, missing-info reply, or not-decidable.</div>
+      </div>
+      <div class="sub-stage">
+        <div class="sub-name">Route</div>
+        <div class="sub-body">Refills → Pharmacy OMS; missing-info → CRM outreach; new intakes → Decide.</div>
+      </div>
+    </div>
+
+    <div class="stage-col">
+      <div class="num">Stage III</div>
+      <h3>Decide</h3>
+      <div class="lead">The pipeline finds the eligibility rules that apply and reasons over them.</div>
+      <div class="sub-stage">
+        <div class="sub-name">Retrieve</div>
+        <div class="sub-body">Rules matched by embedding + rerank against a versioned pack.</div>
+      </div>
+      <div class="sub-stage">
+        <div class="sub-name">Reason</div>
+        <div class="sub-body">Structured verdict — approve, deny, or missing_info. Citations attached.</div>
+      </div>
+    </div>
+
+    <div class="stage-col det">
+      <div class="num">Stage IV</div>
+      <h3>Deliver</h3>
+      <div class="lead">Two artifacts out — the reply and the machine-readable verdict.</div>
+      <div class="sub-stage">
+        <div class="sub-name">Merge</div>
+        <div class="sub-body">Verdict + frozen template → byte-identical PDF letter.</div>
+      </div>
+      <div class="sub-stage">
+        <div class="sub-name">Deliver</div>
+        <div class="sub-body">Reply out to the applicant; JSON verdict to downstream systems.</div>
+      </div>
+    </div>
+
+    <div class="stage-col det">
+      <div class="num">Stage V</div>
+      <h3>Remember</h3>
+      <div class="lead">Every artifact preserved and re-verifiable.</div>
+      <div class="sub-stage">
+        <div class="sub-name">Audit</div>
+        <div class="sub-body">Intake, rules, decision, letter — every stage stamped, hashable, replayable years later.</div>
+      </div>
+      <div class="sub-stage">
+        <div class="sub-name">Rollback</div>
+        <div class="sub-body">Repin an earlier template version. No re-decision. No drift.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="outcome-strip">
+    <span><b>Ingest</b> · Triage · Decide · Deliver · <b>Remember</b></span>
+    <span>Same input · Same package · <b>Forever</b></span>
+  </div>
+</main>
+</body>
+</html>

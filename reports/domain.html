@@ -835,7 +835,7 @@
         </div>
         <div class="pipeline-row">
           <span class="stage">Decide</span>
-          <div class="maps-to">Retrieves the program's eligibility rules (<b>NeMo Retriever</b>), then runs <b>Nemotron Super</b> to produce a structured verdict (approve / deny / missing info) with citations back to the specific rule that fired.</div>
+          <div class="maps-to">Retrieves the program's eligibility rules (dense-vector search with <b>Qwen3-Embedding</b> on Nebius), then runs <b>Nemotron Super</b> to produce a structured verdict (approve / deny / missing info) with citations back to the specific rule that fired.</div>
         </div>
       </div>
       <div>

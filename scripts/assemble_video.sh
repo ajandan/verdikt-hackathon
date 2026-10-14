@@ -536,9 +536,10 @@ render_image_beat() {
     fi
 
     # Beat 5: overlay the design-time labeler slideshow (real captures:
-    # template detail → placement editor with PDF+bboxes → expanded 21-field
-    # list) during the "Templates drafted by design-time AI" narration window
-    # (t=3.0s → 11.0s within the beat — 8s covers all three states).
+    # template detail -> placement editor with PDF+bboxes -> expanded 21-field
+    # list). It runs t=7.2s -> 15.2s, over "from Alderwood's template - sha256
+    # pinned", so the slide's own Human-review gate row stays visible while the
+    # voice says "nothing leaves until a human approves" at t=5.1s.
     local labeler_overlay="$CAPTURE_DIR/labeler-clip.mp4"
     local use_labeler_overlay=""
     if [[ "$beat" == "5" && -f "$labeler_overlay" ]]; then
@@ -573,14 +574,14 @@ render_image_beat() {
             -loop 1 -t "$duration" -i "$image_path" \
             "${audio_inputs[@]}" \
             -i "$tl_png" \
-            -itsoffset 3.0 -i "$labeler_overlay" \
+            -itsoffset 7.2 -i "$labeler_overlay" \
             -filter_complex "
                 [0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
                      pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
                      setsar=1,fps=${FPS}[base];
                 [2:v]scale=${TIMELINE_W}:-1[tl];
                 [base][tl]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}${tl_ena}[b1];
-                [b1][3:v]overlay=0:0:enable='between(t,3.0,11.0)'[v];
+                [b1][3:v]overlay=0:0:enable='between(t,7.2,15.2)'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \

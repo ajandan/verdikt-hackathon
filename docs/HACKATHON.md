@@ -29,21 +29,22 @@ Provable mechanically:
 
 | Requirement | Satisfied by |
 | --- | --- |
-| Runs on Nebius Token Factory / Nebius AI Cloud | Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory (`src/docgen/providers/nebius.py`); retrieval uses NeMo Retriever NIMs; extraction uses `nv-ingest` on a Nebius AI Cloud VM. Deploy runbook: [`docs/deploy-nebius.md`](deploy-nebius.md). |
-| ≥ 1 NVIDIA open-source model | Three, one per stage: `nv-ingest` (multimodal extraction), NeMo Retriever NIMs (`nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3`), and Nemotron Super (reasoning). All published under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
+| Runs on Nebius Token Factory / Nebius AI Cloud | Every model call goes through one Nebius Token Factory endpoint (`src/docgen/providers/nebius.py`): MiniCPM-V for reading, Nemotron Nano for triage, Qwen3-Embedding for retrieval, Nemotron Super for the verdict. Deploy runbook: [`docs/deploy-nebius.md`](deploy-nebius.md). |
+| ≥ 1 NVIDIA open-source model | Two NVIDIA Nemotron models: Nemotron Nano (triage) and Nemotron Super (the verdict), both under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
 | Approved OSS license | MIT — see [`LICENSE`](../LICENSE). |
 | Public repo, public demo URL, README | This repo (public by 2026-10-30) + [`README.md`](../README.md) + Devpost-published demo URL. |
 | YouTube video < 3 min | Full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — five beats, 2:55 target run-time, two engineered applause lines; link added post-recording. |
 
 ## The three-stage Verdikt architecture
 
-Three NVIDIA-family models on one Nebius key, chosen by task shape at each stage:
+Four open models on one Nebius key, chosen by task shape at each stage (the Deliver and Remember stages use no model):
 
 | Stage | What runs | Why this model, why here |
 | --- | --- | --- |
-| **Extract** | `nv-ingest` on a Nebius AI Cloud VM | Multimodal PDF extraction over messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters. Vision handles what regex cannot. Nothing else runs at this stage. |
-| **Retrieve** | NeMo Retriever NIMs — `nv-embedqa-e5-v5` + `nv-rerankqa-mistral-4b-v3` | Embedding + rerank surface the eligibility rules that apply to *this* case, from a vector store populated at startup from `src/pap_pipeline/rules/*.yaml`. The rules are human-authored and human-versioned; the model's job is to find, not to invent. |
-| **Reason** | Nemotron Super (non-reasoning mode) on Nebius Token Factory | Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape. |
+| **Ingest** | `openbmb/MiniCPM-V-4_5` (vision) on Nebius Token Factory | Reads messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters — into the program's field schema. Vision handles what regex cannot. |
+| **Triage** | Nemotron Nano on Nebius Token Factory (rule-based fallback) | Classifies the case (new intake, refill, appeal, missing-info reply, not decidable) and routes it. |
+| **Decide: retrieve** | `Qwen/Qwen3-Embedding-8B` (dense vectors; rerank off) | Surfaces the eligibility rules that apply to *this* case, from a vector store populated at startup from `src/pap_pipeline/rules/*.yaml`. The rules are human-authored and human-versioned; the model's job is to find, not to invent. |
+| **Decide: verdict** | Nemotron Super (non-reasoning mode) on Nebius Token Factory | Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape. |
 
 Every model call is instrumented (`src/pap_pipeline/routing.py`) with model name, tokens in/out, wall-clock latency, and per-call cost. The routing-table admin page at `/ui/admin/routing` renders the resulting matrix — real numbers per call site, per stage, defensible as evidence rather than assertion.
 

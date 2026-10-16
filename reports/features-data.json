@@ -23,12 +23,12 @@
     {
       "id": "pipeline",
       "name": "PAP Pipeline (Verdikt)",
-      "description": "Three-stage decision pipeline (extract, retrieve, reason) from raw enrollment packet to structured JSON verdict with rule citations.",
+      "description": "Five-stage decision pipeline (ingest, triage, decide, deliver, remember) from raw enrollment packet to structured JSON verdict with rule citations.",
       "features": [
         {
-          "name": "Intake extraction (nv-ingest, multimodal)",
+          "name": "Intake extraction (MiniCPM-V, multimodal)",
           "status": "shipped",
-          "description": "Vision-language extraction over mixed PDFs, images, and OCR'd faxes. Runs on Nebius AI Cloud VM.",
+          "description": "Vision-language extraction over mixed PDFs, images, and OCR'd faxes. Served by Nebius Token Factory.",
           "evidence": "src/pap_pipeline/stages/extract.py"
         },
         {
@@ -38,9 +38,9 @@
           "evidence": "alembic 0023 / 0024, /ui/programs"
         },
         {
-          "name": "Rule retrieval (NeMo Retriever NIMs)",
+          "name": "Rule retrieval (Qwen3-Embedding)",
           "status": "shipped",
-          "description": "pgvector store seeded from rules/*.yaml. nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 rerank.",
+          "description": "pgvector store seeded from rules/*.yaml. Qwen/Qwen3-Embedding-8B dense retrieval; rerank off.",
           "evidence": "src/pap_pipeline/stages/retrieve.py"
         },
         {

@@ -25,7 +25,7 @@
       "id": "R1",
       "name": "Runs on Nebius Token Factory / Nebius AI Cloud",
       "status": "met",
-      "how": "Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory. Retrieval uses NeMo Retriever NIMs. Extraction runs nv-ingest on a Nebius AI Cloud VM (deploy deferred to mid-Nov; runbook pre-flighted).",
+      "how": "Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory. Reading uses MiniCPM-V, triage uses Nemotron Nano, retrieval uses Qwen3-Embedding, all via Token Factory (deploy of the app itself deferred to mid-Nov; runbook pre-flighted).",
       "evidence": [
         "src/docgen/providers/nebius.py (Nebius Token Factory adapter)",
         "docs/deploy-nebius.md (Nebius AI Cloud deploy runbook)",
@@ -36,12 +36,11 @@
       "id": "R2",
       "name": "\u2265 1 NVIDIA open-source model",
       "status": "met",
-      "how": "Three models, one per pipeline stage, all published under the nvidia/ namespace. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
+      "how": "Nemotron Nano (triage) and Nemotron Super (verdict), both under the nvidia/ namespace. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
       "evidence": [
-        "nv-ingest (multimodal extraction)",
-        "nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 (NeMo Retriever NIMs)",
-        "nvidia/llama-3.1-nemotron-70b-instruct (reasoning)",
-        "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
+        "nvidia/nemotron-3-super-120b-a12b (verdict)",
+        "Nemotron Nano (triage, rule-based fallback)",
+                "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
       ]
     },
     {
@@ -82,20 +81,20 @@
     "one_liner": "AI runs where it earns its place: reading documents, retrieving rules, reasoning over both. Then AI stops. No language model sits on the code path that generates the audited artifact.",
     "stages": [
       {
-        "stage": "Extract",
-        "model": "nv-ingest",
-        "host": "Nebius AI Cloud VM",
+        "stage": "Ingest",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "host": "Nebius Token Factory",
         "why": "Multimodal PDF extraction over messy, mixed-modality attachments: pay stubs, insurance cards, prescriptions, denial letters. Vision handles what regex cannot."
       },
       {
         "stage": "Retrieve",
-        "model": "nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3",
-        "host": "NeMo Retriever NIMs",
-        "why": "Embedding + rerank surface the eligibility rules that apply to this case, from a pgvector store populated at startup from human-authored YAML. The model's job is to find, not to invent."
+        "model": "Qwen/Qwen3-Embedding-8B",
+        "host": "Nebius Token Factory",
+        "why": "Dense retrieval surfaces the eligibility rules that apply to this case, from a pgvector store populated at startup from human-authored YAML. The model's job is to find, not to invent."
       },
       {
         "stage": "Reason",
-        "model": "nvidia/llama-3.1-nemotron-70b-instruct",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
         "host": "Nebius Token Factory",
         "why": "Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate: the reasoning variant burns output tokens on trace and returns empty content on this task shape."
       }

@@ -20,7 +20,7 @@ The outbound reply is a byte-identical merge of a human-approved template with t
 
 That last property is the whole point. In regulated document workflows — Patient Assistance Programs, prior authorization, benefit verification, MedWatch reporting, informed consent — the letter that leaves the building is the artifact under audit. It has to be reproducible bit-for-bit, defensible against a validation package, and free of unpredictable model drift. LLM-in-the-loop letter generation cannot make any of those guarantees. A deterministic merge over a structured decision can make all of them.
 
-None of this is a rejection of AI. It is a rejection of AI in the wrong place. The pipeline uses three NVIDIA-family models — multimodal extraction (`nv-ingest`), retrieval embedding and rerank (NeMo Retriever NIMs), and reasoning (Nemotron on Nebius Token Factory) — each deployed at the stage where its capability matters and nowhere else. What we removed is not intelligence. It is non-determinism from the output surface.
+None of this is a rejection of AI. It is a rejection of AI in the wrong place. The pipeline uses open models served from one Nebius Token Factory endpoint — multimodal reading (MiniCPM-V), triage (Nemotron Nano), retrieval embedding (Qwen3-Embedding), and the verdict (Nemotron Super) — each deployed at the stage where its capability matters and nowhere else. What we removed is not intelligence. It is non-determinism from the output surface.
 
 ## But aren't agents the future?
 

@@ -3,166 +3,97 @@
 <head>
 <meta charset="utf-8">
 <title>Verdikt — one slide</title>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-  /* Layout language of the reference one-pager, Verdikt's own palette and components (assets/video/designs/common.css). */
+  /* Keynote-style single slide: one idea, generous space, one hairline diagram.
+     Verdikt palette and type from assets/video/designs/common.css. */
   :root {
-    --paper:#f6f5f1; --card:#ffffff; --line:rgba(20,20,16,.12); --ink:#141410; --ink-700:#3a382f; --ink-500:#6c6858; --ink-300:#a9a394;
-    --deep:#153f35; --seal-700:#1e5f4f; --seal-500:#2f8f76; --seal-300:#8ec7b5; --amber:#f59e0b; --amber-ink:#8a3f14; --rose:#b04a3f;
+    --paper:#f7f6f2; --ink:#141410; --ink-700:#3a382f; --ink-500:#6c6858; --ink-300:#a9a394; --hair:#dcd8c8;
+    --seal-700:#1e5f4f; --seal-500:#2f8f76; --amber:#f59e0b; --amber-ink:#8a3f14; --rose:#b04a3f;
     --serif:'Instrument Serif',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,monospace;
   }
   @page { size:1920px 1080px; margin:0; }
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .slide { width:1920px; height:1080px; background:var(--paper); color:var(--ink); font-family:var(--sans); position:relative; overflow:hidden; }
+  .slide { width:1920px; height:1080px; background:var(--paper); color:var(--ink); font-family:var(--sans); position:relative; overflow:hidden; padding:72px 120px 0; }
+  .slide::before { content:""; position:absolute; inset:0; pointer-events:none;
+      background:radial-gradient(ellipse 900px 520px at 88% -8%, rgba(47,143,118,.10), rgba(247,246,242,0) 70%),
+                 radial-gradient(ellipse 700px 420px at -6% 104%, rgba(245,158,11,.08), rgba(247,246,242,0) 70%); }
+  .slide > * { position:relative; }
 
-  /* header band */
-  .hdr { height:188px; background:var(--deep); color:var(--paper); display:flex; align-items:center; padding:0 64px; gap:36px; }
-  .hdr img { width:104px; height:104px; flex:none; }
-  .hdr .ttl { flex:1; }
-  .hdr h1 { font-family:var(--serif); font-weight:400; font-size:68px; line-height:1; margin:0 0 18px; letter-spacing:-.01em; }
-  .hdr h1 span { font-size:34px; color:#b8cdc5; margin-left:10px; }
-  .hdr h1 i { color:var(--seal-300); }
-  .hdr p { margin:0; font-size:24px; line-height:1.5; color:#d9e4df; max-width:1040px; }
-  .hdr p b { color:var(--amber); font-weight:600; }
-  .hdr .tag { text-align:right; display:flex; flex-direction:column; gap:20px; align-items:flex-end; }
-  .pill { background:var(--amber); color:var(--ink); border-radius:999px; padding:11px 26px; font-weight:700; font-size:19px; letter-spacing:.1em; text-transform:uppercase; }
-  .evt { color:var(--amber); font-weight:700; font-size:16px; letter-spacing:.12em; text-transform:uppercase; }
+  .bar { display:flex; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:16px; font-weight:600; font-size:27px; letter-spacing:-.01em; }
+  .brand img { width:46px; height:46px; }
+  .meta { font-size:20px; color:var(--ink-500); letter-spacing:.01em; }
 
-  .lbl { font-family:var(--mono); font-weight:500; font-size:19px; letter-spacing:.14em; text-transform:uppercase; color:var(--seal-700); display:flex; align-items:center; gap:12px; }
-  .lbl::before { content:""; width:10px; height:10px; border-radius:50%; background:var(--seal-500); }
-  .body { padding:24px 64px 0; }
+  h1 { font-family:var(--serif); font-weight:400; font-size:108px; line-height:1; letter-spacing:-.025em; margin:40px 0 0; }
+  h1 .r { color:var(--seal-700); font-style:italic; }
+  .sub { font-size:29px; line-height:1.42; color:var(--ink-500); margin:20px 0 0; max-width:1380px; font-weight:400; }
+  .sub b { color:var(--ink); font-weight:500; }
 
-  /* flow strip */
-  .flow { margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 24px 60px -36px rgba(20,20,16,.3); display:flex; align-items:stretch; padding:14px 18px; gap:6px; height:128px; }
-  .step { flex:1; padding:0 8px; }
-  .step .t { font-weight:600; font-size:20px; line-height:1.2; margin-top:7px; }
-  .step .d { font-size:16.5px; line-height:1.3; color:var(--ink-500); margin-top:3px; }
-  .chip { display:inline-block; font-family:var(--mono); font-size:13.5px; letter-spacing:.06em; text-transform:uppercase; padding:2px 10px; border-radius:999px; background:#eeece4; color:var(--ink-700); }
-  .chip.ai { background:var(--seal-700); color:#fff; }
-  .chip.det { background:var(--amber); color:var(--ink); }
-  .chip.hu { background:var(--amber-ink); color:#fff; }
-  .chev { align-self:center; color:var(--amber); font-size:30px; font-weight:700; flex:none; }
+  .pillars { display:grid; grid-template-columns:repeat(3,1fr); gap:72px; margin-top:54px; }
+  .p { border-top:3px solid var(--c); padding-top:20px; }
+  .p .n { font-family:var(--mono); font-size:17px; letter-spacing:.14em; color:var(--c); }
+  .p h3 { font-size:36px; font-weight:600; letter-spacing:-.02em; margin:8px 0 8px; }
+  .p p { margin:0; font-size:21.5px; line-height:1.45; color:var(--ink-700); }
 
-  /* main grid */
-  .main { display:flex; gap:22px; margin-top:16px; }
-  .left { flex:1; }
-  .cards { display:flex; gap:16px; margin-top:10px; height:482px; }
-  .card { flex:1; background:var(--card); border:1px solid var(--line); border-top:7px solid var(--acc); border-radius:12px; padding:18px 22px; box-shadow:0 24px 60px -36px rgba(20,20,16,.3);
-          background-image:linear-gradient(180deg, var(--tint) 0, #fff 130px); }
-  .card.g { --acc:var(--seal-500); --tint:rgba(47,143,118,.13); --k:var(--seal-700); }
-  .card.a { --acc:var(--amber); --tint:rgba(245,158,11,.17); --k:var(--amber-ink); }
-  .card.d { --acc:var(--seal-700); --tint:rgba(30,95,79,.15); --k:var(--seal-700); }
-  .card .k { font-family:var(--mono); font-weight:500; font-size:15px; letter-spacing:.12em; text-transform:uppercase; color:var(--k); }
-  .card h3 { font-family:var(--serif); font-weight:400; font-size:40px; line-height:1.05; margin:8px 0 12px; }
-  .card ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px; }
-  .card li { position:relative; padding-left:20px; font-size:20px; line-height:1.34; color:var(--ink-700); }
-  .card li::before { content:""; position:absolute; left:0; top:10px; width:9px; height:9px; border-radius:50%; background:var(--acc); }
-  .card li b { color:var(--ink); font-weight:600; }
+  .pipe { position:relative; height:128px; margin-top:50px; }
+  .pipe .tag { position:absolute; top:0; font-family:var(--mono); font-size:16px; letter-spacing:.16em; text-transform:uppercase; }
+  .pipe .rail { position:absolute; top:52px; height:3px; border-radius:2px; }
+  .pipe .line { position:absolute; top:26px; bottom:0; width:0; border-left:2px dashed var(--ink-300); }
+  .pipe .line span { position:absolute; top:-26px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:15px; letter-spacing:.14em; color:var(--ink-500); background:var(--paper); padding:0 8px; white-space:nowrap; }
+  .node { position:absolute; top:42px; width:280px; margin-left:-140px; text-align:center; }
+  .node i { display:block; width:22px; height:22px; border-radius:50%; margin:0 auto; background:var(--c); box-shadow:0 0 0 7px var(--halo); }
+  .node b { display:block; font-size:24px; font-weight:600; margin-top:20px; letter-spacing:-.01em; }
+  .node small { display:block; font-size:18px; color:var(--ink-500); margin-top:3px; }
 
-  .guard { margin-top:14px; background:var(--deep); color:#d9e4df; border-radius:12px; padding:16px 24px; display:flex; gap:22px; align-items:center; height:76px; font-size:19.5px; line-height:1.35; }
-  .guard .g { color:var(--amber); font-weight:700; letter-spacing:.14em; font-size:16px; text-transform:uppercase; flex:none; }
-  .guard b { color:var(--paper); font-weight:600; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); margin-top:40px; border-top:1px solid var(--hair); }
+  .st { padding:18px 28px 0 0; }
+  .st + .st { padding-left:28px; border-left:1px solid var(--hair); }
+  .st b { display:block; font-family:var(--serif); font-weight:400; font-size:58px; line-height:1; letter-spacing:-.02em; }
+  .st span { display:block; font-size:19px; line-height:1.35; color:var(--ink-500); margin-top:6px; }
 
-  .right { width:560px; }
-  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
-  .tile { background:var(--deep); color:var(--paper); border-radius:12px; padding:12px 18px; height:134px; }
-  .tile .n { font-family:var(--serif); font-size:44px; line-height:1; }
-  .tile .h { font-weight:600; font-size:19px; margin-top:6px; line-height:1.2; }
-  .tile .s { font-size:15.5px; color:#b8cdc5; margin-top:3px; line-height:1.3; }
-  .chart { margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 18px; height:166px; display:flex; gap:18px; box-shadow:0 24px 60px -36px rgba(20,20,16,.3); }
-  .chart .c { width:250px; }
-  .bars { display:flex; align-items:flex-end; gap:30px; height:92px; border-bottom:2px solid var(--ink-300); margin-top:6px; padding:0 10px; }
-  .bar { width:76px; border-radius:4px 4px 0 0; position:relative; }
-  .bar span { position:absolute; top:-24px; left:0; right:0; text-align:center; font-weight:700; font-size:17px; }
-  .bar.b1 { height:15px; background:var(--ink-300); }
-  .bar.b2 { height:62px; background:var(--seal-500); }
-  .barlab { display:flex; gap:30px; padding:4px 10px 0; font-size:13.5px; color:var(--ink-500); white-space:nowrap; }
-  .barlab div { width:76px; text-align:center; }
-  .chart .tx { flex:1; font-size:16.5px; line-height:1.38; color:var(--ink-700); display:flex; flex-direction:column; justify-content:center; gap:7px; }
-  .chart .tx b { color:var(--ink); }
-  .callout { margin-top:10px; background:var(--amber); border-radius:12px; padding:0 24px; height:72px; display:flex; align-items:center; font-family:var(--serif); font-size:25px; line-height:1.15; color:var(--ink); }
-
-  .foot { position:absolute; left:64px; right:64px; bottom:22px; display:flex; justify-content:space-between; font-size:17px; color:var(--ink-500); }
-  .foot b { color:var(--ink); font-weight:600; }
-  .strip { position:absolute; left:0; right:0; bottom:0; height:8px; background:linear-gradient(90deg, #2f8f76 0 34%, #f59e0b 34% 67%, #b04a3f 67% 100%); }
+  .foot { position:absolute; left:120px; right:120px; bottom:30px; font-size:16px; color:var(--ink-300); display:flex; justify-content:space-between; }
+  .strip { position:absolute; left:0; right:0; bottom:0; height:6px; background:linear-gradient(90deg,#2f8f76 0 34%,#f59e0b 34% 67%,#b04a3f 67% 100%); }
 </style>
 </head>
 <body>
 <div class="slide">
-  <div class="hdr">
-    <img src="../assets/video/designs/verdikt-mark.png" alt="">
-    <div class="ttl">
-      <h1>Verdikt<i>.</i> <span>· AI reads, deterministic code writes, humans decide</span></h1>
-      <p>Reads the case, decides against the program's own rules, and sends a reply that <b>no language model touched</b>.</p>
-    </div>
-    <div class="tag"><div class="pill">Track · Best Apps &amp; Agents</div><div class="evt">Nebius × NVIDIA Global AI Hackathon 2026</div></div>
+  <div class="bar">
+    <div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div>
+    <div class="meta">Nebius × NVIDIA Global AI Hackathon 2026 · Best Apps &amp; Agents</div>
   </div>
 
-  <div class="body">
-    <div class="lbl">How one case flows · every step built and running</div>
-    <div class="flow">
-      <div class="step"><span class="chip hu">Human</span><div class="t">Packet arrives</div><div class="d">Email, JSON or MCP; fax and scans as attachments</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip">IMAP · API</span><div class="t">One case</div><div class="d">Normalized, tenant-scoped, deduped</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip ai">AI · VLM</span><div class="t">Ingest reads</div><div class="d">MiniCPM-V into the program's field schema</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip ai">AI · LLM</span><div class="t">Triage routes</div><div class="d">Nemotron Nano, rule-based fallback</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip ai">AI · LLM</span><div class="t">Decide cites</div><div class="d">Qwen3 retrieval, Nemotron Super verdict</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip det">No AI</span><div class="t">Deliver merges</div><div class="d">Verdict into a frozen, approved template</div></div><div class="chev">›</div>
-      <div class="step"><span class="chip hu">Human</span><div class="t">Reviewer decides</div><div class="d">Approve or reject; audit entry per stage</div></div>
-    </div>
+  <h1>AI reads. Code writes. <span class="r">Humans decide.</span></h1>
+  <p class="sub">A decision pipeline for regulated document workflows. <b>Every verdict cites the rule that fired,</b> and the reply that leaves the building is never written by a model.</p>
 
-    <div class="main">
-      <div class="left">
-        <div class="lbl">What we built</div>
-        <div class="cards">
-          <div class="card g"><div class="k">AI-in · reviewable</div><h3>Models read and decide</h3>
-            <ul>
-              <li><b>Ingest</b> reads attachments into the program's own field schema</li>
-              <li><b>Triage</b> classifies and routes; refills skip the verdict</li>
-              <li><b>Retrieve</b> finds the rules that apply, by embedding</li>
-              <li><b>Verdict:</b> approve, deny or missing info, with the rule cited</li>
-              <li><b>Every model call</b> has a fallback and an audit entry</li>
-            </ul></div>
-          <div class="card a"><div class="k">Deterministic-out</div><h3>Code writes the reply</h3>
-            <ul>
-              <li><b>Frozen templates:</b> human-approved, versioned, hashed</li>
-              <li><b>Merged, not generated:</b> no model on the render path</li>
-              <li><b>Reply package:</b> the letter plus the enclosures that outcome needs</li>
-              <li><b>Boundary test</b> fails the build if render imports the AI layer</li>
-              <li><b>Reproducible:</b> template version and render fingerprint on record</li>
-            </ul></div>
-          <div class="card d"><div class="k">People and control</div><h3>Humans on exceptions</h3>
-            <ul>
-              <li><b>Pipeline view:</b> each stage's output, highlighted on the source PDF</li>
-              <li><b>Approve or reject</b> a held reply before it leaves</li>
-              <li><b>Rules library:</b> human-authored and versioned</li>
-              <li><b>Programs as data:</b> a new program needs no build</li>
-              <li><b>Tenant scoping,</b> roles, signed idempotent webhooks</li>
-            </ul></div>
-        </div>
-        <div class="guard"><span class="g">Guardrails</span><span>The verdict <b>cites the rule that fired</b> · the template is <b>frozen before it can render</b> · <b>no model at render time</b> · every stage is audited with its model and time · one Nebius endpoint, <b>model per stage configurable</b></span></div>
-      </div>
-
-      <div class="right">
-        <div class="lbl">What it proves</div>
-        <div class="tiles">
-          <div class="tile"><div class="n" style="color:var(--amber)">921</div><div class="h">tests in the suite</div><div class="s">916 passing, 0 failing, 5 skipped</div></div>
-          <div class="tile"><div class="n" style="color:var(--seal-300)">0</div><div class="h">models on render</div><div class="s">Letter merged from a frozen template</div></div>
-          <div class="tile"><div class="n" style="color:var(--seal-300)">5</div><div class="h">stages, each observable</div><div class="s">Ingest through Remember</div></div>
-          <div class="tile"><div class="n" style="color:var(--amber)">2</div><div class="h">programs, same code</div><div class="s">One household passes one cap, fails the other</div></div>
-        </div>
-        <div class="chart">
-          <div class="c"><div class="lbl" style="font-size:13px;letter-spacing:.06em">Fields right, of 104</div>
-            <div class="bars"><div class="bar b1"><span>24</span></div><div class="bar b2"><span>98</span></div></div>
-            <div class="barlab"><div>Text only</div><div>Vision</div></div></div>
-          <div class="tx"><div><b>One dense form,</b> one benchmark; not a guarantee</div><div><b>Pilot figures</b> (re-open rate, time to verdict, cost per case) are still to be measured</div></div>
-        </div>
-        <div class="callout">A reusable pattern: any regulated letter that is also the audit artifact.</div>
-      </div>
-    </div>
+  <div class="pillars">
+    <div class="p" style="--c:var(--seal-500)"><div class="n" style="color:var(--seal-700)">01 · AI-IN</div><h3>AI reads</h3><p>Vision, triage and retrieval models turn a case file into structured fields and a cited verdict. Every step has a fallback.</p></div>
+    <div class="p" style="--c:var(--amber)"><div class="n" style="color:var(--amber-ink)">02 · DETERMINISTIC-OUT</div><h3>Code writes</h3><p>The reply is merged from a frozen, human-approved template. No model on the render path, enforced by a build-time test.</p></div>
+    <div class="p" style="--c:var(--ink)"><div class="n" style="color:var(--ink-500)">03 · PEOPLE</div><h3>Humans decide</h3><p>A reviewer sees every stage in the pipeline view, then approves or rejects a held reply before it leaves.</p></div>
   </div>
 
-  <div class="foot"><span><b>Verdikt</b> · AI-in, deterministic-out</span><span>Test counts from the latest full run · demo data is fictional · no business-value figures are claimed</span></div>
+  <div class="pipe">
+    <div class="tag" style="left:0;color:var(--seal-700)">AI-in · reviewable</div>
+    <div class="tag" style="right:0;color:var(--amber-ink)">Deterministic-out · no model</div>
+    <div class="rail" style="left:0;width:1008px;background:var(--seal-500)"></div>
+    <div class="rail" style="left:1008px;width:672px;background:var(--amber)"></div>
+    <div class="line" style="left:1008px"><span>THE LINE</span></div>
+    <div class="node" style="left:168px;--c:var(--seal-500);--halo:rgba(47,143,118,.18)"><i></i><b>Ingest</b><small>MiniCPM-V</small></div>
+    <div class="node" style="left:504px;--c:var(--seal-500);--halo:rgba(47,143,118,.18)"><i></i><b>Triage</b><small>Nemotron Nano</small></div>
+    <div class="node" style="left:840px;--c:var(--seal-500);--halo:rgba(47,143,118,.18)"><i></i><b>Decide</b><small>Qwen3 + Nemotron Super</small></div>
+    <div class="node" style="left:1176px;--c:var(--amber);--halo:rgba(245,158,11,.22)"><i></i><b>Deliver</b><small>Frozen template</small></div>
+    <div class="node" style="left:1512px;--c:var(--amber);--halo:rgba(245,158,11,.22)"><i></i><b>Remember</b><small>Audit and hashes</small></div>
+  </div>
+
+  <div class="stats">
+    <div class="st"><b>921</b><span>tests, 916 passing, 0 failing</span></div>
+    <div class="st"><b style="color:var(--seal-700)">0</b><span>models on the render path</span></div>
+    <div class="st"><b>24 → 98</b><span>of 104 fields labeled right, with vision and crop</span></div>
+    <div class="st"><b style="color:var(--amber-ink)">2</b><span>programs on one codebase, same household, opposite verdicts</span></div>
+  </div>
+
+  <div class="foot"><span>Test counts from the latest full run · labeling result is one benchmark form · demo data is fictional · pilot figures not yet measured</span><span>AI-in, deterministic-out</span></div>
   <div class="strip"></div>
 </div>
 </body>

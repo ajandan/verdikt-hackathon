@@ -1,0 +1,327 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Verdikt Labeler — design-time workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f5f1;
+    --surface: #ffffff;
+    --surface-2: #faf9f4;
+    --surface-3: #eeece4;
+    --border: #dcd8c8;
+    --border-strong: #a9a394;
+    --text: #141410;
+    --text-muted: #6c6858;
+    --text-subtle: #a9a394;
+    --brand: #2f8f76;
+    --brand-hover: #1e5f4f;
+    --brand-soft: rgba(47,143,118,0.10);
+    --brand-fg: #f6f5f1;
+    --accent: #1e5f4f;
+    --success: #059669;
+    --amber: #b45309;
+    --warn-soft: #fef3c7;
+  }
+  html, body { margin: 0; padding: 0; background: var(--bg);
+               font-family: 'Inter', sans-serif; color: var(--text); }
+  body { width: 1920px; height: 1080px; overflow: hidden; }
+
+  .app { display: grid; grid-template-columns: 240px 1fr; height: 1080px; }
+
+  /* Sidebar */
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border);
+             padding: 24px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .sidebar .brand {
+    font-family: 'Instrument Serif', serif; font-size: 26px; color: var(--text);
+    padding: 0 8px 20px; letter-spacing: 0.005em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sidebar .brand::before {
+    content: ""; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--brand);
+    box-shadow: inset 0 0 0 3px var(--brand-fg);
+  }
+  .sidebar .nav-group { font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+                        letter-spacing: 0.16em; color: var(--text-subtle);
+                        text-transform: uppercase; padding: 10px 8px 6px; }
+  .sidebar .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 6px;
+    font-size: 14px; color: var(--text-muted); cursor: pointer;
+  }
+  .sidebar .nav-item .icon {
+    width: 16px; height: 16px; display: inline-block;
+    background: currentColor; opacity: 0.4;
+    mask: linear-gradient(#000,#000) center/12px 12px no-repeat;
+    -webkit-mask: linear-gradient(#000,#000) center/12px 12px no-repeat;
+  }
+  .sidebar .nav-item.active {
+    background: var(--brand-soft); color: var(--brand); font-weight: 500;
+  }
+  .sidebar .nav-item.active .icon { opacity: 1; }
+
+  /* Main pane */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 14px 32px; display: flex; align-items: center;
+            justify-content: space-between; gap: 20px; }
+  .breadcrumb { font-size: 13px; color: var(--text-muted); }
+  .breadcrumb a { color: var(--text-muted); }
+  .breadcrumb .sep { color: var(--text-subtle); margin: 0 6px; }
+  .doc-title { display: flex; align-items: center; gap: 12px; }
+  .doc-title h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+           padding: 4px 8px; border-radius: 3px; letter-spacing: 0.12em;
+           text-transform: uppercase; }
+  .badge.draft { background: var(--warn-soft); color: var(--amber); }
+  .badge.frozen { background: rgba(5,150,105,0.14); color: var(--success); }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+         padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);
+         background: var(--surface); color: var(--text); cursor: pointer;
+         display: inline-flex; align-items: center; gap: 6px; }
+  .btn.primary { background: var(--brand); color: var(--brand-fg); border-color: var(--brand); }
+  .btn.primary.pulse {
+    box-shadow: 0 0 0 0 rgba(47,143,118,0.5);
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(47,143,118,0.55); }
+    100% { box-shadow: 0 0 0 20px rgba(47,143,118,0); }
+  }
+
+  /* Content area: PDF + right panel */
+  .content { flex: 1; display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+  .pdf-pane { background: var(--surface-3); overflow: hidden;
+              display: flex; align-items: flex-start; justify-content: center;
+              padding: 32px; position: relative; }
+  .pdf-page {
+    position: relative;
+    width: 720px; height: 932px;
+    background-image: url('../screenshots/pdfs/alderwood-pap-approval-ASP-201-1.png');
+    background-size: 100% 100%; background-repeat: no-repeat;
+    background-color: #fff;
+    border: 1px solid var(--border);
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.35),
+                0 8px 16px -8px rgba(20,20,16,0.18);
+  }
+  /* Bounding boxes overlay — positioned as % of PDF page */
+  .bbox {
+    position: absolute; box-sizing: border-box;
+    border: 2px solid var(--brand);
+    background: rgba(47,143,118,0.08);
+    border-radius: 2px;
+    opacity: 0;
+    animation: bbox-in 0.4s ease-out forwards;
+  }
+  .bbox.done { border-color: var(--success); background: rgba(5,150,105,0.10); }
+  .bbox .tag {
+    position: absolute; top: -22px; left: -1px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    background: var(--brand); color: var(--brand-fg);
+    padding: 2px 6px; border-radius: 2px 2px 2px 0;
+    white-space: nowrap;
+  }
+  .bbox.done .tag { background: var(--success); }
+  @keyframes bbox-in { to { opacity: 1; } }
+
+  /* Right panel — field detection */
+  .panel { background: var(--surface); border-left: 1px solid var(--border);
+           padding: 22px 22px; display: flex; flex-direction: column; gap: 14px;
+           overflow: hidden; }
+  .panel-h { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+             letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
+  .panel h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  .panel-hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+  .detect-cta {
+    display: flex; gap: 8px; padding: 12px; border-radius: 8px;
+    background: var(--brand-soft); color: var(--brand);
+    align-items: center; font-size: 13px; font-weight: 500;
+  }
+  .detect-cta::before {
+    content: "✨"; font-size: 14px;
+  }
+
+  .detect-status {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--surface-2); border-radius: 6px;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .spinner { width: 12px; height: 12px; border-radius: 50%;
+             border: 2px solid var(--border);
+             border-top-color: var(--brand);
+             animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .field-list { display: flex; flex-direction: column; gap: 6px;
+                overflow: hidden; }
+  .field-row {
+    display: grid; grid-template-columns: 16px 1fr auto; gap: 10px;
+    align-items: center; padding: 8px 10px;
+    background: var(--surface-2); border-radius: 6px;
+    font-size: 12.5px;
+  }
+  .field-row .chk {
+    width: 14px; height: 14px; border-radius: 3px;
+    background: var(--success); position: relative;
+  }
+  .field-row .chk::after {
+    content: ""; position: absolute; left: 3px; top: 1px;
+    width: 4px; height: 8px; border: solid var(--brand-fg);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .field-row.pending .chk { background: var(--border); }
+  .field-row .slot {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11.5px;
+    color: var(--text);
+  }
+  .field-row .slot .kind { color: var(--text-muted); }
+  .field-row .aichip {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+    background: var(--brand-soft); color: var(--brand);
+    padding: 2px 6px; border-radius: 3px; letter-spacing: 0.08em;
+  }
+  .field-row.pending .aichip { background: var(--surface-3); color: var(--text-muted); }
+
+  .publish-row { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .publish-summary {
+    font-size: 11.5px; color: var(--text-muted);
+    padding: 8px 10px; background: var(--surface-2); border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">Verdikt</div>
+    <div class="nav-group">Design time</div>
+    <div class="nav-item active"><span class="icon"></span> Templates</div>
+    <div class="nav-item"><span class="icon"></span> Bindings</div>
+    <div class="nav-item"><span class="icon"></span> Programs</div>
+    <div class="nav-item"><span class="icon"></span> Rules</div>
+    <div class="nav-group">Runtime</div>
+    <div class="nav-item"><span class="icon"></span> Cases</div>
+    <div class="nav-item"><span class="icon"></span> Inbox</div>
+    <div class="nav-item"><span class="icon"></span> Audit</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="breadcrumb"><a>Templates</a><span class="sep">/</span><a>Alderwood</a><span class="sep">/</span>Approval letter</div>
+        <div class="doc-title">
+          <h1>ASP-201 · Approval letter</h1>
+          <span class="badge" id="status-badge">Draft · v3</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn">Preview</button>
+        <button class="btn">Diff</button>
+        <button class="btn primary" id="publish-btn">Publish v3</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="pdf-pane">
+        <div class="pdf-page" id="pdf-page">
+          <!-- Bounding boxes injected via JS based on state -->
+        </div>
+      </div>
+
+      <aside class="panel" id="panel">
+        <div>
+          <div class="panel-h">Field Detection</div>
+          <h3 id="panel-title">Waiting…</h3>
+        </div>
+        <div id="panel-body"></div>
+        <div class="publish-row" id="publish-row" style="display:none">
+          <div class="publish-summary">8 slots · schema pinned · sha256:c1a4…</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+
+<script>
+  // 8 fields on the approval letter — positions calibrated against the PDF background image.
+  // top/left/width/height as % of the .pdf-page container.
+  const FIELDS = [
+    { key: 'patient.first_name', kind: 'string', top: 26.5, left:  8, w: 22, h: 3.4 },
+    { key: 'patient.last_name',  kind: 'string', top: 26.5, left: 32, w: 22, h: 3.4 },
+    { key: 'patient.dob',        kind: 'date',   top: 33.2, left: 62, w: 22, h: 3.4 },
+    { key: 'med.name',           kind: 'string', top: 47.5, left:  8, w: 40, h: 3.4 },
+    { key: 'med.dosage',         kind: 'string', top: 47.5, left: 55, w: 30, h: 3.4 },
+    { key: 'refills.count',      kind: 'int',    top: 54.5, left: 55, w: 12, h: 3.4 },
+    { key: 'coordinator.name',   kind: 'string', top: 75.5, left:  8, w: 32, h: 3.4 },
+    { key: 'coordinator.line',   kind: 'phone',  top: 75.5, left: 63, w: 27, h: 3.4 },
+  ];
+
+  const state = new URLSearchParams(location.search).get('state') || '1';
+  const page  = document.getElementById('pdf-page');
+  const panel = document.getElementById('panel-body');
+  const title = document.getElementById('panel-title');
+  const publishRow = document.getElementById('publish-row');
+  const publishBtn = document.getElementById('publish-btn');
+  const statusBadge = document.getElementById('status-badge');
+
+  function drawBoxes(mode) {
+    FIELDS.forEach((f, i) => {
+      const b = document.createElement('div');
+      b.className = 'bbox' + (mode === 'done' ? ' done' : '');
+      b.style.cssText = `top:${f.top}%;left:${f.left}%;width:${f.w}%;height:${f.h}%;animation-delay:${i * 40}ms`;
+      if (mode === 'done') {
+        const tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = f.key;
+        b.appendChild(tag);
+      }
+      page.appendChild(b);
+    });
+  }
+
+  function renderPanel(mode) {
+    if (mode === 'idle') {
+      title.textContent = 'No fields yet';
+      panel.innerHTML = `
+        <div class="panel-hint">Detect form fields, then label each slot with a vision model.</div>
+        <div class="detect-cta">Detect fields</div>
+      `;
+    } else if (mode === 'detecting') {
+      title.textContent = 'Detecting…';
+      panel.innerHTML = `
+        <div class="detect-status"><span class="spinner"></span>Extracting widget candidates</div>
+        <div class="panel-hint">${FIELDS.length} candidates found. Labeling with the vision model next.</div>
+      `;
+    } else if (mode === 'done') {
+      title.textContent = 'AI-labeled · 8 slots';
+      const rows = FIELDS.map(f => `
+        <div class="field-row">
+          <span class="chk"></span>
+          <span class="slot">${f.key}<span class="kind"> · ${f.kind}</span></span>
+          <span class="aichip">AI</span>
+        </div>
+      `).join('');
+      panel.innerHTML = `<div class="field-list">${rows}</div>`;
+      publishRow.style.display = 'flex';
+      publishBtn.classList.add('pulse');
+    }
+  }
+
+  if (state === '1') {
+    renderPanel('idle');
+  } else if (state === '2') {
+    drawBoxes('detecting');
+    renderPanel('detecting');
+  } else if (state === '3') {
+    drawBoxes('done');
+    renderPanel('done');
+    statusBadge.className = 'badge frozen';
+    statusBadge.textContent = 'Ready to freeze';
+  }
+</script>
+</body>
+</html>

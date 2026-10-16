@@ -226,7 +226,7 @@ The script exercises these features live on screen. Every one is a real capabili
 
 ## What NOT to add
 
-- Don't explain what NeMo Retriever *is* in the voiceover — on-screen text handles the label.
+- Don't explain what any model *is* in the voiceover — on-screen text handles the label.
 - Don't say "Patient Assistance Programs" and then explain what a PAP is. Judges either know or the demo makes it obvious.
 - Don't name libraries, frameworks, or competitors in prose or on-screen text. NVIDIA / Nebius / model names are the only exception (hackathon-mandated).
 - Don't invent numbers. If a stat isn't measured in the running system, it stays out.

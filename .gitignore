@@ -61,3 +61,5 @@ scripts/_smoke_out/
 
 # Local submission video (28MB, not tracked; served via /static)
 src/docgen/ui/static/verdikt-submission.mp4
+# Parked HeyGen voice-clone render (see docs/demo-scripts/voice-choice.md).
+assets/video/audio-heygen-unused/

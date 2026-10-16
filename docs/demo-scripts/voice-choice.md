@@ -68,3 +68,57 @@ If a contributor without a paid key needs to rebuild the video from scratch:
 - Don't edit `DEFAULT_VOICE_ID` in `scripts/generate_voiceover.py`. Keep it on the free-tier premade so the script is usable without a paid key. Override via env for the actual submission render.
 - Don't lower `speed` below `1.10` without retuning `BEAT_DURATIONS` in `scripts/assemble_video.sh` — the timing budget is calibrated to Nate at 1.10.
 - Don't switch to `eleven_turbo_v2` or `eleven_monolingual_v1` — those models silently ignore `<break time="..." />` tags and the applause-line pauses collapse.
+
+## HeyGen voice clone — partial re-render, 2026-10-16
+
+Beats `0a 0b 0c 0d 1 2 3 3b 4 5` were re-rendered from a HeyGen **instant voice
+clone** via `scripts/generate_voiceover_heygen.py`. Beats `6 7 8` are **still
+ElevenLabs Nate** — the account ran out of `api` credits mid-run. The cut is
+therefore mixed-voice and must not be published until those three are redone.
+
+| Field | Value |
+| --- | --- |
+| **Voice ID** | `0188c9a3ecbe4b80ac4bbd73218161b3` |
+| **Kind** | instant voice clone, `status: complete`, `support_pause: true` |
+| **Endpoint** | `POST /v3/voices/speech` |
+| **Engine** | `orca` (Starfish) — the engine that speaks this clone *with* break tags |
+| **Speed** | `1.25` (`HEYGEN_SPEED`) |
+
+### Why `/v3/voices/speech` and not `/v3/models/audio/tts`
+
+The model route looks like the natural home for a clone and appears to draw on
+a separate free pool, but it rejects our text outright:
+
+    400 invalid_parameter: break tags are not supported for instant voice clones
+
+The `<break time="Xs" />` tags are the timing skeleton the whole picture hangs
+off, so that route is unusable here regardless of price. `/v3/voices/speech`
+honours them and bills `api` credits — roughly 2 per call, ~0.17 per second of
+audio. The 13-beat script needs about 25.
+
+### Speed 1.25 was chosen to match the old pacing
+
+HeyGen is *slower* per word than ElevenLabs but compresses much better, and
+break tags do not scale with `speed`. Measured on beat 0a: 1.1 → 4.05 s,
+1.25 → 3.58 s, 1.4 → 3.21 s. At 1.25 the ten re-rendered beats come in at
+129.18 s against ElevenLabs' 148.51 s — a 0.87 ratio, projecting ~155 s
+(2:35) for the full thirteen against the previous 178 s. That buys back ~23 s
+of headroom under the 3:00 submission cap, and means `BEAT_TEMPO` in
+`scripts/assemble_video.sh` can probably go back to a flat 1.0 once beats
+6-8 exist and the real total is known.
+
+### Word timestamps replace forced alignment
+
+The response carries `word_timestamps`, and the break tags come back in that
+list as timed tokens. `scripts/generate_voiceover_heygen.py` saves them to
+`assets/video/audio/timings/beat{N}.json`. This is strictly better than the
+old method: `silencedetect` found phrase *boundaries* but never said which
+phrase sat in which gap, and reading them by eye is what put the beat 5
+labeler clip on top of the line it was moved to expose. Retime from these
+files, not from pauses.
+
+**Re-timing is still owed.** Every visual cue is timed to the ElevenLabs audio
+and is now wrong for the ten re-rendered beats. Known from `beat5.json`:
+`"Deliver"` is at 1.88-2.15 (was 2.16) and `"Nothing leaves until a human
+approves."` at 6.07-7.49 (was 7.14-8.98), so `BEAT_TIMELINE_IN[5]` and the
+labeler-clip window both move again.

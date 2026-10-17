@@ -163,6 +163,21 @@ handshake with `sudo journalctl -u caddy -f` — the first request to
 `https://quire.<yourdomain>/` triggers ACME. Visit
 `https://quire.<yourdomain>/ui/` — you should get the admin sign-in page.
 
+## 8b. Load the demo data
+
+A clean database has the default tenant but not the Alderwood demo tenant, its
+program with the 105-slot schema, its nine rules, the reply letters or the
+guideline PDFs. Load them from `deploy/demo-seed/`:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/deploy/demo-seed:/app/deploy/demo-seed:ro"   web python scripts/seed_demo.py
+```
+
+It prints one row count per table and a **single API key, shown once**. Save it;
+step 9.3 needs it. Running it again changes nothing and does not mint another
+key. To refresh the seed from a working install, run `scripts/export_demo_seed.py`
+in the web container and commit the result.
+
 ## 9. Verdikt smoke test
 
 Run this after step 8. It sends one real case through the pipeline and checks
@@ -176,18 +191,18 @@ each claim the demo makes. Stop at the first failure and use section 12.
 
 **9.2 The program and rules exist**
 
-- `/ui/programs` lists `cardiovita-pap-2026`. The migration seeds it only for
-  tenants that already exist when it runs, so on a fresh database, if it is
-  missing, create it in the UI before going on.
-- The rules library shows the `CV-*` rules (income, residence, insurance,
-  clinical, and two history rules).
+- `/ui/programs` lists `cardiovita-pap-2026` under the Alderwood tenant, with
+  105 slots. This comes from step 8b.
+- The rules library shows its nine rules (`CV-CLIN-01-cardio`, `CV-CONSENT-01`,
+  `CV-PRACTICE-US-01`, `CV-PAP-REQUEST-01`, `CV-PRESCRIBER-CONSENT-01`,
+  `CV-INS-01-cardio`, `CV-RES-01-cardio` and the two history rules).
 - The OncoBridge cameo program is not created by a migration. Only run 9.7 if
   you created it yourself.
 
 **9.3 Mint an API key**
 
-- Admin, then Tenants, then your tenant, then Keys. Create a key and copy it
-  once.
+- Use the key printed by step 8b, or create one under Admin, then Tenants, then
+  Alderwood, then Keys.
 - `export KEY=<the key>`
 
 **9.4 Happy path: expect `approve`**

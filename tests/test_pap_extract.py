@@ -331,3 +331,29 @@ def test_merge_by_section_tie_keeps_first_non_null_wins() -> None:
     from pap_pipeline.stages.extract import _merge_by_section
 
     assert _merge_by_section([{"city": "A"}, {"city": "B"}]) == {"city": "A"}
+
+
+def test_signature_date_equal_to_dob_is_dropped_and_real_date_wins() -> None:
+    """A page without a signature block read the DOB into the signature date.
+    The merge must discard it and use the date from the signature page."""
+    from pap_pipeline.stages.extract import _merge_by_section
+
+    demographics = {
+        "patient_dob": "1968-03-14",
+        "patient_first_name": "Marcus",
+        "patient_last_name": "Delgado",
+        "patient_signature_date": "1968-03-14",
+    }
+    signature_page = {"patient_signature": "M. Delgado", "patient_signature_date": "2026-09-18"}
+    merged = _merge_by_section([demographics, signature_page])
+    assert merged["patient_signature_date"] == "2026-09-18"
+
+
+def test_signature_slots_group_with_signatures() -> None:
+    from pap_pipeline.schema_groups import group_for
+
+    assert group_for("patient_signature") == "Signatures"
+    assert group_for("patient_signature_date") == "Signatures"
+    assert group_for("prescriber_signature_npi") == "Signatures"
+    assert group_for("prescriber_name") == "Prescriber"
+    assert group_for("patient_dob") == "Patient"

@@ -298,6 +298,39 @@ async def extract(
     return _merge_by_section(page_partials)
 
 
+_DOB_SLOTS = ("patient_dob", "date_of_birth")
+
+
+def _drop_impossible_signature_dates(
+    page_partials: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Null a signature date that is not after the patient's date of birth.
+
+    A page with no signature block sometimes fills the date slot with the
+    patient's DOB. Nobody signs on the day they were born, and the value then
+    beats the real date on the signature page. Dropping it lets the merge
+    fall back to a page that actually has one. ISO dates compare as strings.
+    """
+    dob = next(
+        (p[n] for p in page_partials for n in _DOB_SLOTS if isinstance(p.get(n), str) and p[n]),
+        None,
+    )
+    if not dob:
+        return page_partials
+    cleaned: list[dict[str, Any]] = []
+    for partial in page_partials:
+        fixed = dict(partial)
+        for name, value in partial.items():
+            if (
+                name.endswith("signature_date")
+                and isinstance(value, str)
+                and value <= dob
+            ):
+                fixed[name] = None
+        cleaned.append(fixed)
+    return cleaned
+
+
 def _merge_by_section(page_partials: list[dict[str, Any]]) -> dict[str, Any]:
     """Combine per-page extractions, trusting the page a slot belongs to.
 
@@ -310,6 +343,7 @@ def _merge_by_section(page_partials: list[dict[str, Any]]) -> dict[str, Any]:
     to the earlier page, so a single-page input or a form with no clear
     owner keeps the old first-non-null-wins result.
     """
+    page_partials = _drop_impossible_signature_dates(page_partials)
     filled: list[dict[str, int]] = []
     for partial in page_partials:
         counts: dict[str, int] = {}

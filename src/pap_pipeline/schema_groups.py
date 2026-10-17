@@ -57,6 +57,10 @@ _PREFIX_GROUP: list[tuple[str, str]] = [
     ("household_", "Household & finance"),
     ("prior_therapy_", "Prior therapy"),
     ("contact_pref_", "Contact preferences"),
+    # Signature blocks sit on their own page; keep them out of the Patient /
+    # Prescriber sections or the page-merge would trust the demographics page.
+    ("patient_signature", "Signatures"),
+    ("prescriber_signature", "Signatures"),
     ("prescriber_", "Prescriber"),
     ("caregiver_", "Caregiver"),
     ("practice_", "Practice"),

@@ -299,3 +299,35 @@ async def test_retry_skipped_when_first_pass_returns_all_slots(monkeypatch) -> N
     calls = _patch_async_client(monkeypatch, _handler)
     await extract([_png_bytes()], config=_config(retry_null_on_scan=True))
     assert len(calls) == 1
+
+
+def test_merge_by_section_prefers_the_page_that_owns_the_section() -> None:
+    """A fax header on page 1 repeats the clinic name; the prescriber box on
+    page 2 holds the real prescriber. Page 2 fills more Prescriber slots, so
+    it owns that section and its value wins even though page 1 comes first."""
+    from pap_pipeline.stages.extract import _merge_by_section
+
+    page1 = {"prescriber_name": "Maple Grove Internal Medicine", "patient_last_name": "Delgado"}
+    page2 = {
+        "prescriber_name": "Dr. Samuel Okonkwo, MD",
+        "prescriber_npi": "1234567893",
+        "prescriber_dea": "BO5555555",
+        "practice_name": "Maple Grove Internal Medicine",
+    }
+    merged = _merge_by_section([page1, page2])
+    assert merged["prescriber_name"] == "Dr. Samuel Okonkwo, MD"
+    assert merged["patient_last_name"] == "Delgado"  # only page 1 has it
+
+
+def test_merge_by_section_falls_back_when_owner_page_is_blank() -> None:
+    from pap_pipeline.stages.extract import _merge_by_section
+
+    page1 = {"patient_phone_home": "(610) 555-0147"}
+    page2 = {"patient_first_name": "Marcus", "patient_dob": "1968-03-14", "patient_phone_home": None}
+    assert _merge_by_section([page1, page2])["patient_phone_home"] == "(610) 555-0147"
+
+
+def test_merge_by_section_tie_keeps_first_non_null_wins() -> None:
+    from pap_pipeline.stages.extract import _merge_by_section
+
+    assert _merge_by_section([{"city": "A"}, {"city": "B"}]) == {"city": "A"}

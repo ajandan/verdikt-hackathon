@@ -163,21 +163,94 @@ handshake with `sudo journalctl -u caddy -f` — the first request to
 `https://quire.<yourdomain>/` triggers ACME. Visit
 `https://quire.<yourdomain>/ui/` — you should get the admin sign-in page.
 
-## 9. Verify
+## 9. Verdikt smoke test
 
-- `https://quire.<yourdomain>/health` → `200 OK`.
-- Sign in to `/ui/` with the admin credentials from step 6.
-- On the empty templates page, click **"EOB (real-world)"** in the "Or try
-  a sample" strip. The EOB has a `{% for %}` service-line loop and an
-  `{% if is_denied %}` block that give the mapping wizard a lot to show off
-  — scalars typed by the LLM, list/boolean typed by AST inference. If the
-  DOCX button works but EOB doesn't, the built image is stale (rebuild).
-- Trigger AI mapping. Confirm the request lands at Nebius Token Factory
-  (check `docker compose logs web` — you should see one outbound request
-  per mapping run, and each row in the wizard should show a "Why:" line
-  from the model, not the deterministic stub template).
-- The version freeze page should show byte-identical `version_hash` values
-  between two consecutive renders of the same input JSON.
+Run this after step 8. It sends one real case through the pipeline and checks
+each claim the demo makes. Stop at the first failure and use section 12.
+`$BASE` is `https://quire.<yourdomain>`.
+
+**9.1 The app is up**
+
+- `curl -fsS $BASE/health` returns `200`.
+- Sign in at `$BASE/ui/` with the admin credentials from step 6.
+
+**9.2 The program and rules exist**
+
+- `/ui/programs` lists `cardiovita-pap-2026`. The migration seeds it only for
+  tenants that already exist when it runs, so on a fresh database, if it is
+  missing, create it in the UI before going on.
+- The rules library shows the `CV-*` rules (income, residence, insurance,
+  clinical, and two history rules).
+- The OncoBridge cameo program is not created by a migration. Only run 9.7 if
+  you created it yourself.
+
+**9.3 Mint an API key**
+
+- Admin, then Tenants, then your tenant, then Keys. Create a key and copy it
+  once.
+- `export KEY=<the key>`
+
+**9.4 Happy path: expect `approve`**
+
+```bash
+curl -sS -X POST $BASE/pap/programs/cardiovita-pap-2026/intake   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"   -d '{"actor":"smoke-test","intake":{
+    "patient_name":"Maria Chen","date_of_birth":"1978-06-14",
+    "household_size":2,"annual_household_income":60000,
+    "insurance_status":"uninsured","has_denial_letter":false,
+    "country_of_residence":"United States","mailing_state":"California",
+    "prescribed_drug":"Cardiovita","prescriber_npi":"1234567893",
+    "prescription_date":"2026-08-15"}}'
+```
+
+Expect HTTP `201` with a `case_id` like `QC-0001`, `outcome: "approve"`, and a
+`decision` whose citations name the `CV-*` rules that fired. `status` may be
+`queued` with `review_state: "pending_review"` if the program holds API
+submissions for review. In that case `outcome` is the draft verdict. Save the
+`event_id` as `$EV`.
+
+**9.5 Rule path: expect `deny`**
+
+Repeat 9.4 with `"annual_household_income":120000`. For a household of 2 the
+Cardiovita cap is $84,600, so expect `outcome: "deny"` and a citation to
+`CV-INC-01`. If it still approves, the rules pack was not loaded.
+
+**9.6 Bad input is rejected and still audited**
+
+Repeat 9.4 with `"household_size":"abc"`. Expect HTTP `400`,
+`detail: "intake validation failed"`, and an `event_id`. That case should
+appear in the reviewer queue.
+
+**9.7 Same household, opposite verdict (only if OncoBridge exists)**
+
+Submit the 9.4 payload to the OncoBridge program slug. The income cap there is
+$52,875, so $60,000 should return `deny` citing `OB-INC-01`.
+
+**9.8 The reviewer can see every stage**
+
+- Open `$BASE/ui/inbox/$EV/pipeline`. It should show the extracted fields, the
+  triage case type and route, the retrieved rules, the verdict with citations
+  and the reply letter.
+- Open `/ui/admin/routing`. Rows should show Nebius Token Factory model names
+  (`nvidia/nemotron-3-super-120b-a12b` for the verdict) with real latencies.
+  If Triage shows the rule-based fallback, check `triage_model` and the key.
+- `docker compose -f deploy/docker-compose.prod.yml logs web` shows outbound
+  Token Factory requests for the case.
+- If the case is pending review, approve it. The reply letter should then be
+  available for download.
+
+**9.9 No model on the render path**
+
+The letter is merged from the frozen template. Confirm nothing in
+`logs web` shows a Token Factory request during the approve/render step. Only
+the Ingest, Triage and Decide stages may call a model.
+
+**9.10 Repeatability (record the result, do not assume it)**
+
+Submit the 9.4 payload a second time. Compare the two reply letters (for
+example `sha256sum` of the downloaded files) and the template `version_hash`
+shown on the pipeline page. The template hash should match. The test suite
+checks structure, not letter bytes, so write down whether the bytes match
+rather than claiming it in the demo.
 
 ## 10. Rotate credentials before the demo
 

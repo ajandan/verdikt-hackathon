@@ -23,6 +23,8 @@ from typing import Any
 
 import httpx
 
+from pap_pipeline.schema_groups import group_for
+
 _log = logging.getLogger(__name__)
 
 _PDF_MAGIC = b"%PDF-"
@@ -257,6 +259,13 @@ async def extract(
         native_scale=config.raster_scale,
         scan_scale=config.scan_raster_scale,
     )
+    # Every page is asked for every slot, so a page that merely mentions a
+    # value (a fax header repeating the clinic name on each sheet) can offer
+    # a wrong answer for a slot whose real home is a different page. Keep
+    # each page's partial separate and decide per slot afterwards; see
+    # `_merge_by_section`. `merged` is a running first-non-null view used
+    # only to decide which slots still need the scan retry pass.
+    page_partials: list[dict[str, Any]] = []
     merged: dict[str, Any] = {}
     async with httpx.AsyncClient(timeout=config.timeout) as client:
         for page_png, is_scan in pages:
@@ -284,6 +293,52 @@ async def extract(
                     for name, value in retry_partial.items():
                         if value is not None and merged.get(name) is None:
                             merged[name] = value
+                            partial = {**partial, name: value}
+            page_partials.append(partial)
+    return _merge_by_section(page_partials)
+
+
+def _merge_by_section(page_partials: list[dict[str, Any]]) -> dict[str, Any]:
+    """Combine per-page extractions, trusting the page a slot belongs to.
+
+    A slot's section comes from its name (``prescriber_*`` is the Prescriber
+    section; see :func:`pap_pipeline.schema_groups.group_for`). A page
+    "owns" a section when it filled in more of that section's slots than any
+    other page, since that is where the section's form box lives. Each slot
+    takes the value from its section's owning page, and falls back to the
+    first page with a non-null value when the owner left it blank. Ties go
+    to the earlier page, so a single-page input or a form with no clear
+    owner keeps the old first-non-null-wins result.
+    """
+    filled: list[dict[str, int]] = []
+    for partial in page_partials:
+        counts: dict[str, int] = {}
+        for name, value in partial.items():
+            if value is not None:
+                group = group_for(name)
+                counts[group] = counts.get(group, 0) + 1
+        filled.append(counts)
+
+    owner: dict[str, int] = {}
+    for idx, counts in enumerate(filled):
+        for group, n in counts.items():
+            if group not in owner or n > filled[owner[group]][group]:
+                owner[group] = idx
+
+    merged: dict[str, Any] = {}
+    for partial in page_partials:
+        for name in partial:
+            if name in merged:
+                continue
+            candidates = [
+                (i, p[name]) for i, p in enumerate(page_partials)
+                if p.get(name) is not None
+            ]
+            if not candidates:
+                continue
+            home = owner.get(group_for(name))
+            chosen = next((v for i, v in candidates if i == home), candidates[0][1])
+            merged[name] = chosen
     return merged
 
 

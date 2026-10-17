@@ -1984,10 +1984,10 @@
         var p = slotPlacements[slotName];
         if (!p) return;
         if (pageLabel) pageLabel.textContent = 'Page ' + p.page;
-        openPdf().then(function () {
-            drawHighlight(p.page, p, slotName);
-            scrollToPage(p.page, p);
-        }).catch(function () {});
+        // Selecting a field only loads its page; no highlight rect is drawn.
+        // Clearing any rect left from a hit-box click keeps the view clean.
+        clearHighlight();
+        openPdf().then(function () { scrollToPage(p.page, null); }).catch(function () {});
     }
 
     function close() {

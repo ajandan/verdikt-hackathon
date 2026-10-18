@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-09-12
 - **Deciders**: repo owner
-- **Related**: ADR-0002, `docs/HACKATHON.md`, `docs/doc-generation-service-design.md`
+- **Related**: ADR-0002, `docs/HACKATHON.md`
 
 ## Context
 

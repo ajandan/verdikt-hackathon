@@ -109,7 +109,6 @@ No count mismatches. The three notes below are worth flagging separately because
   ```
 - **UI shows:** rows render the "No frozen version" badge (index.html:385) and the stat/chip aggregates count them as draft. The UI is **faithful** to what `current_version` says.
 - **Why noteworthy:** these rows have a frozen v1 in `template_versions` but the parent row wasn't updated to point at it, so operators see "Draft" on a row that actually has a frozen version. This is a DB integrity issue (not a route-count bug) — the purge left `current_version` dangling.
-- **Screenshot:** `reports/ui-audit-shots/01-templates.png`
 - **DB proof:**
   ```sql
   SELECT t.name, t.current_version, tv.version, tv.is_frozen, tv.status
@@ -147,11 +146,10 @@ No count mismatches. The three notes below are worth flagging separately because
 
 ## Screenshots
 
-All 12 in `reports/ui-audit-shots/`:
+11 in `reports/ui-audit-shots/` (the templates-list capture was withdrawn because it displayed a personal owner address):
 
 | # | File |
 |---|---|
-| 01 | `ui-audit-shots/01-templates.png` |
 | 02 | `ui-audit-shots/02-dashboard.png` |
 | 03 | `ui-audit-shots/03-programs.png` |
 | 04 | `ui-audit-shots/04-rules.png` |

@@ -180,7 +180,7 @@ stripped from the output).
   logs and skips. New regression test
   `test_upload_pdf_template_rejects_at_boundary_no_persist` asserts
   `Template` count is unchanged after a rejected upload. Verified
-  end-to-end against `bench104_page1.pdf` inside the compose stack:
+  end-to-end against a real-world multi-page PAP form inside the compose stack:
   HTTP 400 with the driver-specific preflight body (was HTTP 201
   before the refactor), templates count 49 → 49 (was 49 → 50).
 

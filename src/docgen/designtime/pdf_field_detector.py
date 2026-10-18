@@ -485,7 +485,7 @@ def _drawings_to_fields(page: Any) -> list[dict[str, Any]]:
 def _detect_cells(page: Any) -> list[dict[str, Any]]:
     """Reconstruct cell fields from horizontal line pairs.
 
-    Some forms (a vector-glyph PAP form is the canonical example) draw every field
+    Some real-world PAP forms draw every field
     as a table cell using individual horizontal stroke sub-segments — the
     row's top and bottom edges are each split into one H segment per column,
     and vertical dividers are usually absent or truncated to short stubs at
@@ -639,7 +639,7 @@ async def detect_fields_in_pdf(pdf_bytes: bytes) -> list[dict[str, Any]]:
     run `_drawings_to_fields` (underlines, boxed inputs, checkboxes drawn
     as small rects, radios drawn as closed bezier circles). On pages with
     no extractable text (vector-glyph forms whose every printed character
-    is a fill curve, a vector-glyph PAP form being the canonical example) we
+    is a fill curve, which some real-world PAP forms are) we
     additionally run `_detect_cells` to reconstruct writable text cells
     from horizontal-line pairs, then merge with dedupe so a widget picked
     up by both passes doesn't count twice. No vision fallback.

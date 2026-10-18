@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T21:45:00Z",
+  "generated_at": "2026-10-18T22:00:00Z",
   "commit": "cf9e5a4",
   "attestation": {
     "last_manually_attested_at": "2026-10-18T17:39:20Z",
@@ -280,8 +280,8 @@
       "event": "Video published: https://youtu.be/EleEatbaEWM"
     },
     {
-      "date": "2026-10-30",
-      "event": "Devpost submission: live URL, video URL, public repo (planned)"
+      "date": "2026-10-18",
+      "event": "Devpost submission: live URL, video URL, public repo"
     }
   ]
 }

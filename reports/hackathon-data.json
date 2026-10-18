@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T21:30:00Z",
+  "generated_at": "2026-10-18T22:00:00Z",
   "commit": "cf9e5a4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
@@ -206,7 +206,7 @@
     {
       "item": "Devpost submission",
       "status": "planned",
-      "note": "Nothing blocking: the public repo, demo URL and video URL are all live. Submit before 2026-10-30."
+      "note": "Submitting on 2026-10-18: the public repo, demo URL and video URL are all live."
     }
   ],
   "timeline": [
@@ -264,7 +264,7 @@
       "item": "Submit on Devpost",
       "priority": "medium",
       "why_blocked": "Not blocked. Repo, demo URL and video URL are all live.",
-      "plan": "Submit 2026-10-29 with 24h buffer."
+      "plan": "Submit on 2026-10-18."
     }
   ]
 }

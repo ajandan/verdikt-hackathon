@@ -169,5 +169,7 @@ fi
 # --- YouTube thumbnail ----------------------------------------------------
 # After the swap, so it lands in the real folder and survives it.
 python scripts/make_thumbnail.py
+# Devpost gallery card, 3:2, generated after the swap for the same reason.
+python scripts/make_devpost_thumb.py
 
 echo "[submission] staged $(find "$OUT" -type f | wc -l) files, $(du -sh "$OUT" | cut -f1)"

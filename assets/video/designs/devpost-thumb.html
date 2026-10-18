@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Devpost thumbnail — Verdikt</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Devpost gallery card: 3:2. Laid out at 1500x1000 CSS px and rendered at
+     2x by scripts/make_devpost_thumb.py. Devpost shows these at roughly
+     400px wide in a grid of mostly light cards, so: a dark ground to stand
+     out, one big line, a real screenshot as proof, and nothing that depends
+     on fine print. Not built on common.css, which pins the page to 1920x1080. */
+  :root {
+    --ink:#0d1a14; --ink-2:#13261d; --paper:#f6f5f1; --muted:#a9bfb4;
+    --seal:#2f8f76; --seal-hi:#5ec2a1; --seal-lo:#1e5f4f; --amber:#f59e0b; --rose:#d06a5e;
+    --serif:'Instrument Serif',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; width:1500px; height:1000px; overflow:hidden; background:var(--ink); }
+  .card {
+    position:relative; width:1500px; height:1000px; overflow:hidden; color:var(--paper); font-family:var(--sans);
+    background:
+      radial-gradient(900px 700px at 78% 40%, rgba(94,194,161,.22), transparent 62%),
+      radial-gradient(700px 520px at 6% 105%, rgba(245,158,11,.12), transparent 60%),
+      linear-gradient(160deg, #10241b 0%, #0b1712 55%, #0a130f 100%);
+  }
+  /* faint engineering grid, fading out toward the right */
+  .card::before {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 40px 40px;
+    -webkit-mask-image:linear-gradient(100deg,#000 0%,rgba(0,0,0,.5) 55%,transparent 85%);
+            mask-image:linear-gradient(100deg,#000 0%,rgba(0,0,0,.5) 55%,transparent 85%);
+  }
+  .strip { position:absolute; left:0; right:0; bottom:0; height:10px;
+           background:linear-gradient(90deg,var(--seal) 0 34%,var(--amber) 34% 67%,var(--rose) 67% 100%); }
+
+  /* ---- top bar ---- */
+  .top { position:absolute; top:52px; left:64px; right:64px; display:flex; justify-content:space-between; align-items:center; }
+  .brand { display:flex; align-items:center; gap:16px; }
+  .brand .mk { width:58px; height:58px; border-radius:14px; background:rgba(255,255,255,.95);
+               display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px -10px rgba(0,0,0,.6); }
+  .brand .mk img { width:42px; height:42px; }
+  .brand .wm { font-family:var(--serif); font-style:italic; font-size:46px; letter-spacing:-.02em; line-height:1; }
+  .brand .wm b { font-weight:400; color:var(--seal-hi); font-style:normal; }
+  .event { font-family:var(--mono); font-size:15px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted);
+           border:1px solid rgba(169,191,180,.35); border-radius:999px; padding:10px 18px; background:rgba(255,255,255,.03); }
+  .event b { color:var(--paper); font-weight:600; }
+
+  /* ---- left column ---- */
+  .left { position:absolute; left:64px; top:178px; width:640px; }
+  .kicker { font-family:var(--mono); font-size:16px; letter-spacing:.22em; text-transform:uppercase; color:var(--seal-hi);
+            display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+  .kicker::before { content:""; width:28px; height:2px; background:var(--seal-hi); }
+  h1 { margin:0; font-family:var(--serif); font-weight:400; font-size:104px; line-height:.98; letter-spacing:-.025em; }
+  h1 .hd { display:block; color:var(--seal-hi); font-style:italic; }
+  .sub { margin:28px 0 0; font-size:23px; line-height:1.42; color:#cfdcd5; max-width:580px; }
+  .sub b { color:#fff; font-weight:600; }
+
+  .facts { display:flex; gap:14px; margin-top:34px; }
+  .fact { border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); border-radius:14px; padding:14px 18px; min-width:150px; }
+  .fact .n { font-family:var(--serif); font-size:44px; line-height:1; color:#fff; }
+  .fact .n.g { color:var(--seal-hi); }
+  .fact .l { font-size:13.5px; color:var(--muted); margin-top:6px; line-height:1.3; }
+
+  /* ---- right: product proof ---- */
+  .shot { position:absolute; left:770px; top:160px; width:680px;
+          transform:perspective(1800px) rotateY(-9deg) rotateX(3deg); transform-origin:left center; }
+  .frame { border-radius:16px; overflow:hidden; background:#fff;
+           box-shadow:0 60px 120px -30px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.14), 0 0 80px -10px rgba(94,194,161,.35); }
+  .chrome { height:38px; background:#ececea; display:flex; align-items:center; gap:8px; padding:0 14px; }
+  .chrome i { width:12px; height:12px; border-radius:50%; display:block; }
+  .chrome i:nth-child(1){background:#ff5f57} .chrome i:nth-child(2){background:#febc2e} .chrome i:nth-child(3){background:#28c840}
+  .chrome .url { margin-left:14px; flex:1; height:22px; border-radius:6px; background:#fff; font-family:var(--mono); font-size:12px;
+                 color:#6c6858; display:flex; align-items:center; padding:0 10px; }
+  .frame img { display:block; width:100%; height:430px; object-fit:cover; object-position:top left; }
+
+  .chip { position:absolute; display:flex; align-items:center; gap:12px; border-radius:14px; padding:14px 18px;
+          box-shadow:0 24px 50px -16px rgba(0,0,0,.7); font-family:var(--sans); }
+  .chip.verdict { left:-46px; top:330px; background:#fff; color:var(--ink); transform:rotate(-2deg); }
+  .chip.verdict .dot { width:38px; height:38px; border-radius:50%; background:#e3f3ec; color:var(--seal-lo);
+                       display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; }
+  .chip.verdict .t { font-family:var(--mono); font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--seal-lo); font-weight:600; }
+  .chip.verdict .s { font-size:18px; font-weight:600; margin-top:2px; }
+  .chip.human { right:40px; top:-30px; background:var(--ink-2); color:#fff; border:1px solid rgba(94,194,161,.45); transform:rotate(1.5deg); }
+  .chip.human .ic { font-size:22px; }
+  .chip.human .t { font-size:16.5px; font-weight:600; }
+  .chip.human .s { font-size:13px; color:var(--muted); margin-top:2px; }
+
+  /* ---- bottom: the pipeline and the line ---- */
+  .flow { position:absolute; left:64px; right:64px; bottom:60px; display:flex; align-items:center; gap:0; }
+  .stage { display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; position:relative; }
+  .stage .pt { width:22px; height:22px; border-radius:50%; border:4px solid var(--ink); position:relative; z-index:2; }
+  .stage.ai .pt { background:var(--seal-hi); box-shadow:0 0 0 4px rgba(94,194,161,.25); }
+  .stage.det .pt { background:var(--amber); box-shadow:0 0 0 4px rgba(245,158,11,.25); }
+  .stage .nm { font-size:19px; font-weight:600; }
+  .stage .md { font-family:var(--mono); font-size:12.5px; color:var(--muted); letter-spacing:.04em; }
+  .rail { position:absolute; left:64px; right:64px; bottom:122px; height:3px; display:flex; }
+  .rail .a { flex:3; background:linear-gradient(90deg,transparent,var(--seal-hi) 12%); }
+  .rail .d { flex:2; background:linear-gradient(90deg,var(--amber) 0,var(--amber) 88%,transparent); }
+  .line { position:absolute; bottom:98px; left:calc(64px + (1372px * 0.6)); transform:translateX(-50%);
+          display:flex; flex-direction:column; align-items:center; z-index:3; }
+  .line .bar { width:2px; height:52px; background:repeating-linear-gradient(#fff 0 6px, transparent 6px 11px); }
+  .line .lb { font-family:var(--mono); font-size:12px; letter-spacing:.24em; color:#fff; margin-bottom:6px;
+              background:var(--ink); padding:3px 8px; border-radius:4px; border:1px solid rgba(255,255,255,.3); }
+  .zone { position:absolute; bottom:140px; font-family:var(--mono); font-size:12.5px; letter-spacing:.2em; text-transform:uppercase; }
+  .zone.a { left:64px; color:var(--seal-hi); }
+  .zone.d { right:64px; color:var(--amber); }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <div class="top">
+    <div class="brand">
+      <div class="mk"><img src="verdikt-mark.png" alt=""></div>
+      <div class="wm">Verdikt<b>.</b></div>
+    </div>
+    <div class="event"><b>Nebius × NVIDIA</b> &nbsp;·&nbsp; Global AI Hackathon 2026</div>
+  </div>
+
+  <div class="left">
+    <div class="kicker">Regulated decisions, end to end</div>
+    <h1>AI reads.<br>Code writes.<span class="hd">Humans decide.</span></h1>
+    <p class="sub">Email in a patient-assistance packet. Get back a <b>cited verdict</b> and a reply letter
+      <b>no language model wrote</b> — held until a person approves it.</p>
+    <div class="facts">
+      <div class="fact"><div class="n g">0</div><div class="l">models on the<br>render path</div></div>
+      <div class="fact"><div class="n">934</div><div class="l">tests, 0 failing</div></div>
+      <div class="fact"><div class="n">5</div><div class="l">named, audited<br>pipeline stages</div></div>
+    </div>
+  </div>
+
+  <div class="shot">
+    <div class="frame">
+      <div class="chrome"><i></i><i></i><i></i><div class="url">verdikt.aismith.ai/ui/inbox/…/pipeline</div></div>
+      <img src="../../../src/docgen/ui/static/console-pipeline.png" alt="">
+    </div>
+    <div class="chip verdict">
+      <div class="dot">&#10003;</div>
+      <div><div class="t">Approve</div><div class="s">7 of 7 rules matched, each cited</div></div>
+    </div>
+    <div class="chip human">
+      <div class="ic">&#9995;</div>
+      <div><div class="t">Held for human review</div><div class="s">nothing sends until approved</div></div>
+    </div>
+  </div>
+
+  <div class="zone a">AI-in · reviewable</div>
+  <div class="zone d">Deterministic-out · no model</div>
+  <div class="rail"><div class="a"></div><div class="d"></div></div>
+  <div class="line"><div class="lb">THE LINE</div><div class="bar"></div></div>
+  <div class="flow">
+    <div class="stage ai"><div class="pt"></div><div class="nm">Ingest</div><div class="md">MiniCPM-V</div></div>
+    <div class="stage ai"><div class="pt"></div><div class="nm">Triage</div><div class="md">Nemotron Nano</div></div>
+    <div class="stage ai"><div class="pt"></div><div class="nm">Decide</div><div class="md">Qwen3 · Nemotron Super</div></div>
+    <div class="stage det"><div class="pt"></div><div class="nm">Deliver</div><div class="md">frozen template</div></div>
+    <div class="stage det"><div class="pt"></div><div class="nm">Remember</div><div class="md">audit &amp; hashes</div></div>
+  </div>
+
+  <div class="strip"></div>
+</div>
+</body>
+</html>

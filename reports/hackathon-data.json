@@ -1,13 +1,13 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T22:00:00Z",
-  "commit": "cf9e5a4",
+  "generated_at": "2026-10-18T22:15:00Z",
+  "commit": "7c322f4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
     "submission_window": "2026-08-26 → 2026-10-30",
     "deadline": "2026-10-30",
-    "days_remaining": 44,
+    "days_remaining": 12,
     "repo": "https://github.com/ajandan/verdikt-hackathon"
   },
   "summary": {
@@ -16,8 +16,8 @@
     "rules_met": 5,
     "rules_pending": 0,
     "license": "MIT",
-    "nvidia_models": 3,
-    "nebius_services": 2,
+    "nvidia_models": 2,
+    "nebius_services": 1,
     "open_items": 1
   },
   "rules": [
@@ -25,7 +25,7 @@
       "id": "R1",
       "name": "Runs on Nebius Token Factory",
       "status": "met",
-      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super returns the verdict. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
+      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super reasons over any rule that has no deterministic formula. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
       "evidence": [
         "src/docgen/providers/nebius.py (Nebius Token Factory adapter)",
         "tests/test_provider_nebius.py (provider contract enforced)"
@@ -78,25 +78,37 @@
   ],
   "architecture": {
     "claim": "AI-in, deterministic-out",
-    "one_liner": "AI runs where it earns its place: reading documents, retrieving rules, reasoning over both. Then AI stops. No language model sits on the code path that generates the audited artifact.",
+    "one_liner": "AI runs where it earns its place: reading documents, routing the case, finding the rules, and reasoning only where a rule needs judgment. Then AI stops. No language model sits on the code path that generates the audited artifact.",
     "stages": [
       {
         "stage": "Ingest",
         "model": "openbmb/MiniCPM-V-4_5",
         "host": "Nebius Token Factory",
-        "why": "Multimodal PDF extraction over messy, mixed-modality attachments: pay stubs, insurance cards, prescriptions, denial letters. Vision handles what regex cannot."
+        "why": "Vision extraction over scanned, faxed and flat PDFs: enrollment forms, income worksheets, prescriptions. Each value lands in a typed field the rules can check."
+      },
+      {
+        "stage": "Triage",
+        "model": "nvidia/nemotron-nano-3-6b",
+        "host": "Nebius Token Factory",
+        "why": "A small, fast model classifies the case and picks its route. If it is unavailable a rule-based fallback takes over, so intake never blocks on a model."
       },
       {
         "stage": "Retrieve",
         "model": "Qwen/Qwen3-Embedding-8B",
         "host": "Nebius Token Factory",
-        "why": "Dense retrieval surfaces the eligibility rules that apply to this case, from a pgvector store populated at startup from human-authored YAML. The model's job is to find, not to invent."
+        "why": "Dense retrieval surfaces the program's human-authored rules that apply to this case. The model's job is to find, not to invent."
       },
       {
         "stage": "Reason",
         "model": "nvidia/nemotron-3-super-120b-a12b",
         "host": "Nebius Token Factory",
-        "why": "Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate: the reasoning variant burns output tokens on trace and returns empty content on this task shape."
+        "why": "Reasons over any rule without a deterministic formula, in non-reasoning JSON mode. When every rule has a formula, as in the CardioVita demo, this stage is skipped and the verdict is composed from the rules alone."
+      },
+      {
+        "stage": "Deliver",
+        "model": "No model",
+        "host": "Deterministic code",
+        "why": "The reply letter is merged from a frozen, human-approved template and held for a reviewer. Nothing is sent until a person approves."
       }
     ]
   },
@@ -113,7 +125,7 @@
     },
     "new_work": {
       "package": "src/pap_pipeline/ (Verdikt)",
-      "scope": "Three-stage decision pipeline (extract → retrieve → reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
+      "scope": "Five-stage decision pipeline (ingest → triage → decide → deliver → remember), intake/rule/decision schemas, the deterministic rule-formula engine, the CardioVita program and its eight eligibility rules, PAP reply templates, the reviewer console, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
       "mechanically_provable": [
         "git log -- src/pap_pipeline/ returns only submission-window commits",
         "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline (dependency direction is one-way)",
@@ -126,7 +138,7 @@
       "criterion": "Technological Implementation",
       "prompt": "How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?",
       "points": [
-        "Four models composed on Nebius Token Factory at their strongest task shapes, two of them NVIDIA: MiniCPM-V for reading scanned intake, Nemotron Nano for triage, Qwen3-Embedding for citation-quality retrieval, and Nemotron Super for policy reasoning and the cited verdict.",
+        "Four models composed on Nebius Token Factory at their strongest task shapes, two of them NVIDIA: MiniCPM-V reads scanned intake, Nemotron Nano triages, Qwen3-Embedding retrieves the rules, and Nemotron Super reasons over any rule without a deterministic formula.",
         "One Nebius key, one router, per-call instrumentation. Latency, cost, and cache-hit rate are visible on the admin routing page.",
         "Nemotron stops at a hard boundary. Every artifact that leaves the pipeline (reply letter, JSON verdict) is written by deterministic Python from typed pydantic models.",
         "A boundary test fails the build if an LLM ever leaks into the render path.",
@@ -139,7 +151,7 @@
       "points": [
         "Verdikt is a working product, not a notebook.",
         "Fax, scanned paper, and portal submissions fan into a single email-normalized intake bus.",
-        "The pipeline emits a signed reply letter and a structured JSON verdict a downstream call-center system can act on immediately.",
+        "The pipeline emits a reply letter merged from a frozen, human-approved template and a structured JSON verdict a downstream call-center system can act on immediately.",
         "Eight live dashboards (Overview, About, Features, Tests, Code, Security, Production, Hackathon) mirror what an operator actually needs, not just what a judge wants to see.",
         "Prometheus /metrics ships per-tenant counters, latency histograms, queue-depth gauges, and preflight-rejection counters. An on-call can answer 'who is this load from, what's stuck, what's the P99' from one scrape."
       ]
@@ -152,7 +164,7 @@
         "Prior authorization, benefit verification, informed consent, and MedWatch reporting all share the same shape and the same failure mode: humans transcribing forms all day, one keystroke from a denial.",
         "The demo shows one program end-to-end, from a faxed application to a decisioned reply.",
         "Onboarding a second program is a data change (rulebook plus templates), not a build.",
-        "The second use case costs a week, not a quarter."
+        "A second use case reuses the pipeline unchanged; only the rulebook and templates are new."
       ]
     },
     {
@@ -160,7 +172,7 @@
       "prompt": "Is this a creative, non-obvious use of Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron and does the team show genuine understanding of the problem space?",
       "points": [
         "Most 2026 document-generation submissions put a language model directly on the artifact-generation code path. Verdikt refuses.",
-        "Nemotron reads, ranks, extracts, and reasons on Nebius Token Factory; deterministic code writes.",
+        "Models read, triage and rank on Nebius Token Factory; Nemotron reasons only where a rule needs judgment; deterministic code decides and writes.",
         "The EU AI Act classifies healthcare eligibility decisions as high-risk and demands exactly the reproducibility guarantees Verdikt provides mechanically.",
         "Using Nemotron for what it is uniquely good at (reasoning over messy healthcare policy) while keeping it off the artifact path is the non-obvious call.",
         "The difference between a demo that impresses judges and a system that can be deployed on Monday."
@@ -216,15 +228,11 @@
     },
     {
       "date": "2026-08-27",
-      "event": "Fork created at ajandan/quire-hackathon"
+      "event": "Hackathon fork of the Quire doc-gen kernel created"
     },
     {
       "date": "2026-09-03",
       "event": "Security audit: LOW risk, verdict APPROVED"
-    },
-    {
-      "date": "2026-09-07",
-      "event": "Repo set PRIVATE for hackathon-window work"
     },
     {
       "date": "2026-09-09",
@@ -251,8 +259,16 @@
       "event": "Submission video published: https://youtu.be/EleEatbaEWM"
     },
     {
-      "date": "mid-Nov",
-      "event": "Nebius deploy target (post-submission for demo continuity)"
+      "date": "2026-10-18",
+      "event": "Live demo verified at https://verdikt.aismith.ai"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Income rule made deterministic (2026 HHS poverty guideline); email test guide passes 5 of 5 on the live demo"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Devpost submission"
     },
     {
       "date": "2026-10-30",

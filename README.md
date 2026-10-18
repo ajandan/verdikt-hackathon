@@ -80,74 +80,33 @@ enforced mechanically:
 The reuse declaration lives in [`docs/HACKATHON.md`](docs/HACKATHON.md) with a
 mechanical proof (git log + boundary tests).
 
-## Live demo
+## Try it
 
-- **Demo video (< 3 min)**: [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM)
-- **Hosted demo**: [https://verdikt.aismith.ai](https://verdikt.aismith.ai). The login page has a one-click judge sign-in. The full pipeline also runs locally on Docker Compose in under 5 minutes — see [Quickstart](#quickstart--5-minutes-local) below.
+No setup needed: the full pipeline is live.
 
-## Quickstart (< 5 minutes, local)
+- **Live demo:** [https://verdikt.aismith.ai](https://verdikt.aismith.ai). On the sign-in page, click **Sign in as demo user** for a judge account scoped to the fictional Alderwood pharmacy.
+- **Demo video (< 3 min):** [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM)
 
-You need: a container runtime with the `docker compose` CLI. No Python required on the host.
+### Test it by email
 
-```bash
-git clone https://github.com/ajandan/verdikt-hackathon.git
-cd verdikt-hackathon
-cp .env.example .env
+The real intake path: email an enrollment packet, and Verdikt reads it, decides against the program's rules, renders the reply letter and holds it for a reviewer.
 
-# Generate the two required secrets and paste into .env:
-python -c "import secrets; print('DOCGEN_SESSION_SECRET=', secrets.token_urlsafe(48), sep='')"
-python -c "import secrets; print('DOCGEN_WEBHOOK_SIGNING_SECRET=', secrets.token_urlsafe(48), sep='')"
+1. From any email account, send a message to `quire.template.agent@gmail.com` with the subject
+   `[pap:cardiovita-pap-2026] Alderwood — enrollment for Maria Chen`.
+2. Attach the two sample PDFs from [`submission/test-demo/`](submission/test-demo/):
+   `ASP-100-enrollment-maria-chen.pdf` and `ASP-110-income-worksheet-maria-chen.pdf`.
+3. Within a couple of minutes the case appears at [verdikt.aismith.ai](https://verdikt.aismith.ai) under **Cases**, with every stage, the rules that fired and the rendered reply.
 
-# Optional but recommended — wire up the design-time LLM:
-#   1. Get a Nebius Token Factory API key at https://studio.nebius.com/
-#   2. In .env, set: DOCGEN_AI_PROVIDER=nebius and DOCGEN_AI_API_KEY=<your key>
-# (Skip this step to run with DOCGEN_AI_PROVIDER=stub — the deterministic
-#  placeholder matcher, useful for offline dev.)
+| Test | Attach | Expected |
+| --- | --- | --- |
+| 1 | both PDFs | **approve**: $60,000 is under the program's income cap of $86,560 for a household of two |
+| 2 | ASP-100 only | **missing info**: no income worksheet, so Verdikt asks for it instead of guessing a denial |
 
-# Bring the stack up.
-docker compose up -d postgres redis minio minio-init
-docker compose run --rm web alembic upgrade head
-docker compose up -d web worker
-```
+Nothing is sent back until a reviewer approves the case; then the decision letter is emailed to the address you sent from. The step-by-step guide, with the exact email body and troubleshooting, is [`submission/test-demo/verdikt-email-test-guide.pdf`](submission/test-demo/verdikt-email-test-guide.pdf) (source: [`docs/verdikt-email-test-guide.html`](docs/verdikt-email-test-guide.html); routing details in [`docs/demo-scripts/email-inbox-test.md`](docs/demo-scripts/email-inbox-test.md)).
 
-Open **<http://localhost:8000/ui/>**. Sign in as `admin` (dev mode; set
-`DOCGEN_ADMIN_PASSWORD_HASH` before you point this at anything real — see
-`.env.example`).
+## Run it yourself
 
-### First-run walkthrough (doc-gen kernel)
-
-On the empty templates list, click **"Or try a sample →"** and pick one:
-
-- **EOB (real-world)** loads `sample_templates/insurance_eob.docx`, an Explanation of Benefits letter that exercises scalar fields, a service-line `{% for %}` loop, and an `{% if is_denied %}` block — so you see the mapping wizard's type inference and reasoning trace in one screen.
-- **DOCX** loads the shorter denial-letter sample if you want a simpler walk-through.
-
-Preflight runs on upload; from there fill a couple of fields, freeze the version, publish it, then hit **Render** to download a filled `.docx`.
-
-That's the doc-gen kernel loop: **upload → preflight → freeze → publish → render**. For the full Verdikt pipeline (**inbox → extract → retrieve → reason → reply**), walk through [`docs/HACKATHON.md`](docs/HACKATHON.md).
-
-### Where to go next
-
-- **Hackathon submission notes**: [`docs/HACKATHON.md`](docs/HACKATHON.md) — architecture, reuse declaration, judging-criteria mapping
-- **Deploy**: self-hosted. Model inference runs on Nebius Token Factory; [`docs/deploy-nebius.md`](docs/deploy-nebius.md) keeps the Nebius AI Cloud VM runbook for reference.
-- **REST reference**: <http://localhost:8000/docs> (OpenAPI, worked examples)
-- **MCP endpoint**: `http://localhost:8000/mcp/` (streamable-http)
-- **Object-store console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)
-- **Roadmap + design notes**: [`docs/roadmap.md`](docs/roadmap.md)
-- **Design system reference**: [`docs/design-system.html`](docs/design-system.html) (open directly — self-contained, no server needed)
-
-## Development
-
-```bash
-python -m venv .venv && . .venv/bin/activate    # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pre-commit install                              # ruff + tenant-scope audit on every commit
-pytest -v                                       # unit + boundary + golden tests
-ruff check src tests scripts                    # linter (CI runs this too)
-python scripts/tenant_scope_audit.py            # multi-tenancy hygiene
-```
-
-CI runs lint, tests, license scan, CVE scan, and the tenant-scope audit on
-every push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Verdikt runs on Docker Compose with no Python on the host: clone the repo, copy `.env.example` to `.env`, add two secrets and a Nebius Token Factory key, and bring the stack up. Full steps, a first-run walkthrough and the development setup are in [`docs/run-locally.md`](docs/run-locally.md). The production compose file and deploy runbook are in [`deploy/`](deploy/) and [`docs/deploy-nebius.md`](docs/deploy-nebius.md).
 
 ## Repo layout
 
@@ -161,8 +120,8 @@ src/
     providers/      design-time AI adapters (stub, OpenAI-compatible, Nebius / Nemotron)
     store/          ORM models + S3-compatible blob helpers
     ui/             admin portal (server-rendered, pre-compiled CSS)
-  pap_pipeline/     Verdikt — the three-stage decision pipeline (extract → retrieve → reason)
-    stages/         extract / retrieve / reason
+  pap_pipeline/     Verdikt — the decision pipeline (ingest → triage → decide → deliver)
+    stages/         extract / triage / retrieve / reason
     schemas/        Intake / Decision / Rule pydantic contracts
     rules/          human-authored YAML rules packs (Cardiovita, OncoBridge)
     templates/      reply-letter templates (approve / deny / missing_info)

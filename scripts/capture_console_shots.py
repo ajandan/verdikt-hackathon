@@ -16,6 +16,7 @@ stale or unscrubbed database cannot leak into the public landing page.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -56,9 +57,14 @@ SHOTS = {
     "console-humanloop":   (f"/ui/inbox/humanloop{T}", None),
 }
 
+# Personal addresses and API-key prefixes are always refused. Organisation
+# names to refuse come from DOCGEN_SHOT_DENYLIST (comma-separated) rather than
+# being written here: a public repo whose rule is "no real company names"
+# should not spell them out in its own guard.
+_DENY = [w.strip() for w in os.environ.get("DOCGEN_SHOT_DENYLIST", "").split(",") if w.strip()]
+_ALWAYS = r"@gmail\.com|dgk_[A-Za-z0-9]+"
 LEAK = re.compile(
-    r"ajanthan|@gmail\.com|dgk_[A-Za-z0-9]+|"
-    r"\b(example-org-a|example-org-b)\b",
+    _ALWAYS + (r"|\b(?:" + "|".join(re.escape(w) for w in _DENY) + r")\b" if _DENY else ""),
     re.I,
 )
 

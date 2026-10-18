@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T16:23:14Z",
-  "commit": "1c9740c",
+  "generated_at": "2026-10-18T17:12:18Z",
+  "commit": "bac0fbd",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
@@ -23,12 +23,11 @@
   "rules": [
     {
       "id": "R1",
-      "name": "Runs on Nebius Token Factory / Nebius AI Cloud",
+      "name": "Runs on Nebius Token Factory",
       "status": "met",
-      "how": "Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory. Reading uses MiniCPM-V, triage uses Nemotron Nano, retrieval uses Qwen3-Embedding, all via Token Factory (deploy of the app itself deferred to mid-Nov; runbook pre-flighted).",
+      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super returns the verdict. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
       "evidence": [
         "src/docgen/providers/nebius.py (Nebius Token Factory adapter)",
-        "docs/deploy-nebius.md (Nebius AI Cloud deploy runbook)",
         "tests/test_provider_nebius.py (provider contract enforced)"
       ]
     },
@@ -58,7 +57,7 @@
       "id": "R4",
       "name": "Public repo, README, demo URL",
       "status": "partial",
-      "how": "Repo README is production-ready and publicly framed (no employer references, no competitor library names). Repo currently PRIVATE (set 2026-09-07); flips PUBLIC before 2026-10-30. Public demo URL depends on the Nebius deploy, scheduled for mid-Nov.",
+      "how": "Repo README is production-ready and publicly framed. Repo currently PRIVATE (set 2026-09-07); flips PUBLIC before 2026-10-30. The application is deployed on self-hosted infrastructure and the demo URL is live.",
       "evidence": [
         "README.md (public-framing scrub complete)",
         "docs/HACKATHON.md (technical write-up)",
@@ -184,14 +183,14 @@
       "note": "Public-framing scrub complete. Docker compose bring-up documented."
     },
     {
-      "item": "Nebius-hosted deployment",
-      "status": "planned",
-      "note": "Deploy runbook (docs/deploy-nebius.md) pre-flighted. Actual deploy mid-Nov."
+      "item": "Runs on Nebius",
+      "status": "done",
+      "note": "All model inference runs on Nebius Token Factory. The application is deployed on self-hosted infrastructure rather than a Nebius AI Cloud VM."
     },
     {
       "item": "Public demo URL",
-      "status": "planned",
-      "note": "Depends on the Nebius deploy above."
+      "status": "partial",
+      "note": "Deployed and live on self-hosted infrastructure. URL to be pasted into the Devpost field."
     },
     {
       "item": "≥ 1 NVIDIA OSS model",
@@ -200,8 +199,8 @@
     },
     {
       "item": "YouTube video < 3 min",
-      "status": "partial",
-      "note": "Video is rendered and under the cap: 2:58.3, thirteen beats, slides plus live-UI captures. Needs uploading to YouTube for a URL."
+      "status": "done",
+      "note": "Published, 2:58.3, under the 3:00 cap: https://www.youtube.com/watch?v=FF_svj1Y6pk"
     },
     {
       "item": "Devpost submission",
@@ -257,18 +256,6 @@
       "priority": "high",
       "why_blocked": "Deliberate privacy during active submission-window work.",
       "plan": "Flip PUBLIC on 2026-10-28 (48h buffer before deadline). No code change needed."
-    },
-    {
-      "item": "Public demo URL on Nebius",
-      "priority": "high",
-      "why_blocked": "Deploy target date is mid-Nov to keep the production Quire deploy on its own schedule.",
-      "plan": "Cut a hackathon-scoped Nebius deploy from the runbook. Minimal footprint (single VM + Token Factory key). Bring up 2026-10-25, freeze, submit."
-    },
-    {
-      "item": "Upload the submission video to YouTube",
-      "priority": "medium",
-      "why_blocked": "Not blocked. The cut is finished (2:58.3); it was built from composed slides and Playwright captures, so it never needed a live URL.",
-      "plan": "Upload and paste the URL into Devpost alongside the repo and demo links."
     },
     {
       "item": "Submit on Devpost",

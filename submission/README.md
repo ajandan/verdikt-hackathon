@@ -13,11 +13,11 @@ here — fix the source and re-run. This page included: its source is
 | Field | Status | Value / blocker |
 | --- | --- | --- |
 | Public repo URL | **BLOCKED** | `github.com/ajandan/quire-hackathon` is **private** — flip public before the deadline or judges get a 404 |
-| Public demo URL | **BLOCKED** | Nebius deploy not cut yet; runbook is `docs/deploy-nebius.md` |
-| Video (< 3 min) | ready, not uploaded | `video/verdikt-submission.mp4` — 2:58.3, needs a YouTube/Vimeo URL |
+| Public demo URL | live, URL needed here | deployed on self-hosted infrastructure; paste the URL into Devpost |
+| Video (< 3 min) | **done** | https://www.youtube.com/watch?v=FF_svj1Y6pk — 2:58.3, under the cap. Local copy in `video/` |
 | Licence | done | MIT, `LICENSE`, enforced by `scripts/license_check.py` in CI |
 | NVIDIA OSS model | done | NVIDIA Nemotron Nano (triage) + Nemotron Super 120B (verdict, PDF labelling) |
-| Nebius hosting | partial | all model calls already go through Nebius Token Factory; app not yet hosted on Nebius |
+| Nebius hosting | **done** | every model call goes through Nebius Token Factory. The app itself is self-hosted — the rule allows either |
 | Image gallery | ready | `screenshots/` — start with `cover.png`, then `product-ui/` |
 | Video thumbnail | ready | `youtube-thumbnail.jpg` (1280×720, 64 KB) — upload as the custom thumbnail |
 | Supporting docs | ready | `slides/` |

@@ -2293,9 +2293,13 @@
     </div>
 
     <div class="demo-video-wrap">
-      {# Facade → local <video> swap on click. The MP4 is served from /static. #}
+      {# Facade → YouTube embed on click. The submission video lives on
+         YouTube, so the page links the canonical public copy rather than
+         shipping a second 19MB file from /static. Nothing from YouTube
+         loads until the click, so the page costs no third-party request
+         on first paint; landing_csp() allows the nocookie frame. #}
       <div class="demo-video">
-        <button type="button" class="demo-facade" data-video-src="/static/verdikt-submission.mp4" aria-label="Play Verdikt demo video">
+        <button type="button" class="demo-facade" data-youtube-id="FF_svj1Y6pk" aria-label="Play the Verdikt demo video on YouTube">
           <span class="yt-watermark" aria-hidden="true">
             <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="square">
@@ -2339,7 +2343,7 @@
                 Plays inline · 1080p
               </span>
             </div>
-            <span class="yt-duration">3:00</span>
+            <span class="yt-duration">2:58</span>
           </div>
         </button>
       </div>
@@ -2857,19 +2861,24 @@
   // the FastAPI StaticFiles range-request handling for scrubbing.
   document.querySelectorAll('.demo-facade').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var src = btn.dataset.videoSrc;
-      if (!src) return;
+      var id = btn.dataset.youtubeId;
+      if (!id) return;
       var shell = btn.closest('.demo-video');
       if (!shell) return;
-      var video = document.createElement('video');
-      video.src = src;
-      video.title = 'Verdikt demo video';
-      video.controls = true;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.setAttribute('preload', 'metadata');
+      var frame = document.createElement('iframe');
+      // nocookie host: no YouTube cookie is set unless the video is played,
+      // and the click is what loads this frame in the first place.
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + id +
+                  '?autoplay=1&rel=0&modestbranding=1&playsinline=1';
+      frame.title = 'Verdikt demo video';
+      frame.width = '100%';
+      frame.height = '100%';
+      frame.setAttribute('frameborder', '0');
+      frame.setAttribute('allow',
+        'accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture');
+      frame.setAttribute('allowfullscreen', '');
       shell.innerHTML = '';
-      shell.appendChild(video);
+      shell.appendChild(frame);
     });
   });
 

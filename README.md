@@ -7,7 +7,7 @@
 | **License** | MIT |
 | **Track** | Best Apps & Agents |
 | **Video** | under 3 minutes — see [Live demo](#live-demo) |
-| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super, reason stage — non-reasoning mode for schema-conformant JSON verdicts) |
+| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super, verdict — non-reasoning mode for schema-conformant JSON) · Nemotron Nano (triage, with a rule-based fallback) |
 | **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extract stage) · `Qwen/Qwen3-Embedding-8B` (Apache-2.0 embedding model, retrieve stage) |
 | **Domain** | US patient-assistance-program (PAP) eligibility |
 
@@ -127,7 +127,7 @@ That's the doc-gen kernel loop: **upload → preflight → freeze → publish �
 ### Where to go next
 
 - **Hackathon submission notes**: [`docs/HACKATHON.md`](docs/HACKATHON.md) — architecture, reuse declaration, judging-criteria mapping
-- **Deploy on Nebius AI Cloud**: [`docs/deploy-nebius.md`](docs/deploy-nebius.md) — VM-to-public-URL runbook
+- **Deploy**: self-hosted. Model inference runs on Nebius Token Factory; [`docs/deploy-nebius.md`](docs/deploy-nebius.md) keeps the Nebius AI Cloud VM runbook for reference.
 - **REST reference**: <http://localhost:8000/docs> (OpenAPI, worked examples)
 - **MCP endpoint**: `http://localhost:8000/mcp/` (streamable-http)
 - **Object-store console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)

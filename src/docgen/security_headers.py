@@ -57,7 +57,12 @@ def _base_csp(nonce: str) -> str:
 # Public marketing page at `/`. Same tight rules as base, but allows Google
 # Fonts (stylesheet + woff2) and YouTube's privacy-enhanced embed for the
 # hackathon demo video. No scripts, no XHR, no images beyond self+data.
-# The demo card plays a locally-hosted MP4 from /static, hence media-src 'self'.
+#
+# frame-src is what actually permits that embed. It was missing while this
+# comment already claimed the embed was allowed, so default-src 'self' would
+# have blocked the iframe outright -- the demo card has to click through to a
+# real player, so the directive has to exist. media-src 'self' stays for any
+# locally-served media; the demo card itself no longer uses it.
 def landing_csp(nonce: str) -> str:
     return "; ".join([
         "default-src 'self'",
@@ -67,6 +72,7 @@ def landing_csp(nonce: str) -> str:
         "object-src 'none'",
         "img-src 'self' data:",
         "media-src 'self'",
+        "frame-src https://www.youtube-nocookie.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com",
         f"script-src 'self' 'nonce-{nonce}'",

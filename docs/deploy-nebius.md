@@ -1,5 +1,12 @@
 # Deploying Quire on Nebius AI Cloud
 
+> **Status: reference, not what is running.** The live deployment is
+> self-hosted. This runbook is kept because it is pre-flighted and still
+> correct for a Nebius AI Cloud VM, but nothing below describes the
+> current deployment. What *is* Nebius in production is the inference:
+> every model call goes through Nebius Token Factory, which is what the
+> hackathon rule requires (it names Token Factory or AI Cloud).
+
 This runbook takes a fresh Nebius AI Cloud VM to a public, TLS-terminated Quire
 instance running the design-time LLM against NVIDIA Nemotron on Nebius Token
 Factory.
@@ -113,7 +120,15 @@ docker compose -f deploy/docker-compose.prod.yml --env-file .env \
   "from docgen.auth import hash_password; print(hash_password('<your admin password>'))"
 ```
 
-Paste the resulting bcrypt hash into `DOCGEN_ADMIN_PASSWORD_HASH` in `.env`.
+Paste the resulting bcrypt hash into `DOCGEN_ADMIN_PASSWORD_HASH` in `.env`,
+**inside single quotes**:
+
+```dotenv
+DOCGEN_ADMIN_PASSWORD_HASH='$2b$12$...'
+```
+
+Without the quotes, Docker Compose reads each `$` as a variable, the hash is
+silently corrupted and sign-in always fails.
 
 ## 7. Bring the stack up
 
@@ -163,21 +178,125 @@ handshake with `sudo journalctl -u caddy -f` — the first request to
 `https://quire.<yourdomain>/` triggers ACME. Visit
 `https://quire.<yourdomain>/ui/` — you should get the admin sign-in page.
 
-## 9. Verify
+## 8b. Load the demo data
 
-- `https://quire.<yourdomain>/health` → `200 OK`.
-- Sign in to `/ui/` with the admin credentials from step 6.
-- On the empty templates page, click **"EOB (real-world)"** in the "Or try
-  a sample" strip. The EOB has a `{% for %}` service-line loop and an
-  `{% if is_denied %}` block that give the mapping wizard a lot to show off
-  — scalars typed by the LLM, list/boolean typed by AST inference. If the
-  DOCX button works but EOB doesn't, the built image is stale (rebuild).
-- Trigger AI mapping. Confirm the request lands at Nebius Token Factory
-  (check `docker compose logs web` — you should see one outbound request
-  per mapping run, and each row in the wizard should show a "Why:" line
-  from the model, not the deterministic stub template).
-- The version freeze page should show byte-identical `version_hash` values
-  between two consecutive renders of the same input JSON.
+A clean database has the default tenant but not the Alderwood demo tenant, its
+program with the 105-slot schema, its nine rules, the reply letters or the
+guideline PDFs. Load them from `deploy/demo-seed/`:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/deploy/demo-seed:/app/deploy/demo-seed:ro"   web python scripts/seed_demo.py
+```
+
+It prints one row count per table and a **single API key, shown once**. Save it;
+step 9.3 needs it. Running it again changes nothing and does not mint another
+key. To refresh the seed from a working install, run `scripts/export_demo_seed.py`
+in the web container and commit the result.
+
+## 8c. Alternative: a Mac or home server behind a Cloudflare Tunnel
+
+Skip steps 1, 2 and 8 if the app runs on a machine you already own. Run steps 3
+to 8b there, set `WEB_PORT` to a free port, and add the hostname to the tunnel's
+ingress list (`hostname: verdikt.<yourdomain>`, `service: http://localhost:<port>`).
+Use a separate compose project name (`-p verdikt`) so it never touches other
+stacks on the machine. Cloudflare supplies the HTTPS; keep
+`DOCGEN_SECURE_COOKIES=true`. Over plain `http://` (for example a LAN address)
+browsers drop the `Secure` cookie and sign-in appears to do nothing; set it to
+`false` only while testing that way.
+
+## 9. Verdikt smoke test
+
+Run this after step 8. It sends one real case through the pipeline and checks
+each claim the demo makes. Stop at the first failure and use section 12.
+`$BASE` is `https://quire.<yourdomain>`.
+
+**9.1 The app is up**
+
+- `curl -fsS $BASE/health` returns `200`.
+- Sign in at `$BASE/ui/` with the admin credentials from step 6.
+
+**9.2 The program and rules exist**
+
+- `/ui/programs` lists `cardiovita-pap-2026` under the Alderwood tenant, with
+  105 slots. This comes from step 8b.
+- The rules library shows its nine rules (`CV-CLIN-01-cardio`, `CV-CONSENT-01`,
+  `CV-PRACTICE-US-01`, `CV-PAP-REQUEST-01`, `CV-PRESCRIBER-CONSENT-01`,
+  `CV-INS-01-cardio`, `CV-RES-01-cardio` and the two history rules).
+- The OncoBridge cameo program is not created by a migration. Only run 9.7 if
+  you created it yourself.
+
+**9.3 Mint an API key**
+
+- Use the key printed by step 8b, or create one under Admin, then Tenants, then
+  Alderwood, then Keys.
+- `export KEY=<the key>`
+
+**9.4 Happy path: expect `approve`**
+
+The seeded program reads a scanned enrollment bundle, not a short JSON payload.
+Queue the sample bundle that ships with the seed:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/deploy/demo-seed:/app/deploy/demo-seed:ro"   web python scripts/queue_sample_case.py
+```
+
+It takes about a minute and prints `outcome: approve`, the event id and
+`review_state=pending_review`. Save the event id as `$EV`. The case now waits
+in the reviewer queue. Extraction reads a scan, so a rare misread can change the
+outcome. If it does not approve, open the pipeline page (9.8) and read which
+rule failed and what value was extracted.
+
+**9.5 Rule path: expect `deny`**
+
+Rules are deterministic, so change one input and the verdict changes. In the
+pipeline page for `$EV`, find the household income and the Cardiovita cap in
+the rules view. A scan with an income above the cap returns `deny` citing
+`CV-INC-01`. If you have no such scan, the unit tests cover this path
+(`tests/test_rule_formula.py`).
+
+**9.6 Bad input is rejected and still audited**
+
+```bash
+curl -sS -X POST $BASE/pap/programs/cardiovita-pap-2026/intake   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"   -d '{"actor":"smoke-test","intake":{"patient_name":"x"}}'
+```
+
+Expect HTTP `400`, `detail: "intake validation failed"` and an `event_id`. The
+JSON path takes the form's own field names (`patient_last_name`, `rx_medication`
+and so on), so a short payload lists every missing field. That case appears in
+the reviewer queue as `failed`. **Delete it from the inbox before showing the
+site to anyone.**
+
+**9.7 OncoBridge cameo (only if OncoBridge exists)**
+
+It is not part of the seed. If you created that program yourself, queue a bundle
+against its slug and check that its own income cap (`OB-INC-01`) is applied.
+
+**9.8 The reviewer can see every stage**
+
+- Open `$BASE/ui/inbox/$EV/pipeline`. It should show the extracted fields, the
+  triage case type and route, the retrieved rules, the verdict with citations
+  and the reply letter.
+- Open `/ui/admin/routing`. Rows should show Nebius Token Factory model names
+  (`nvidia/nemotron-3-super-120b-a12b` for the verdict) with real latencies.
+  If Triage shows the rule-based fallback, check `triage_model` and the key.
+- `docker compose -f deploy/docker-compose.prod.yml logs web` shows outbound
+  Token Factory requests for the case.
+- If the case is pending review, approve it. The reply letter should then be
+  available for download.
+
+**9.9 No model on the render path**
+
+The letter is merged from the frozen template. Confirm nothing in
+`logs web` shows a Token Factory request during the approve/render step. Only
+the Ingest, Triage and Decide stages may call a model.
+
+**9.10 Repeatability (record the result, do not assume it)**
+
+Queue the sample bundle a second time (9.4). Compare the two reply letters (for
+example `sha256sum` of the downloaded files) and the template `version_hash`
+shown on the pipeline page. The template hash should match. The test suite
+checks structure, not letter bytes, so write down whether the bytes match
+rather than claiming it in the demo.
 
 ## 10. Rotate credentials before the demo
 

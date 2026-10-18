@@ -20,7 +20,8 @@ for an idle VM through October.
 
 Two hard rules from the hackathon:
 1. **Must run on Nebius Token Factory or Nebius AI Cloud** — hosted, not
-   tunneled from a local machine.
+   tunneled from a local machine. Satisfied by Token Factory: every model call
+   goes through it. The application is self-hosted.
 2. **Public demo URL** is a required submission field.
 
 A single Nebius CPU VM satisfies both. GPU compute stays on Nebius Token

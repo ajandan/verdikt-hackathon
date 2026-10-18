@@ -21,20 +21,16 @@
 #     submission artifact
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT=submission
-
-# Windows holds transient locks on freshly-read files (indexer, AV, a PDF
-# preview pane), and with `set -e` a single failed unlink would abort here
-# leaving the folder half-deleted. Retry briefly, then say so plainly.
-for attempt in 1 2 3 4 5; do
-    rm -rf "$OUT" 2>/dev/null && break
-    if [[ $attempt -eq 5 ]]; then
-        echo "[submission] cannot clear $OUT -- a file is locked." >&2
-        echo "[submission] close anything previewing submission/ and re-run." >&2
-        exit 1
-    fi
-    sleep 1
-done
+FINAL=submission
+# Build into a staging directory and swap it in at the end, rather than
+# deleting the live folder first. On Windows a PDF open in a viewer holds an
+# exclusive lock on that one file; deleting in place then fails part-way and
+# leaves a half-built folder (and `set -e` aborts before anything is restored).
+# A directory rename does not need access to the files inside it, so the swap
+# works with the deck open -- which is the normal case, since someone reviewing
+# the deck is exactly who re-runs this.
+OUT="$FINAL.new"
+rm -rf "$OUT"
 
 mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/e2e-walkthrough,screenshots/architecture,sample-outputs/templates,test-evidence,video}
 
@@ -107,9 +103,24 @@ else
     echo "[submission] WARN: no assets/video/verdikt-submission*.mp4 found" >&2
 fi
 
+# --- swap the staged tree into place --------------------------------------
+TRASH="$FINAL.old.$$"
+if [[ -d "$FINAL" ]]; then
+    if ! mv "$FINAL" "$TRASH" 2>/dev/null; then
+        echo "[submission] cannot replace $FINAL/ -- the directory itself is held open." >&2
+        echo "[submission] close any Explorer window sitting inside it and re-run." >&2
+        echo "[submission] the new build is intact at $OUT/" >&2
+        exit 1
+    fi
+fi
+mv "$OUT" "$FINAL"
+OUT="$FINAL"
+# Best-effort: a locked file in the old tree must not fail the build, since the
+# new tree is already in place by this point.
+rm -rf "$TRASH" 2>/dev/null ||     echo "[submission] note: could not delete $TRASH (a file in it is open); remove it later" >&2
+
 # --- YouTube thumbnail ----------------------------------------------------
-# Generated last: this script wipes $OUT at the top, so the thumbnail has to be
-# produced after that, not copied from a previous build.
+# After the swap, so it lands in the real folder and survives it.
 python scripts/make_thumbnail.py
 
 echo "[submission] staged $(find "$OUT" -type f | wc -l) files, $(du -sh "$OUT" | cut -f1)"

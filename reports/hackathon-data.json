@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T22:15:00Z",
+  "generated_at": "2026-10-18T22:40:00Z",
   "commit": "7c322f4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
@@ -16,7 +16,7 @@
     "rules_met": 5,
     "rules_pending": 0,
     "license": "MIT",
-    "nvidia_models": 2,
+    "nvidia_models": 3,
     "nebius_services": 1,
     "open_items": 1
   },
@@ -35,10 +35,11 @@
       "id": "R2",
       "name": "≥ 1 NVIDIA open-source model",
       "status": "met",
-      "how": "Nemotron Nano (triage) and Nemotron Super (verdict), both under the nvidia/ namespace. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
+      "how": "Three NVIDIA Nemotron models, all on Nebius Token Factory: Nemotron Nano triages each case, Nemotron Super reasons over rules without a deterministic formula and labels PDF form fields, and Nemotron 3 Nano 30B maps template fields at design time. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
       "evidence": [
-        "nvidia/nemotron-3-super-120b-a12b (verdict)",
-        "Nemotron Nano (triage, rule-based fallback)",
+        "nvidia/nemotron-nano-3-6b (triage, rule-based fallback)",
+        "nvidia/nemotron-3-super-120b-a12b (reasoning fallback, PDF field labeling)",
+        "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B (design-time template mapping, provider default)",
         "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
       ]
     },

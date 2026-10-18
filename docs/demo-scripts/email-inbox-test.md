@@ -14,12 +14,13 @@ document is about getting an event to land in the first place.
 
 | Role | Address |
 | --- | --- |
-| **Send from** | `<your-test-sender>@example.com` |
-| **Send to** | `<demo-inbox>@example.com` |
+| **Send from** | any address you control — Gmail, Outlook, a work account |
+| **Send to** | `quire.template.agent@gmail.com` |
 
-
-The demo mailbox is a single system inbox; which tenant a message belongs to is
-decided per-message, not per-mailbox.
+Any sender works. The subject tag `alderwood` routes the message to the
+Alderwood tenant before the sender is ever looked at, so the From: address
+does not matter. The demo mailbox is a single system inbox; which tenant a
+message belongs to is decided per-message, not per-mailbox.
 
 ## How a message is routed
 
@@ -36,8 +37,8 @@ Two independent decisions, in this order.
   why domain routing additionally requires an `Authentication-Results` header
   showing DMARC/DKIM/SPF pass when one is present.
 
-Put `alderwood` in the subject anyway. It makes routing deterministic and
-independent of which address you send from.
+Put `alderwood` in the subject. It is what makes routing work from any
+address: without it, only allow-listed sender domains route.
 
 **2. Is it a PAP case, and which program?** (`src/docgen/inbox/agent.py`)
 
@@ -81,9 +82,11 @@ Test 2 is the one worth doing first. It proves the system distinguishes "this
 application fails" from "I cannot decide this yet" — which is the difference
 between a wrong answer and an honest one.
 
-Test 3 needs the `oncobridge-pap-2026` program to exist. Its rules ship in
-`src/pap_pipeline/rules/OB-*.yaml`, but the demo seed only creates
-`cardiovita-pap-2026`, so create the program first or skip this one.
+Test 3 needs an `oncobridge-pap-2026` program **under the Alderwood tenant**, since
+programs are looked up per tenant after the subject tag picks one. Its rules
+ship in `src/pap_pipeline/rules/OB-*.yaml`, but no such program exists under
+Alderwood today, so set it up first or skip this test. It is left out of the
+judge-facing PDF for that reason.
 
 ## The email
 
@@ -110,8 +113,7 @@ The patient is currently uninsured and is requesting assistance under the
 CardioVita program. Please let me know if anything further is needed.
 
 Thank you,
-Alicia Reeves, RN
-Elmwood Rheumatology Associates
+Bayview Cardiology Associates
 ```
 
 Attach both PDFs. Send.

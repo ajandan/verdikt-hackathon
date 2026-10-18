@@ -31,7 +31,7 @@ FINAL=submission
 OUT="$FINAL.new"
 rm -rf "$OUT"
 
-mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/architecture,sample-outputs/templates,test-evidence,video}
+mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/architecture,test-demo,sample-outputs/templates,video}
 
 # --- slides ---------------------------------------------------------------
 # These are rendered from their HTML by scripts/render_docs_pdf.py. Re-run that
@@ -63,9 +63,11 @@ done
 
 # --- sample outputs (the "test PDFs") -------------------------------------
 # Real pipeline output: one reply package per verdict outcome.
-cp tmp/generated_packages/case39_approve.pdf      "$OUT/sample-outputs/reply-approve.pdf"
-cp tmp/generated_packages/case39_deny.pdf         "$OUT/sample-outputs/reply-deny.pdf"
-cp tmp/generated_packages/case39_missing_info.pdf "$OUT/sample-outputs/reply-missing-info.pdf"
+# Tracked copies, so a clean clone can build this folder. They used to be read
+# from tmp/generated_packages/, scratch output that only existed on one machine.
+cp samples/reply-packages/reply-approve.pdf      "$OUT/sample-outputs/"
+cp samples/reply-packages/reply-deny.pdf         "$OUT/sample-outputs/"
+cp samples/reply-packages/reply-missing-info.pdf "$OUT/sample-outputs/"
 # The frozen, human-approved templates those replies are merged into, plus the
 # blank intake form the pipeline reads.
 cp sample_templates/alderwood/alderwood-pap-approval-ASP-201.pdf     "$OUT/sample-outputs/templates/"
@@ -74,8 +76,16 @@ cp sample_templates/alderwood/alderwood-pap-missing-info-ASP-203.pdf "$OUT/sampl
 cp sample_templates/alderwood/alderwood-enrollment-form.pdf          "$OUT/sample-outputs/templates/"
 
 # --- evidence -------------------------------------------------------------
-cp reports/results.xml       "$OUT/test-evidence/junit-results.xml"
-cp reports/test-report.xlsx  "$OUT/test-evidence/"
+# No raw test output ships: JUnit XML carries machine hostnames, and the raw
+# reports were removed from the repo before it went public. The README states
+# the numbers; reports/dashboard.html renders them.
+# --- test demo: everything a judge needs to try it by email -----------------
+# The step-by-step guide (rendered from docs/verdikt-email-test-guide.html) and
+# the two attachments it tells them to send.
+cp docs/verdikt-email-test-guide.pdf                    "$OUT/test-demo/"
+cp samples/email-test/ASP-100-enrollment-maria-chen.pdf  "$OUT/test-demo/"
+cp samples/email-test/ASP-110-income-worksheet-maria-chen.pdf "$OUT/test-demo/"
+
 cp LICENSE                   "$OUT/"
 # The index for the folder. Its source lives in docs/ precisely because
 # this script wipes $OUT -- a README written into the folder by hand does

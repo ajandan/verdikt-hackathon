@@ -54,6 +54,15 @@ old-style deck got staged here once already.
   submission video, one per beat. `beat0d_primary.png` is the five-stage
   pipeline diagram; `beat7_primary.png` is the audit trail.
 
+### `test-demo/`
+Everything a judge needs to try Verdikt by email, from any address.
+- `verdikt-email-test-guide.pdf` — three pages, step by step: what to send,
+  the exact subject and body, which file to attach, what happens next, and
+  why no reply arrives until a reviewer approves. Rendered from
+  `docs/verdikt-email-test-guide.html` by `scripts/render_docs_pdf.py`.
+- `ASP-100-enrollment-maria-chen.pdf`, `ASP-110-income-worksheet-maria-chen.pdf`
+  — the fictional packet the guide tells them to attach.
+
 ### `sample-outputs/`
 The deterministic half of the product, as actual files.
 - `reply-approve.pdf`, `reply-deny.pdf`, `reply-missing-info.pdf` — one real
@@ -72,16 +81,13 @@ manufacturer data appears in any artifact here.
 Upload the JPEG — 64 KB against YouTube's 2 MB cap. The composition is three
 short lines so it still reads at the ~210px width of a search result.
 
-### `test-evidence/`
-- `junit-results.xml` — the JUnit XML behind the deck's Proof slide:
-  **934 tests, 928 passing, 0 failing, 6 skipped** (6 = 1 skip + 5 xfail, which
-  JUnit counts together). Run 2026-10-18 against a disposable
-  postgres/redis/minio stack; the suite needs all three, and a run without them
-  reports connection errors rather than anything about the code.
-- `test-report.xlsx` — an earlier run as a spreadsheet.
-
-See `reports/dashboard.html` for the rendered version, and
-`reports/_gen_dashboard.py` for how that JSON is produced.
+### Test results
+Not shipped as files: raw JUnit output carries machine hostnames, and it was
+removed from the repo before going public. The figures on the Proof slide —
+**934 tests, 928 passing, 0 failing, 6 skipped** (1 skip + 5 xfail) — come from
+a full run on 2026-10-18 against disposable postgres/redis/minio containers,
+re-run green after the merge into `main`. `reports/dashboard.html` renders the
+per-suite breakdown.
 
 ### `video/`
 - `verdikt-submission.mp4` — 2:58.3, under the 3:00 cap. Thirteen beats:

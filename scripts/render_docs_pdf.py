@@ -34,6 +34,10 @@ TARGETS = {
         "verdikt-one-pager.html", "verdikt-one-pager.pdf",
         {"format": "Letter"}, None,
     ),
+    "email-test-guide": (
+        "verdikt-email-test-guide.html", "verdikt-email-test-guide.pdf",
+        {"format": "Letter"}, None,
+    ),
     "one-slide": (
         "verdikt-one-slide.html", "verdikt-one-slide.pdf",
         {"width": "1920px", "height": "1080px"}, (1920, 1080),

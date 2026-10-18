@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verdikt — email test guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Same tokens as the one-pager and the submission video. */
+  :root {
+    --ink-50:#f6f5f1; --ink-100:#eeece4; --ink-300:#a9a394; --ink-500:#6c6858; --ink-700:#3a382f; --ink-900:#141410;
+    --seal-500:#2f8f76; --seal-700:#1e5f4f; --paper:#f8f4e8; --amber:#f59e0b; --amber-ink:#8a3f14; --rose:#b04a3f;
+    --serif:'Instrument Serif','Georgia',serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono','Consolas',monospace;
+  }
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--ink-50); color:var(--ink-900); font-family:var(--sans);
+               -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { width:816px; height:1056px; padding:40px 56px 30px; position:relative; overflow:hidden;
+          page-break-after:always; break-after:page; display:flex; flex-direction:column; gap:14px; }
+  .page:last-child { page-break-after:auto; break-after:auto; }
+  .strip { position:absolute; left:0; right:0; bottom:0; height:5px;
+           background:linear-gradient(90deg,#2f8f76 0 34%,#f59e0b 34% 67%,#b04a3f 67% 100%); }
+  .foot { position:absolute; left:56px; right:56px; bottom:16px; font-family:var(--mono); font-size:8.5px;
+          letter-spacing:.12em; text-transform:uppercase; color:var(--ink-300); display:flex; justify-content:space-between; }
+  .eyebrow { font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--seal-700);
+             display:flex; align-items:center; gap:8px; }
+  .eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--seal-500); }
+  h1 { font-family:var(--serif); font-weight:400; font-size:46px; line-height:1; letter-spacing:-.02em; margin:4px 0 0; }
+  h1 em { color:var(--seal-700); }
+  h2 { font-family:var(--serif); font-weight:400; font-size:24px; letter-spacing:-.01em; margin:0 0 6px; }
+  h2 em { color:var(--seal-700); }
+  .lede { font-family:var(--serif); font-size:17px; line-height:1.35; color:var(--ink-500); max-width:640px; margin:0; }
+  p, li { font-size:11.5px; line-height:1.5; color:var(--ink-700); margin:0; }
+  ul { margin:4px 0 0; padding-left:18px; }
+  b { color:var(--ink-900); font-weight:600; }
+  code { font-family:var(--mono); font-size:10.5px; background:var(--ink-100); padding:1px 5px; border-radius:4px; color:var(--ink-900); }
+  .card { background:#fff; border:1px solid rgba(20,20,16,.12); border-radius:10px; padding:14px 16px;
+          box-shadow:0 12px 26px -18px rgba(20,20,16,.3); }
+  .card.paper { background:var(--paper); }
+  .row { display:flex; gap:12px; } .row > * { flex:1; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { text-align:left; font-family:var(--mono); font-size:8.5px; letter-spacing:.12em; text-transform:uppercase;
+       color:var(--ink-500); font-weight:500; padding:0 8px 6px 0; border-bottom:1px solid var(--ink-100); }
+  td { padding:7px 8px 7px 0; border-bottom:1px solid var(--ink-100); vertical-align:top; color:var(--ink-700); }
+  tr:last-child td { border-bottom:0; }
+  td code { white-space:nowrap; }
+  .pill { display:inline-block; font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+          padding:2px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .pill.ok { color:var(--seal-700); border-color:var(--seal-500); background:#e8f3ef; }
+  .pill.warn { color:var(--amber-ink); border-color:var(--amber); background:#fdf3e1; }
+  .pill.no { color:var(--rose); border-color:var(--rose); background:#f8e9e7; }
+  .step { display:flex; gap:14px; align-items:flex-start; }
+  .step .num { flex:0 0 34px; height:34px; border-radius:50%; background:var(--seal-700); color:#fff;
+               font-family:var(--serif); font-size:20px; display:flex; align-items:center; justify-content:center; }
+  .step .body { flex:1; }
+  .step h3 { font-size:13.5px; font-weight:600; margin:5px 0 4px; }
+  .copy { font-family:var(--mono); font-size:10.5px; line-height:1.55; background:var(--ink-900); color:#e9e6dc;
+          border-radius:8px; padding:10px 13px; margin-top:7px; white-space:pre-wrap; }
+  .copy .k { color:#8ec7b5; }
+  .note { border-left:3px solid var(--seal-500); background:#fff; padding:9px 12px; border-radius:0 8px 8px 0; }
+  .note.amber { border-left-color:var(--amber); }
+  .att { display:flex; gap:10px; align-items:center; }
+  .att .ic { width:30px; height:38px; border-radius:4px; background:#fff; border:1px solid var(--ink-300);
+             font-family:var(--mono); font-size:8px; color:var(--rose); display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; }
+  .att .t { font-size:11.5px; font-weight:600; color:var(--ink-900); }
+  .att .d { font-size:10.5px; color:var(--ink-500); }
+  .flow { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:9px; letter-spacing:.08em;
+          text-transform:uppercase; color:var(--ink-500); }
+  .flow span.s { padding:5px 8px; border-radius:6px; background:#fff; border:1px solid var(--ink-100); color:var(--ink-900); }
+  .flow span.ai { border-color:var(--seal-500); color:var(--seal-700); }
+  .flow span.det { border-color:var(--amber); color:var(--amber-ink); }
+  .flow span.hu { background:var(--ink-900); color:#fff; border-color:var(--ink-900); }
+</style>
+</head>
+<body>
+
+<!-- ============================ PAGE 1 ============================ -->
+<section class="page">
+  <div class="eyebrow">Verdikt &middot; test by email &middot; Nebius × NVIDIA Hackathon 2026</div>
+  <h1>Send an application. <em>Get a decision back.</em></h1>
+  <p class="lede">This guide takes you through the real intake path: you email a patient-assistance packet,
+    Verdikt reads it, decides against the program's own rules, writes the reply from a frozen template,
+    and holds it until a person approves. Then the letter comes back to you.</p>
+
+  <div class="flow">
+    <span class="s">Your email</span>&rsaquo;
+    <span class="s ai">Ingest</span>&rsaquo;<span class="s ai">Triage</span>&rsaquo;<span class="s ai">Decide</span>&rsaquo;
+    <span class="s det">Deliver</span>&rsaquo;<span class="s hu">Human approves</span>&rsaquo;
+    <span class="s">Reply to you</span>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>What you <em>need</em></h2>
+      <ul>
+        <li><b>Any email account</b> — Gmail, Outlook, a work address. The sender does not matter.</li>
+        <li>The <b>two PDFs</b> in this folder: <code>ASP-100</code> and <code>ASP-110</code>.</li>
+        <li>About <b>five minutes</b>, plus however long the reviewer takes to approve.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Where to <em>send</em></h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>From</td><td><b>any address you control</b></td></tr>
+        <tr><td>To</td><td><code>quire.template.agent@gmail.com</code></td></tr>
+        <tr><td>Subject</td><td>must contain <code>alderwood</code> and <code>[pap:…]</code></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card paper">
+    <h2>Two tests, two <em>predictable</em> answers</h2>
+    <p style="margin-bottom:8px">The applicant in the sample packet is fictional: a household of two earning $60,000.
+      The CardioVita program's rules cap household income at 400% of the federal poverty level — $84,600 for a household of two.</p>
+    <table>
+      <tr><th>#</th><th>Subject tag</th><th>Attach</th><th>Expected</th><th>Why</th></tr>
+      <tr><td>1</td><td><code>[pap:cardiovita-pap-2026]</code></td><td>both PDFs</td>
+          <td><span class="pill ok">approve</span></td><td>$60,000 is under CardioVita's cap of $84,600 (400% of the federal poverty level)</td></tr>
+      <tr><td>2</td><td><code>[pap:cardiovita-pap-2026]</code></td><td>ASP-100 only</td>
+          <td><span class="pill warn">missing info</span></td><td>No income worksheet, so it asks for one instead of guessing a denial</td></tr>
+    </table>
+  </div>
+
+  <div class="note">
+    <p><b>Start with test 2.</b> It shows the difference between "this application fails" and
+      "I can't decide this yet" — a wrong answer versus an honest one.</p>
+  </div>
+
+  <div class="strip"></div>
+  <div class="foot"><span>Verdikt &middot; email test guide</span><span>1 / 3</span></div>
+</section>
+
+<!-- ============================ PAGE 2 ============================ -->
+<section class="page">
+  <div class="eyebrow">Step by step &middot; sending</div>
+  <h2 style="font-size:32px">Compose the <em>email</em></h2>
+
+  <div class="step"><div class="num">1</div><div class="body">
+    <h3>Open a new message from any account</h3>
+    <p>Use whatever address you like. Routing is decided by the subject line, not by who sent it,
+      and the decision letter is sent back to the address you used.</p>
+  </div></div>
+
+  <div class="step"><div class="num">2</div><div class="body">
+    <h3>Address it</h3>
+    <div class="copy"><span class="k">To:</span> quire.template.agent@gmail.com</div>
+  </div></div>
+
+  <div class="step"><div class="num">3</div><div class="body">
+    <h3>Paste the subject exactly</h3>
+    <p>The subject carries two tags. <code>alderwood</code> chooses the pharmacy;
+      <code>[pap:cardiovita-pap-2026]</code> sends it to the decision pipeline and names the program.
+      Without the <code>[pap:…]</code> tag the email is treated as a template upload instead — the most common reason a test seems to do nothing.</p>
+    <div class="copy"><span class="k">Subject:</span> [pap:cardiovita-pap-2026] Alderwood — enrollment for Maria Chen</div>
+  </div></div>
+
+  <div class="step"><div class="num">4</div><div class="body">
+    <h3>Paste the body</h3>
+    <p>The attachments drive the decision, not the body — but send what a real clinic would.</p>
+<div class="copy">Hello,
+
+Please find attached the completed patient assistance enrollment packet
+for Maria L. Chen, referral ALD-26-207741.
+
+Enclosed:
+  - ASP-100 Patient Enrollment &amp; Prescription Referral (2 pages)
+  - ASP-110 Household Income Worksheet (1 page)
+
+The patient is currently uninsured and is requesting assistance under the
+CardioVita program. Please let me know if anything further is needed.
+
+Thank you,
+Bayview Cardiology Associates</div>
+  </div></div>
+
+  <div class="step"><div class="num">5</div><div class="body">
+    <h3>Attach the packet and send</h3>
+    <div class="row" style="margin-top:6px">
+      <div class="att"><div class="ic">PDF</div><div><div class="t">ASP-100-enrollment-maria-chen.pdf</div>
+        <div class="d">Enrollment &amp; prescription referral · 2 pages</div></div></div>
+      <div class="att"><div class="ic">PDF</div><div><div class="t">ASP-110-income-worksheet-maria-chen.pdf</div>
+        <div class="d">Household income worksheet · 1 page</div></div></div>
+    </div>
+    <p style="margin-top:8px">Leave out ASP-110 for test 2. Both files are flat scans with no form fields,
+      so Verdikt has to read them the way it would read a fax.</p>
+  </div></div>
+
+  <div class="strip"></div>
+  <div class="foot"><span>Verdikt &middot; email test guide</span><span>2 / 3</span></div>
+</section>
+
+<!-- ============================ PAGE 3 ============================ -->
+<section class="page">
+  <div class="eyebrow">Step by step &middot; what happens next</div>
+  <h2 style="font-size:32px">Wait for a <em>person</em></h2>
+
+  <div class="step"><div class="num">6</div><div class="body">
+    <h3>Verdikt picks it up within a minute</h3>
+    <p>The inbox is checked every 60 seconds. Once your email is in, the pipeline reads both documents,
+      classifies the case, finds the program rules that apply and returns a verdict that cites the rule
+      that decided it. Then it merges that verdict into the program's frozen, human-approved reply
+      template — no language model writes the letter.</p>
+  </div></div>
+
+  <div class="step"><div class="num">7</div><div class="body">
+    <h3>Nothing is sent until a reviewer approves</h3>
+    <p>Every outcome — approve, deny or missing info — stops in a review queue. A reviewer sees each
+      stage, the rule that fired and the rendered letter, and clicks Approve. This gate is in code,
+      not configuration, so it cannot be switched off by accident.</p>
+    <div class="note amber" style="margin-top:8px">
+      <p><b>No reply yet is the system working.</b> If you are waiting on a letter, the case is waiting on
+        a person. Expect it once the reviewer has looked at it, not within seconds.</p>
+    </div>
+  </div></div>
+
+  <div class="step"><div class="num">8</div><div class="body">
+    <h3>The decision letter arrives in your thread</h3>
+    <p>After approval the letter is emailed back to the address you sent from, as a reply to your
+      original message, with the rendered decision attached.</p>
+  </div></div>
+
+  <div class="card">
+    <h2>If <em>nothing</em> happens</h2>
+    <table>
+      <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+      <tr><td>Treated as a template, not a case</td><td><code>[pap:…]</code> missing from the subject</td><td>Paste the subject from step 3 exactly</td></tr>
+      <tr><td>Not routed to the pharmacy</td><td><code>alderwood</code> missing from the subject</td><td>Keep the word in the subject</td></tr>
+      <tr><td>Rejected for no attachments</td><td>Files dropped, or over 20 MB</td><td>Attach the PDFs from this folder</td></tr>
+      <tr><td>Re-sent, nothing new</td><td>Forwarded or re-opened an old message</td><td>Send a fresh email</td></tr>
+    </table>
+  </div>
+
+  <p style="font-size:10px;color:var(--ink-500)">Everything in the sample packet is fictional: the patient,
+    prescriber, pharmacy, drug and programs. Addresses use the reserved <code>.example</code> domain and phone
+    numbers use 555. Live demo: <code>https://verdikt.aismith.ai</code></p>
+
+  <div class="strip"></div>
+  <div class="foot"><span>Verdikt &middot; email test guide</span><span>3 / 3</span></div>
+</section>
+
+</body>
+</html>

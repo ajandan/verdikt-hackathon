@@ -804,12 +804,19 @@ rm -f "$concat_list"
 
 # Post-process: loudness-normalize the audio track to -14 LUFS (YouTube target).
 # Video stream copies through untouched; only audio is re-encoded.
+#
+# +faststart moves the moov atom ahead of mdat. Without it ffmpeg writes
+# moov last, so a browser streaming the file over HTTP cannot begin playing
+# until the whole file has arrived -- with preload="metadata" the landing
+# page's <video> just sits there looking broken. One extra pass at mux
+# time, nothing at playback.
 echo "[assemble] loudnorm pass -> $OUTPUT"
 ffmpeg -y -hide_banner -loglevel error \
     -i "$OUTPUT.raw.mp4" \
     -c:v copy \
     -af "loudnorm=I=-14:TP=-1.5:LRA=11" \
     -c:a aac -b:a 192k -ar 44100 \
+    -movflags +faststart \
     "$OUTPUT"
 rm -f "$OUTPUT.raw.mp4"
 

@@ -14,7 +14,9 @@ files land in the "Other" suite so nothing is silently dropped.
 """
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import subprocess
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -231,7 +233,21 @@ def _git_commit() -> str:
 
 
 def main() -> None:
-    tree = ET.parse(XML_IN)
+    # How the run was produced is provenance, not decoration: the dashboard
+    # prints it on the page. These used to be hardcoded to the docker
+    # --forked workflow, which silently mislabels a run made any other way.
+    # Overridable now, defaulting to the documented path.
+    ap = argparse.ArgumentParser(description="Generate dashboard-data.json")
+    ap.add_argument("--xml", type=Path, default=XML_IN)
+    ap.add_argument("--framework",
+                    default=os.environ.get("DASH_FRAMEWORK", "pytest --forked"))
+    ap.add_argument("--python", default=os.environ.get("DASH_PYTHON", "3.12"))
+    ap.add_argument("--environment",
+                    default=os.environ.get("DASH_ENV",
+                                           "docker (quire-hackathon-web-1)"))
+    args = ap.parse_args()
+
+    tree = ET.parse(args.xml)
     suite_el = tree.find("testsuite")
     if suite_el is None:
         raise SystemExit("No <testsuite> element in results.xml")
@@ -354,9 +370,9 @@ def main() -> None:
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "duration_seconds": totals["duration_seconds"],
             "commit": _git_commit(),
-            "framework": "pytest --forked",
-            "python": "3.12",
-            "environment": "docker (quire-hackathon-web-1)",
+            "framework": args.framework,
+            "python": args.python,
+            "environment": args.environment,
         },
         "totals": totals,
         "suites": suites_out,

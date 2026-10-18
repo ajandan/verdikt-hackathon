@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verdikt — Nebius × NVIDIA Hackathon 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* Keynote-style deck: one idea per slide, generous space, hairline diagrams.
+     Verdikt palette and type from assets/video/designs/common.css. */
+  :root {
+    --paper:#f7f6f2; --ink:#141410; --ink-700:#3a382f; --ink-500:#6c6858; --ink-300:#a9a394; --hair:#dcd8c8;
+    --seal-700:#1e5f4f; --seal-500:#2f8f76; --seal-300:#8ec7b5; --amber:#f59e0b; --amber-ink:#8a3f14; --rose:#b04a3f;
+    --serif:'Instrument Serif',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',Consolas,monospace;
+  }
+  @page { size:1920px 1080px; margin:0; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; font-family:var(--sans); }
+  .slide { width:1920px; height:1080px; background:var(--paper); color:var(--ink); position:relative; overflow:hidden; padding:72px 120px 0; page-break-after:always; break-after:page; }
+  .slide::before { content:""; position:absolute; inset:0; pointer-events:none;
+      background:radial-gradient(ellipse 900px 520px at 90% -10%, rgba(47,143,118,.10), rgba(247,246,242,0) 70%),
+                 radial-gradient(ellipse 700px 420px at -6% 106%, rgba(245,158,11,.08), rgba(247,246,242,0) 70%); }
+  .slide > * { position:relative; }
+  .strip { position:absolute !important; left:0; right:0; bottom:0; height:6px; background:linear-gradient(90deg,#2f8f76 0 34%,#f59e0b 34% 67%,#b04a3f 67% 100%); }
+  .foot { position:absolute !important; left:120px; right:120px; bottom:28px; font-family:var(--mono); font-size:16px; letter-spacing:.08em; color:var(--ink-300); display:flex; justify-content:space-between; }
+
+  .bar { display:flex; align-items:center; justify-content:space-between; }
+  .brand { display:flex; align-items:center; gap:14px; font-weight:600; font-size:25px; letter-spacing:-.01em; }
+  .brand img { width:42px; height:42px; }
+  .sec { font-family:var(--mono); font-size:18px; letter-spacing:.16em; text-transform:uppercase; color:var(--seal-700); display:flex; align-items:center; gap:12px; }
+  .sec::before { content:""; width:10px; height:10px; border-radius:50%; background:var(--c, var(--seal-500)); }
+
+  h2 { font-family:var(--serif); font-weight:400; font-size:96px; line-height:1.02; letter-spacing:-.025em; margin:54px 0 0; max-width:1600px; }
+  h2 i { color:var(--seal-700); }
+  .sub { font-size:30px; line-height:1.42; color:var(--ink-500); margin:22px 0 0; max-width:1380px; }
+  .sub b { color:var(--ink); font-weight:500; }
+
+  .cols { display:grid; gap:72px; margin-top:58px; }
+  .c3 { grid-template-columns:repeat(3,1fr); }
+  .c4 { grid-template-columns:repeat(4,1fr); gap:56px; }
+  .col { border-top:3px solid var(--c); padding-top:20px; }
+  .col .n { font-family:var(--mono); font-size:17px; letter-spacing:.14em; text-transform:uppercase; color:var(--cd, var(--c)); }
+  .col h3 { font-size:36px; font-weight:600; letter-spacing:-.02em; margin:10px 0 10px; }
+  .col p { margin:0; font-size:23px; line-height:1.48; color:var(--ink-700); }
+  .col ul { margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px; }
+  .col li { position:relative; padding-left:22px; font-size:23px; line-height:1.4; color:var(--ink-700); }
+  .col li::before { content:""; position:absolute; left:0; top:11px; width:9px; height:9px; border-radius:50%; background:var(--c); }
+  .col li b { color:var(--ink); font-weight:600; }
+  .g { --c:var(--seal-500); --cd:var(--seal-700); } .a { --c:var(--amber); --cd:var(--amber-ink); } .k { --c:var(--ink); --cd:var(--ink-500); } .r { --c:var(--rose); --cd:var(--rose); }
+
+  .statement { font-family:var(--serif); font-size:52px; line-height:1.18; color:var(--seal-700); margin:54px 0 0; max-width:1500px; letter-spacing:-.01em; }
+
+  /* hairline pipeline */
+  .pipe { position:relative; height:132px; }
+  .pipe .tag { position:absolute; top:0; font-family:var(--mono); font-size:16px; letter-spacing:.16em; text-transform:uppercase; }
+  .pipe .rail { position:absolute; top:52px; height:3px; border-radius:2px; }
+  .pipe .line { position:absolute; top:26px; bottom:0; width:0; border-left:2px dashed var(--ink-300); }
+  .pipe .line span { position:absolute; top:-26px; left:50%; transform:translateX(-50%); font-family:var(--mono); font-size:15px; letter-spacing:.14em; color:var(--ink-500); background:var(--paper); padding:0 8px; white-space:nowrap; }
+  .node { position:absolute; top:42px; width:230px; margin-left:-115px; text-align:center; }
+  .node i { display:block; width:22px; height:22px; border-radius:50%; margin:0 auto; background:var(--c); box-shadow:0 0 0 7px var(--halo); }
+  .node b { display:block; font-size:24px; font-weight:600; margin-top:20px; letter-spacing:-.01em; }
+  .node small { display:block; font-size:18px; color:var(--ink-500); margin-top:3px; }
+  .ng { --c:var(--seal-500); --halo:rgba(47,143,118,.18); } .na { --c:var(--amber); --halo:rgba(245,158,11,.22); } .nk { --c:var(--ink); --halo:rgba(20,20,16,.10); }
+
+  /* seven-step flow */
+  .steps { display:grid; grid-template-columns:repeat(7,1fr); }
+  .stp { padding-right:16px; }
+  .stp i { display:block; width:22px; height:22px; border-radius:50%; background:var(--c); box-shadow:0 0 0 7px var(--halo); }
+  .stp b { display:block; font-size:28px; font-weight:600; margin-top:32px; letter-spacing:-.01em; }
+  .stp small { display:block; font-size:21px; line-height:1.4; color:var(--ink-500); margin-top:8px; }
+  .stp em { display:block; font-style:normal; margin-top:18px; font-family:var(--mono); font-size:16px; letter-spacing:.12em; text-transform:uppercase; color:var(--cd, var(--ink-500)); }
+
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-family:var(--mono); font-weight:500; font-size:17px; letter-spacing:.14em; text-transform:uppercase; color:var(--seal-700); padding:0 0 14px; border-bottom:2px solid var(--ink); }
+  td { padding:20px 0; border-bottom:1px solid var(--hair); font-size:28px; color:var(--ink); }
+  td:first-child { font-weight:600; }
+  td.m { color:var(--ink-500); }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--hair); margin-top:58px; }
+  .st { padding:26px 28px 0 0; }
+  .st + .st { padding-left:28px; border-left:1px solid var(--hair); }
+  .st b { display:block; font-family:var(--serif); font-weight:400; font-size:96px; line-height:1; letter-spacing:-.02em; }
+  .st span { display:block; font-size:22px; line-height:1.4; color:var(--ink-500); margin-top:10px; }
+
+  /* cover = the video's title card */
+  .cover { padding:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+           background:radial-gradient(ellipse at 20% 15%, rgba(47,143,118,.12), rgba(247,246,242,0) 60%), var(--paper); }
+  .cover::before { display:none; }
+  .cover .lock { position:absolute; top:84px; left:0; right:0; font-family:var(--mono); font-size:21px; letter-spacing:.26em; text-transform:uppercase; color:var(--seal-700); }
+  .cover .mark { width:200px; height:200px; filter:drop-shadow(0 30px 60px rgba(20,20,16,.15)); }
+  .cover .word { font-family:var(--serif); font-style:italic; font-weight:400; font-size:250px; line-height:.95; letter-spacing:-.03em; margin:6px 0 0; }
+  .cover .word i { font-style:normal; color:var(--seal-500); }
+  .cover .line1 { font-family:var(--serif); font-size:46px; color:var(--ink-500); margin:22px 0 0; }
+  .cover .chips { display:flex; gap:16px; margin-top:34px; }
+  .cover .chip { font-family:var(--mono); font-size:19px; letter-spacing:.12em; text-transform:uppercase; padding:9px 22px; border-radius:999px; border:1px solid var(--seal-500); color:var(--seal-700); background:rgba(47,143,118,.08); }
+  .cover .chip.i { border-color:var(--ink-500); color:var(--ink-700); background:rgba(20,20,16,.04); }
+  .cover .chip.a { border-color:var(--amber); color:var(--amber-ink); background:rgba(245,158,11,.12); }
+  .cover .bot { position:absolute; bottom:70px; left:0; right:0; font-family:var(--mono); font-size:19px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-700); }
+</style>
+</head>
+<body>
+
+<!-- 1 · COVER -->
+<section class="slide cover">
+  <div class="lock">Nebius × NVIDIA Global AI Hackathon 2026 · Best Apps &amp; Agents</div>
+  <img class="mark" src="../assets/video/designs/verdikt-mark.png" alt="">
+  <h1 class="word">Verdikt<i>.</i></h1>
+  <div class="line1">AI reads the case. Deterministic code writes the reply. Humans decide.</div>
+  <div class="chips"><span class="chip">AI-in</span><span class="chip i">The line</span><span class="chip a">Deterministic-out</span></div>
+  <div class="bot">A decision pipeline for regulated document workflows</div>
+  <div class="strip"></div>
+</section>
+
+<!-- 2 · PROBLEM -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">01 · The problem</div></div>
+  <h2>The decision is small. The <i>reading</i> is what takes days.</h2>
+  <p class="sub">A patient-assistance application is a stack of four documents. Every hand-off in the chain opens all four again.</p>
+  <div class="cols c4">
+    <div class="col g"><div class="n">01</div><h3>Enrollment form</h3><p>Identity, household size, income attestation, consent.</p></div>
+    <div class="col a"><div class="n">02</div><h3>Income proof</h3><p>Pay stubs or a tax return, checked against the program's cap.</p></div>
+    <div class="col k"><div class="n">03</div><h3>Insurance card</h3><p>No coverage, or a denial for this exact drug.</p></div>
+    <div class="col r"><div class="n">04</div><h3>Prescription</h3><p>Prescriber, NPI, dosage and refills.</p></div>
+  </div>
+  <p class="statement">Intake, eligibility, fulfillment and compliance each re-read the same PDFs. That re-reading is the cost Verdikt removes.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>02</span></div><div class="strip"></div>
+</section>
+
+<!-- 3 · IDEA -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">02 · The idea</div></div>
+  <h2>Draw the line where the <i>trust requirement</i> changes.</h2>
+  <p class="sub">Reading may be wrong, so it stays reviewable. Writing must be reproducible, so it never touches a model.</p>
+  <div class="cols c3">
+    <div class="col g"><div class="n">01 · AI-in</div><h3>AI reads</h3><p>Extraction, triage, retrieval and a structured verdict. Each step has a fallback and an audit entry.</p></div>
+    <div class="col a"><div class="n">02 · Deterministic-out</div><h3>Code writes</h3><p>The reply is a merge of a frozen, human-approved template with the verdict. No model on this path.</p></div>
+    <div class="col k"><div class="n">03 · People</div><h3>Humans decide</h3><p>Reviewers see every stage and approve or reject a held reply. A boundary test fails the build if the render core imports the AI layer.</p></div>
+  </div>
+  <div class="pipe" style="margin-top:66px;height:84px">
+    <div class="tag" style="left:0;color:var(--seal-700)">Read · classify · retrieve · reason</div>
+    <div class="tag" style="right:0;color:var(--amber-ink)">Merge into a frozen template</div>
+    <div class="rail" style="left:0;width:840px;background:var(--seal-500)"></div>
+    <div class="rail" style="left:840px;width:840px;background:var(--amber)"></div>
+    <div class="line" style="left:840px"><span>THE LINE · CITED VERDICT</span></div>
+  </div>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>03</span></div><div class="strip"></div>
+</section>
+
+<!-- 4 · ARCHITECTURE -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec" style="--c:var(--amber)">03 · Architecture</div></div>
+  <h2>Many channels in, one case, <i>two artifacts</i> out.</h2>
+  <div style="display:grid;grid-template-columns:230px 1fr 290px;gap:36px;margin-top:120px;align-items:start">
+    <div class="col k" style="padding-top:16px"><div class="n">In</div><ul><li><b>Email</b> via IMAP</li><li><b>JSON API</b></li><li><b>MCP</b> tools</li></ul></div>
+    <div>
+      <div class="pipe">
+        <div class="tag" style="left:0;color:var(--seal-700)">AI-in · reviewable</div>
+        <div class="tag" style="right:0;color:var(--amber-ink)">Deterministic-out</div>
+        <div class="rail" style="left:0;width:606px;background:var(--seal-500)"></div>
+        <div class="rail" style="left:606px;width:404px;background:var(--amber)"></div>
+        <div class="line" style="left:606px"><span>THE LINE</span></div>
+        <div class="node ng" style="left:101px"><i></i><b>Ingest</b><small>MiniCPM-V</small></div>
+        <div class="node ng" style="left:303px"><i></i><b>Triage</b><small>Nemotron Nano</small></div>
+        <div class="node ng" style="left:505px"><i></i><b>Decide</b><small>Qwen3 · Nemotron</small></div>
+        <div class="node na" style="left:707px"><i></i><b>Deliver</b><small>Frozen template</small></div>
+        <div class="node na" style="left:909px"><i></i><b>Remember</b><small>Audit, hashes</small></div>
+      </div>
+    </div>
+    <div class="col a" style="padding-top:16px"><div class="n">Out</div><ul><li><b>Reply letter</b> PDF or DOCX</li><li><b>JSON verdict</b> for CRM</li><li><b>Signed webhooks</b></li></ul></div>
+  </div>
+  <p class="sub" style="margin-top:110px;font-size:28px">FastAPI web · background worker · Postgres · Redis · S3-compatible storage · tenant-scoped · one Nebius Token Factory endpoint. A reviewer approves or rejects a held reply in the pipeline view.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>04</span></div><div class="strip"></div>
+</section>
+
+<!-- 5 · HOW IT WORKS -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">04 · How it works</div></div>
+  <h2>Three steps, <i>one endpoint</i>.</h2>
+  <div class="cols c3">
+    <div class="col g"><div class="n">① Read</div><h3>The models read</h3>
+      <ul><li><b>Ingest:</b> MiniCPM-V reads attachments into the program's field schema</li><li><b>Triage:</b> Nemotron Nano classifies and routes; a rule-based classifier is the fallback</li></ul></div>
+    <div class="col g"><div class="n">② Decide</div><h3>The rules decide</h3>
+      <ul><li><b>Retrieve:</b> Qwen3-Embedding finds the rules that apply</li><li><b>Verdict:</b> Nemotron Super returns approve, deny or missing info</li><li>Every verdict cites the rule that fired</li></ul></div>
+    <div class="col a"><div class="n">③ Deliver · remember</div><h3>The template writes</h3>
+      <ul><li>A frozen, human-approved template merged with the verdict</li><li>No model on the render path</li><li>One audit entry per stage, with template hash and render fingerprint</li></ul></div>
+  </div>
+  <p class="statement" style="font-size:44px">Models run on one Nebius endpoint. Rules are human-authored and versioned. Templates are frozen before they can render.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>05</span></div><div class="strip"></div>
+</section>
+
+<!-- 6 · FLOW -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">05 · Business flow</div></div>
+  <h2>One packet in, one <i>sealed reply</i> out.</h2>
+  <div style="position:relative;margin-top:140px">
+    <div style="position:absolute;left:0;right:0;top:11px;height:3px;background:linear-gradient(90deg,var(--ink) 0 14.3%,var(--seal-500) 14.3% 71.4%,var(--amber) 71.4% 85.7%,var(--ink) 85.7% 100%)"></div>
+    <div class="steps">
+      <div class="stp nk"><i></i><b>Packet arrives</b><small>Email, JSON or MCP; fax and scans as attachments</small><em>Human</em></div>
+      <div class="stp nk"><i></i><b>One case</b><small>Normalized, tenant-scoped, deduplicated</small><em>IMAP · API</em></div>
+      <div class="stp ng g"><i></i><b>Ingest reads</b><small>MiniCPM-V into the program's field schema</small><em>AI · vision</em></div>
+      <div class="stp ng g"><i></i><b>Triage routes</b><small>Nemotron Nano, rule-based fallback</small><em>AI · LLM</em></div>
+      <div class="stp ng g"><i></i><b>Decide cites</b><small>Qwen3 retrieval, Nemotron Super verdict</small><em>AI · LLM</em></div>
+      <div class="stp na a"><i></i><b>Deliver merges</b><small>Verdict into a frozen, approved template</small><em>No AI</em></div>
+      <div class="stp nk"><i></i><b>Reviewer decides</b><small>Approve or reject; an audit entry per stage</small><em>Human</em></div>
+    </div>
+  </div>
+  <p class="sub" style="font-size:28px;margin-top:96px">Green steps use models and stay reviewable. The amber step is deterministic code. Dark steps are people and plumbing.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>06</span></div><div class="strip"></div>
+</section>
+
+<!-- 7 · ROUTING -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">06 · Triage and programs as data</div></div>
+  <h2>Not every case needs a <i>verdict</i>.</h2>
+  <div style="display:grid;grid-template-columns:1fr 520px;gap:96px;margin-top:56px">
+    <table>
+      <tr><th style="width:36%">Case type</th><th style="width:40%">Route</th><th>Decide runs?</th></tr>
+      <tr><td>New intake</td><td class="m">Decide, then deliver</td><td>Yes</td></tr>
+      <tr><td>Refill</td><td class="m">Straight to pharmacy</td><td>No</td></tr>
+      <tr><td>Appeal</td><td class="m">CRM appeals queue</td><td>Yes</td></tr>
+      <tr><td>Missing-info reply</td><td class="m">Decide on merged evidence</td><td>Yes</td></tr>
+      <tr><td>Not decidable</td><td class="m">Reject, audit row only</td><td>No</td></tr>
+    </table>
+    <div class="col a" style="padding-top:22px">
+      <div class="n">Same household, two programs</div>
+      <div style="font-family:var(--serif);font-size:70px;line-height:1.05;margin-top:14px;color:var(--seal-700)">$60,000</div>
+      <p style="margin-top:14px"><b style="color:var(--ink)">Cardiovita</b> cap $84,600 (400% of the poverty guideline): <b style="color:var(--seal-700)">passes</b>.</p>
+      <p style="margin-top:10px"><b style="color:var(--ink)">OncoBridge</b> cap $52,875 (250%): <b style="color:var(--rose)">fails</b>.</p>
+      <p style="margin-top:14px;color:var(--ink-500)">Same code, different data.</p>
+    </div>
+  </div>
+  <p class="sub" style="font-size:26px;margin-top:34px">Routes are a table, overridable per program or tenant. If the triage model fails or is unsure, a rule-based classifier takes over.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026 · demo data is fictional</span><span>07</span></div><div class="strip"></div>
+</section>
+
+<!-- 8 · PROOF -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">07 · Proof</div></div>
+  <h2><i>Evidence</i>, not adjectives.</h2>
+  <div class="stats">
+    <div class="st"><b>921</b><span>tests in the suite</span></div>
+    <div class="st"><b style="color:var(--seal-700)">916</b><span>passing</span></div>
+    <div class="st"><b>0</b><span>failing</span></div>
+    <div class="st"><b style="color:var(--amber-ink)">5</b><span>skipped</span></div>
+  </div>
+  <div class="cols c3" style="margin-top:62px">
+    <div class="col g"><h3>The split is enforced</h3><p>Boundary tests fail the build if the render core imports the AI layer.</p></div>
+    <div class="col a"><h3>The labeler measurably improved</h3><p>On one dense 104-field form, correct labels went from 24 to 98 with vision, chunking and crop.</p></div>
+    <div class="col k"><h3>Every stage is on the record</h3><p>One audit entry per stage, with the model that handled it and the time it took.</p></div>
+  </div>
+  <div class="foot"><span>Test counts from the latest full run · the labeling result is one benchmark form</span><span>08</span></div><div class="strip"></div>
+</section>
+
+<!-- 9 · MODELS -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">08 · Models</div></div>
+  <h2>Four models, <i>one endpoint</i>.</h2>
+  <div style="margin-top:56px">
+    <table>
+      <tr><th style="width:18%">Stage</th><th style="width:44%">Model</th><th>Job</th></tr>
+      <tr><td>Ingest</td><td>openbmb/MiniCPM-V-4_5</td><td class="m">Multimodal extraction</td></tr>
+      <tr><td>Triage</td><td>NVIDIA Nemotron Nano</td><td class="m">Case classification and routing</td></tr>
+      <tr><td>Decide</td><td>Qwen/Qwen3-Embedding-8B</td><td class="m">Rule retrieval</td></tr>
+      <tr><td>Decide</td><td>NVIDIA Nemotron Super 120B</td><td class="m">Cited, structured verdict</td></tr>
+    </table>
+  </div>
+  <div class="cols c3" style="margin-top:54px">
+    <div class="col g"><h3>One endpoint, one key</h3><p>Every model call goes through Nebius Token Factory.</p></div>
+    <div class="col k"><h3>Swappable by configuration</h3><p>The model per stage is set per tenant or program, with no code change.</p></div>
+    <div class="col a"><h3>No model at render</h3><p>The reply comes from a frozen template, never from a model.</p></div>
+  </div>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>09</span></div><div class="strip"></div>
+</section>
+
+<!-- 10 · VALUE -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">09 · Business value</div></div>
+  <h2>Where the value comes from, and <i>how to measure it</i>.</h2>
+  <div class="cols c3">
+    <div class="col g"><div class="n">Demonstrated</div>
+      <ul><li>Every verdict cites the rule that fired</li><li>Refills skip the verdict entirely</li><li>The reply is merged, never generated</li><li>A second program runs on the same code</li></ul></div>
+    <div class="col a"><div class="n">By design</div>
+      <ul><li>A new program is configuration, not a build</li><li>A new channel is one adapter</li><li>Models swap per program</li><li>Replies are reproducible and auditable</li></ul></div>
+    <div class="col r"><div class="n">To measure in a pilot</div>
+      <ul><li>[__]% of cases a reviewer re-opens the source PDF</li><li>[__] median time from receipt to verdict</li><li>[__] cost per case</li></ul></div>
+  </div>
+  <p class="statement" style="font-size:44px">The pattern generalizes: prior authorization, benefit verification, informed consent and safety reporting share the same shape, a regulated letter that is also the audit artifact.</p>
+  <div class="foot"><span>Bracketed figures are to be filled from a measured pilot</span><span>10</span></div><div class="strip"></div>
+</section>
+
+<!-- 11 · NEXT -->
+<section class="slide">
+  <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">10 · What ships next</div></div>
+  <h2>Honest about <i>what is left</i>.</h2>
+  <div class="cols c3">
+    <div class="col g"><div class="n">01</div><h3>Deploy on Nebius AI Cloud</h3><p>The runbook and checklist are written; the models already run on Token Factory.</p></div>
+    <div class="col a"><div class="n">02</div><h3>Byte-level reproducibility</h3><p>Replay a stored case in CI and assert the letter's bytes, not only its structure.</p></div>
+    <div class="col k"><div class="n">03</div><h3>A measured pilot</h3><p>Fill the "to measure" figures from real cases.</p></div>
+  </div>
+  <p class="statement" style="font-style:italic;font-size:74px;margin-top:84px">AI reads. Deterministic code writes. Humans decide.</p>
+  <div class="foot"><span>Verdikt · Nebius × NVIDIA Hackathon 2026</span><span>11</span></div><div class="strip"></div>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verdikt — one-pager</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Same tokens as the submission video (assets/video/designs/common.css). */
+  :root {
+    --ink-50:#f6f5f1; --ink-100:#eeece4; --ink-300:#a9a394; --ink-500:#6c6858; --ink-700:#3a382f; --ink-900:#141410;
+    --seal-500:#2f8f76; --seal-700:#1e5f4f; --paper:#f8f4e8; --amber:#f59e0b; --rose:#b04a3f;
+    --serif:'Instrument Serif','Georgia',serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono','Consolas',monospace;
+  }
+  @page { size: Letter; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:var(--ink-50); color:var(--ink-900); font-family:var(--sans); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { width:816px; height:1056px; padding:28px 44px 22px; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; }
+  .eyebrow { font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--seal-700); display:flex; align-items:center; gap:8px; }
+  .eyebrow::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--seal-500); }
+  header { display:flex; justify-content:space-between; align-items:flex-start; }
+  h1 { font-family:var(--serif); font-weight:400; font-style:italic; font-size:52px; line-height:.95; letter-spacing:-.03em; margin:6px 0 4px; }
+  h1 .dot { font-style:normal; color:var(--seal-500); }
+  .tag { font-family:var(--serif); font-size:18px; color:var(--ink-500); line-height:1.25; max-width:560px; }
+  .mark { width:54px; height:54px; }
+  h2 { font-family:var(--serif); font-weight:400; font-size:20px; letter-spacing:-.01em; margin:0 0 5px; }
+  h2 em { color:var(--seal-700); }
+  p { margin:0; font-size:11px; line-height:1.4; color:var(--ink-700); }
+  .card { background:#fff; border:1px solid rgba(20,20,16,.12); border-radius:8px; padding:8px 11px; box-shadow:0 10px 24px -16px rgba(20,20,16,.25); }
+  .card.paper { background:var(--paper); }
+  .row { display:flex; gap:9px; }
+  .row > * { flex:1; }
+  .mono { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; }
+  .stage .n { color:var(--seal-700); font-weight:500; }
+  .stage.det .n { color:#8a3f14; }
+  .stage .m { font-size:10.5px; font-weight:600; margin:3px 0 3px; color:var(--ink-900); }
+  .stage p { font-size:10.5px; }
+  .flow { display:flex; align-items:stretch; gap:7px; }
+  .flow .box { flex:1; }
+  .flow .arrow { align-self:center; color:var(--seal-700); font-family:var(--mono); font-size:14px; }
+  .nums { display:flex; gap:9px; }
+  .num { flex:1; text-align:center; }
+  .num b { display:block; font-family:var(--serif); font-weight:400; font-size:28px; line-height:1; color:var(--ink-900); }
+  .num span { font-size:10.5px; color:var(--ink-700); }
+  .stamp { display:inline-block; font-family:var(--mono); font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; padding:3px 9px; border-radius:999px; border:1px solid var(--seal-500); color:var(--seal-700); background:rgba(47,143,118,.06); margin-bottom:6px; }
+  .stamp.amber { border-color:var(--amber); color:#8a3f14; background:rgba(245,158,11,.08); }
+  .stamp.rose { border-color:var(--rose); color:var(--rose); background:rgba(176,74,63,.06); }
+  ul { margin:0; padding-left:15px; }
+  li { font-size:11px; line-height:1.4; color:var(--ink-700); margin-bottom:3px; }
+  footer { margin-top:auto; display:flex; justify-content:space-between; font-family:var(--mono); font-size:8.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-500); border-top:1px solid rgba(20,20,16,.12); padding-top:8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <div class="eyebrow">Nebius × NVIDIA Global AI Hackathon · Best Apps &amp; Agents</div>
+      <h1>Verdikt<span class="dot">.</span></h1>
+      <div class="tag">AI reads the case. Deterministic code writes the reply. Humans decide.</div>
+    </div>
+    <img class="mark" src="../assets/video/designs/verdikt-mark.png" alt="">
+  </header>
+
+  <section>
+    <h2>The <em>problem</em></h2>
+    <p>A patient-assistance application is a stack of four documents: enrollment form, income proof, insurance card and prescription. The eligibility decision is small, but intake, eligibility, fulfillment and compliance each re-read the same stack. That re-reading is where the days go. Verdikt reads the stack once, decides against the program's own rules, and sends a reply that no language model touched.</p>
+  </section>
+
+  <section>
+    <h2>How it <em>works</em> &mdash; five stages</h2>
+    <div class="row">
+      <div class="card stage"><div class="mono n">Ingest</div><div class="m">MiniCPM-V 4.5</div><p>Reads attachments into the program's field schema.</p></div>
+      <div class="card stage"><div class="mono n">Triage</div><div class="m">Nemotron Nano</div><p>Classifies the case and routes it. Rule-based fallback.</p></div>
+      <div class="card stage"><div class="mono n">Decide</div><div class="m">Qwen3-Embedding + Nemotron Super</div><p>Retrieves rules, then a cited verdict.</p></div>
+      <div class="card paper stage det"><div class="mono n">Deliver</div><div class="m">No model</div><p>Merges the verdict into a frozen, human-approved template.</p></div>
+      <div class="card paper stage det"><div class="mono n">Remember</div><div class="m">No model</div><p>Audit entry per stage; template hash; render fingerprint.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architecture &mdash; <em>one line</em> that matters</h2>
+    <div class="flow">
+      <div class="card box"><div class="mono" style="color:var(--ink-500)">In</div><p>Email (IMAP), JSON API, MCP tools. Fax and scans arrive as email attachments.</p></div>
+      <div class="arrow">&rarr;</div>
+      <div class="card box" style="border-color:var(--seal-500)"><div class="mono" style="color:var(--seal-700)">AI-in &middot; reviewable</div><p>Read, classify, retrieve, reason to a structured verdict with citations.</p></div>
+      <div class="arrow">&rarr;</div>
+      <div class="card paper box"><div class="mono" style="color:#8a3f14">Deterministic-out</div><p>Frozen template merge. No model on this path. Reply letter plus JSON verdict.</p></div>
+    </div>
+    <p style="margin-top:7px">FastAPI web, background worker, Postgres, Redis and S3-compatible storage. All model calls go through one Nebius Token Factory endpoint; the model for each stage is configurable per program. A boundary test fails the build if the render core imports the AI layer.</p>
+  </section>
+
+  <section>
+    <h2><em>Proof</em></h2>
+    <div class="nums">
+      <div class="card num"><b>921</b><span>tests</span></div>
+      <div class="card num"><b style="color:var(--seal-700)">916</b><span>passing</span></div>
+      <div class="card num"><b>0</b><span>failing</span></div>
+      <div class="card num"><b style="color:var(--ink-500)">5</b><span>skipped</span></div>
+    </div>
+    <ul style="margin-top:8px">
+      <li>Labeler: 24 &rarr; 98 of 104 fields correct on one dense form after switching to vision with chunk and crop (one benchmark, not a guarantee).</li>
+      <li>One audit entry per pipeline stage, recording the model and the time taken.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Business <em>value</em></h2>
+    <div class="row">
+      <div class="card"><span class="stamp">Demonstrated</span>
+        <ul><li>Every verdict cites the rule that fired.</li><li>Refills skip the verdict entirely.</li><li>The reply letter is merged, never generated.</li></ul></div>
+      <div class="card"><span class="stamp amber">By design</span>
+        <ul><li>A new program is configuration, not a build.</li><li>A new channel is one adapter.</li><li>Models swap per program with no code change.</li></ul></div>
+      <div class="card"><span class="stamp rose">To measure</span>
+        <ul><li>[__]% of cases a reviewer re-opens the source PDF.</li><li>[__] median time from receipt to verdict.</li><li>[__] cost per case.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What ships <em>next</em></h2>
+    <p>Deploy on Nebius AI Cloud (runbook ready) &middot; byte-level reproducibility assertions in CI &middot; a measured pilot to fill the numbers above. A second program (different rules pack, opposite verdict, same code) already runs as a cameo.</p>
+  </section>
+
+  <footer><span>Verdikt &middot; Nebius × NVIDIA</span><span>AI-in, deterministic-out</span></footer>
+</div>
+</body>
+</html>

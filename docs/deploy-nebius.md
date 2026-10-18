@@ -57,8 +57,8 @@ sudo usermod -aG docker $USER
 ## 3. Get the code
 
 ```bash
-git clone https://github.com/ajandan/quire-hackathon.git
-cd quire-hackathon
+git clone https://github.com/ajandan/verdikt-hackathon.git
+cd verdikt-hackathon
 ```
 
 ## 4. Get a Nebius Token Factory API key

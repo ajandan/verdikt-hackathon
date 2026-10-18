@@ -1,7 +1,7 @@
 # Verdikt — Nebius × NVIDIA Global AI Hackathon submission
 
 **Track:** Best Apps & Agents
-**Repo:** <https://github.com/ajandan/quire-hackathon> (flips public before 2026-10-30)
+**Repo:** <https://github.com/ajandan/verdikt-hackathon> (flips public before 2026-10-30)
 **License:** MIT — see [`LICENSE`](../LICENSE)
 **Submission window:** 2026-08-26 → 2026-10-30
 

@@ -1,3 +1,10 @@
+# Pin the compose project name. Without it the name comes from the folder the
+# repo is cloned into, so a clone named anything else gets different container
+# names (scripts expect quire-hackathon-web-1) and different volume names --
+# which looks like an empty database. Kept as quire-hackathon so existing
+# volumes and containers carry on unchanged after the repo rename.
+name: quire-hackathon
+
 services:
   postgres:
     image: postgres:16-alpine

@@ -12,7 +12,7 @@ here — fix the source and re-run. This page included: its source is
 
 | Field | Status | Value / blocker |
 | --- | --- | --- |
-| Public repo URL | **BLOCKED** | `github.com/ajandan/quire-hackathon` is **private** — flip public before the deadline or judges get a 404 |
+| Public repo URL | **done** | https://github.com/ajandan/verdikt-hackathon |
 | Public demo URL | **done** | https://verdikt.aismith.ai — self-hosted, TLS, verified responding |
 | Video (< 3 min) | **done** | https://www.youtube.com/watch?v=FF_svj1Y6pk — 2:58.3, under the cap. Local copy in `video/` |
 | Licence | done | MIT, `LICENSE`, enforced by `scripts/license_check.py` in CI |

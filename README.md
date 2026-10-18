@@ -89,8 +89,8 @@ mechanical proof (git log + boundary tests).
 You need: a container runtime with the `docker compose` CLI. No Python required on the host.
 
 ```bash
-git clone https://github.com/ajandan/quire-hackathon.git
-cd quire-hackathon
+git clone https://github.com/ajandan/verdikt-hackathon.git
+cd verdikt-hackathon
 cp .env.example .env
 
 # Generate the two required secrets and paste into .env:

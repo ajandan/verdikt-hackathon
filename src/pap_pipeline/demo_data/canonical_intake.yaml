@@ -5,9 +5,9 @@
 # OncoBridge cameo's stricter 250% FPL income cap. Do not tweak the
 # income number without re-checking both program thresholds.
 #
-#   Household of 2, 2026 FPL = $21,150
-#     Cardiovita (CV-INC-01):  400% FPL = $84,600  → $60,000 ≤ $84,600 → PASS
-#     OncoBridge (OB-INC-01):  250% FPL = $52,875  → $60,000 > $52,875 → FAIL
+#   Household of 2, 2026 HHS poverty guideline = $21,640 (48 contiguous states)
+#     Cardiovita (CV-INC-01):  400% = $86,560  → $60,000 ≤ $86,560 → PASS
+#     OncoBridge (OB-INC-01):  250% = $54,100  → $60,000 > $54,100 → FAIL
 #
 # NPI 1234567893 is a placeholder; swap for a live NPPES-listed provider
 # before recording the demo so the reason stage's NPI-validation branch runs

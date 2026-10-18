@@ -313,6 +313,25 @@ def _eq(a: Any, b: Any) -> bool:
     return _norm_scalar(a) == _norm_scalar(b)
 
 
+_NUMBER_NOISE = re.compile(r"[\s,$]|USD$", re.IGNORECASE)
+
+
+def _to_number(v: Any) -> float:
+    """Read a number the way a form prints it: ``60000``, ``"60000"``,
+    ``"$60,000"`` or ``"60,000 USD"``. Booleans are not numbers.
+
+    Raises ``ValueError`` / ``TypeError`` for anything else, which the
+    comparison treats as undetermined rather than false.
+    """
+    if isinstance(v, bool):
+        raise TypeError("boolean is not a number")
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        return float(_NUMBER_NOISE.sub("", v.strip()))
+    raise TypeError(f"not a number: {type(v).__name__}")
+
+
 def _repr(v: Any) -> str:
     if v is None:
         return "null"
@@ -446,13 +465,13 @@ def _eval_comparison(op: str, node: Node, values: dict[str, Any]) -> tuple[bool 
         elif op == "!=":
             ok = not _eq(actual, literal)
         elif op == "<":
-            ok = float(actual) < float(literal)
+            ok = _to_number(actual) < _to_number(literal)
         elif op == ">":
-            ok = float(actual) > float(literal)
+            ok = _to_number(actual) > _to_number(literal)
         elif op == "<=":
-            ok = float(actual) <= float(literal)
+            ok = _to_number(actual) <= _to_number(literal)
         elif op == ">=":
-            ok = float(actual) >= float(literal)
+            ok = _to_number(actual) >= _to_number(literal)
         else:  # pragma: no cover
             raise RuntimeError(f"unknown comparison op {op!r}")
     except (TypeError, ValueError):

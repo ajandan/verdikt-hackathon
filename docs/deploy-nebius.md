@@ -233,26 +233,33 @@ each claim the demo makes. Stop at the first failure and use section 12.
 
 **9.4 Happy path: expect `approve`**
 
-The seeded program reads a scanned enrollment bundle, not a short JSON payload.
-Queue the sample bundle that ships with the seed:
+Queue the Maria Chen packet from `samples/email-test/` (the ASP-100 enrollment
+form plus the ASP-110 income worksheet), the same two PDFs the email test guide
+uses:
 
 ```bash
-docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/deploy/demo-seed:/app/deploy/demo-seed:ro"   web python scripts/queue_sample_case.py
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/samples:/app/samples:ro"   web python scripts/queue_sample_case.py
 ```
 
 It takes about a minute and prints `outcome: approve`, the event id and
 `review_state=pending_review`. Save the event id as `$EV`. The case now waits
-in the reviewer queue. Extraction reads a scan, so a rare misread can change the
-outcome. If it does not approve, open the pipeline page (9.8) and read which
-rule failed and what value was extracted.
+in the reviewer queue. Extraction reads the PDFs as images, so a rare misread
+can change the outcome. If it does not approve, open the pipeline page (9.8)
+and read which rule failed and what value was extracted.
 
-**9.5 Rule path: expect `deny`**
+**9.5 Rule path: expect `missing_info`**
 
-Rules are deterministic, so change one input and the verdict changes. In the
-pipeline page for `$EV`, find the household income and the Cardiovita cap in
-the rules view. A scan with an income above the cap returns `deny` citing
-`CV-INC-01`. If you have no such scan, the unit tests cover this path
-(`tests/test_rule_formula.py`).
+The income rule (`CV-INC-01-cardio`) reads household size and income from the
+ASP-110 worksheet. Queue the enrollment form alone:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/samples:/app/samples:ro"   web python scripts/queue_sample_case.py /app/samples/email-test/ASP-100-enrollment-maria-chen.pdf
+```
+
+Expect `outcome: missing_info`, with `household_size` and
+`annual_household_income` listed as missing: the system asks for the worksheet
+instead of guessing a denial. The over-the-cap denial is covered by
+`tests/test_demo_seed_income_rule.py`.
 
 **9.6 Bad input is rejected and still audited**
 
@@ -292,7 +299,7 @@ the Ingest, Triage and Decide stages may call a model.
 
 **9.10 Repeatability (record the result, do not assume it)**
 
-Queue the sample bundle a second time (9.4). Compare the two reply letters (for
+Queue the Maria Chen packet a second time (9.4). Compare the two reply letters (for
 example `sha256sum` of the downloaded files) and the template `version_hash`
 shown on the pipeline page. The template hash should match. The test suite
 checks structure, not letter bytes, so write down whether the bytes match

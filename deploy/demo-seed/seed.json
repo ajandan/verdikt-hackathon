@@ -1009,6 +1009,24 @@
      "required": true,
      "source_field": "prescriber_signature_date",
      "type": "string"
+    },
+    {
+     "description": "Number of people in the household, from the HOUSEHOLD SIZE box of the ASP-110 Household Income Worksheet. Integer, 1 or more. null if no ASP-110 worksheet is attached.",
+     "enum_values": null,
+     "intake_field": "household_size",
+     "name": "household_size",
+     "required": false,
+     "source_field": "household_size",
+     "type": "integer"
+    },
+    {
+     "description": "Total annual household income in US dollars, from the ANNUAL HOUSEHOLD INCOME box of the ASP-110 Household Income Worksheet. Number only, no $ sign or commas. null if no ASP-110 worksheet is attached.",
+     "enum_values": null,
+     "intake_field": "annual_household_income",
+     "name": "annual_household_income",
+     "required": false,
+     "source_field": "annual_household_income",
+     "type": "number"
     }
    ],
    "history_slots": [
@@ -1508,6 +1526,232 @@
    "rule_id": "e6d440f1-1ac5-448c-9445-5124bf16c11f",
    "title": "Current Cardiovita Rx from active U.S. prescriber",
    "version": 4
+  },
+  {
+   "actor_user_id": null,
+   "actor_username": "demo-seed",
+   "change_note": "Created",
+   "created_at": "2026-10-18T20:00:00+00:00",
+   "criterion": "@annual_household_income is at most 400% of the 2026 HHS poverty guideline for @household_size (48 contiguous states and DC: $15,960 for one person plus $5,680 per additional person)",
+   "exception": "If the ASP-110 worksheet is missing, or its household size or income is blank, the rule is undetermined and the case returns missing_info instead of deny.",
+   "fields": [
+    "household_size",
+    "annual_household_income"
+   ],
+   "formula": {
+    "op": "OR",
+    "terms": [
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 1
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 1
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 63840
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 2
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 2
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 86560
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 3
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 3
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 109280
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 4
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 4
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 132000
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 5
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 5
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 154720
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 6
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 6
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 177440
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 7
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 7
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 200160
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 8
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 8
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 222880
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 9
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 9
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 245600
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 10
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 10
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 268320
+       }
+      ]
+     }
+    ]
+   },
+   "id": "9f91e3f0-0c41-56f7-8439-eaca79a62e05",
+   "is_active": true,
+   "kind": "financial",
+   "on_match": "approve",
+   "public_rule_id": "CV-INC-01-cardio",
+   "references_slots": null,
+   "rule_id": "310f78e0-e5e1-5db7-8a33-e0061e511129",
+   "title": "Household income at or below 400% of the 2026 poverty guideline",
+   "version": 1
   }
  ],
  "rules": [
@@ -1882,6 +2126,234 @@
    "tenant_id": "7b473f7c-78a1-4af6-9d85-809e1be8e485",
    "title": "Fast-path renewal for members with expiring approvals",
    "updated_at": "2026-09-18T01:46:15.849186+00:00"
+  },
+  {
+   "created_at": "2026-10-18T20:00:00+00:00",
+   "criterion": "@annual_household_income is at most 400% of the 2026 HHS poverty guideline for @household_size (48 contiguous states and DC: $15,960 for one person plus $5,680 per additional person)",
+   "exception": "If the ASP-110 worksheet is missing, or its household size or income is blank, the rule is undetermined and the case returns missing_info instead of deny.",
+   "field_refs": [
+    "annual_household_income",
+    "household_size"
+   ],
+   "fields": [
+    "household_size",
+    "annual_household_income"
+   ],
+   "formula": {
+    "op": "OR",
+    "terms": [
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 1
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 1
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 63840
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 2
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 2
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 86560
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 3
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 3
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 109280
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 4
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 4
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 132000
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 5
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 5
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 154720
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 6
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 6
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 177440
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 7
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 7
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 200160
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 8
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 8
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 222880
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 9
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 9
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 245600
+       }
+      ]
+     },
+     {
+      "op": "AND",
+      "terms": [
+       {
+        "field": "household_size",
+        "op": ">=",
+        "value": 10
+       },
+       {
+        "field": "household_size",
+        "op": "<=",
+        "value": 10
+       },
+       {
+        "field": "annual_household_income",
+        "op": "<=",
+        "value": 268320
+       }
+      ]
+     }
+    ]
+   },
+   "id": "310f78e0-e5e1-5db7-8a33-e0061e511129",
+   "is_active": true,
+   "kind": "financial",
+   "on_match": "approve",
+   "program_id": "98bd7191-8006-476e-9e9a-18ece5a78fa5",
+   "references_slots": null,
+   "rule_id": "CV-INC-01-cardio",
+   "tenant_id": "7b473f7c-78a1-4af6-9d85-809e1be8e485",
+   "title": "Household income at or below 400% of the 2026 poverty guideline",
+   "updated_at": "2026-10-18T20:00:00+00:00"
   }
  ],
  "static_document_versions": [

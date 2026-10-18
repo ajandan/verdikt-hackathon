@@ -563,3 +563,19 @@ def test_justification_lists_step_per_leaf() -> None:
     )
     assert len(r.steps) == 2
     assert all(s.result is True for s in r.steps)
+
+
+# ---------------------------------------------------------------------------
+# Numeric comparisons read amounts the way forms print them
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("amount", [60000, "60000", "$60,000", " $60,000 ", "60,000 USD"])
+def test_numeric_comparison_reads_formatted_amounts(amount) -> None:
+    r = evaluate_formula({"op": "<=", "field": "income", "value": 86560}, {"income": amount})
+    assert r.verdict == "matched"
+
+
+def test_numeric_comparison_with_non_number_is_undetermined() -> None:
+    r = evaluate_formula({"op": "<=", "field": "income", "value": 86560}, {"income": "sixty thousand"})
+    assert r.verdict == "undetermined"

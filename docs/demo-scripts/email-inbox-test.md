@@ -69,14 +69,17 @@ status, residency and income. Entirely fictional: `.example.com` addresses,
 
 ## Three tests worth running
 
-CardioVita's income rule (`CV-INC-01`) caps household income at 400% of the
-2026 FPL. For a household of 2 that is **$84,600**, and $60,000 clears it.
+CardioVita's income rule (`CV-INC-01-cardio`) caps household income at 400% of
+the 2026 HHS poverty guideline ($21,640 for a household of 2 in the 48
+contiguous states). For a household of 2 that is **$86,560**, and $60,000
+clears it. The rule reads household size and income from the ASP-110
+worksheet, so the worksheet decides whether it can be evaluated at all.
 
 | # | Subject tag | Attach | Expected outcome | Why |
 | --- | --- | --- | --- | --- |
-| 1 | `[pap:cardiovita-pap-2026]` | both PDFs | **approve** | $60,000 ≤ $84,600, uninsured, US address, valid NPI |
-| 2 | `[pap:cardiovita-pap-2026]` | ASP-100 only | **missing_info** | `CV-INC-01` returns missing_info rather than deny when PAP is requested but the ASP-110 worksheet is absent |
-| 3 | `[pap:oncobridge-pap-2026]` | both PDFs | **deny** | OncoBridge caps at 250% FPL = $52,875; same packet, same code, opposite verdict |
+| 1 | `[pap:cardiovita-pap-2026]` | both PDFs | **approve** | $60,000 ≤ $86,560, uninsured, US address, valid NPI |
+| 2 | `[pap:cardiovita-pap-2026]` | ASP-100 only | **missing_info** | Without the ASP-110 worksheet `CV-INC-01-cardio` has no household size or income to check, so the case returns missing_info rather than a denial |
+| 3 | `[pap:oncobridge-pap-2026]` | both PDFs | **deny** | OncoBridge caps at 250% of the guideline = $54,100; same packet, same code, opposite verdict |
 
 Test 2 is the one worth doing first. It proves the system distinguishes "this
 application fails" from "I cannot decide this yet" — which is the difference

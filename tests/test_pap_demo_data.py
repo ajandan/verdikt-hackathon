@@ -48,15 +48,16 @@ def test_canonical_intake_has_every_field_the_four_rules_need() -> None:
 def test_income_lands_inside_the_cameo_window() -> None:
     """The income figure must approve Cardiovita AND deny the planned OncoBridge cap.
 
-    Cardiovita CV-INC-01: 400% FPL for HH2 = $84,600.
-    OncoBridge OB-INC-01: 250% FPL for HH2 = $52,875.
-    Income must satisfy 52,875 < income <= 84,600 for the cameo flip to work.
+    2026 HHS poverty guideline for a household of 2: $21,640.
+    Cardiovita CV-INC-01: 400% for HH2 = $86,560.
+    OncoBridge OB-INC-01: 250% for HH2 = $54,100.
+    Income must satisfy 54,100 < income <= 86,560 for the cameo flip to work.
     If this test fails, the video's cameo beat is no longer accurate.
     """
     intake = load_canonical_intake()
     assert intake.household_size == 2, "cameo thresholds below assume household of 2"
     assert intake.annual_household_income is not None
-    assert 52_875 < intake.annual_household_income <= 84_600, (
+    assert 54_100 < intake.annual_household_income <= 86_560, (
         f"income={intake.annual_household_income} breaks the approve/deny flip; "
         "must lie in the (250% FPL, 400% FPL] band for household of 2."
     )

@@ -47,6 +47,9 @@ services:
       DOCGEN_S3_ENDPOINT_URL: http://minio:9000
       DOCGEN_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
       DOCGEN_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      # The Verdikt pipeline is a plugin; without it emailed [pap:...] cases are
+      # fetched but not handled.
+      DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -85,6 +88,9 @@ services:
       DOCGEN_S3_ENDPOINT_URL: http://minio:9000
       DOCGEN_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
       DOCGEN_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      # The Verdikt pipeline is a plugin; without it emailed [pap:...] cases are
+      # fetched but not handled.
+      DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}
     depends_on:
       migrate:
         condition: service_completed_successfully

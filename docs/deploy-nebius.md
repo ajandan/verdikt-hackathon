@@ -113,7 +113,15 @@ docker compose -f deploy/docker-compose.prod.yml --env-file .env \
   "from docgen.auth import hash_password; print(hash_password('<your admin password>'))"
 ```
 
-Paste the resulting bcrypt hash into `DOCGEN_ADMIN_PASSWORD_HASH` in `.env`.
+Paste the resulting bcrypt hash into `DOCGEN_ADMIN_PASSWORD_HASH` in `.env`,
+**inside single quotes**:
+
+```dotenv
+DOCGEN_ADMIN_PASSWORD_HASH='$2b$12$...'
+```
+
+Without the quotes, Docker Compose reads each `$` as a variable, the hash is
+silently corrupted and sign-in always fails.
 
 ## 7. Bring the stack up
 
@@ -178,6 +186,17 @@ step 9.3 needs it. Running it again changes nothing and does not mint another
 key. To refresh the seed from a working install, run `scripts/export_demo_seed.py`
 in the web container and commit the result.
 
+## 8c. Alternative: a Mac or home server behind a Cloudflare Tunnel
+
+Skip steps 1, 2 and 8 if the app runs on a machine you already own. Run steps 3
+to 8b there, set `WEB_PORT` to a free port, and add the hostname to the tunnel's
+ingress list (`hostname: verdikt.<yourdomain>`, `service: http://localhost:<port>`).
+Use a separate compose project name (`-p verdikt`) so it never touches other
+stacks on the machine. Cloudflare supplies the HTTPS; keep
+`DOCGEN_SECURE_COOKIES=true`. Over plain `http://` (for example a LAN address)
+browsers drop the `Secure` cookie and sign-in appears to do nothing; set it to
+`false` only while testing that way.
+
 ## 9. Verdikt smoke test
 
 Run this after step 8. It sends one real case through the pipeline and checks
@@ -207,38 +226,43 @@ each claim the demo makes. Stop at the first failure and use section 12.
 
 **9.4 Happy path: expect `approve`**
 
+The seeded program reads a scanned enrollment bundle, not a short JSON payload.
+Queue the sample bundle that ships with the seed:
+
 ```bash
-curl -sS -X POST $BASE/pap/programs/cardiovita-pap-2026/intake   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"   -d '{"actor":"smoke-test","intake":{
-    "patient_name":"Maria Chen","date_of_birth":"1978-06-14",
-    "household_size":2,"annual_household_income":60000,
-    "insurance_status":"uninsured","has_denial_letter":false,
-    "country_of_residence":"United States","mailing_state":"California",
-    "prescribed_drug":"Cardiovita","prescriber_npi":"1234567893",
-    "prescription_date":"2026-08-15"}}'
+docker compose -f deploy/docker-compose.prod.yml --env-file .env   run --rm -v "$PWD/scripts:/app/scripts:ro" -v "$PWD/deploy/demo-seed:/app/deploy/demo-seed:ro"   web python scripts/queue_sample_case.py
 ```
 
-Expect HTTP `201` with a `case_id` like `QC-0001`, `outcome: "approve"`, and a
-`decision` whose citations name the `CV-*` rules that fired. `status` may be
-`queued` with `review_state: "pending_review"` if the program holds API
-submissions for review. In that case `outcome` is the draft verdict. Save the
-`event_id` as `$EV`.
+It takes about a minute and prints `outcome: approve`, the event id and
+`review_state=pending_review`. Save the event id as `$EV`. The case now waits
+in the reviewer queue. Extraction reads a scan, so a rare misread can change the
+outcome. If it does not approve, open the pipeline page (9.8) and read which
+rule failed and what value was extracted.
 
 **9.5 Rule path: expect `deny`**
 
-Repeat 9.4 with `"annual_household_income":120000`. For a household of 2 the
-Cardiovita cap is $84,600, so expect `outcome: "deny"` and a citation to
-`CV-INC-01`. If it still approves, the rules pack was not loaded.
+Rules are deterministic, so change one input and the verdict changes. In the
+pipeline page for `$EV`, find the household income and the Cardiovita cap in
+the rules view. A scan with an income above the cap returns `deny` citing
+`CV-INC-01`. If you have no such scan, the unit tests cover this path
+(`tests/test_rule_formula.py`).
 
 **9.6 Bad input is rejected and still audited**
 
-Repeat 9.4 with `"household_size":"abc"`. Expect HTTP `400`,
-`detail: "intake validation failed"`, and an `event_id`. That case should
-appear in the reviewer queue.
+```bash
+curl -sS -X POST $BASE/pap/programs/cardiovita-pap-2026/intake   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"   -d '{"actor":"smoke-test","intake":{"patient_name":"x"}}'
+```
 
-**9.7 Same household, opposite verdict (only if OncoBridge exists)**
+Expect HTTP `400`, `detail: "intake validation failed"` and an `event_id`. The
+JSON path takes the form's own field names (`patient_last_name`, `rx_medication`
+and so on), so a short payload lists every missing field. That case appears in
+the reviewer queue as `failed`. **Delete it from the inbox before showing the
+site to anyone.**
 
-Submit the 9.4 payload to the OncoBridge program slug. The income cap there is
-$52,875, so $60,000 should return `deny` citing `OB-INC-01`.
+**9.7 OncoBridge cameo (only if OncoBridge exists)**
+
+It is not part of the seed. If you created that program yourself, queue a bundle
+against its slug and check that its own income cap (`OB-INC-01`) is applied.
 
 **9.8 The reviewer can see every stage**
 
@@ -261,7 +285,7 @@ the Ingest, Triage and Decide stages may call a model.
 
 **9.10 Repeatability (record the result, do not assume it)**
 
-Submit the 9.4 payload a second time. Compare the two reply letters (for
+Queue the sample bundle a second time (9.4). Compare the two reply letters (for
 example `sha256sum` of the downloaded files) and the template `version_hash`
 shown on the pipeline page. The template hash should match. The test suite
 checks structure, not letter bytes, so write down whether the bytes match

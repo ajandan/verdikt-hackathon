@@ -233,6 +233,52 @@ def test_digit_count_equals_ignores_separators() -> None:
 
 
 # ---------------------------------------------------------------------------
+# similar_to (near-match for scanned text)
+# ---------------------------------------------------------------------------
+
+
+def _similar(actual, n=1):
+    return evaluate_formula(
+        {"op": "similar_to", "field": "drug", "value": "Cardiovita", "n": n},
+        {"drug": actual},
+    )
+
+
+def test_similar_to_absorbs_a_scan_misread() -> None:
+    r = _similar("Cardiovalta", n=2)
+    assert r.verdict == "matched"
+    assert "2 edit(s) away" in r.steps[0].text
+
+
+def test_similar_to_ignores_case_and_padding() -> None:
+    assert _similar("  CARDIOVITA ").verdict == "matched"
+
+
+def test_similar_to_rejects_a_different_drug() -> None:
+    assert _similar("Cardiolex").verdict == "unmatched"
+    assert _similar("Lisinopril", n=2).verdict == "unmatched"
+
+
+def test_similar_to_respects_the_edit_limit() -> None:
+    assert _similar("Cardiovalta", n=1).verdict == "unmatched"
+    assert _similar("Cardiovalta", n=2).verdict == "matched"
+    assert _similar("Cardiovita", n=0).verdict == "matched"
+
+
+def test_similar_to_undetermined_when_no_value() -> None:
+    assert _similar(None).verdict == "undetermined"
+
+
+@pytest.mark.parametrize("n", [-1, 3, None])
+def test_similar_to_validation_bounds_the_edit_limit(n) -> None:
+    node = {"op": "similar_to", "field": "drug", "value": "Cardiovita"}
+    if n is not None:
+        node["n"] = n
+    with pytest.raises(ValidationError):
+        Formula.model_validate({"root": node})
+
+
+# ---------------------------------------------------------------------------
 # Null / not-null
 # ---------------------------------------------------------------------------
 

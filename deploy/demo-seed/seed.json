@@ -1128,7 +1128,8 @@
     "terms": [
      {
       "field": "rx_medication",
-      "op": "==",
+      "n": 2,
+      "op": "similar_to",
       "value": "Cardiovita"
      },
      {
@@ -1193,7 +1194,8 @@
     "terms": [
      {
       "field": "rx_medication",
-      "op": "==",
+      "n": 2,
+      "op": "similar_to",
       "value": "Cardiovita"
      },
      {
@@ -1720,7 +1722,8 @@
     "terms": [
      {
       "field": "rx_medication",
-      "op": "==",
+      "n": 2,
+      "op": "similar_to",
       "value": "Cardiovita"
      },
      {

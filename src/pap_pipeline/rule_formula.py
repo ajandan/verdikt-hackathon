@@ -56,6 +56,12 @@ fields. The examples below round-trip through
     # Digit count (loose regex over field digits)
     {"op": "digit_count_equals", "field": "prescriber_npi", "n": 10}
 
+    # Near-match for scanned text: equal to ``value`` after case-folding,
+    # allowing up to ``n`` single-character edits (0 to 2). Absorbs an OCR
+    # misread such as "Cardiovalta" for "Cardiovita" while still rejecting
+    # a different drug name.
+    {"op": "similar_to", "field": "rx_medication", "value": "Cardiovita", "n": 2}
+
     # Null checks
     {"op": "is_null",     "field": "denial_letter_url"}
     {"op": "is_not_null", "field": "prescriber_signature"}
@@ -96,13 +102,16 @@ _LOGICAL_OPS = {"AND", "OR", "NOT"}
 #     generous ceiling that still bounds worst-case backtracking time.
 _MAX_REGEX_PATTERN_LEN = 500
 _MAX_REGEX_INPUT_LEN = 4096
+# similar_to tolerates at most this many single-character edits; beyond two,
+# distinct names start to match each other.
+_MAX_SIMILAR_DISTANCE = 2
 
 _COMPARISON_OPS = {"==", "!=", "<", "<=", ">", ">="}
 _SET_OPS = {"in", "not_in"}
 _RECENCY_OPS = {"within_days", "within_weeks", "within_months", "within_years"}
 _STRING_OPS = {"starts_with", "ends_with", "contains"}
 _NULL_OPS = {"is_null", "is_not_null"}
-_MISC_OPS = {"matches_regex", "digit_count_equals", "field_eq_field"}
+_MISC_OPS = {"matches_regex", "digit_count_equals", "field_eq_field", "similar_to"}
 
 _ALL_OPS = (
     _LOGICAL_OPS
@@ -124,6 +133,7 @@ Op = Literal[
     "is_null", "is_not_null",
     "digit_count_equals",
     "field_eq_field",
+    "similar_to",
 ]
 
 # Approximate day counts per recency unit — matches the text-path
@@ -239,6 +249,14 @@ class Node(BaseModel):
                 raise ValueError("op 'digit_count_equals' requires 'field' + 'n'")
             if self.n <= 0:
                 raise ValueError("op 'digit_count_equals' requires 'n' > 0")
+        elif op == "similar_to":
+            if not self.field or not isinstance(self.value, str) or not self.value.strip():
+                raise ValueError("op 'similar_to' requires 'field' + 'value' (non-empty string)")
+            if self.n is None or not 0 <= self.n <= _MAX_SIMILAR_DISTANCE:
+                raise ValueError(
+                    f"op 'similar_to' requires 'n' between 0 and {_MAX_SIMILAR_DISTANCE} "
+                    "(maximum single-character edits)"
+                )
         elif op == "field_eq_field":
             if not self.left or not self.right:
                 raise ValueError("op 'field_eq_field' requires 'left' + 'right' (both field names)")
@@ -399,6 +417,8 @@ def _eval_node(node: Node, values: dict[str, Any]) -> tuple[bool | None, list[St
         return _eval_digit_count(node, values)
     if op == "field_eq_field":
         return _eval_field_eq_field(node, values)
+    if op == "similar_to":
+        return _eval_similar_to(node, values)
 
     raise RuntimeError(f"unreachable — validator rejects unknown ops ({op!r})")
 
@@ -540,6 +560,39 @@ def _eval_string(op: str, node: Node, values: dict[str, Any]) -> tuple[bool | No
     verdict_word = "matched" if ok else "did not match"
     return ok, [Step(
         text=f"@{field_name} {op} {_repr(needle)} → {verdict_word} (actual: {_repr(actual)})",
+        result=ok,
+    )]
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Levenshtein distance (insert / delete / substitute)."""
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _eval_similar_to(node: Node, values: dict[str, Any]) -> tuple[bool | None, list[Step]]:
+    field_name = node.field or ""
+    literal = str(node.value)
+    limit = node.n or 0
+    actual = values.get(field_name)
+    if _is_undetermined(actual):
+        return None, [Step(
+            text=f"@{field_name} similar to {_repr(literal)} → undetermined (no value extracted)",
+            result=None,
+        )]
+    distance = _edit_distance(str(_norm_scalar(actual)), str(_norm_scalar(literal)))
+    ok = distance <= limit
+    verdict_word = "matched" if ok else "did not match"
+    return ok, [Step(
+        text=(
+            f"@{field_name} similar to {_repr(literal)} (within {limit} edit(s)) → {verdict_word} "
+            f"(actual: {_repr(actual)}, {distance} edit(s) away)"
+        ),
         result=ok,
     )]
 

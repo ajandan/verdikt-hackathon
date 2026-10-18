@@ -5419,9 +5419,20 @@ async def inbox_pipeline_detail(
     slot_to_page: dict[str, int] = {}
     slot_placements: dict[str, dict] = {}
     if program_slug:
-        prog = (await session.execute(
-            select(Program).where(Program.slug == program_slug).limit(1)
-        )).scalar_one_or_none()
+        # Slugs are only unique per tenant, so scope to the event's own
+        # tenant; an unscoped lookup returns an arbitrary tenant's program
+        # when two tenants share a slug.
+        prog = None
+        if ev.tenant_id is not None:
+            prog = (await session.execute(
+                select(Program)
+                .where(Program.slug == program_slug, Program.tenant_id == ev.tenant_id)
+                .limit(1)
+            )).scalar_one_or_none()
+        if prog is None:
+            prog = (await session.execute(
+                select(Program).where(Program.slug == program_slug).limit(1)
+            )).scalar_one_or_none()
         if prog and prog.extraction_schema:
             schema_slot_count = len(prog.extraction_schema)
             # Backfill every declared slot into the extraction dict as

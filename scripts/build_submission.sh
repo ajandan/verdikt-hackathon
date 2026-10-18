@@ -13,9 +13,8 @@
 # Deliberately excluded:
 #   - assets/video/screenshots/highlights/*  spotlight scrims, internal to the
 #     video build, meaningless on their own
-#   - .tmp/<real-company>_*                           reference a real pharmaceutical
-#     company; every shipped artifact uses the fictional Alderwood/Cardiovita
-#     data the deck promises
+#   - .tmp/ fixtures built from real program forms; every shipped artifact
+#     uses the fictional Alderwood/Cardiovita data the deck promises
 #   - tmp/extraction.json, tmp/alderwood_intake.json
 #     raw extraction dumps full of patient-shaped fields; internal, not a
 #     submission artifact
@@ -32,7 +31,7 @@ FINAL=submission
 OUT="$FINAL.new"
 rm -rf "$OUT"
 
-mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/e2e-walkthrough,screenshots/architecture,sample-outputs/templates,test-evidence,video}
+mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/architecture,sample-outputs/templates,test-evidence,video}
 
 # --- slides ---------------------------------------------------------------
 # These are rendered from their HTML by scripts/render_docs_pdf.py. Re-run that
@@ -50,11 +49,11 @@ done
 cp docs/verdikt-one-slide.png    "$OUT/screenshots/cover.png"
 
 # --- screenshots ----------------------------------------------------------
-# Product UI tour: the 12 screens a judge would click through, including the
+# Product UI tour: the 11 screens a judge would click through, including the
 # HumanLoop queue that backs the human-review claim.
 cp reports/ui-audit-shots/*.png  "$OUT/screenshots/product-ui/"
-# Browser E2E walkthrough: tenant -> program -> slot -> dispatch -> verdict.
-cp reports/e2e-shots/*.png       "$OUT/screenshots/e2e-walkthrough/"
+# The browser E2E screenshots are deliberately not shipped: they showed test
+# tenants and a test API key. scripts/browser_e2e.py still writes them locally.
 # Architecture / narrative frames from the submission video (1x only; the @2x
 # pairs are for the video pipeline, not for a gallery).
 for f in assets/video/screenshots/beat*_primary.png; do

@@ -144,8 +144,8 @@ stripped from the output).
   (`upload.py:322`) and the UI upload handler surfaces the reject
   finding as an `error` flash (`ui/routes.py:986-991`), so no
   downstream changes needed. Verified against the real fixtures we
-  triaged: `bench104-application...pdf` (Word Save-As-PDF, 4120
-  chars) → `outcome=accept, flavor=flat`; `bench104_page1.pdf` (Producer
+  triaged: a program application PDF (Word Save-As-PDF, 4120
+  chars) → `outcome=accept, flavor=flat`; a one-page scan (Producer
   "Microsoft: Print To PDF", 0 chars) → `outcome=reject,
   code="pdf.no_text_layer"` with the driver-specific hint.
   Coverage in `tests/test_pdf_template.py`:

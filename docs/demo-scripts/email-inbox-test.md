@@ -14,13 +14,9 @@ document is about getting an event to land in the first place.
 
 | Role | Address |
 | --- | --- |
-| **Send from** | `you@your-mail.example` |
-| **Send to** | `quire.template.agent@gmail.com` |
+| **Send from** | `<your-test-sender>@example.com` |
+| **Send to** | `<demo-inbox>@example.com` |
 
-> **Before the repo goes public (due 2026-10-30):** the sender address above is
-> a personal account. Replace it with `you@example.com` or move this table into
-> a local note — a committed address in a public repo gets scraped. It appears
-> exactly once in this file, so it is a one-line change.
 
 The demo mailbox is a single system inbox; which tenant a message belongs to is
 decided per-message, not per-mailbox.
@@ -92,8 +88,8 @@ Test 3 needs the `oncobridge-pap-2026` program to exist. Its rules ship in
 ## The email
 
 ```
-From: you@your-mail.example
-To: quire.template.agent@gmail.com
+From: <your-test-sender>@example.com
+To: <demo-inbox>@example.com
 Subject: [pap:cardiovita-pap-2026] Alderwood — enrollment for Maria Chen
 ```
 

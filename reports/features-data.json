@@ -8,8 +8,7 @@
     "docs/adr/0001-adopt-agpl-for-pymupdf.md",
     "docs/adr/0002-pipeline-inbox-view.md",
     "docs/adr/0003-doc-packages.md",
-    "docs/adr/0004-mdm-lookup-history-retrieval.md",
-    "docs/doc-generation-service-design.md"
+    "docs/adr/0004-mdm-lookup-history-retrieval.md"
   ],
   "summary": {
     "categories": 10,
@@ -330,7 +329,7 @@
         {
           "name": "IMAP polling + allowlist",
           "status": "shipped",
-          "description": "Single system mailbox (quire.template.agent@gmail.com). Per-tenant routing via tenants.inbound_config.",
+          "description": "Single system mailbox (intake@example.com). Per-tenant routing via tenants.inbound_config.",
           "evidence": "src/docgen/inbox/agent.py"
         },
         {

@@ -14,14 +14,14 @@ click deeper than the cold-open beats.
   `alderwood-pap-approval-ASP-201`, `alderwood-pap-denial-ASP-202`,
   `alderwood-pap-missing-info-ASP-203`.
 - `DOCGEN_PLUGINS=pap_pipeline.inbox_hook` set on web and worker; SMTP creds
-  configured; the inbox agent is polling `quire.template.agent@gmail.com`.
+  configured; the inbox agent is polling `intake@example.com`.
 - Migrations `0018` and `0019` applied.
 
 ## The reviewer path — screen by screen
 
 ### 1. Send the enrollment packet
 
-Applicant emails `quire.template.agent@gmail.com`:
+Applicant emails `intake@example.com`:
 
 - **Subject:** `[pap:cardiovita-pap-2026] Alderwood — enrollment for Maria Chen`
   (subject-tag substring `alderwood` is case-insensitive after the resolver

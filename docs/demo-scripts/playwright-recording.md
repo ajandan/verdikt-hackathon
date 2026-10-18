@@ -43,7 +43,7 @@ Minimum required for the pipeline detail page to render:
 
 **3. Process at least one inbound email**
 
-Send a test enrollment packet to `quire.template.agent@gmail.com` (or your dev-mode inbox). Wait for the worker to process it — the row in `/ui/inbox` should show a verdict badge before you run the recorder.
+Send a test enrollment packet to `intake@example.com` (or your dev-mode inbox). Wait for the worker to process it — the row in `/ui/inbox` should show a verdict badge before you run the recorder.
 
 **4. Install Playwright**
 

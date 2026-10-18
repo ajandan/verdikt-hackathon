@@ -46,13 +46,10 @@ old-style deck got staged here once already.
 
 ### `screenshots/`
 - `cover.png` — the one-slide summary as an image. Good Devpost cover.
-- `product-ui/` (12) — the product as a judge would click it: templates,
+- `product-ui/` (11) — the product as a judge would click it: templates,
   dashboard, programs, rules, admin, packages, inbox, renders.
   `10-inbox-humanloop.png` is the human-review queue that holds a reply
   until a reviewer approves it.
-- `e2e-walkthrough/` (11) — a real browser end-to-end run, in order:
-  admin session → tenant → models → triage → program → slot → dispatch a
-  case → verify the verdict → cleanup. Captured by `scripts/browser_e2e.py`.
 - `architecture/` (13) — the narrative and architecture frames from the
   submission video, one per beat. `beat0d_primary.png` is the five-stage
   pipeline diagram; `beat7_primary.png` is the audit trail.

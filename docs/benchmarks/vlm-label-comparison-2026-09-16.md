@@ -1,14 +1,14 @@
 # VLM comparison — PDF template labeling and intake extraction
 
 **Date:** 2026-09-16
-**Fixtures:** `Bench-104-v1.pdf` (104 fields, flat non-AcroForm), `alderwood-enrollment-form.pdf` filled sample (Alderwood AcroForm, 19 slots), `Page4and5.PDF` (Scan-19 scan, 19 slots)
+**Fixtures:** `Form-A.pdf` (104 fields, flat non-AcroForm), `alderwood-enrollment-form.pdf` filled sample (Alderwood AcroForm, 19 slots), `Page4and5.PDF` (real scanned program form B, 19 slots)
 **Purpose:** Signal for two decisions — (1) which vision model to use for the PDF field labeler (annotated-numbered-boxes flow); (2) whether to swap the intake-extraction VLM.
 
 Raw per-run outputs live in `.tmp/nebius/` (gitignored). This doc captures the summary, methodology, and decisions so we don't have to re-run to remember why we picked what we picked.
 
 ---
 
-## 1. Template labeling — Bench-104-v1 (chunked + cropped pipeline)
+## 1. Template labeling — Form A (chunked + cropped pipeline)
 
 All four candidates run through the production `label_fields_in_pdf` path with `DOCGEN_PDF_LABELER_MODE=vision`. Chunk size = 8 fields; crop pad = 90 px above / 30 px other sides. Annotated numbered-box PNG sent to each VLM with the same `_VISION_LABEL_PROMPT`.
 
@@ -23,9 +23,9 @@ All four candidates run through the production `label_fields_in_pdf` path with `
 
 ## 2. Intake extraction (pap_pipeline.stages.extract)
 
-Two fixtures, 19 default slots each. `Alderwood filled` is a synthetic clean PDF via Verdikt's own render pipeline; `Scan-19` is a real-world raster scan with typed + handwritten fields.
+Two fixtures, 19 default slots each. `Alderwood filled` is a synthetic clean PDF via Verdikt's own render pipeline; `Form B scan` is a real-world raster scan with typed + handwritten fields.
 
-| Model | Alderwood (synth) | Scan-19 (real scan) | Avg time | Nebius | License |
+| Model | Alderwood (synth) | Form B (real scan) | Avg time | Nebius | License |
 |---|---|---|---|---|---|
 | moonshotai/Kimi-K3 | 100% | **100%** | ~17s | ✓ | Kimi K3 (custom, permissive up to $20M/12mo) |
 | moonshotai/Kimi-K2.7-Code | 100% | **100%** | ~27s | ✓ | MIT |
@@ -35,14 +35,14 @@ Two fixtures, 19 default slots each. `Alderwood filled` is a synthetic clean PDF
 | google/gemma-3-27b-it | 73.7% | 78.9% | ~11s | ✓ | Gemma license |
 | moonshotai/Kimi-K2.6 | 100% | **47.4%** | ~22s | ✓ | MIT |
 
-**Notable danger signal — MiniCPM-V on Scan-19:** returned `date_of_birth = 1949-07-07` instead of `1990-07-07` (off by 40 years on a healthcare form). Kimi-K2.6 looked like a winner on synthetic (100%) but collapsed on scans (47%). Never trust a single-fixture benchmark.
+**Notable danger signal — MiniCPM-V on Form B:** returned `date_of_birth = 1949-07-07` instead of `1990-07-07` (off by 40 years on a healthcare form). Kimi-K2.6 looked like a winner on synthetic (100%) but collapsed on scans (47%). Never trust a single-fixture benchmark.
 
 ## 3. Decisions
 
 | Decision | Choice | Reason |
 |---|---|---|
 | PDF template labeler VLM | Stay on `openbmb/MiniCPM-V-4_5` | Fastest, on Nebius, accuracy comparable to Pixtral. Kimi disqualified by 50× slowdown + chunk failures. |
-| Template labeler mode | `DOCGEN_PDF_LABELER_MODE=vision` (new flag added 2026-09-16) | Vision path with chunked+cropped annotated boxes beats text-only Nemotron on flat non-AcroForm templates. **Validated end-to-end via portal on 2026-09-16:** Bench-104-v1 went from 24/104 (auto/text-only) → 98/104 mostly-correct (vision+chunk+crop). Shipped. |
+| Template labeler mode | `DOCGEN_PDF_LABELER_MODE=vision` (new flag added 2026-09-16) | Vision path with chunked+cropped annotated boxes beats text-only Nemotron on flat non-AcroForm templates. **Validated end-to-end via portal on 2026-09-16:** Form A went from 24/104 (auto/text-only) → 98/104 mostly-correct (vision+chunk+crop). Shipped. |
 | Intake extraction VLM | **Undecided** — MiniCPM-V is weakest on both fixtures; four Nebius alternatives (Kimi-K3, Kimi-K2.7-Code, GLM-5.3-Flash, MiniMax-M3) score higher. Kimi-K3 = best raw accuracy; GLM-5.3-Flash = best speed/accuracy trade. Not yet swapped because (a) hackathon narrative already reads as "3 NVIDIA text + 1 OSS vision complement" and MiniCPM keeps it clean, (b) only tested on 2 fixtures. |
 | Nemotron-Nano-V2-12b (NVIDIA VLM) | Not usable | Listed in Nebius catalog but returns 404 on all 12 ID variants × 2 base URLs. Requires dedicated-endpoint provisioning (paid per-hour). Blocked until Nebius adds it to serverless. |
 
@@ -63,10 +63,10 @@ Two fixtures, 19 default slots each. `Alderwood filled` is a synthetic clean PDF
 ## 5. Reproducing the benchmarks
 
 Standalone harnesses at `.tmp/nebius/`:
-- `bench104/bench_3way.py` — MiniCPM vs Kimi-K2.7-Code vs Pixtral, chunked+cropped
-- `bench104/bench_mistral_ocr.py` — Mistral OCR + spatial-match labeling (block-level, unusable)
-- `bench104/diagnose_v2.py` — per-page annotated overlay dump for eyeballing accuracy
+- `forma/bench_3way.py` — MiniCPM vs Kimi-K2.7-Code vs Pixtral, chunked+cropped
+- `forma/bench_mistral_ocr.py` — Mistral OCR + spatial-match labeling (block-level, unusable)
+- `forma/diagnose_v2.py` — per-page annotated overlay dump for eyeballing accuracy
 - `compare_vlms.py` — intake extraction 7-way (Alderwood fixture)
-- `scan19/compare_scan19.py` — intake extraction 7-way (Scan-19)
+- `formb/compare_formb.py` — intake extraction 7-way (Form B scan)
 
 All require `DOCGEN_AI_API_KEY` (Nebius) and, for Mistral models, `MISTRAL_API_KEY` passed inline.

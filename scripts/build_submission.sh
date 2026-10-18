@@ -54,7 +54,7 @@ cp docs/verdikt-one-slide.png    "$OUT/screenshots/cover.png"
 # site cannot drift apart. Captured by scripts/capture_console_shots.py; the
 # HumanLoop frame is the review queue that holds every reply until approved.
 i=1
-for name in dashboard inbox pipeline audit rule-detail rules programs humanloop renders; do
+for name in dashboard inbox pipeline audit rule-detail rules programs program-models humanloop renders; do
     cp "src/docgen/ui/static/console-$name.png" "$OUT/screenshots/product-ui/$(printf '%02d' $i)-$name.png"
     i=$((i + 1))
 done

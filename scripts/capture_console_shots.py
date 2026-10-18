@@ -33,13 +33,14 @@ STATIC = REPO / "src" / "docgen" / "ui" / "static"
 # decided it, so the carousel tells one consistent story.
 CASE = "b8290139-1d11-4dd8-a09a-d9c02823d75b"
 RULE = "e6d440f1-1ac5-448c-9445-5124bf16c11f"   # CV-CLIN-01-cardio
+PROGRAM = "98bd7191-8006-476e-9e9a-18ece5a78fa5"   # cardiovita-pap-2026
 # Pages that take ?tenant= are framed on the Alderwood demo tenant. The dev
 # database also holds test-suite fixture tenants and failed render jobs from
 # development; they are real data, but not what the landing page should show.
 ALDERWOOD = "7b473f7c-78a1-4af6-9d85-809e1be8e485"
 T = f"?tenant={ALDERWOOD}"
 
-# name -> (path, heading to scroll to or None for the top of the page)
+# name -> (path, selector to click before shooting, or None)
 SHOTS = {
     "console-dashboard":   (f"/ui/dashboard{T}", None),
     "console-inbox":       (f"/ui/inbox{T}", None),
@@ -55,6 +56,9 @@ SHOTS = {
     # The review queue replaced the tenants list: it backs the human-review claim,
     # and the tenants list has no filter, so it showed every test fixture.
     "console-humanloop":   (f"/ui/inbox/humanloop{T}", None),
+    # Per-program model choices on Nebius Token Factory, with the resolved
+    # model for every stage. For the Devpost gallery; not in the carousel.
+    "console-program-models": (f"/ui/programs/{PROGRAM}#models", "#tab-btn-models"),
 }
 
 # Personal addresses and API-key prefixes are always refused. Organisation
@@ -98,8 +102,11 @@ def main() -> None:
                 sys.exit(f"[console] {path} shows {hits}; nothing written")
 
         # Pass 2: shoot.
-        for name, (path, _) in SHOTS.items():
+        for name, (path, click) in SHOTS.items():
             page.goto(f"{BASE}{path}", wait_until="networkidle")
+            if click:
+                page.click(click)
+                page.evaluate("window.scrollTo(0, 0)")
             page.wait_for_timeout(500)
             out = STATIC / f"{name}.png"
             page.screenshot(path=str(out))          # viewport only: 2880x1800

@@ -594,6 +594,7 @@
   .cc-viewport { position: relative; }
   .cc-track {
     display: flex;
+    align-items: flex-start;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
@@ -607,8 +608,16 @@
     margin: 0;
     padding: 0 2px;
   }
+  /* Slides 2-9 start with a 1x1 transparent GIF as src (see hydrate() below).
+     With width:100% and height:auto that placeholder renders as a square, the
+     flex track grows to the tallest slide, and the first screen sits above a
+     band of empty space that only collapses once the user has clicked through
+     and the real images have loaded. Pinning the frame to the screenshots'
+     16:10 shape makes every slide the right height before any image arrives. */
   .cc-slide img {
     display: block; width: 100%; height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover; object-position: top center;
     border: 1px solid var(--hair-soft);
     border-radius: 8px;
     background: #fff;
@@ -2116,40 +2125,40 @@
       <div class="cc-viewport">
         <div class="cc-track" data-cc-track tabindex="0">
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="1 of 9" data-cc-index="0">
-            <img src="{{ url_for('static', path='console-dashboard.png') }}" alt="Verdikt dashboard showing templates, pending drafts, renders in the last 24 hours, warnings, render volume, and top templates for a selected tenant" loading="lazy" />
+            <img width="2880" height="1800" src="{{ url_for('static', path='console-dashboard.png') }}" alt="Verdikt dashboard showing templates, pending drafts, renders in the last 24 hours, warnings, render volume, and top templates for a selected tenant" loading="lazy" />
             <figcaption class="cap">Dashboard · activity, health, and hotspots</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="2 of 9" data-cc-index="1">
-            <img data-src="{{ url_for('static', path='console-inbox.png') }}" alt="Case queue with sortable rows showing status, received time, sender, subject, and review state for every case the pipeline processed" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-inbox.png') }}" alt="Case queue with sortable rows showing status, received time, sender, subject, and review state for every case the pipeline processed" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Case queue · filter by ingest status or review state</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="3 of 9" data-cc-index="2">
-            <img data-src="{{ url_for('static', path='console-pipeline.png') }}" alt="Pipeline verdict detail showing the approve outcome, review state, extract stage with structured intake slots grouped into reviewer-facing sections" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-pipeline.png') }}" alt="Pipeline verdict detail showing the approve outcome, review state, extract stage with structured intake slots grouped into reviewer-facing sections" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Pipeline verdict · extract, retrieve, reason with rule citations</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="4 of 9" data-cc-index="3">
-            <img data-src="{{ url_for('static', path='console-audit.png') }}" alt="Audit trail listing every action taken on a case in order — pipeline stages, reviewer decisions, and system events with actor and timestamp" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-audit.png') }}" alt="Audit trail listing every action taken on a case in order — pipeline stages, reviewer decisions, and system events with actor and timestamp" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Audit trail · every stage, reviewer decision, and system event</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="5 of 9" data-cc-index="4">
-            <img data-src="{{ url_for('static', path='console-renders.png') }}" alt="Render jobs list across all tenants, newest first, filterable by state to triage failures" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-renders.png') }}" alt="Render jobs list across all tenants, newest first, filterable by state to triage failures" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Renders · every job across tenants, filterable by state</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="6 of 9" data-cc-index="5">
-            <img data-src="{{ url_for('static', path='console-programs.png') }}" alt="Programs list showing tenant, program name and slug, extraction slot count, active status, and last-updated timestamp per program" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-programs.png') }}" alt="Programs list showing tenant, program name and slug, extraction slot count, active status, and last-updated timestamp per program" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Programs · extraction schema per program, bound to a tenant</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="7 of 9" data-cc-index="6">
-            <img data-src="{{ url_for('static', path='console-rules.png') }}" alt="Rules library listing human-authored eligibility rules with tenant, rule ID, kind, program bindings, and active status" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-rules.png') }}" alt="Rules library listing human-authored eligibility rules with tenant, rule ID, kind, program bindings, and active status" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Rules · human-authored, versioned, citable on every verdict</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="8 of 9" data-cc-index="7">
-            <img data-src="{{ url_for('static', path='console-rule-detail.png') }}" alt="Single rule detail showing the rule identifier, criterion, exception, intake fields the rule references, attached programs, and edit action" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-rule-detail.png') }}" alt="Single rule detail showing the rule identifier, criterion, exception, intake fields the rule references, attached programs, and edit action" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
             <figcaption class="cap">Rule detail · criterion, exception, and the intake fields it cites</figcaption>
           </figure>
           <figure class="cc-slide" role="group" aria-roledescription="slide" aria-label="9 of 9" data-cc-index="8">
-            <img data-src="{{ url_for('static', path='console-tenants.png') }}" alt="Tenants list showing tenant name, tenant ID, created timestamp, and inbox routing plus keys management actions" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
-            <figcaption class="cap">Tenants · isolation boundary for templates, renders, and keys</figcaption>
+            <img width="2880" height="1800" data-src="{{ url_for('static', path='console-humanloop.png') }}" alt="HumanLoop review queue listing every case waiting for a human decision, oldest first, each with its outcome, sender, attachment and a Review button; nothing is sent until a reviewer approves" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" loading="lazy" decoding="async" />
+            <figcaption class="cap">HumanLoop · nothing leaves until a reviewer approves</figcaption>
           </figure>
         </div>
         <button type="button" class="cc-arrow cc-prev" aria-label="Previous screen">&#8249;</button>

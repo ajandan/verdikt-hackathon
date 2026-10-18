@@ -50,7 +50,7 @@ at `/static/console-*.png`; 2880×1800 source resolution):
 | `src/docgen/ui/static/console-rules.png` | Rules library grouped by tenant, with kind chips (clinical / financial / insurance / residency). |
 | `src/docgen/ui/static/console-rule-detail.png` | Single rule editor with citation, criterion, exception fields. |
 | `src/docgen/ui/static/console-renders.png` | Renders list with success / failed / queued state chips. |
-| `src/docgen/ui/static/console-tenants.png` | Tenants list with routing / MDM / quotas / keys actions. |
+| `src/docgen/ui/static/console-humanloop.png` | HumanLoop review queue: every case waiting for a human decision, oldest first. |
 | `src/docgen/ui/static/console-audit.png` | Audit trail for a single case — pipeline_started → verdict_rendered → reply_draft_skipped → approved. |
 
 Live captures produced today (1920×1080, admin-authenticated where required):

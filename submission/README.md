@@ -13,7 +13,7 @@ here — fix the source and re-run. This page included: its source is
 | Field | Status | Value / blocker |
 | --- | --- | --- |
 | Public repo URL | **BLOCKED** | `github.com/ajandan/quire-hackathon` is **private** — flip public before the deadline or judges get a 404 |
-| Public demo URL | live, URL needed here | deployed on self-hosted infrastructure; paste the URL into Devpost |
+| Public demo URL | **done** | https://verdikt.aismith.ai — self-hosted, TLS, verified responding |
 | Video (< 3 min) | **done** | https://www.youtube.com/watch?v=FF_svj1Y6pk — 2:58.3, under the cap. Local copy in `video/` |
 | Licence | done | MIT, `LICENSE`, enforced by `scripts/license_check.py` in CI |
 | NVIDIA OSS model | done | NVIDIA Nemotron Nano (triage) + Nemotron Super 120B (verdict, PDF labelling) |
@@ -22,8 +22,14 @@ here — fix the source and re-run. This page included: its source is
 | Video thumbnail | ready | `youtube-thumbnail.jpg` (1280×720, 64 KB) — upload as the custom thumbnail |
 | Supporting docs | ready | `slides/` |
 
-The two blockers are the repo flip and the demo URL. Everything else in this
-folder is uploadable as-is.
+The only blocker left is the repo flip. Everything else in this folder is
+uploadable as-is.
+
+> Two defects are open on the live site and fixed in `main`, so it needs a
+> redeploy before judging: static assets are emitted as `http://` on an
+> `https://` page (8 blocked images), and the landing page still points at a
+> video file that is not deployed. The landing page now links the published
+> YouTube video instead, which removes that dependency entirely.
 
 ## Contents
 

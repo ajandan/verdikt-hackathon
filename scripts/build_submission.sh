@@ -105,19 +105,47 @@ fi
 
 # --- swap the staged tree into place --------------------------------------
 TRASH="$FINAL.old.$$"
-if [[ -d "$FINAL" ]]; then
-    if ! mv "$FINAL" "$TRASH" 2>/dev/null; then
-        echo "[submission] cannot replace $FINAL/ -- the directory itself is held open." >&2
-        echo "[submission] close any Explorer window sitting inside it and re-run." >&2
-        echo "[submission] the new build is intact at $OUT/" >&2
-        exit 1
-    fi
+if [[ ! -d "$FINAL" ]]; then
+    mv "$OUT" "$FINAL"
+elif mv "$FINAL" "$TRASH" 2>/dev/null; then
+    mv "$OUT" "$FINAL"
+    # Best-effort: a locked file in the old tree must not fail the build, since
+    # the new tree is already in place by this point.
+    rm -rf "$TRASH" 2>/dev/null ||         echo "[submission] note: could not delete $TRASH (a file in it is open)" >&2
+else
+    # The directory itself is held open -- an Explorer window inside it, or a
+    # shell whose cwd is in it. A rename needs a handle on the directory; a
+    # file copy does not. Sync in place instead so an open folder cannot block
+    # a rebuild, which it otherwise does every time someone is reading the deck.
+    echo "[submission] $FINAL/ is held open; syncing in place instead of swapping" >&2
+    (cd "$OUT" && find . -type d -exec mkdir -p "../$FINAL/{}" \; )
+    # cp fails on a file currently open in a viewer. Skipping it quietly
+    # would leave a stale artifact staged for submission, so each failure
+    # is named and the build exits non-zero.
+    sync_failed=0
+    while IFS= read -r f; do
+        # An open viewer locks the file it is showing. If that file is
+        # already byte-identical there is nothing to do and nothing to warn
+        # about; only a genuine change that cannot be written matters.
+        if cmp -s "$OUT/$f" "$FINAL/$f" 2>/dev/null; then
+            continue
+        fi
+        cp -f "$OUT/$f" "$FINAL/$f" 2>/dev/null || {
+            echo "[submission] LOCKED, needs updating but could not be written: $f" >&2
+            sync_failed=$((sync_failed + 1))
+        }
+    done < <(cd "$OUT" && find . -type f -printf "%P\n")
+    # Drop anything the new build no longer contains, ignoring what is locked.
+    (cd "$FINAL" && find . -type f -print) | while read -r f; do
+        [[ -f "$OUT/$f" ]] || rm -f "$FINAL/$f" 2>/dev/null || true
+    done
+    rm -rf "$OUT" 2>/dev/null || true
 fi
-mv "$OUT" "$FINAL"
 OUT="$FINAL"
-# Best-effort: a locked file in the old tree must not fail the build, since the
-# new tree is already in place by this point.
-rm -rf "$TRASH" 2>/dev/null ||     echo "[submission] note: could not delete $TRASH (a file in it is open); remove it later" >&2
+if [[ "${sync_failed:-0}" -gt 0 ]]; then
+    echo "[submission] $sync_failed file(s) could not be replaced -- close them and re-run." >&2
+    exit 1
+fi
 
 # --- YouTube thumbnail ----------------------------------------------------
 # After the swap, so it lands in the real folder and survives it.

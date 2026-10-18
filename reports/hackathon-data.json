@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T17:12:18Z",
-  "commit": "bac0fbd",
+  "generated_at": "2026-10-18T17:39:35Z",
+  "commit": "cf9e5a4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
@@ -57,7 +57,7 @@
       "id": "R4",
       "name": "Public repo, README, demo URL",
       "status": "partial",
-      "how": "Repo README is production-ready and publicly framed. Repo currently PRIVATE (set 2026-09-07); flips PUBLIC before 2026-10-30. The application is deployed on self-hosted infrastructure and the demo URL is live.",
+      "how": "README is production-ready and publicly framed. Demo URL is live at https://verdikt.aismith.ai and the video is published. Repo is still PRIVATE (set 2026-09-07) and must flip before 2026-10-30.",
       "evidence": [
         "README.md (public-framing scrub complete)",
         "docs/HACKATHON.md (technical write-up)",
@@ -189,8 +189,8 @@
     },
     {
       "item": "Public demo URL",
-      "status": "partial",
-      "note": "Deployed and live on self-hosted infrastructure. URL to be pasted into the Devpost field."
+      "status": "done",
+      "note": "Live and verified: https://verdikt.aismith.ai"
     },
     {
       "item": "≥ 1 NVIDIA OSS model",
@@ -205,7 +205,7 @@
     {
       "item": "Devpost submission",
       "status": "planned",
-      "note": "Ready to submit once demo URL + video are live."
+      "note": "Repo visibility is the last blocker; demo URL and video URL are both live."
     }
   ],
   "timeline": [

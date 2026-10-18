@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T17:39:35Z",
+  "generated_at": "2026-10-18T21:30:00Z",
   "commit": "cf9e5a4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
@@ -13,12 +13,12 @@
   "summary": {
     "verdict": "ON TRACK",
     "rules_total": 5,
-    "rules_met": 4,
-    "rules_pending": 1,
+    "rules_met": 5,
+    "rules_pending": 0,
     "license": "MIT",
     "nvidia_models": 3,
     "nebius_services": 2,
-    "open_items": 4
+    "open_items": 1
   },
   "rules": [
     {
@@ -56,22 +56,23 @@
     {
       "id": "R4",
       "name": "Public repo, README, demo URL",
-      "status": "partial",
-      "how": "README is production-ready and publicly framed. Demo URL is live at https://verdikt.aismith.ai and the video is published. Repo is still PRIVATE (set 2026-09-07) and must flip before 2026-10-30.",
+      "status": "met",
+      "how": "Public repo at https://github.com/ajandan/verdikt-hackathon (MIT, detected by GitHub). README is publicly framed and links the live demo and video. Demo URL is live at https://verdikt.aismith.ai, with a one-click judge sign-in.",
       "evidence": [
-        "README.md (public-framing scrub complete)",
+        "https://github.com/ajandan/verdikt-hackathon (public, MIT)",
+        "README.md (setup steps, live demo and video links)",
         "docs/HACKATHON.md (technical write-up)",
-        "docs/deploy-nebius.md (deploy runbook, pre-flighted, not yet executed)"
+        "https://verdikt.aismith.ai (live demo)"
       ]
     },
     {
       "id": "R5",
       "name": "YouTube video < 3 min",
-      "status": "planned",
-      "how": "Architecture-beat script drafted (60-second core + 15-second second-program cameo). Recording after the public demo goes live so we can screen-capture the real system.",
+      "status": "met",
+      "how": "Published and public on YouTube: https://youtu.be/EleEatbaEWM. Under the 3:00 cap. The landing page plays it.",
       "evidence": [
-        "docs/demo-scripts/video-narration-60s.md (narration + visual-sync notes)",
-        "docs/demo-scripts/architecture-justification.md (README-ready pipeline argument)"
+        "https://youtu.be/EleEatbaEWM (public)",
+        "docs/demo-scripts/video-3min.md (shooting script)"
       ]
     }
   ],
@@ -169,8 +170,8 @@
   "checklist": [
     {
       "item": "Public GitHub repo",
-      "status": "partial",
-      "note": "Repo PRIVATE since 2026-09-07. Flip public before 2026-10-30."
+      "status": "done",
+      "note": "Public with MIT license: https://github.com/ajandan/verdikt-hackathon"
     },
     {
       "item": "Approved OSS license",
@@ -205,7 +206,7 @@
     {
       "item": "Devpost submission",
       "status": "planned",
-      "note": "Repo visibility is the last blocker; demo URL and video URL are both live."
+      "note": "Nothing blocking: the public repo, demo URL and video URL are all live. Submit before 2026-10-30."
     }
   ],
   "timeline": [
@@ -242,25 +243,27 @@
       "event": "CVE scan (pip-audit --strict) landed in CI — zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml"
     },
     {
+      "date": "2026-10-18",
+      "event": "Public repo published: https://github.com/ajandan/verdikt-hackathon (MIT)"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Submission video published: https://youtu.be/EleEatbaEWM"
+    },
+    {
       "date": "mid-Nov",
       "event": "Nebius deploy target (post-submission for demo continuity)"
     },
     {
       "date": "2026-10-30",
-      "event": "Submission deadline: repo public, demo URL live, video posted"
+      "event": "Submission deadline"
     }
   ],
   "open_items": [
     {
-      "item": "Flip repo visibility to PUBLIC",
-      "priority": "high",
-      "why_blocked": "Deliberate privacy during active submission-window work.",
-      "plan": "Flip PUBLIC on 2026-10-28 (48h buffer before deadline). No code change needed."
-    },
-    {
       "item": "Submit on Devpost",
       "priority": "medium",
-      "why_blocked": "Needs repo URL (public), demo URL, and video URL (all above).",
+      "why_blocked": "Not blocked. Repo, demo URL and video URL are all live.",
       "plan": "Submit 2026-10-29 with 24h buffer."
     }
   ]

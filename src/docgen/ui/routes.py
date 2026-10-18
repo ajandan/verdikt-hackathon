@@ -132,8 +132,43 @@ def _csp_nonce(request: Request) -> str:
     return getattr(request.state, "csp_nonce", "") or ""
 
 
+_STATIC_DIR = Path(__file__).parent / "static"
+_static_versions: dict[str, tuple[float, str]] = {}
+
+
+def _static_url(request: Request, path: str) -> str:
+    """Jinja global: cache-busted, root-relative URL for a file under /static.
+
+    Two problems with plain `url_for('static', ...)` on the public pages:
+
+    - It is absolute and takes its scheme from the request. Behind a TLS-
+      terminating proxy that does not forward the scheme, it emits http:// on
+      an https:// page, which browsers block or silently upgrade.
+    - The CDN in front of the site caches /static for hours, so replacing a
+      screenshot under the same name keeps the old one in front of visitors.
+
+    So: a path with no scheme or host, plus a short content hash. A changed
+    file gets a new URL and no cache can serve the stale bytes. The hash is
+    recomputed only when the file's mtime moves.
+    """
+    url = request.app.url_path_for("static", path=path)
+    f = _STATIC_DIR / path
+    try:
+        mtime = f.stat().st_mtime
+    except OSError:
+        return str(url)
+    hit = _static_versions.get(path)
+    if hit is None or hit[0] != mtime:
+        import hashlib
+
+        hit = (mtime, hashlib.sha256(f.read_bytes()).hexdigest()[:10])
+        _static_versions[path] = hit
+    return f"{url}?v={hit[1]}"
+
+
 templates.env.globals["csrf_input"] = _csrf_input
 templates.env.globals["csp_nonce"] = _csp_nonce
+templates.env.globals["static_url"] = _static_url
 
 
 def _case_id_filter(case_number: int | None) -> str:

@@ -49,9 +49,15 @@ done
 cp docs/verdikt-one-slide.png    "$OUT/screenshots/cover.png"
 
 # --- screenshots ----------------------------------------------------------
-# Product UI tour: the 11 screens a judge would click through, including the
-# HumanLoop queue that backs the human-review claim.
-cp reports/ui-audit-shots/*.png  "$OUT/screenshots/product-ui/"
+# Product UI tour: the same nine files the landing page's carousel serves,
+# byte for byte, so the gallery a judge downloads and the screens on the live
+# site cannot drift apart. Captured by scripts/capture_console_shots.py; the
+# HumanLoop frame is the review queue that holds every reply until approved.
+i=1
+for name in dashboard inbox pipeline audit rule-detail rules programs humanloop renders; do
+    cp "src/docgen/ui/static/console-$name.png" "$OUT/screenshots/product-ui/$(printf '%02d' $i)-$name.png"
+    i=$((i + 1))
+done
 # One reviewed case, two shots per section: the fields extracted from each page
 # of the enrollment form, then every rule evaluated with its "why". Captured by
 # scripts/capture_case_shots.py.

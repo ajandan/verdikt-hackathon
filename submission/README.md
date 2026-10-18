@@ -46,10 +46,17 @@ old-style deck got staged here once already.
 
 ### `screenshots/`
 - `cover.png` — the one-slide summary as an image. Good Devpost cover.
-- `product-ui/` (11) — the product as a judge would click it: templates,
-  dashboard, programs, rules, admin, packages, inbox, renders.
-  `10-inbox-humanloop.png` is the human-review queue that holds a reply
-  until a reviewer approves it.
+- `product-ui/` (9) — the running product, and the very same files the landing
+  page's carousel serves at https://verdikt.aismith.ai, so the gallery and the
+  live site always match. Dashboard, cases, a case's pipeline verdict and its
+  audit trail, the rule that decided it, the rules library, programs, the
+  HumanLoop review queue that holds every reply until a reviewer approves, and
+  renders. 2880×1800, captured by `scripts/capture_console_shots.py`, which
+  checks each page for personal addresses, real company names and API keys
+  before writing anything.
+
+  The browser E2E screenshots are not shipped: they show test tenants and a
+  test API key.
 - `case-review/` (4) — one reviewed case, QC-0009, outcome approve, as a
   reviewer sees it. `01`/`02`: the fields read from page 1 and page 2 of the
   scanned enrollment form, 88 of 105 slots filled, misses flagged. `03`/`04`:

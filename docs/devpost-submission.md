@@ -14,7 +14,7 @@ here — fix the source and re-run. This page included: its source is
 | --- | --- | --- |
 | Public repo URL | **done** | https://github.com/ajandan/verdikt-hackathon |
 | Public demo URL | **done** | https://verdikt.aismith.ai — self-hosted, TLS, verified responding |
-| Video (< 3 min) | **done** | https://www.youtube.com/watch?v=FF_svj1Y6pk — 2:58.3, under the cap. Local copy in `video/` |
+| Video (< 3 min) | **done** | https://youtu.be/EleEatbaEWM — public, under the 3:00 cap. Local copy in `video/` |
 | Licence | done | MIT, `LICENSE`, enforced by `scripts/license_check.py` in CI |
 | NVIDIA OSS model | done | NVIDIA Nemotron Nano (triage) + Nemotron Super 120B (verdict, PDF labelling) |
 | Nebius hosting | **done** | every model call goes through Nebius Token Factory. The app itself is self-hosted — the rule allows either |

@@ -6,7 +6,8 @@
 |---|---|
 | **License** | MIT |
 | **Track** | Best Apps & Agents |
-| **Video** | under 3 minutes — see [Live demo](#live-demo) |
+| **Video** | [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM) (under 3 minutes) |
+| **Live demo** | [https://verdikt.aismith.ai](https://verdikt.aismith.ai) |
 | **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super, verdict — non-reasoning mode for schema-conformant JSON) · Nemotron Nano (triage, with a rule-based fallback) |
 | **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extract stage) · `Qwen/Qwen3-Embedding-8B` (Apache-2.0 embedding model, retrieve stage) |
 | **Domain** | US patient-assistance-program (PAP) eligibility |
@@ -81,8 +82,8 @@ mechanical proof (git log + boundary tests).
 
 ## Live demo
 
-- **Demo video (< 3 min)**: linked from [`docs/HACKATHON.md`](docs/HACKATHON.md)
-- **Hosted demo**: URL published in [`docs/HACKATHON.md`](docs/HACKATHON.md) at submission time. Meanwhile, the full pipeline runs locally on Docker Compose in under 5 minutes — see [Quickstart](#quickstart--5-minutes-local) below.
+- **Demo video (< 3 min)**: [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM)
+- **Hosted demo**: [https://verdikt.aismith.ai](https://verdikt.aismith.ai). The login page has a one-click judge sign-in. The full pipeline also runs locally on Docker Compose in under 5 minutes — see [Quickstart](#quickstart--5-minutes-local) below.
 
 ## Quickstart (< 5 minutes, local)
 

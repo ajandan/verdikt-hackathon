@@ -33,7 +33,7 @@ Provable mechanically:
 | ≥ 1 NVIDIA open-source model | Two NVIDIA Nemotron models: Nemotron Nano (triage) and Nemotron Super (the verdict), both under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
 | Approved OSS license | MIT — see [`LICENSE`](../LICENSE). |
 | Public repo, public demo URL, README | This repo (public by 2026-10-30) + [`README.md`](../README.md) + Devpost-published demo URL. |
-| YouTube video < 3 min | Full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — five beats, 2:55 target run-time, two engineered applause lines; link added post-recording. |
+| YouTube video < 3 min | Published: [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM). Full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — five beats, two engineered applause lines. |
 
 ## The three-stage Verdikt architecture
 
@@ -146,8 +146,8 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 ## Open items before 2026-10-30
 
 - **Repo visibility.** Currently PRIVATE (set 2026-09-07). Flip public before submission.
-- **Public demo URL.** Live on self-hosted infrastructure, decoupled from the production doc-gen kernel deploy scheduled for mid-November.
-- **YouTube video.** 3-minute cut, full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) (cold open, live demo, architecture beat, second-program cameo, close/CTA).
+- **Public demo URL.** [https://verdikt.aismith.ai](https://verdikt.aismith.ai). Live on self-hosted infrastructure, decoupled from the production doc-gen kernel deploy scheduled for mid-November.
+- **YouTube video.** [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM). Under-3-minute cut, full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) (cold open, live demo, architecture beat, second-program cameo, close/CTA).
 - **Devpost submission.** URL, repo link, video, and this document as the technical write-up.
 
 ## Companion documents

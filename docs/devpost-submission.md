@@ -50,6 +50,11 @@ old-style deck got staged here once already.
   dashboard, programs, rules, admin, packages, inbox, renders.
   `10-inbox-humanloop.png` is the human-review queue that holds a reply
   until a reviewer approves it.
+- `case-review/` (4) — one reviewed case, QC-0009, outcome approve, as a
+  reviewer sees it. `01`/`02`: the fields read from page 1 and page 2 of the
+  scanned enrollment form, 88 of 105 slots filled, misses flagged. `03`/`04`:
+  all seven rules evaluated, each with the field values that decided it and
+  the match trace. Captured by `scripts/capture_case_shots.py`.
 - `architecture/` (13) — the narrative and architecture frames from the
   submission video, one per beat. `beat0d_primary.png` is the five-stage
   pipeline diagram; `beat7_primary.png` is the audit trail.

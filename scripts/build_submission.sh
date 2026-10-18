@@ -31,7 +31,7 @@ FINAL=submission
 OUT="$FINAL.new"
 rm -rf "$OUT"
 
-mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/architecture,test-demo,sample-outputs/templates,video}
+mkdir -p "$OUT"/{slides,screenshots/product-ui,screenshots/case-review,screenshots/architecture,test-demo,sample-outputs/templates,video}
 
 # --- slides ---------------------------------------------------------------
 # These are rendered from their HTML by scripts/render_docs_pdf.py. Re-run that
@@ -52,6 +52,10 @@ cp docs/verdikt-one-slide.png    "$OUT/screenshots/cover.png"
 # Product UI tour: the 11 screens a judge would click through, including the
 # HumanLoop queue that backs the human-review claim.
 cp reports/ui-audit-shots/*.png  "$OUT/screenshots/product-ui/"
+# One reviewed case, two shots per section: the fields extracted from each page
+# of the enrollment form, then every rule evaluated with its "why". Captured by
+# scripts/capture_case_shots.py.
+cp reports/case-shots/approve-*.png "$OUT/screenshots/case-review/"
 # The browser E2E screenshots are deliberately not shipped: they showed test
 # tenants and a test API key. scripts/browser_e2e.py still writes them locally.
 # Architecture / narrative frames from the submission video (1x only; the @2x

@@ -229,11 +229,16 @@
     (data.generated_at ? data.generated_at.replace('T', ' ').split('.')[0] + 'Z' : '') +
     (data.commit ? '  ·  ' + data.commit : '');
 
+  // Days to the deadline, counted from the viewer's clock so the number never
+  // goes stale. Submissions close at 10:00 PT on the deadline day (17:00 UTC).
+  const deadlineAt = new Date(data.event.deadline_at || (data.event.deadline + 'T17:00:00Z'));
+  const daysLeft = Math.max(0, Math.ceil((deadlineAt - Date.now()) / 86400000));
+
   const chips = [
     ['Event', data.event.name],
     ['Track', data.event.track],
     ['Deadline', data.event.deadline],
-    ['Days left', data.event.days_remaining],
+    ['Days left', daysLeft],
     ['Verdict', data.summary.verdict],
   ];
   document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
@@ -245,7 +250,7 @@
     { k: 'NVIDIA',      v: data.summary.nvidia_models,   d: 'OSS models on the path', cls: 'pass' },
     { k: 'Nebius',      v: data.summary.nebius_services, d: 'services in use',        cls: 'pass' },
     { k: 'License',     v: data.summary.license,         d: 'approved OSS',           cls: 'pass' },
-    { k: 'Days left',   v: data.event.days_remaining,    d: 'until deadline',         cls: 'info' },
+    { k: 'Days left',   v: daysLeft,                     d: 'until deadline',         cls: 'info' },
   ];
   document.getElementById('kpi-row').innerHTML = kpis.map(x =>
     '<div class="kpi ' + x.cls + '">' +
@@ -270,7 +275,7 @@
       '<div><span class="k">Rules</span><span class="v">' + data.summary.rules_met + ' / ' + data.summary.rules_total + '</span></div>' +
       '<div><span class="k">Models</span><span class="v">' + data.summary.nvidia_models + '</span></div>' +
       '<div><span class="k">License</span><span class="v">' + escapeHtml(data.summary.license) + '</span></div>' +
-      '<div><span class="k">Days</span><span class="v">' + data.event.days_remaining + '</span></div>' +
+      '<div><span class="k">Days</span><span class="v">' + daysLeft + '</span></div>' +
     '</div>';
 
   // Tab strip

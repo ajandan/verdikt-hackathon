@@ -1,0 +1,4 @@
+
+# Seed PDFs must never be line-ending converted: their bytes are hashed.
+deploy/demo-seed/blobs/** binary
+*.pdf binary

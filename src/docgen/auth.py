@@ -320,7 +320,12 @@ def verify_inbox_test_token(token: str, test_result_id: str) -> bool:
 # ApiKey middleware
 # ---------------------------------------------------------------------------
 
-_BYPASS_EXACT = {"/", "/health", "/metrics", "/docs", "/openapi.json", "/redoc"}
+# /favicon.ico and /apple-touch-icon.png are requested by browsers at the
+# root whether or not a page links them; without the bypass they 401.
+_BYPASS_EXACT = {
+    "/", "/health", "/metrics", "/docs", "/openapi.json", "/redoc",
+    "/favicon.ico", "/apple-touch-icon.png",
+}
 _BYPASS_PREFIXES = ("/ui", "/static", "/engineering")
 
 

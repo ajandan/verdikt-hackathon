@@ -87,6 +87,11 @@ services:
       DOCGEN_PLUGINS: ${DOCGEN_PLUGINS:-pap_pipeline.inbox_hook}
       DOCGEN_ENV: ${DOCGEN_ENV:-development}
       DOCGEN_ADMIN_PASSWORD_HASH: ${DOCGEN_ADMIN_PASSWORD_HASH:-}
+      # One-click demo sign-in for judges (see .env.example). Off by default.
+      DOCGEN_DEMO_LOGIN_ENABLED: ${DOCGEN_DEMO_LOGIN_ENABLED:-false}
+      DOCGEN_DEMO_USERNAME: ${DOCGEN_DEMO_USERNAME:-}
+      DOCGEN_DEMO_PASSWORD: ${DOCGEN_DEMO_PASSWORD:-}
+      DOCGEN_DEMO_TENANT: ${DOCGEN_DEMO_TENANT:-}
       # No fallback: dev users must set DOCGEN_SESSION_SECRET (see .env.example
       # for a one-liner to generate one). Same for DOCGEN_WEBHOOK_SIGNING_SECRET.
       DOCGEN_SESSION_SECRET: ${DOCGEN_SESSION_SECRET:?set DOCGEN_SESSION_SECRET in .env}

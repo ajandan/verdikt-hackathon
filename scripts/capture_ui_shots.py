@@ -69,7 +69,7 @@ def main() -> None:
             "els => els.map(e => e.getAttribute('href'))",
         )
         seen, paths = set(), []
-        for h in ["/ui/"] + hrefs + EXTRA:
+        for h in ["/ui/", *hrefs, *EXTRA]:
             h = (h or "").split("?")[0].rstrip("/") or "/ui"
             if h in seen or SKIP.search(h) or "{" in h:
                 continue

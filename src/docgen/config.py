@@ -110,6 +110,20 @@ class Settings(BaseSettings):
     admin_user: str = "admin"
     admin_password_hash: str = ""  # bcrypt hash; empty = admin bootstrap disabled
 
+    # One-click demo sign-in for judges. Off unless DOCGEN_DEMO_LOGIN_ENABLED is
+    # true. When on, startup provisions DOCGEN_DEMO_USERNAME as a tenant_admin
+    # scoped to DOCGEN_DEMO_TENANT (a tenant name or id), and /ui/login shows the
+    # credentials with a "Sign in as demo user" button. The password is
+    # plaintext on purpose -- it is published on the login page -- so it must
+    # never belong to a real account. Turning the flag off deactivates the
+    # account on the next start. tenant_admin is the least privilege the app
+    # has: no tenants, API keys or user management, but it can approve and
+    # send replies within its tenant.
+    demo_login_enabled: bool = False
+    demo_username: str = ""
+    demo_password: str = ""
+    demo_tenant: str = ""
+
     # No default: forces the operator to supply a real value. Startup fails
     # with a clear pydantic ValidationError if unset, eliminating the
     # ship-the-default footgun.

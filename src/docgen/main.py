@@ -8,7 +8,7 @@ from pathlib import Path
 
 import structlog
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -19,6 +19,8 @@ from docgen.auth import (
     AdminSessionMiddleware,
     ApiKeyAuthMiddleware,
     generate_api_key,
+    hash_password,
+    verify_password,
     verify_session,
 )
 from docgen.config import get_settings
@@ -165,9 +167,80 @@ async def _startup_checks() -> None:
                 log.exception("bootstrap_failed")
 
 
+
+async def _sync_demo_user() -> None:
+    """Make the demo sign-in account match .env, or switch it off.
+
+    The judge-facing "Sign in as demo user" button publishes these credentials,
+    so the account is created here from DOCGEN_DEMO_* rather than by hand: the
+    env file is the single source of truth, and flipping
+    DOCGEN_DEMO_LOGIN_ENABLED to false deactivates it on the next start.
+
+    Refuses rather than guesses when the configuration could hand out more
+    than intended: the demo name may not be the env admin, may not be an
+    existing super_admin, and the account is always a tenant_admin.
+    """
+    settings = get_settings()
+    name = (settings.demo_username or "").strip()
+    if not name:
+        return
+    if name == settings.admin_user:
+        log.error("demo_user_refused", reason="DOCGEN_DEMO_USERNAME equals DOCGEN_ADMIN_USER")
+        return
+    try:
+        async with AsyncSessionLocal() as session:
+            # tenant-audit: allow (startup provisioning by globally unique username)
+            row = (
+                await session.execute(select(AdminUser).where(AdminUser.username == name))
+            ).scalar_one_or_none()
+            if row is not None and row.role != "tenant_admin":
+                log.error("demo_user_refused", username=name,
+                          reason="an existing account with this name is not a tenant_admin")
+                return
+
+            if not settings.demo_login_enabled:
+                if row is not None and row.is_active:
+                    row.is_active = False
+                    await session.commit()
+                    log.info("demo_user_deactivated", username=name)
+                return
+
+            if not settings.demo_password or not settings.demo_tenant:
+                log.error("demo_user_refused", username=name,
+                          reason="DOCGEN_DEMO_PASSWORD and DOCGEN_DEMO_TENANT are required")
+                return
+
+            ref = settings.demo_tenant.strip()
+            tenant = None
+            try:
+                tenant = await session.get(Tenant, uuid.UUID(ref))
+            except ValueError:
+                # tenant-audit: allow (startup lookup of the configured demo tenant)
+                tenant = (
+                    await session.execute(select(Tenant).where(Tenant.name == ref))
+                ).scalar_one_or_none()
+            if tenant is None:
+                log.error("demo_user_refused", username=name, reason=f"no tenant {ref!r}")
+                return
+
+            if row is None:
+                row = AdminUser(username=name, role="tenant_admin")
+                session.add(row)
+            row.tenant_id = tenant.id
+            row.is_active = True
+            if not row.password_hash or not verify_password(settings.demo_password, row.password_hash):
+                row.password_hash = hash_password(settings.demo_password)
+            await session.commit()
+            log.info("demo_user_ready", username=name, tenant=tenant.name, role="tenant_admin")
+    except Exception:
+        # Same stance as the super_admin seed: a table that does not exist yet
+        # must not stop the app from starting.
+        log.warning("demo_user_sync_skipped", exc_info=True)
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await _startup_checks()
+    await _sync_demo_user()
     from docgen.plugins import load_plugins
 
     load_plugins()
@@ -248,6 +321,19 @@ def create_app() -> FastAPI:
             log.exception("metrics_queue_depth_sample_failed")
         body, content_type = render_metrics()
         return Response(content=body, media_type=content_type)
+
+    # Browsers ask for these at the root on their own, before any page has
+    # linked anything. Serve the real files; cache for a day, since the pages
+    # themselves link the versioned /static copies.
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def _favicon() -> Response:
+        return FileResponse(_STATIC_DIR / "favicon.ico", media_type="image/x-icon",
+                            headers={"Cache-Control": "public, max-age=86400"})
+
+    @app.get("/apple-touch-icon.png", include_in_schema=False)
+    async def _apple_touch_icon() -> Response:
+        return FileResponse(_STATIC_DIR / "apple-touch-icon.png", media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/", include_in_schema=False)
     async def _root(request: Request) -> Response:

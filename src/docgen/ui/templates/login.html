@@ -59,6 +59,37 @@
     .auth-card label:first-of-type { margin-top: 0; }
     .auth-actions { margin-top: 20px; }
     .auth-actions button { width: 100%; padding: 10px 14px; font-size: 14px; font-weight: 600; }
+    /* Demo access panel: shown only when DOCGEN_DEMO_LOGIN_ENABLED is on. */
+    .demo-access {
+        margin: 4px 0 18px; padding: 14px 16px; border-radius: 12px;
+        border: 1px solid rgba(47,143,118,0.35);
+        background: linear-gradient(180deg, rgba(47,143,118,0.10), rgba(47,143,118,0.04));
+    }
+    .demo-head {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--accent, #1e5f4f);
+    }
+    .demo-dot { width: 7px; height: 7px; border-radius: 50%; background: #2f8f76; }
+    .demo-creds {
+        display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+        margin: 10px 0 12px; font-size: 13px;
+    }
+    .demo-creds dt { color: var(--text-subtle); }
+    .demo-creds dd { margin: 0; }
+    .demo-creds code { font-size: 12.5px; padding: 1px 6px; border-radius: 5px; background: rgba(20,20,16,0.06); }
+    .demo-btn {
+        width: 100%; padding: 10px 14px; font-size: 14px; font-weight: 600; cursor: pointer;
+        border-radius: 8px; border: 1px solid #1e5f4f; background: #1e5f4f; color: #fff;
+    }
+    .demo-btn:hover { background: #2f8f76; border-color: #2f8f76; }
+    .demo-btn:focus-visible { outline: 2px solid #8ec7b5; outline-offset: 2px; }
+    .demo-note { margin: 9px 0 0; font-size: 12px; line-height: 1.4; color: var(--text-subtle); }
+    .demo-or {
+        display: flex; align-items: center; gap: 10px; margin: 2px 0 14px;
+        font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-subtle);
+    }
+    .demo-or::before, .demo-or::after { content: ""; flex: 1; height: 1px; background: var(--border, rgba(20,20,16,0.12)); }
     .auth-footer {
         margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-subtle);
     }
@@ -106,6 +137,22 @@
                 set the env var, then restart.
             </div>
         {% else %}
+        {% if demo %}
+        <div class="demo-access" role="region" aria-label="Demo access">
+            <div class="demo-head"><span class="demo-dot" aria-hidden="true"></span>Demo access for judges</div>
+            <dl class="demo-creds">
+                <dt>Username</dt><dd><code>{{ demo.username }}</code></dd>
+                <dt>Password</dt><dd><code>{{ demo.password }}</code></dd>
+            </dl>
+            <button type="button" class="demo-btn" id="demo-login"
+                    data-username="{{ demo.username }}" data-password="{{ demo.password }}">
+                Sign in as demo user
+            </button>
+            <p class="demo-note">A demo account scoped to one sample pharmacy: its cases,
+                rules, templates and review queue.</p>
+        </div>
+        <div class="demo-or">or sign in</div>
+        {% endif %}
         <form action="/ui/login" method="post">
             <input type="hidden" name="next" value="{{ next or '/ui/dashboard' }}">
             <label>Username
@@ -125,4 +172,22 @@
         </div>
     </div>
 </div>
+{% if demo %}
+<script nonce="{{ csp_nonce(request) }}">
+  // Fill the form from the button's data attributes and submit it, so the
+  // demo login goes through the same POST, CSRF and rate limiting as a typed one.
+  (function () {
+    var btn = document.getElementById('demo-login');
+    var form = document.querySelector('form[action="/ui/login"]');
+    if (!btn || !form) return;
+    btn.addEventListener('click', function () {
+      form.querySelector('input[name="username"]').value = btn.dataset.username;
+      form.querySelector('input[name="password"]').value = btn.dataset.password;
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+      if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+    });
+  })();
+</script>
+{% endif %}
 {% endblock %}

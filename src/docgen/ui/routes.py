@@ -46,7 +46,6 @@ from docgen.auth import (
 )
 from docgen.config import get_settings
 from docgen.core.docx_sanitize import InvalidDocxError
-from docgen.upload_limits import read_capped_upload
 from docgen.core.mapping import MappingError, apply_mapping, suggest_mapping, walk_leaves
 from docgen.core.render_pipeline import (
     FORMAT_META,
@@ -109,6 +108,7 @@ from docgen.store.models import (
     TemplateVersion,
     Tenant,
 )
+from docgen.upload_limits import read_capped_upload
 from pap_pipeline.stages.slot_compile import SlotCompileError, SlotDef
 
 router = APIRouter(
@@ -3346,6 +3346,19 @@ def _example_for(field_type: str) -> Any:
 # Auth: login / logout
 # ---------------------------------------------------------------------------
 
+def _demo_login() -> dict[str, str] | None:
+    """Credentials for the login page's demo button, or None when it is off.
+
+    Published deliberately: see Settings.demo_login_enabled. Only rendered when
+    the flag is on and both values are set, so a half-configured .env shows no
+    button rather than a broken one.
+    """
+    s = get_settings()
+    if s.demo_login_enabled and s.demo_username and s.demo_password:
+        return {"username": s.demo_username, "password": s.demo_password}
+    return None
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_form(request: Request, next: str | None = None) -> HTMLResponse:
     # The 503 "disabled" state is gated on the env-var admin credentials only,
@@ -3362,7 +3375,7 @@ async def login_form(request: Request, next: str | None = None) -> HTMLResponse:
             status_code=503,
         )
     return templates.TemplateResponse(
-        request, "login.html", {"disabled": False, "next": next, "admin_user": None}
+        request, "login.html", {"disabled": False, "next": next, "admin_user": None, "demo": _demo_login()}
     )
 
 
@@ -3405,6 +3418,7 @@ async def login_submit(
                 "disabled": False,
                 "next": next,
                 "admin_user": None,
+                "demo": _demo_login(),
             },
             status_code=429,
         )
@@ -3417,7 +3431,13 @@ async def login_submit(
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"error": "Invalid credentials.", "disabled": False, "next": next, "admin_user": None},
+            {
+                "error": "Invalid credentials.",
+                "disabled": False,
+                "next": next,
+                "admin_user": None,
+                "demo": _demo_login(),
+            },
             status_code=401,
         )
 

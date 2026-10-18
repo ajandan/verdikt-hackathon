@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 2 — Program as data</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  .program-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(20,20,16,0.10);
+    box-shadow: 0 40px 80px -40px rgba(20,20,16,0.30), 0 6px 20px -10px rgba(20,20,16,0.10);
+    padding: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+    flex: 1;
+  }
+  .program-head {
+    grid-column: 1 / -1;
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 20px; margin-bottom: 8px;
+    border-bottom: 1px solid rgba(20,20,16,0.10);
+  }
+  .program-head .name {
+    font-family: var(--font-serif); font-size: 44px; color: var(--ink-900); letter-spacing: -0.01em;
+  }
+  .program-head .meta { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.10em; text-transform: uppercase; color: var(--ink-500); }
+  .col-head {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--seal-700); margin-bottom: 14px;
+    padding-bottom: 8px; border-bottom: 1px solid rgba(47,143,118,0.30);
+  }
+  .col-head b { color: var(--ink-900); }
+  .field { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed rgba(20,20,16,0.10); }
+  .field .k { font-family: var(--font-mono); font-size: 13px; color: var(--ink-900); }
+  .field .t { font-family: var(--font-mono); font-size: 12px; color: var(--seal-700); background: rgba(47,143,118,0.08); padding: 2px 8px; border-radius: 4px; letter-spacing: 0.06em; }
+  pre.yaml {
+    background: var(--ink-900);
+    color: var(--ink-100);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+    padding: 18px 20px;
+    border-radius: 8px;
+    margin: 0;
+    white-space: pre;
+  }
+  pre.yaml .key { color: #8ec7b5; }
+  pre.yaml .str { color: #f6f5f1; }
+  pre.yaml .comment { color: #6c6858; }
+  .tmpl { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--paper); border: 1px solid rgba(20,20,16,0.10); border-radius: 6px; margin-bottom: 10px; }
+  .tmpl .name { font-family: var(--font-sans); font-size: 14px; color: var(--ink-900); font-weight: 500; }
+</style>
+</head>
+<body>
+<main class="stage col gap-32">
+  <div class="eyebrow">Program · Data, not code</div>
+  <h1 class="hero">Defines the intake, the rules, and the <em>reply.</em></h1>
+  <div class="program-card">
+    <div class="program-head">
+      <div class="name">Cardiovita PAP 2026</div>
+      <div class="meta">tenant · alderwood-specialty-pharmacy &nbsp;·&nbsp; program_id · cardiovita-pap-2026</div>
+    </div>
+    <div>
+      <div class="col-head">Extraction <b>schema</b> · fields to pull from the intake</div>
+      <div class="field"><span class="k">patient_name</span><span class="t">string</span></div>
+      <div class="field"><span class="k">date_of_birth</span><span class="t">date</span></div>
+      <div class="field"><span class="k">diagnosis</span><span class="t">string</span></div>
+      <div class="field"><span class="k">prescribed_drug</span><span class="t">string</span></div>
+      <div class="field"><span class="k">household_size</span><span class="t">int</span></div>
+      <div class="field"><span class="k">annual_income</span><span class="t">currency</span></div>
+      <div class="field"><span class="k">insurance_denial_letter</span><span class="t">attachment</span></div>
+      <div class="field"><span class="k">state_of_residence</span><span class="t">us_state</span></div>
+    </div>
+    <div>
+      <div class="col-head">Rules <b>pack</b> · human-authored, versioned</div>
+      <pre class="yaml"><span class="comment"># cardiovita-pap-2026 · v3</span>
+- id: CV-INC-01
+  <span class="key">kind</span>: financial
+  <span class="key">match</span>: annual_income &lt;=
+         4.0 &times; FPL[household_size]
+- id: CV-INS-01
+  <span class="key">kind</span>: insurance
+  <span class="key">match</span>: has_denial_letter == true
+- id: CV-CLIN-01
+  <span class="key">kind</span>: clinical
+  <span class="key">match</span>: prescribed_drug ==
+         "Cardiovita"
+- id: CV-RES-01
+  <span class="key">kind</span>: residency
+  <span class="key">match</span>: state_of_residence in US</pre>
+    </div>
+    <div>
+      <div class="col-head">Reply <b>templates</b> · frozen, per outcome</div>
+      <div class="tmpl"><div class="name">Approval letter</div><span class="stamp">Frozen · v3</span></div>
+      <div class="tmpl"><div class="name">Denial letter</div><span class="stamp">Frozen · v2</span></div>
+      <div class="tmpl"><div class="name">Missing-info letter</div><span class="stamp">Frozen · v1</span></div>
+      <div style="margin-top: 16px; padding: 14px; background: var(--ink-100); border-radius: 6px;">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.10em; color: var(--ink-500); text-transform: uppercase; margin-bottom: 6px;">Package binding · approve</div>
+        <div style="font-family: var(--font-sans); font-size: 13px; color: var(--ink-700); line-height: 1.4;">Approval letter → Appeals notice → Benefits guide → Follow-up form</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer-brand">Verdikt</div>
+</main>
+</body>
+</html>

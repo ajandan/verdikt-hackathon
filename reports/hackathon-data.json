@@ -1,11 +1,11 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-16T20:11:48Z",
-  "commit": "d0dbb79",
+  "generated_at": "2026-10-18T17:39:35Z",
+  "commit": "cf9e5a4",
   "event": {
-    "name": "Nebius \u00d7 NVIDIA Global AI Hackathon",
+    "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
-    "submission_window": "2026-08-26 \u2192 2026-10-30",
+    "submission_window": "2026-08-26 → 2026-10-30",
     "deadline": "2026-10-30",
     "days_remaining": 44,
     "repo": "https://github.com/ajandan/quire-hackathon"
@@ -23,24 +23,23 @@
   "rules": [
     {
       "id": "R1",
-      "name": "Runs on Nebius Token Factory / Nebius AI Cloud",
+      "name": "Runs on Nebius Token Factory",
       "status": "met",
-      "how": "Reasoning stage uses NVIDIA Nemotron on Nebius Token Factory. Reading uses MiniCPM-V, triage uses Nemotron Nano, retrieval uses Qwen3-Embedding, all via Token Factory (deploy of the app itself deferred to mid-Nov; runbook pre-flighted).",
+      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super returns the verdict. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
       "evidence": [
         "src/docgen/providers/nebius.py (Nebius Token Factory adapter)",
-        "docs/deploy-nebius.md (Nebius AI Cloud deploy runbook)",
         "tests/test_provider_nebius.py (provider contract enforced)"
       ]
     },
     {
       "id": "R2",
-      "name": "\u2265 1 NVIDIA open-source model",
+      "name": "≥ 1 NVIDIA open-source model",
       "status": "met",
       "how": "Nemotron Nano (triage) and Nemotron Super (verdict), both under the nvidia/ namespace. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
       "evidence": [
         "nvidia/nemotron-3-super-120b-a12b (verdict)",
         "Nemotron Nano (triage, rule-based fallback)",
-                "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
+        "tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron"
       ]
     },
     {
@@ -58,7 +57,7 @@
       "id": "R4",
       "name": "Public repo, README, demo URL",
       "status": "partial",
-      "how": "Repo README is production-ready and publicly framed (no employer references, no competitor library names). Repo currently PRIVATE (set 2026-09-07); flips PUBLIC before 2026-10-30. Public demo URL depends on the Nebius deploy, scheduled for mid-Nov.",
+      "how": "README is production-ready and publicly framed. Demo URL is live at https://verdikt.aismith.ai and the video is published. Repo is still PRIVATE (set 2026-09-07) and must flip before 2026-10-30.",
       "evidence": [
         "README.md (public-framing scrub complete)",
         "docs/HACKATHON.md (technical write-up)",
@@ -113,7 +112,7 @@
     },
     "new_work": {
       "package": "src/pap_pipeline/ (Verdikt)",
-      "scope": "Three-stage decision pipeline (extract \u2192 retrieve \u2192 reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
+      "scope": "Three-stage decision pipeline (extract → retrieve → reason), intake/rule/decision schemas, four Cardiovita eligibility rules, PAP templates, routing-table instrumentation, orchestrator, OncoBridge cameo. All landed after 2026-08-26.",
       "mechanically_provable": [
         "git log -- src/pap_pipeline/ returns only submission-window commits",
         "tests/test_boundaries.py::test_docgen_never_imports_pap_pipeline (dependency direction is one-way)",
@@ -126,7 +125,7 @@
       "criterion": "Technological Implementation",
       "prompt": "How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?",
       "points": [
-        "Three NVIDIA OSS models composed on Nebius Token Factory at their strongest task shapes: Nemotron for policy reasoning and letter drafting, NeMo Retriever NIMs for citation-quality retrieval, nv-ingest for structured parsing of scanned intake.",
+        "Four models composed on Nebius Token Factory at their strongest task shapes, two of them NVIDIA: MiniCPM-V for reading scanned intake, Nemotron Nano for triage, Qwen3-Embedding for citation-quality retrieval, and Nemotron Super for policy reasoning and the cited verdict.",
         "One Nebius key, one router, per-call instrumentation. Latency, cost, and cache-hit rate are visible on the admin routing page.",
         "Nemotron stops at a hard boundary. Every artifact that leaves the pipeline (reply letter, JSON verdict) is written by deterministic Python from typed pydantic models.",
         "A boundary test fails the build if an LLM ever leaks into the render path.",
@@ -184,29 +183,29 @@
       "note": "Public-framing scrub complete. Docker compose bring-up documented."
     },
     {
-      "item": "Nebius-hosted deployment",
-      "status": "planned",
-      "note": "Deploy runbook (docs/deploy-nebius.md) pre-flighted. Actual deploy mid-Nov."
+      "item": "Runs on Nebius",
+      "status": "done",
+      "note": "All model inference runs on Nebius Token Factory. The application is deployed on self-hosted infrastructure rather than a Nebius AI Cloud VM."
     },
     {
       "item": "Public demo URL",
-      "status": "planned",
-      "note": "Depends on the Nebius deploy above."
+      "status": "done",
+      "note": "Live and verified: https://verdikt.aismith.ai"
     },
     {
-      "item": "\u2265 1 NVIDIA OSS model",
+      "item": "≥ 1 NVIDIA OSS model",
       "status": "done",
-      "note": "Three: nv-ingest, NeMo Retriever NIMs, Nemotron. Default enforced by test."
+      "note": "NVIDIA Nemotron on Nebius Token Factory: Nemotron Nano for triage, Nemotron Super 120B for the cited verdict and PDF field labelling. Default enforced by test."
     },
     {
       "item": "YouTube video < 3 min",
-      "status": "planned",
-      "note": "Script drafted. Recording after live demo URL."
+      "status": "done",
+      "note": "Published, 2:58.3, under the 3:00 cap: https://www.youtube.com/watch?v=FF_svj1Y6pk"
     },
     {
       "item": "Devpost submission",
       "status": "planned",
-      "note": "Ready to submit once demo URL + video are live."
+      "note": "Repo visibility is the last blocker; demo URL and video URL are both live."
     }
   ],
   "timeline": [
@@ -240,7 +239,7 @@
     },
     {
       "date": "2026-09-14",
-      "event": "CVE scan (pip-audit --strict) landed in CI \u2014 zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml"
+      "event": "CVE scan (pip-audit --strict) landed in CI — zero known vulns at HEAD; CVE-safe floors codified in pyproject.toml"
     },
     {
       "date": "mid-Nov",
@@ -257,18 +256,6 @@
       "priority": "high",
       "why_blocked": "Deliberate privacy during active submission-window work.",
       "plan": "Flip PUBLIC on 2026-10-28 (48h buffer before deadline). No code change needed."
-    },
-    {
-      "item": "Public demo URL on Nebius",
-      "priority": "high",
-      "why_blocked": "Deploy target date is mid-Nov to keep the production Quire deploy on its own schedule.",
-      "plan": "Cut a hackathon-scoped Nebius deploy from the runbook. Minimal footprint (single VM + Token Factory key). Bring up 2026-10-25, freeze, submit."
-    },
-    {
-      "item": "Record YouTube video (< 3 min)",
-      "priority": "medium",
-      "why_blocked": "Screen-recording needs the live demo URL to be captured cleanly.",
-      "plan": "Record after demo URL is live (~ 2026-10-27). Script is ready: 60-second architecture beat + 15-second cameo."
     },
     {
       "item": "Submit on Devpost",

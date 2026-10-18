@@ -29,7 +29,7 @@ Provable mechanically:
 
 | Requirement | Satisfied by |
 | --- | --- |
-| Runs on Nebius Token Factory / Nebius AI Cloud | Every model call goes through one Nebius Token Factory endpoint (`src/docgen/providers/nebius.py`): MiniCPM-V for reading, Nemotron Nano for triage, Qwen3-Embedding for retrieval, Nemotron Super for the verdict. Deploy runbook: [`docs/deploy-nebius.md`](deploy-nebius.md). |
+| Runs on Nebius Token Factory | Every model call goes through one Nebius Token Factory endpoint (`src/docgen/providers/nebius.py`): MiniCPM-V for reading, Nemotron Nano for triage, Qwen3-Embedding for retrieval, Nemotron Super for the verdict. The application itself is self-hosted; the rule names Token Factory as an alternative to Nebius AI Cloud, and all inference goes through it. |
 | ≥ 1 NVIDIA open-source model | Two NVIDIA Nemotron models: Nemotron Nano (triage) and Nemotron Super (the verdict), both under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
 | Approved OSS license | MIT — see [`LICENSE`](../LICENSE). |
 | Public repo, public demo URL, README | This repo (public by 2026-10-30) + [`README.md`](../README.md) + Devpost-published demo URL. |
@@ -146,7 +146,7 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 ## Open items before 2026-10-30
 
 - **Repo visibility.** Currently PRIVATE (set 2026-09-07). Flip public before submission.
-- **Public demo URL.** A minimal Verdikt hackathon-demo deploy on Nebius, decoupled from the production doc-gen kernel deploy scheduled for mid-November. See roadmap Phase 3.
+- **Public demo URL.** Live on self-hosted infrastructure, decoupled from the production doc-gen kernel deploy scheduled for mid-November.
 - **YouTube video.** 3-minute cut, full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) (cold open, live demo, architecture beat, second-program cameo, close/CTA).
 - **Devpost submission.** URL, repo link, video, and this document as the technical write-up.
 
@@ -156,4 +156,4 @@ For the public deploy, see [`docs/deploy-nebius.md`](deploy-nebius.md).
 - [`docs/demo-scripts/submission-roadmap.md`](demo-scripts/submission-roadmap.md) — the 50-day plan with phase gates and the product-name decision.
 - [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — full 3-minute shooting script (cold open → live demo → architecture beat → cameo → close), with per-beat visual-sync tables, delivery notes, and a latest-features coverage matrix.
 - [`docs/demo-scripts/judge-qa-briefing.md`](demo-scripts/judge-qa-briefing.md) — live-Q&A material (kept out of public-facing docs).
-- [`docs/deploy-nebius.md`](deploy-nebius.md) — Nebius AI Cloud deploy runbook.
+- [`docs/deploy-nebius.md`](deploy-nebius.md) — Nebius AI Cloud deploy runbook (reference; the live deploy is self-hosted).

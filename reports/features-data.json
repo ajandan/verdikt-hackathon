@@ -631,7 +631,7 @@
     {
       "id": "deploy",
       "name": "Deployment & Ops",
-      "description": "Compose stack for dev; Nebius AI Cloud VM for prod. Deploy deferred to mid-Nov 2026.",
+      "description": "Compose stack for dev; self-hosted for prod. Model inference on Nebius Token Factory.",
       "features": [
         {
           "name": "Docker compose stack (Postgres, Redis, MinIO, web, worker)",
@@ -658,7 +658,7 @@
           "evidence": "scripts/build-css.sh"
         },
         {
-          "name": "Nebius AI Cloud VM deploy",
+          "name": "Self-hosted deploy",
           "status": "backlog",
           "description": "Runbook + checklist pre-flighted; execution deferred to mid-Nov 2026.",
           "evidence": "docs/deploy-nebius.md"
@@ -711,7 +711,7 @@
     },
     {
       "category": "Deploy",
-      "item": "Nebius VM deploy execution",
+      "item": "Self-hosted deploy execution",
       "priority": "high",
       "notes": "Deferred to mid-Nov 2026 per memory."
     },

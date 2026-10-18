@@ -127,7 +127,7 @@ That's the doc-gen kernel loop: **upload → preflight → freeze → publish �
 ### Where to go next
 
 - **Hackathon submission notes**: [`docs/HACKATHON.md`](docs/HACKATHON.md) — architecture, reuse declaration, judging-criteria mapping
-- **Deploy on Nebius AI Cloud**: [`docs/deploy-nebius.md`](docs/deploy-nebius.md) — VM-to-public-URL runbook
+- **Deploy**: self-hosted. Model inference runs on Nebius Token Factory; [`docs/deploy-nebius.md`](docs/deploy-nebius.md) keeps the Nebius AI Cloud VM runbook for reference.
 - **REST reference**: <http://localhost:8000/docs> (OpenAPI, worked examples)
 - **MCP endpoint**: `http://localhost:8000/mcp/` (streamable-http)
 - **Object-store console**: <http://localhost:9011> (`minioadmin` / `minioadmin`)

@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 3b — Outcome → doc package mapping</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  .mapping-grid {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 24px;
+    flex: 1;
+    align-items: stretch;
+    padding-top: 10px;
+  }
+  .verdict-col {
+    display: flex; flex-direction: column;
+    gap: 22px;
+  }
+  .verdict-pill {
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 10px;
+    padding: 20px 22px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px -32px rgba(20,20,16,0.25);
+    flex: 1;
+  }
+  .verdict-pill .kicker {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-500);
+    margin-bottom: 6px;
+  }
+  .verdict-pill .label {
+    font-family: var(--font-serif); font-size: 38px; line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .verdict-pill.approve { border-color: rgba(47,143,118,0.45); }
+  .verdict-pill.approve .label { color: var(--seal-700); }
+  .verdict-pill.deny { border-color: rgba(176, 74, 63, 0.45); }
+  .verdict-pill.deny .label { color: var(--rose); }
+  .verdict-pill.missing { border-color: rgba(245, 158, 11, 0.45); }
+  .verdict-pill.missing .label { color: #8a3f14; font-size: 24px; padding-top: 6px; }
+  .arrow-out {
+    font-family: var(--font-serif); font-size: 32px; color: var(--ink-300);
+    margin-top: 8px;
+  }
+  .package-col {
+    display: flex; flex-direction: column;
+    gap: 22px;
+  }
+  .pkg-row {
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 10px;
+    padding: 18px 24px;
+    box-shadow: 0 24px 60px -32px rgba(20,20,16,0.25);
+    display: grid;
+    grid-template-columns: 130px 1fr auto;
+    gap: 20px;
+    align-items: center;
+    flex: 1;
+  }
+  .pkg-row.approve { border-left: 4px solid var(--seal-500); }
+  .pkg-row.deny { border-left: 4px solid var(--rose); }
+  .pkg-row.missing { border-left: 4px solid var(--amber); }
+  .pkg-row .kind {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-500);
+  }
+  .pkg-row .kind b {
+    display: block; font-family: 'Playfair Display', 'Georgia', serif;
+    font-size: 20px; color: var(--ink-900); letter-spacing: 0.01em;
+    font-weight: 500;
+    margin-top: 3px;
+  }
+  .docs {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .doc-chip {
+    display: flex; flex-direction: column;
+    padding: 8px 12px;
+    background: var(--paper);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 6px;
+    min-width: 130px;
+  }
+  .doc-chip .k {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-500); margin-bottom: 3px;
+  }
+  .doc-chip .n {
+    font-family: 'Inter', sans-serif; font-size: 12.5px;
+    color: var(--ink-900); font-weight: 500;
+  }
+  .doc-chip .h {
+    font-family: var(--font-mono); font-size: 10px; color: var(--seal-700); margin-top: 3px; letter-spacing: 0.04em;
+  }
+  .arrow-chain {
+    font-family: var(--font-serif); font-size: 20px; color: var(--ink-300); margin: 0 4px;
+  }
+  .pkg-row .stamp {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--seal-700);
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--seal-500);
+    background: rgba(47,143,118,0.06);
+    text-align: center; white-space: nowrap;
+  }
+  .pkg-row.deny .stamp { color: var(--rose); border-color: var(--rose); background: rgba(176,74,63,0.06); }
+  .pkg-row.missing .stamp { color: #8a3f14; border-color: var(--amber); background: rgba(245,158,11,0.06); }
+  .operator-band {
+    margin-top: 22px;
+    padding: 18px 32px;
+    background: var(--ink-900); color: var(--ink-50);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: space-between; gap: 30px;
+  }
+  .operator-band .lhs {
+    font-family: 'Playfair Display', 'Georgia', serif; font-size: 24px;
+  }
+  .operator-band .lhs em { color: var(--seal-300); font-style: italic; }
+  .operator-band .rhs {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em;
+    color: var(--seal-300); text-transform: uppercase;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+<main class="stage col gap-24">
+  <div class="eyebrow">Outcome · Package binding · Data-driven</div>
+  <h1 class="hero">Every outcome ships its <em>own package.</em></h1>
+  <div class="mapping-grid">
+    <div class="verdict-col">
+      <div class="verdict-pill approve">
+        <div class="kicker">If outcome</div>
+        <div class="label">approve</div>
+        <div class="arrow-out">→</div>
+      </div>
+      <div class="verdict-pill deny">
+        <div class="kicker">If outcome</div>
+        <div class="label">deny</div>
+        <div class="arrow-out">→</div>
+      </div>
+      <div class="verdict-pill missing">
+        <div class="kicker">If outcome</div>
+        <div class="label">missing_info</div>
+        <div class="arrow-out">→</div>
+      </div>
+    </div>
+    <div class="package-col">
+      <div class="pkg-row approve">
+        <div class="kind">Package<b>Approval kit</b></div>
+        <div class="docs">
+          <div class="doc-chip"><span class="k">01 · Letter</span><span class="n">Approval · ASP-201</span><span class="h">v3</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">02 · Notice</span><span class="n">Appeals notice</span><span class="h">v2</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">03 · Guide</span><span class="n">Benefits guide</span><span class="h">v1</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">04 · Form</span><span class="n">Follow-up form</span><span class="h">v1</span></div>
+        </div>
+        <div class="stamp">4 items · frozen</div>
+      </div>
+      <div class="pkg-row deny">
+        <div class="kind">Package<b>Denial kit</b></div>
+        <div class="docs">
+          <div class="doc-chip"><span class="k">01 · Letter</span><span class="n">Denial · ASP-202</span><span class="h">v2</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">02 · Notice</span><span class="n">Right to appeal</span><span class="h">v2</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">03 · Form</span><span class="n">Appeal request</span><span class="h">v1</span></div>
+        </div>
+        <div class="stamp">3 items · frozen</div>
+      </div>
+      <div class="pkg-row missing">
+        <div class="kind">Package<b>Missing info kit</b></div>
+        <div class="docs">
+          <div class="doc-chip"><span class="k">01 · Letter</span><span class="n">Missing · ASP-203</span><span class="h">v1</span></div>
+          <span class="arrow-chain">→</span>
+          <div class="doc-chip"><span class="k">02 · Checklist</span><span class="n">What we need</span><span class="h">v2</span></div>
+        </div>
+        <div class="stamp">2 items · frozen</div>
+      </div>
+    </div>
+  </div>
+  <div class="operator-band">
+    <div class="lhs">The <em>operator declares the mapping.</em> The pipeline follows it.</div>
+    <div class="rhs">programs.package_bindings · JSONB<br><span style="color: var(--ink-300);">no AI decides composition</span></div>
+  </div>
+  <div class="footer-brand">Verdikt</div>
+</main>
+</body>
+</html>

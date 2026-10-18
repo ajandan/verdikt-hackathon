@@ -263,7 +263,7 @@
       "priority": "medium",
       "item": "OpenTelemetry end-to-end traces",
       "why_blocked": "Not scheduled. Waiting on deploy timing.",
-      "plan": "FastAPI \u2192 SQLAlchemy \u2192 boto3 \u2192 render span. Enable after Nebius VM deploy so trace shape reflects prod topology."
+      "plan": "FastAPI \u2192 SQLAlchemy \u2192 boto3 \u2192 render span. Enable against the self-hosted deploy so trace shape reflects prod topology."
     },
     {
       "priority": "medium",

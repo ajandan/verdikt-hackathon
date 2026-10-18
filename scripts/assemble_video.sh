@@ -70,6 +70,22 @@ BEAT_IDS=(0a 0b 0c 0d 1 2 3 3b 4 5 6 7 8)
 # Intro sum 38s, body trimmed by 4s (beats 1,2,6,8) to keep total under the
 # 3:00 hackathon cap.
 BEAT_DURATIONS=(4 12 14 9 12 16 16 18 26 21 11 11 9)    # sum = 179s (2:59); tuned to fit under the 3:00 hackathon cap after the triage-first Beat 4 rewrite. Beat 4 at 26 to fit triage narration (audio 25.6s). Beat 5 tightened to 21 with a shorter "Then AI stops" script. beat0b/0d/8 trimmed to their audio durations (no content cut); beat3b tail eats ~0.3s.
+# Per-beat voice tempo. 1.0 = untouched. Beats whose narration would not otherwise
+# fit under the 3:00 cap get a barely-audible 3% lift (on top of the 1.10 render).
+BEAT_TEMPO=(1.0 1.0 1.0 1.03 1.0 1.0 1.03 1.03 1.0 1.0 1.0 1.0 1.0)
+# Silence kept after the last spoken word so the voice never touches the cut.
+TAIL_GAP=0.40
+# Cross-dissolve laid over each beat boundary. 0 restores hard cuts.
+BEAT_XFADE=0.30
+# Narration-synced close-up shots cut by scripts/make_shots.py. Off: the zoomed
+# crops read as a camera move the piece does not otherwise have, so every beat
+# renders as its whole slide. USE_SHOTS=1 brings them back.
+USE_SHOTS=${USE_SHOTS:-0}
+# Narration-synced spotlights (scripts/make_highlights.py): on a beat that has a
+# manifest, the slide dims everywhere except the element the voice is naming.
+# USE_HIGHLIGHTS=0 renders the slides flat.
+USE_HIGHLIGHTS=${USE_HIGHLIGHTS:-1}
+
 BEAT_TITLES=(
     "VERDIKT"
     "PATIENT ASSISTANCE PROGRAMS"
@@ -102,24 +118,43 @@ BEAT_SUBTITLES=(
 )
 
 # Per-beat 5-stage timeline overlay (Ingest → Triage → Decide → Deliver → Remember).
-# Persistent top-right pill (level with the Verdikt mark); only the highlighted
-# stage moves beat-to-beat so judges can track where each explanation sits in
-# the pipeline. Values map to assets/video/screenshots/timeline/timeline-
-# <variant>.png. Empty string = no timeline overlay (intro/outro beats).
+# The lower-left pill is NOT persistent: it shows up only on the beats where a
+# stage is actually being walked through, so it reads as a stage marker rather
+# than wallpaper. Values map to assets/video/screenshots/timeline/timeline-
+# <variant>.png. Empty string = no pill on that beat (the default).
 BEAT_TIMELINE=(
     ""                       # 0a title
     ""                       # 0b PAP domain
     ""                       # 0c thesis
-    "none"                   # 0d architecture (all 5 stages neutral — intro to pipeline)
-    "ingest"                 # 1  intake documents
-    "ingest"                 # 2  program config (still pre-run setup)
-    "ingest"                 # 3  reply templates (still setup — pipeline hasn't run yet)
-    "ingest"                 # 3b outcome→template bindings (still setup)
-    "decide"                 # 4  pipeline runs — decide stage
-    "deliver"                # 5  deterministic render — deliver stage
-    "deliver"                # 6  cameo — still delivering, verdict just varies
-    "remember"               # 7  audit trail — remember stage
+    ""                       # 0d the architecture slide names all five stages itself
+    ""                       # 1  intake documents - nothing is running yet
+    ""                       # 2  program config - setup, not a pipeline run
+    ""                       # 3  reply templates - setup
+    ""                       # 3b outcome -> template bindings - setup
+    "decide"                 # 4  pipeline runs - pill sweeps ingest/triage/decide
+    "deliver"                # 5  "Deliver" is named - pill appears on the word
+    ""                       # 6  cameo - no stage named, the verdict just varies
+    "remember"               # 7  "Remember - every stage is auditable"
     ""                       # 8 CTA
+)
+
+# Seconds into a beat at which the stage pill appears, so it lands on the word
+# instead of at the cut. 0 = from the first frame. Beat 4 ignores this — its
+# pill sweeps ingest -> triage -> decide on its own schedule.
+BEAT_TIMELINE_IN=(
+    0                        # 0a
+    0                        # 0b
+    0                        # 0c
+    0                        # 0d
+    0                        # 1
+    0                        # 2
+    0                        # 3
+    0                        # 3b
+    0                        # 4  swept, not gated
+    2.10                     # 5  "Deliver" is spoken at 2.16 (forced alignment)
+    0                        # 6
+    0                        # 7  "Remember -" opens the beat
+    0                        # 8
 )
 
 # ---- Pre-flight --------------------------------------------------
@@ -178,6 +213,34 @@ audio_duration() {
         | awk '{printf "%.2f", $1}'
 }
 
+# Time (s) at which the last spoken word ends. ElevenLabs mp3s carry ~0.3s of
+# trailing silence; silencedetect reports it, and we cut the "speech end" there.
+speech_end() {
+    local f=$1 dur
+    dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" 2>/dev/null)
+    ffmpeg -hide_banner -i "$f" -af silencedetect=n=-45dB:d=0.12 -f null - 2>&1         | awk -v dur="$dur" '
+            /silence_start/ { s=$NF; open=1 }
+            /silence_end/   { e=$5; open=0; if (e+0 < dur-0.05) s="" }
+            END { if (s != "") printf "%.2f", s; else printf "%.2f", dur }'
+}
+
+# Audio chain: optional gentle tempo, 20ms fade-in (no click), pad/trim to the
+# beat, then a 300ms fade-out that lands entirely inside the silent tail.
+fit_audio_chain() {
+    local beat=$1 duration=$2 tempo=${3:-1.0}
+    awk -v d="$duration" -v t="$tempo" 'BEGIN{
+        fo = d - 0.30; if (fo < 0) fo = 0
+        printf "atempo=%s,afade=t=in:st=0:d=0.02,apad=whole_dur=%s,atrim=duration=%s,asetpts=PTS-STARTPTS,afade=t=out:st=%.2f:d=0.30", t, d, d, fo }'
+}
+
+beat_tempo() {
+    local want=$1 i
+    for i in "${!BEAT_IDS[@]}"; do
+        [[ "${BEAT_IDS[$i]}" == "$want" ]] && { echo "${BEAT_TEMPO[$i]}"; return; }
+    done
+    echo "1.0"
+}
+
 # ---- Per-beat renderers ------------------------------------------
 
 timeline_png_path() {
@@ -189,17 +252,130 @@ timeline_png_path() {
     [[ -f "$candidate" ]] && echo "$candidate" || echo ""
 }
 
+timeline_enable() {
+    # ffmpeg overlay suffix that holds the pill back until the narration reaches
+    # the stage name (see BEAT_TIMELINE_IN); empty = up from the first frame.
+    local start=${1:-0}
+    [[ -z "$start" || "$start" == "0" ]] && { echo ""; return; }
+    echo ":enable='gte(t,${start})'"
+}
+
 # Timeline PNG geometry — scaled width + positioning aligned to the Verdikt
 # mark (common.css: top:40, right:60, 68x68). Timeline sits just to the LEFT
 # of the mark, same top edge. X offset from right edge = mark right margin
 # (60) + mark width (68) + gap (16) = 144.
-TIMELINE_W=640
-TIMELINE_Y=53
-TIMELINE_X_FROM_RIGHT=144
+TIMELINE_W=620
+TIMELINE_X=36            # lower-left lower-third; overlays share this left edge
+TIMELINE_BOTTOM=30       # px from the bottom edge
+CHIP_W=300
+CHIP_BOTTOM=116          # chips stack just above the timeline pill
+
+# Build a beat's visual from the narration-synced close-up shots cut by
+# scripts/make_shots.py: a chain of stills cross-dissolved into each other.
+# Durations in the manifest already account for the transition overlap, so the
+# chain lands exactly on the beat's slot length. Video only — the caller adds
+# audio and the lower-left overlays.
+SHOTS_DIR="$SCREENSHOTS_DIR/shots"
+
+build_shot_base() {
+    local beat=$1 duration=$2
+    local manifest="$SHOTS_DIR/beat${beat}.txt"
+    local out="$SEG_DIR/.beat${beat}_base.mp4"
+
+    local trans imgs=() durs=()
+    trans=$(tr -d '\r' < "$manifest" | awk '$1=="T"{print $2}')
+    while read -r name dur; do
+        [[ "$name" == "T" || -z "$name" ]] && continue
+        imgs+=("$SHOTS_DIR/$name")
+        durs+=("$dur")
+    done < <(tr -d '\r' < "$manifest")
+
+    local n=${#imgs[@]}
+    local inputs=() filter=""
+    for i in "${!imgs[@]}"; do
+        inputs+=(-loop 1 -t "${durs[$i]}" -i "${imgs[$i]}")
+        filter+="[${i}:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,"
+        filter+="pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},setsar=1,fps=${FPS}[v${i}];"
+    done
+    # Each dissolve starts one transition before its cut point, so the running
+    # offset advances by the previous input's length minus the overlap.
+    local acc=0 chain="[v0]" label
+    for ((i = 1; i < n; i++)); do
+        acc=$(awk -v a="$acc" -v d="${durs[$((i - 1))]}" -v t="$trans" \
+                  'BEGIN{ printf "%.2f", a + d - t }')
+        label="x${i}"
+        filter+="${chain}[v${i}]xfade=transition=fade:duration=${trans}:offset=${acc}[${label}];"
+        chain="[${label}]"
+    done
+    filter="${filter%;}"
+
+    echo "[assemble] beat${beat}: ${n} shots -> $out"
+    ffmpeg -y -hide_banner -loglevel error \
+        "${inputs[@]}" \
+        -filter_complex "$filter" \
+        -map "$chain" \
+        -c:v libx264 -pix_fmt yuv420p -preset medium -crf 18 \
+        -t "$duration" \
+        "$out"
+    echo "$out"
+}
+
+# Build a beat's visual as the whole slide plus the narration-synced spotlight
+# scrims rendered by scripts/make_highlights.py: everything dims except the
+# element the voice is naming. Each scrim is looped for the whole beat and its
+# alpha faded up and down inside its own window, so no frame is ever waiting on
+# an input that has not started yet. Video only — the caller adds audio and the
+# lower-left overlays.
+HL_DIR="$SCREENSHOTS_DIR/highlights"
+
+build_highlight_base() {
+    local beat=$1 duration=$2 image=$3
+    local manifest="$HL_DIR/beat${beat}.txt"
+    local out="$SEG_DIR/.beat${beat}_hl.mp4"
+
+    local inputs=(-loop 1 -t "$duration" -i "$image")
+    local filter="[0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
+                       pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
+                       setsar=1,fps=${FPS}[c0];"
+    local idx=1 chain="c0" n=0 name start end fade fade_out
+
+    while read -r name start end fade; do
+        [[ -z "$name" ]] && continue
+        [[ -f "$HL_DIR/$name" ]] || { echo "warn: $HL_DIR/$name missing" >&2; continue; }
+        inputs+=(-loop 1 -t "$duration" -i "$HL_DIR/$name")
+        fade_out=$(awk -v e="$end" -v f="$fade" 'BEGIN{ printf "%.2f", e - f }')
+        filter+="[${idx}:v]format=rgba,fps=${FPS},
+                     fade=t=in:st=${start}:d=${fade}:alpha=1,
+                     fade=t=out:st=${fade_out}:d=${fade}:alpha=1[h${idx}];"
+        filter+="[${chain}][h${idx}]overlay=0:0:format=auto[m${idx}];"
+        chain="m${idx}"
+        idx=$((idx + 1))
+        n=$((n + 1))
+    done < <(tr -d '\r' < "$manifest")
+
+    filter="${filter%;}"
+    echo "[assemble] beat${beat}: ${n} highlights -> $out" >&2
+    ffmpeg -y -hide_banner -loglevel error \
+        "${inputs[@]}" \
+        -filter_complex "$filter" \
+        -map "[${chain}]" \
+        -an \
+        -c:v libx264 -pix_fmt yuv420p -preset medium -crf 18 \
+        -t "$duration" \
+        "$out"
+    echo "$out"
+}
 
 render_capture_beat() {
     local beat=$1 duration=$2 timeline_variant=${3:-}
     local capture_file="$CAPTURE_DIR/beat${beat}.webm"
+    # Playwright captures open on a blank frame; skip it. A base built from
+    # still shots starts on content, so it is used from its first frame.
+    local seek=0.7
+    if [[ -n "${BASE_OVERRIDE:-}" ]]; then
+        capture_file="$BASE_OVERRIDE"
+        seek=0
+    fi
     if [[ "$beat" == "2b" && -n "$USE_2B_ALT" ]]; then
         capture_file="$CAPTURE_DIR/beat2b_alt.webm"
     fi
@@ -209,7 +385,7 @@ render_capture_beat() {
     local audio_inputs=() audio_filter
     if [[ -f "$audio_file" ]]; then
         audio_inputs=(-i "$audio_file")
-        audio_filter="[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,apad=whole_dur=${duration}[a]"
+        audio_filter="[1:a]$(fit_audio_chain "$beat" "$duration" "$(beat_tempo "$beat")")[a]"
     else
         echo "warn: audio $audio_file missing; beat${beat} will be silent" >&2
         audio_inputs=(-f lavfi -i "anullsrc=r=44100:cl=stereo")
@@ -226,6 +402,7 @@ render_capture_beat() {
     fi
 
     local tl_png=$(timeline_png_path "$timeline_variant")
+    local tl_ena=$(timeline_enable "${TL_START:-0}")
 
     echo "[assemble] beat${beat}: capture ($capture_file) -> $out_file (${duration}s)"
     if [[ -n "$use_chips" && -n "$tl_png" ]]; then
@@ -237,7 +414,7 @@ render_capture_beat() {
         local tl_triage="$SCREENSHOTS_DIR/timeline/timeline-triage.png"
         local tl_decide="$SCREENSHOTS_DIR/timeline/timeline-decide.png"
         ffmpeg -y -hide_banner -loglevel error \
-            -ss 0.7 -i "$capture_file" \
+            -ss "$seek" -i "$capture_file" \
             "${audio_inputs[@]}" \
             -i "$chip_dir/nv-ingest.png" \
             -i "$chip_dir/nemo.png" \
@@ -254,12 +431,13 @@ render_capture_beat() {
                 [5:v]scale=${TIMELINE_W}:-1[tli];
                 [6:v]scale=${TIMELINE_W}:-1[tlt];
                 [7:v]scale=${TIMELINE_W}:-1[tld];
-                [base][tli]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,0,6.5)'[bi];
-                [bi][tlt]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,6.5,14)'[bt];
-                [bt][tld]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}:enable='between(t,14,26)'[b1];
-                [b1][2:v]overlay=W-w-70:120:enable='between(t,3,7)'[o1];
-                [o1][3:v]overlay=W-w-70:120:enable='between(t,7,9.5)'[o2];
-                [o2][4:v]overlay=W-w-70:120:enable='between(t,14,22)'[v];
+                [base][tli]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,0,6.5)'[bi];
+                [bi][tlt]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,6.5,14)'[bt];
+                [bt][tld]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,14,26)'[b1];
+                [2:v]scale=${CHIP_W}:-1[c1]; [3:v]scale=${CHIP_W}:-1[c2]; [4:v]scale=${CHIP_W}:-1[c3];
+                [b1][c1]overlay=${TIMELINE_X}:H-h-${CHIP_BOTTOM}:enable='between(t,3,7)'[o1];
+                [o1][c2]overlay=${TIMELINE_X}:H-h-${CHIP_BOTTOM}:enable='between(t,7,9.5)'[o2];
+                [o2][c3]overlay=${TIMELINE_X}:H-h-${CHIP_BOTTOM}:enable='between(t,14,22)'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -269,7 +447,7 @@ render_capture_beat() {
             "$out_file"
     elif [[ -n "$use_chips" ]]; then
         ffmpeg -y -hide_banner -loglevel error \
-            -ss 0.7 -i "$capture_file" \
+            -ss "$seek" -i "$capture_file" \
             "${audio_inputs[@]}" \
             -i "$chip_dir/nv-ingest.png" \
             -i "$chip_dir/nemo.png" \
@@ -280,9 +458,10 @@ render_capture_beat() {
                      setsar=1,fps=${FPS},
                      tpad=stop_mode=clone:stop_duration=${duration},
                      trim=duration=${duration},setpts=PTS-STARTPTS[base];
-                [base][2:v]overlay=W-w-70:80:enable='between(t,4,8)'[o1];
-                [o1][3:v]overlay=W-w-70:80:enable='between(t,8,11)'[o2];
-                [o2][4:v]overlay=W-w-70:80:enable='between(t,11,15)'[v];
+                [2:v]scale=${CHIP_W}:-1[c1]; [3:v]scale=${CHIP_W}:-1[c2]; [4:v]scale=${CHIP_W}:-1[c3];
+                [base][c1]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,4,8)'[o1];
+                [o1][c2]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,8,11)'[o2];
+                [o2][c3]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}:enable='between(t,11,15)'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -292,7 +471,7 @@ render_capture_beat() {
             "$out_file"
     elif [[ -n "$tl_png" ]]; then
         ffmpeg -y -hide_banner -loglevel error \
-            -ss 0.7 -i "$capture_file" \
+            -ss "$seek" -i "$capture_file" \
             "${audio_inputs[@]}" \
             -i "$tl_png" \
             -filter_complex "
@@ -302,7 +481,7 @@ render_capture_beat() {
                      tpad=stop_mode=clone:stop_duration=${duration},
                      trim=duration=${duration},setpts=PTS-STARTPTS[base];
                 [2:v]scale=${TIMELINE_W}:-1[tl];
-                [base][tl]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}[v];
+                [base][tl]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}${tl_ena}[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -312,7 +491,7 @@ render_capture_beat() {
             "$out_file"
     else
         ffmpeg -y -hide_banner -loglevel error \
-            -ss 0.7 -i "$capture_file" \
+            -ss "$seek" -i "$capture_file" \
             "${audio_inputs[@]}" \
             -filter_complex "
                 [0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
@@ -338,7 +517,7 @@ render_image_beat() {
     local audio_inputs=() audio_filter
     if [[ -f "$audio_file" ]]; then
         audio_inputs=(-i "$audio_file")
-        audio_filter="[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,apad=whole_dur=${duration}[a]"
+        audio_filter="[1:a]$(fit_audio_chain "$beat" "$duration" "$(beat_tempo "$beat")")[a]"
     else
         echo "warn: audio $audio_file missing; beat${beat} will be silent" >&2
         audio_inputs=(-f lavfi -i "anullsrc=r=44100:cl=stereo")
@@ -346,6 +525,7 @@ render_image_beat() {
     fi
 
     local tl_png=$(timeline_png_path "$timeline_variant")
+    local tl_ena=$(timeline_enable "${TL_START:-0}")
 
     # Beat 8: overlay the QR card PNG for the final 3 seconds only. The card
     # is pre-rendered from beat8-qr-card.html with a transparent background.
@@ -356,9 +536,11 @@ render_image_beat() {
     fi
 
     # Beat 5: overlay the design-time labeler slideshow (real captures:
-    # template detail → placement editor with PDF+bboxes → expanded 21-field
-    # list) during the "Templates drafted by design-time AI" narration window
-    # (t=3.0s → 11.0s within the beat — 8s covers all three states).
+    # template detail -> placement editor with PDF+bboxes -> expanded 21-field
+    # list). Forced alignment puts "Nothing leaves until a human approves" at
+    # t=7.14-8.98, so the clip runs t=9.4 -> 17.4 (both ends land in silences):
+    # the slide's Human-review gate row is on screen for that line, and the
+    # clip then sits over "from Alderwood's template", which it illustrates.
     local labeler_overlay="$CAPTURE_DIR/labeler-clip.mp4"
     local use_labeler_overlay=""
     if [[ "$beat" == "5" && -f "$labeler_overlay" ]]; then
@@ -380,7 +562,7 @@ render_image_beat() {
                      pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
                      setsar=1,fps=${FPS}[base];
                 [2:v]scale=560:-1[qr];
-                [base][qr]overlay=(W-w)/2:(H-h)/2:enable='gte(t,${qr_start})'[v];
+                [base][qr]overlay=W-w-150:(H-h)/2:enable='gte(t,${qr_start})'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -393,14 +575,14 @@ render_image_beat() {
             -loop 1 -t "$duration" -i "$image_path" \
             "${audio_inputs[@]}" \
             -i "$tl_png" \
-            -itsoffset 3.0 -i "$labeler_overlay" \
+            -itsoffset 9.4 -i "$labeler_overlay" \
             -filter_complex "
                 [0:v]scale=${VIDEO_W}:${VIDEO_H}:force_original_aspect_ratio=decrease,
                      pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
                      setsar=1,fps=${FPS}[base];
                 [2:v]scale=${TIMELINE_W}:-1[tl];
-                [base][tl]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}[b1];
-                [b1][3:v]overlay=0:0:enable='between(t,3.0,11.0)'[v];
+                [base][tl]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}${tl_ena}[b1];
+                [b1][3:v]overlay=0:0:enable='between(t,9.4,17.4)'[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -418,7 +600,7 @@ render_image_beat() {
                      pad=${VIDEO_W}:${VIDEO_H}:(ow-iw)/2:(oh-ih)/2:color=${BG_DARK},
                      setsar=1,fps=${FPS}[base];
                 [2:v]scale=${TIMELINE_W}:-1[tl];
-                [base][tl]overlay=W-w-${TIMELINE_X_FROM_RIGHT}:${TIMELINE_Y}[v];
+                [base][tl]overlay=${TIMELINE_X}:H-h-${TIMELINE_BOTTOM}${tl_ena}[v];
                 ${audio_filter}
             " \
             -map "[v]" -map "[a]" \
@@ -459,7 +641,7 @@ render_placeholder_beat() {
     local audio_inputs=() audio_filter
     if [[ -f "$audio_file" ]]; then
         audio_inputs=(-i "$audio_file")
-        audio_filter="[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,apad=whole_dur=${duration}[a]"
+        audio_filter="[1:a]$(fit_audio_chain "$beat" "$duration" "$(beat_tempo "$beat")")[a]"
     else
         echo "warn: audio $audio_file missing; beat${beat} will be silent" >&2
         audio_inputs=(-f lavfi -i "anullsrc=r=44100:cl=stereo")
@@ -492,20 +674,35 @@ render_placeholder_beat() {
     rm -f "$title_file" "$subtitle_file" "$wordmark_file"
 }
 
+# ---- Fit each beat to its narration -------------------------------
+# duration = (last spoken word / tempo) + TAIL_GAP, rounded up to 50ms. The
+# hand-set BEAT_DURATIONS stay as the fallback for beats with no audio.
+for i in "${!BEAT_IDS[@]}"; do
+    f="$AUDIO_DIR/beat${BEAT_IDS[$i]}.mp3"
+    [[ -f "$f" ]] || continue
+    end=$(speech_end "$f")
+    BEAT_DURATIONS[$i]=$(awk -v e="$end" -v t="${BEAT_TEMPO[$i]}" -v g="$TAIL_GAP"         'BEGIN{ v=e/t+g; printf "%.2f", int(v*20+0.999)/20 }')
+    echo "[assemble] beat${BEAT_IDS[$i]}: speech ends ${end}s -> slot ${BEAT_DURATIONS[$i]}s"
+done
+
 # ---- Audio-duration sanity check ---------------------------------
 
-total_target=0
-for d in "${BEAT_DURATIONS[@]}"; do total_target=$((total_target + d)); done
-echo "[assemble] target total: ${total_target}s ($(printf '%d:%02d' $((total_target / 60)) $((total_target % 60))))"
+total_target=$(printf '%s
+' "${BEAT_DURATIONS[@]}" | awk '{t+=$1} END{printf "%.2f", t}')
+echo "[assemble] target total: ${total_target}s"
+awk -v t="$total_target" 'BEGIN{exit !(t > 179.8)}' && echo "warn: total ${total_target}s is over the 3:00 cap" >&2
 
 for i in "${!BEAT_IDS[@]}"; do
     beat="${BEAT_IDS[$i]}"
     target="${BEAT_DURATIONS[$i]}"
     audio_file="$AUDIO_DIR/beat${beat}.mp3"
     if [[ -f "$audio_file" ]]; then
-        actual=$(audio_duration "$audio_file")
-        if awk -v a="$actual" -v t="$target" 'BEGIN{exit !(a > t + 0.3)}'; then
-            echo "warn: beat${beat} audio ${actual}s > target ${target}s — will be trimmed" >&2
+        # Compare against the tempo-adjusted speech length — the slot was sized
+        # from it, so a raw mp3 longer than the slot is not by itself a problem.
+        actual=$(speech_end "$audio_file")
+        if awk -v a="$actual" -v t="$target" -v p="${BEAT_TEMPO[$i]}" \
+               'BEGIN{exit !(a / p > t)}'; then
+            echo "warn: beat${beat} speech ${actual}s (tempo ${BEAT_TEMPO[$i]}) overruns slot ${target}s — will be trimmed" >&2
         fi
     fi
 done
@@ -529,8 +726,16 @@ for i in "${!BEAT_IDS[@]}"; do
     fi
 
     timeline_variant="${BEAT_TIMELINE[$i]:-}"
+    TL_START="${BEAT_TIMELINE_IN[$i]:-0}"
     if has_capture "$beat"; then
         render_capture_beat "$beat" "$dur" "$timeline_variant"
+    elif [[ "$USE_SHOTS" == "1" && -f "$SHOTS_DIR/beat${beat}.txt" ]]; then
+        base=$(build_shot_base "$beat" "$dur" | tail -1)
+        BASE_OVERRIDE="$base" render_capture_beat "$beat" "$dur" "$timeline_variant"
+    elif [[ "$USE_HIGHLIGHTS" == "1" && -f "$HL_DIR/beat${beat}.txt" ]] \
+         && image_path=$(find_beat_image "$beat"); then
+        base=$(build_highlight_base "$beat" "$dur" "$image_path" | tail -1)
+        BASE_OVERRIDE="$base" render_capture_beat "$beat" "$dur" "$timeline_variant"
     elif image_path=$(find_beat_image "$beat"); then
         render_image_beat "$beat" "$dur" "$image_path" "$timeline_variant"
     else
@@ -551,21 +756,67 @@ for beat in "${BEAT_IDS[@]}"; do
     echo "file '${pwd_native}/${seg}'" >> "$concat_list"
 done
 
-echo "[assemble] concatenating -> $OUTPUT.raw.mp4"
-ffmpeg -y -hide_banner -loglevel error \
-    -f concat -safe 0 -i "$concat_list" \
-    -c copy \
-    "$OUTPUT.raw.mp4"
+if awk -v t="$BEAT_XFADE" 'BEGIN{exit !(t > 0)}'; then
+    # Cross-dissolve the beat boundaries instead of hard-cutting them.
+    #
+    # Each segment after the first is padded at the START with a frozen copy of
+    # its first frame, exactly one transition long, and the dissolve is placed
+    # over that pad. So a beat's own content still begins on its original cut
+    # point and stays in sync with its narration — only the still hand-over is
+    # stretched across the boundary. Audio is plain-concatenated and never
+    # overlapped, which is safe because every beat already ends in silence.
+    seg_inputs=() vfilter="" afilter="" acc=0 chain="[bv0]"
+    for i in "${!BEAT_IDS[@]}"; do
+        seg="$SEG_DIR/beat${BEAT_IDS[$i]}.mp4"
+        seg_inputs+=(-i "$seg")
+        if [[ $i -eq 0 ]]; then
+            vfilter+="[${i}:v]fps=${FPS},setsar=1[bv${i}];"
+        else
+            vfilter+="[${i}:v]tpad=start_mode=clone:start_duration=${BEAT_XFADE},fps=${FPS},setsar=1[bv${i}];"
+        fi
+        afilter+="[${i}:a]"
+    done
+    for ((i = 1; i < ${#BEAT_IDS[@]}; i++)); do
+        prev_seg="$SEG_DIR/beat${BEAT_IDS[$((i - 1))]}.mp4"
+        acc=$(awk -v a="$acc" -v d="$(audio_duration "$prev_seg")" 'BEGIN{ printf "%.3f", a + d }')
+        off=$(awk -v a="$acc" -v t="$BEAT_XFADE" 'BEGIN{ printf "%.3f", a - t }')
+        vfilter+="${chain}[bv${i}]xfade=transition=fade:duration=${BEAT_XFADE}:offset=${off}[bx${i}];"
+        chain="[bx${i}]"
+    done
+    afilter+="concat=n=${#BEAT_IDS[@]}:v=0:a=1[ba]"
+
+    echo "[assemble] joining ${#BEAT_IDS[@]} beats with ${BEAT_XFADE}s dissolves -> $OUTPUT.raw.mp4"
+    ffmpeg -y -hide_banner -loglevel error \
+        "${seg_inputs[@]}" \
+        -filter_complex "${vfilter}${afilter}" \
+        -map "$chain" -map "[ba]" \
+        -c:v libx264 -pix_fmt yuv420p -preset medium -crf 20 \
+        -c:a aac -b:a 192k -ar 44100 \
+        "$OUTPUT.raw.mp4"
+else
+    echo "[assemble] concatenating -> $OUTPUT.raw.mp4"
+    ffmpeg -y -hide_banner -loglevel error \
+        -f concat -safe 0 -i "$concat_list" \
+        -c copy \
+        "$OUTPUT.raw.mp4"
+fi
 rm -f "$concat_list"
 
 # Post-process: loudness-normalize the audio track to -14 LUFS (YouTube target).
 # Video stream copies through untouched; only audio is re-encoded.
+#
+# +faststart moves the moov atom ahead of mdat. Without it ffmpeg writes
+# moov last, so a browser streaming the file over HTTP cannot begin playing
+# until the whole file has arrived -- with preload="metadata" the landing
+# page's <video> just sits there looking broken. One extra pass at mux
+# time, nothing at playback.
 echo "[assemble] loudnorm pass -> $OUTPUT"
 ffmpeg -y -hide_banner -loglevel error \
     -i "$OUTPUT.raw.mp4" \
     -c:v copy \
     -af "loudnorm=I=-14:TP=-1.5:LRA=11" \
     -c:a aac -b:a 192k -ar 44100 \
+    -movflags +faststart \
     "$OUTPUT"
 rm -f "$OUTPUT.raw.mp4"
 

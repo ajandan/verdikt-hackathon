@@ -23,16 +23,17 @@ OUTPUT_DIR = Path("assets/video/screenshots")
 VIEWPORT = {"width": 1920, "height": 1080}
 
 
-async def render_one(beat: str) -> None:
+async def render_one(beat: str, scale: int = 1) -> None:
     html_file = DESIGNS_DIR / f"beat{beat}.html"
-    out_file = OUTPUT_DIR / f"beat{beat}_primary.png"
+    suffix = "_primary" if scale == 1 else f"_primary@{scale}x"
+    out_file = OUTPUT_DIR / f"beat{beat}{suffix}.png"
     if not html_file.exists():
         print(f"[render] skip beat{beat} — {html_file} missing", file=sys.stderr)
         return
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(viewport=VIEWPORT, device_scale_factor=1)
+        context = await browser.new_context(viewport=VIEWPORT, device_scale_factor=scale)
         page = await context.new_page()
         url = html_file.resolve().as_uri()
         print(f"[render] beat{beat}: {url}", file=sys.stderr)
@@ -48,11 +49,13 @@ async def render_one(beat: str) -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--beat", help="Render just one beat (e.g. 4). Default: all 1..8.")
+    parser.add_argument("--scale", type=int, default=1,
+                        help="Device scale factor. 2 writes beat{N}_primary@2x.png for shot cropping.")
     args = parser.parse_args()
 
     beats = [args.beat] if args.beat else [str(i) for i in range(1, 9)]
     for b in beats:
-        await render_one(b)
+        await render_one(b, args.scale)
 
 
 if __name__ == "__main__":

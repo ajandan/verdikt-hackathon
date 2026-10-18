@@ -1,0 +1,267 @@
+/* Verdikt design-system tokens for the submission video's hand-composed beats.
+   Every beat page loads this file. Colors, type, and spacing all mirror
+   docs/design-system.html so the video visually matches the product. */
+
+:root {
+    --ink-50:  #f6f5f1;
+    --ink-100: #eeece4;
+    --ink-200: #dcd8c8;
+    --ink-300: #a9a394;
+    --ink-500: #6c6858;
+    --ink-700: #3a382f;
+    --ink-900: #141410;
+    --seal-300: #8ec7b5;
+    --seal-500: #2f8f76;
+    --seal-700: #1e5f4f;
+    --paper: #f8f4e8;
+    --amber: #f59e0b;
+    --rose: #b04a3f;
+    --font-serif: 'Instrument Serif', 'Cormorant Garamond', 'Georgia', serif;
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    width: 1920px;
+    height: 1080px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--ink-50);
+    color: var(--ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+.stage {
+    width: 1920px;
+    height: 1080px;
+    padding: 80px 120px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.eyebrow {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--seal-700);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--seal-500);
+}
+
+h1.hero {
+    font-family: var(--font-serif);
+    font-size: 96px;
+    font-weight: 400;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 18px 0 32px;
+    color: var(--ink-900);
+    max-width: 1200px;
+}
+h1.hero em {
+    font-style: italic;
+    color: var(--seal-700);
+}
+
+.mono { font-family: var(--font-mono); }
+.serif { font-family: var(--font-serif); }
+
+.card {
+    background: #ffffff;
+    border: 1px solid rgba(20, 20, 16, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 24px 60px -32px rgba(20, 20, 16, 0.25), 0 4px 14px -8px rgba(20, 20, 16, 0.10);
+    padding: 26px 32px;
+}
+.card.paper { background: var(--paper); }
+.card.tinted { background: var(--ink-100); }
+.card h3 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 20px;
+    margin: 0 0 12px;
+    color: var(--ink-900);
+    letter-spacing: -0.01em;
+}
+.card .meta {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-500);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    border: 1px solid var(--seal-500);
+    color: var(--seal-700);
+    background: rgba(47, 143, 118, 0.06);
+}
+.stamp::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--seal-500);
+}
+.stamp.rose { border-color: var(--rose); color: var(--rose); background: rgba(176, 74, 63, 0.06); }
+.stamp.rose::before { background: var(--rose); }
+.stamp.amber { border-color: var(--amber); color: #8a3f14; background: rgba(245, 158, 11, 0.08); }
+.stamp.amber::before { background: var(--amber); }
+
+.footer-brand { display: none; }
+
+/* Verdikt mark, top-right, across every hand-composed beat. */
+body::before {
+    content: "";
+    position: fixed;
+    top: 40px;
+    right: 60px;
+    width: 68px;
+    height: 68px;
+    background-image: url('verdikt-mark.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 500;
+    pointer-events: none;
+}
+body.dark-stage::before { filter: brightness(1.2); }
+
+/* Utility spacings */
+.row { display: flex; }
+.col { display: flex; flex-direction: column; }
+.gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .gap-16 { gap: 16px; }
+.gap-20 { gap: 20px; } .gap-24 { gap: 24px; } .gap-32 { gap: 32px; }
+.gap-40 { gap: 40px; } .gap-56 { gap: 56px; }
+.grow { flex: 1; }
+.center { align-items: center; justify-content: center; }
+
+/* Dark stage variant (Beat 8) */
+.stage.dark {
+    background: var(--ink-900);
+    color: var(--ink-50);
+}
+.stage.dark .eyebrow { color: var(--seal-300); }
+.stage.dark .eyebrow::before { background: var(--seal-300); }
+.stage.dark h1.hero { color: var(--ink-50); }
+.stage.dark h1.hero em { color: var(--seal-300); font-style: normal; }
+.stage.dark .card {
+    background: #1e1e18;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--ink-100);
+    box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.5);
+}
+.stage.dark .card h3 { color: var(--ink-50); }
+.stage.dark .card .meta { color: var(--ink-300); }
+.stage.dark .footer-brand { color: var(--ink-300); }
+
+/* NVIDIA-green model chip */
+.nvidia-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: #76b900;
+    color: #0d0d0a;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+.nvidia-chip::before {
+    content: "▶";
+    color: #0d0d0a;
+    font-size: 10px;
+}
+
+/* ======================================================================
+   Visual refresh (2026-10): editorial rail, glow + dot grid, chip eyebrow,
+   underlined emphasis, softer elevated cards, tiled brand mark.
+   Bottom 120px is a reserved lower-left safe zone for the stage-timeline
+   and model-chip overlays composited by scripts/assemble_video.sh.
+   ====================================================================== */
+.stage { isolation: isolate; padding-bottom: 120px !important; }
+
+/* soft glow + fading dot grid behind content */
+.stage::after {
+    content: "";
+    position: absolute; inset: 0;
+    z-index: -1; pointer-events: none;
+    background:
+        radial-gradient(900px 520px at 100% 0%, rgba(47,143,118,0.14), transparent 62%),
+        radial-gradient(700px 480px at 0% 100%, rgba(245,158,11,0.08), transparent 60%),
+        radial-gradient(rgba(20,20,16,0.09) 1.1px, transparent 1.4px) 0 0 / 30px 30px;
+    -webkit-mask-image: linear-gradient(115deg, #000 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.12) 100%);
+            mask-image: linear-gradient(115deg, #000 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.12) 100%);
+}
+/* slim left rail */
+.stage::before {
+    content: "";
+    position: absolute; left: 0; top: 0; bottom: 0; width: 8px;
+    background: linear-gradient(180deg, var(--seal-700), var(--seal-500) 55%, var(--seal-300));
+    z-index: 3; pointer-events: none;
+}
+.stage.dark::after { opacity: 0.5; }
+
+/* eyebrow becomes a capsule label */
+.eyebrow {
+    padding: 8px 18px 8px 14px;
+    border-radius: 999px;
+    background: rgba(47,143,118,0.10);
+    border: 1px solid rgba(47,143,118,0.28);
+    font-weight: 500;
+    align-self: flex-start;
+}
+.stage.dark .eyebrow { background: rgba(142,199,181,0.12); border-color: rgba(142,199,181,0.30); }
+
+/* hero emphasis gets a hand-drawn-feel underline */
+h1.hero { text-wrap: balance; }
+h1.hero em {
+    background: linear-gradient(transparent 80%, rgba(142,199,181,0.60) 80%, rgba(142,199,181,0.60) 92%, transparent 92%);
+    padding: 0 0.06em;
+}
+.stage.dark h1.hero em { background: linear-gradient(transparent 80%, rgba(142,199,181,0.35) 80%, rgba(142,199,181,0.35) 92%, transparent 92%); }
+
+/* cards: rounder, lifted, with a seal accent edge */
+.card {
+    border-radius: 16px;
+    border-top: 3px solid var(--seal-500);
+    box-shadow: 0 30px 70px -36px rgba(20,20,16,0.38), 0 6px 18px -10px rgba(20,20,16,0.14);
+}
+.stage.dark .card { border-top-color: var(--seal-300); }
+
+/* brand mark sits in a frosted tile */
+body::before {
+    top: 36px; right: 48px;
+    width: 84px; height: 84px;
+    background-size: 62%;
+    background-color: rgba(255,255,255,0.78);
+    border: 1px solid rgba(20,20,16,0.08);
+    border-radius: 22px;
+    box-shadow: 0 14px 30px -14px rgba(20,20,16,0.35);
+}
+body.dark-stage::before { background-color: rgba(30,30,24,0.8); border-color: rgba(255,255,255,0.10); }

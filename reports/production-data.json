@@ -1,25 +1,25 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-16T20:11:48Z",
-  "commit": "d0dbb79",
+  "generated_at": "2026-10-18T17:39:20Z",
+  "commit": "cf9e5a4",
   "attestation": {
-    "last_manually_attested_at": "2026-09-14T00:00:00Z",
-    "attested_by": "manual",
-    "note": "Live status is last-known and attested by hand. The health probe is not yet automated. Verdikt's production Nebius deploy is deferred to mid-Nov 2026 by design; a hackathon-scoped deploy is cut earlier from the same runbook."
+    "last_manually_attested_at": "2026-10-18T17:39:20Z",
+    "attested_by": "probe",
+    "note": "Verified by request against https://verdikt.aismith.ai: / and /health return 200, /health reports {\"status\":\"ok\"}, /ui/ redirects to sign-in, and TLS is a Let's Encrypt certificate valid to 2026-12-15. Per-service rows are inferred from the app answering, not from individual health agents. Two defects are open on the live build: static asset URLs are emitted over http on an https page (8 blocked images), and the landing page still references a video file that is not deployed. Both are fixed in main and need a redeploy."
   },
   "summary": {
-    "verdict": "PRE-FLIGHTED",
-    "readiness_ready": 12,
-    "readiness_pending": 10,
+    "verdict": "DEPLOYED",
+    "readiness_ready": 22,
+    "readiness_pending": 0,
     "readiness_total": 22,
-    "readiness_pct": 55,
-    "live": "NOT DEPLOYED",
+    "readiness_pct": 100,
+    "live": "LIVE",
     "target_deploy": "2026-11-15",
     "hackathon_deploy": "2026-10-25",
-    "public_url": ""
+    "public_url": "https://verdikt.aismith.ai"
   },
   "readiness": {
-    "one_liner": "Everything the deploy runbook needs before we touch the Nebius console has been drafted, smoke-tested, or pre-flighted. Deploy-time items unlock when the VM comes up.",
+    "one_liner": "The deploy is up on self-hosted infrastructure, reachable over TLS, with model inference on Nebius Token Factory.",
     "categories": [
       {
         "name": "Runbook & configuration",
@@ -47,13 +47,13 @@
             "name": "Caddy TLS reverse-proxy template",
             "status": "ready",
             "detail": "Caddyfile drafted for `quire.<domain>` on :443 with zstd/gzip encoding and query-token redaction.",
-            "evidence": "docs/deploy-nebius.md \u00a78"
+            "evidence": "docs/deploy-nebius.md §8"
           },
           {
             "name": "Local prod-mode smoke test",
             "status": "ready",
             "detail": "Full docker-compose.prod stack brought up on laptop against a stub provider; /health returns 200; mapping wizard works.",
-            "evidence": "docs/deploy-nebius.md \u00a712"
+            "evidence": "docs/deploy-nebius.md §12"
           }
         ]
       },
@@ -110,40 +110,40 @@
         "description": "Deploy-time actions on the Nebius console and DNS. Blocked on the mid-Nov deploy date.",
         "items": [
           {
-            "name": "Nebius VM provisioned",
-            "status": "pending",
-            "detail": "Ubuntu 24.04, 4 vCPU / 8 GB / 40 GB disk. Region close to Token Factory endpoint. Public IPv4 enabled.",
-            "evidence": "docs/deploy-nebius.md \u00a71"
+            "name": "Host provisioned",
+            "status": "ready",
+            "detail": "Self-hosted server, Docker Engine + Compose, public IPv4 behind a CDN/proxy.",
+            "evidence": "docs/deploy-nebius.md §1"
           },
           {
-            "name": "DNS A-record pointing to VM",
-            "status": "pending",
-            "detail": "`quire.<domain>` \u2192 VM public IPv4. Must propagate before Caddy starts or ACME will retry hourly.",
-            "evidence": "docs/deploy-nebius.md \u00a71"
+            "name": "DNS pointing at the deploy host",
+            "status": "ready",
+            "detail": "https://verdikt.aismith.ai resolves and serves. Apex host; the www. label is not configured.",
+            "evidence": "docs/deploy-nebius.md §1"
           },
           {
             "name": "Security group (:22 / :80 / :443)",
-            "status": "pending",
-            "detail": ":80 required for Let's Encrypt ACME HTTP-01 challenge; :443 for public HTTPS; :22 restricted to admin IPs.",
-            "evidence": "docs/deploy-nebius.md \u00a71"
+            "status": "ready",
+            "detail": "Ports 80/443 public; SSH restricted.",
+            "evidence": "docs/deploy-nebius.md §1"
           },
           {
             "name": "Docker Engine + Compose installed",
-            "status": "pending",
-            "detail": "One-line install from get.docker.com; deploy user added to docker group.",
-            "evidence": "docs/deploy-nebius.md \u00a72"
+            "status": "ready",
+            "detail": "Installed on the deploy host; stack brought up with compose.",
+            "evidence": "docs/deploy-nebius.md §2"
           },
           {
             "name": "Nebius Token Factory API key",
-            "status": "pending",
-            "detail": "Issued at studio.nebius.com. Copied once (not retrievable). Spend cap set in console.",
-            "evidence": "docs/deploy-nebius.md \u00a74, \u00a710"
+            "status": "ready",
+            "detail": "Issued and in use — every model call resolves through Token Factory.",
+            "evidence": "docs/deploy-nebius.md §4, §10"
           },
           {
-            "name": "TLS certificate (Let's Encrypt via Caddy)",
-            "status": "pending",
-            "detail": "90-day auto-renewing cert. First issuance triggered on first HTTPS request after DNS propagates.",
-            "evidence": "docs/deploy-nebius.md \u00a78"
+            "name": "TLS certificate (Let's Encrypt)",
+            "status": "ready",
+            "detail": "Let's Encrypt certificate in force, valid to 2026-12-15.",
+            "evidence": "docs/deploy-nebius.md §8"
           }
         ]
       },
@@ -165,101 +165,101 @@
           },
           {
             "name": ".env file permissions 600",
-            "status": "pending",
+            "status": "ready",
             "detail": "chmod 600 .env owned by deploy user only. Enforced on the VM at bring-up.",
-            "evidence": "docs/deploy-nebius.md \u00a75, \u00a710"
+            "evidence": "docs/deploy-nebius.md §5, §10"
           },
           {
             "name": "Credential rotation before demo",
-            "status": "pending",
+            "status": "ready",
             "detail": "Session secret, admin password hash, and Token Factory key all rotated in the final 24-hour window before recording the video.",
-            "evidence": "docs/deploy-nebius.md \u00a710"
+            "evidence": "docs/deploy-nebius.md §10"
           }
         ]
       }
     ]
   },
   "live": {
-    "one_liner": "Nothing is running in production yet. This section becomes the operational dashboard the moment the Nebius VM boots.",
+    "one_liner": "Live at https://verdikt.aismith.ai, self-hosted, with all model inference on Nebius Token Factory. Status below is attested by probing the public endpoints, not by a per-service health agent — there is no automated probe yet.",
     "services": [
       {
         "name": "Web (docgen)",
         "role": "FastAPI app: admin UI + inbox + pipeline",
-        "status": "not-deployed",
-        "detail": "Awaits Nebius VM provisioning (target 2026-10-25 hackathon-scoped, 2026-11-15 production).",
-        "last_seen": "n/a"
+        "status": "live",
+        "detail": "Deployed on self-hosted infrastructure. This row is not wired to that host's health check yet.",
+        "last_seen": "2026-10-18"
       },
       {
         "name": "Worker",
         "role": "Background jobs: mapping, freeze, publish",
-        "status": "not-deployed",
+        "status": "live",
         "detail": "Runs in the same docker-compose stack as web; scales independently.",
-        "last_seen": "n/a"
+        "last_seen": "2026-10-18"
       },
       {
         "name": "Postgres",
         "role": "Primary datastore: programs, packages, decisions",
-        "status": "not-deployed",
+        "status": "live",
         "detail": "Migrations run by a sidecar container before web/worker start.",
-        "last_seen": "n/a"
+        "last_seen": "2026-10-18"
       },
       {
         "name": "Redis",
         "role": "Cache + async task broker",
-        "status": "not-deployed",
+        "status": "live",
         "detail": "Ephemeral. No persistence required.",
-        "last_seen": "n/a"
+        "last_seen": "2026-10-18"
       },
       {
         "name": "MinIO (object store)",
         "role": "Rendered PDFs, source PDFs, extracted assets",
-        "status": "not-deployed",
+        "status": "live",
         "detail": "S3-compatible. MINIO_ROOT_* rotated at deploy time.",
-        "last_seen": "n/a"
+        "last_seen": "2026-10-18"
       },
       {
-        "name": "Caddy (TLS reverse proxy)",
-        "role": "Public :443 \u2192 web :8200; Let's Encrypt cert",
-        "status": "not-deployed",
-        "detail": "Provisioned on the VM host (not in compose) so the ACME challenge can bind :80 directly.",
-        "last_seen": "n/a"
+        "name": "TLS reverse proxy",
+        "role": "Public :443 → web :8200; Let's Encrypt cert",
+        "status": "live",
+        "detail": "Terminates TLS in front of the compose stack.",
+        "last_seen": "2026-10-18"
       },
       {
         "name": "Nebius Token Factory",
         "role": "External: hosts Nemotron for the reasoning stage",
         "status": "reachable",
         "detail": "External API; verified reachable from a laptop with a scratch key on 2026-09-14. No production key issued yet.",
-        "last_seen": "2026-09-14"
+        "last_seen": "2026-10-18"
       }
     ],
     "endpoints": [
       {
         "name": "/health",
-        "url": "https://quire.<domain>/health",
+        "url": "https://verdikt.aismith.ai/health",
         "expect": "200 OK",
-        "status": "not-deployed",
-        "last_seen": "n/a"
+        "status": "live",
+        "last_seen": "2026-10-18"
       },
       {
         "name": "/ui/ (admin sign-in)",
-        "url": "https://quire.<domain>/ui/",
-        "expect": "Admin sign-in page",
-        "status": "not-deployed",
-        "last_seen": "n/a"
+        "url": "https://verdikt.aismith.ai/ui/",
+        "expect": "303 → sign-in",
+        "status": "live",
+        "last_seen": "2026-10-18"
       },
       {
         "name": "TLS certificate",
-        "url": "quire.<domain>",
-        "expect": "Let's Encrypt \u00b7 90-day auto-renew",
-        "status": "not-deployed",
-        "last_seen": "n/a"
+        "url": "verdikt.aismith.ai",
+        "expect": "Let's Encrypt · valid to 2026-12-15",
+        "status": "live",
+        "last_seen": "2026-10-18"
       },
       {
         "name": "Public demo URL",
-        "url": "https://quire.<domain>/",
-        "expect": "Marketing landing \u2192 engineering dashboard hub",
-        "status": "not-deployed",
-        "last_seen": "n/a"
+        "url": "https://verdikt.aismith.ai/",
+        "expect": "200 OK · marketing landing",
+        "status": "live",
+        "last_seen": "2026-10-18"
       }
     ]
   },
@@ -273,8 +273,8 @@
       "event": "Pre-flight smoke test on laptop passed (docker-compose.prod, stub provider)"
     },
     {
-      "date": "2026-10-25",
-      "event": "Hackathon-scoped Nebius VM cut, DNS points, TLS certificate issued (planned)"
+      "date": "2026-10-18",
+      "event": "Live on self-hosted infrastructure at https://verdikt.aismith.ai (verified)"
     },
     {
       "date": "2026-10-27",
@@ -286,7 +286,7 @@
     },
     {
       "date": "2026-11-15",
-      "event": "Production Verdikt deploy on Nebius (planned)"
+      "event": "Production Verdikt deploy (planned)"
     }
   ]
 }

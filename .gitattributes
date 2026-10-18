@@ -1,4 +1,26 @@
+# Shell scripts must stay LF: git-bash on Windows breaks on CRLF line
+# continuations, which silently corrupts scripts/assemble_video.sh.
+*.sh text eol=lf
 
-# Seed PDFs must never be line-ending converted: their bytes are hashed.
+# Binary artifacts must never be line-ending converted. core.autocrlf=true is
+# set on this machine, and git's text/binary heuristic misfires on PDFs that
+# are mostly uncompressed ASCII -- it classified the generated reply packages
+# as text, which would insert CR bytes and break their xref offsets.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.ico   binary
+*.mp3   binary
+*.mp4   binary
+*.wav   binary
+*.xlsx  binary
+*.docx  binary
+*.woff  binary
+*.woff2 binary
+
+# Seed blobs are hashed by the pipeline, so their bytes must survive a clone
+# exactly. Covered by *.pdf above for PDFs; this catches every other kind.
 deploy/demo-seed/blobs/** binary
-*.pdf binary

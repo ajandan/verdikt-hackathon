@@ -1,5 +1,12 @@
 # Deploying Quire on Nebius AI Cloud
 
+> **Status: reference, not what is running.** The live deployment is
+> self-hosted. This runbook is kept because it is pre-flighted and still
+> correct for a Nebius AI Cloud VM, but nothing below describes the
+> current deployment. What *is* Nebius in production is the inference:
+> every model call goes through Nebius Token Factory, which is what the
+> hackathon rule requires (it names Token Factory or AI Cloud).
+
 This runbook takes a fresh Nebius AI Cloud VM to a public, TLS-terminated Quire
 instance running the design-time LLM against NVIDIA Nemotron on Nebius Token
 Factory.

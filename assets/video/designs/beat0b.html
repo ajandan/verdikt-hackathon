@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 0b — What is a PAP</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  .pap-scene {
+    display: grid;
+    grid-template-columns: 0.9fr 60px 1.2fr 60px 0.9fr;
+    gap: 0;
+    flex: 1;
+    align-items: center;
+  }
+  .col-scene { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .col-scene .label {
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-500);
+    margin-top: 8px;
+  }
+  .col-scene .caption {
+    font-family: var(--font-serif); font-size: 22px;
+    color: var(--ink-700); font-style: italic;
+    text-align: center;
+    line-height: 1.25;
+    max-width: 320px;
+  }
+
+  /* Applicant silhouette — a serif "A" inside a paper card, feels human without a photo. */
+  .applicant {
+    width: 220px; height: 260px;
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 8px;
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.30), 0 6px 14px -8px rgba(20,20,16,0.10);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+    position: relative;
+  }
+  .applicant .avatar {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: var(--seal-700); color: var(--ink-50);
+    font-family: var(--font-serif); font-size: 62px; font-style: italic;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .applicant .who {
+    font-family: var(--font-serif); font-size: 22px; color: var(--ink-900);
+    margin-bottom: 4px;
+  }
+  .applicant .role {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-500); letter-spacing: 0.12em; text-transform: uppercase;
+  }
+
+  /* Paperwork stack */
+  .paper-stack {
+    position: relative;
+    width: 340px; height: 320px;
+  }
+  .doc-sheet {
+    position: absolute;
+    width: 260px; height: 320px;
+    background: #ffffff;
+    border: 1px solid rgba(20,20,16,0.14);
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.30), 0 6px 14px -8px rgba(20,20,16,0.15);
+    padding: 22px 20px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--ink-500);
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+  }
+  .doc-sheet .head {
+    font-family: var(--font-serif); font-size: 15px; color: var(--ink-900);
+    font-style: italic;
+    padding-bottom: 8px; margin-bottom: 10px;
+    border-bottom: 1px solid rgba(20,20,16,0.14);
+  }
+  .doc-sheet .line { height: 4px; background: rgba(20,20,16,0.08); border-radius: 2px; margin: 5px 0; }
+  .doc-sheet .line.short { width: 60%; }
+  .doc-sheet .line.med { width: 82%; }
+  .doc-sheet .checkbox {
+    display: inline-block; width: 8px; height: 8px;
+    border: 1px solid var(--ink-500);
+    margin-right: 6px; vertical-align: middle;
+  }
+  .doc-sheet.a { transform: rotate(-6deg); left: 0; top: 10px; }
+  .doc-sheet.b { transform: rotate(2deg); left: 40px; top: 0; }
+  .doc-sheet.c { transform: rotate(-1deg); left: 80px; top: -8px; z-index: 2; }
+  .doc-sheet.b { background: var(--paper); }
+
+  .paper-stack .stamp-drop {
+    position: absolute;
+    right: -30px; top: 20px;
+    color: #7a1414; border: 2px solid #7a1414;
+    padding: 6px 12px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+    transform: rotate(-8deg);
+    background: rgba(255,255,255,0.85);
+    z-index: 5;
+    box-shadow: 0 6px 14px -8px rgba(20,20,16,0.3);
+  }
+
+  /* Coordinator receiving */
+  .coordinator {
+    width: 220px; height: 260px;
+    background: var(--paper);
+    border: 1px solid rgba(20,20,16,0.10);
+    border-radius: 8px;
+    box-shadow: 0 30px 60px -30px rgba(20,20,16,0.30), 0 6px 14px -8px rgba(20,20,16,0.10);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+    position: relative;
+  }
+  .coordinator .avatar {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: var(--ink-700); color: var(--seal-300);
+    font-family: var(--font-serif); font-size: 56px; font-style: italic;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .coordinator .who {
+    font-family: var(--font-serif); font-size: 22px; color: var(--ink-900);
+    margin-bottom: 4px;
+  }
+  .coordinator .role {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-500); letter-spacing: 0.12em; text-transform: uppercase;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .coordinator .clock-badge {
+    position: absolute; bottom: -14px; right: -14px;
+    padding: 6px 12px;
+    background: var(--ink-900); color: var(--ink-50);
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    border-radius: 999px;
+    box-shadow: 0 10px 20px -10px rgba(20,20,16,0.5);
+  }
+
+  .flow-arrow {
+    display: flex; flex-direction: column; align-items: center;
+    color: var(--seal-500);
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    gap: 6px;
+  }
+  .flow-arrow .arrow {
+    font-family: var(--font-serif); font-size: 42px; line-height: 0.8;
+    color: var(--seal-500);
+    font-style: italic;
+  }
+  .flow-arrow .txt { color: var(--ink-500); font-size: 10.5px; }
+
+  .footnote {
+    display: flex; align-items: center; gap: 16px;
+    margin-top: 24px;
+    padding: 14px 20px;
+    background: var(--ink-100);
+    border-radius: 8px;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--ink-700); letter-spacing: 0.08em;
+  }
+  .footnote b { color: var(--seal-700); }
+  .footnote .dot { color: var(--ink-300); margin: 0 8px; }
+</style>
+</head>
+<body>
+<main class="stage col gap-24">
+  <div class="eyebrow">Patient Assistance Programs · the domain</div>
+  <h1 class="hero">Thousands apply. Each response is a <em>compliance-audited letter.</em></h1>
+
+  <div class="pap-scene">
+    <div class="col-scene">
+      <div class="applicant">
+        <div class="avatar">A</div>
+        <div class="who">The applicant</div>
+        <div class="role">Needs medication</div>
+      </div>
+      <div class="label">Applicant</div>
+      <div class="caption">Insurance won&rsquo;t cover it. A pharmaceutical grant might.</div>
+    </div>
+
+    <div class="flow-arrow">
+      <div class="arrow">&rarr;</div>
+      <div class="txt">applies</div>
+    </div>
+
+    <div class="col-scene">
+      <div class="paper-stack">
+        <div class="doc-sheet a">
+          <div class="head">Enrollment</div>
+          <div class="line"></div><div class="line med"></div><div class="line short"></div>
+          <div style="margin-top:8px;"><span class="checkbox"></span>Consent to release</div>
+          <div><span class="checkbox"></span>Household attestation</div>
+        </div>
+        <div class="doc-sheet b">
+          <div class="head">Pay stub</div>
+          <div class="line med"></div><div class="line"></div><div class="line short"></div>
+          <div class="line med"></div><div class="line"></div>
+        </div>
+        <div class="doc-sheet c">
+          <div class="head">Prescription &amp; denial</div>
+          <div class="line"></div><div class="line med"></div>
+          <div class="line short"></div><div class="line"></div>
+          <div class="line med"></div>
+        </div>
+        <div class="stamp-drop">RECEIVED</div>
+      </div>
+      <div class="label">A stack of documents</div>
+      <div class="caption">Forms, pay stubs, prescriptions, denial letters &mdash; per case.</div>
+    </div>
+
+    <div class="flow-arrow">
+      <div class="arrow">&rarr;</div>
+      <div class="txt">reviews</div>
+    </div>
+
+    <div class="col-scene">
+      <div class="coordinator">
+        <div class="avatar">C</div>
+        <div class="who">The coordinator</div>
+        <div class="role">Reads &middot; verifies &middot; replies</div>
+        <div class="clock-badge">3 systems</div>
+      </div>
+      <div class="label">Coordinator</div>
+      <div class="caption">Reads every page. Writes every letter. Days become weeks.</div>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <span>Today, this is a <b>siloed process</b> — every change waits on developers.</span>
+    <span class="dot">&middot;</span>
+    <span>Every letter is auditable.</span>
+  </div>
+</main>
+</body>
+</html>

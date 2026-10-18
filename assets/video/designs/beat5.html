@@ -110,7 +110,7 @@
       0 40px 80px -32px rgba(20,20,16,0.42),
       0 12px 22px -12px rgba(20,20,16,0.22);
     flex: 1;
-    min-height: 460px;
+    min-height: 400px;
     position: relative;
     border-radius: 4px;
     overflow: hidden;
@@ -136,6 +136,29 @@
     padding: 4px 10px;
     border-radius: 3px;
     border: 1px solid rgba(47,143,118,0.35);
+  }
+  /* The run-time gate: the reply is rendered, then held. Every approve /
+     deny / missing_info verdict parks in pending_review and only sends when
+     a reviewer hits Approve (pap_pipeline/inbox_hook.py). */
+  .review-gate {
+    margin-top: 12px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 11px 16px;
+    background: #ffffff;
+    border: 1px solid var(--seal-500);
+    border-left: 4px solid var(--seal-500);
+    border-radius: 6px;
+  }
+  .review-gate .tag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: #ffffff; background: var(--seal-700);
+    padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+  }
+  .review-gate .txt { font-family: var(--font-sans); font-size: 15px; color: var(--ink-900); }
+  .review-gate .txt em { font-style: italic; color: var(--seal-700); }
+  .review-gate .who {
+    margin-left: auto; font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.08em; color: var(--ink-500); white-space: nowrap;
   }
   .forever-stamp {
     margin-top: 14px;
@@ -185,6 +208,11 @@
         <div class="piece"><div class="k">frozen template</div><div class="v">Alderwood ASP-201 · v3</div></div>
       </div>
       <div class="pdf-reveal"></div>
+      <div class="review-gate">
+        <span class="tag">Human review</span>
+        <span class="txt">Rendered, then held — <em>nothing sends until a reviewer approves.</em></span>
+        <span class="who">a.ortiz@alderwood-rx · approved</span>
+      </div>
       <div class="forever-stamp">No model at render time. <em>No model can.</em></div>
     </div>
   </div>

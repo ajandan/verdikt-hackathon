@@ -1,0 +1,544 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Beat 1 — Intake documents</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="common.css">
+<style>
+  body { background: #ece7d9; }
+  .stage { background: #ece7d9; padding: 44px 100px 32px; }
+  .intake-composition {
+    display: grid;
+    grid-template-columns: 1.35fr 0.9fr;
+    gap: 44px;
+    flex: 1;
+    align-items: stretch;
+  }
+  /* --- Enrollment form: template PDF with handwritten fills on top --- */
+  .form-holder {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .form-frame {
+    position: relative;
+    width: 560px;
+    height: 655px;
+    border: 1px solid rgba(20,20,16,0.14);
+    box-shadow:
+      0 40px 80px -32px rgba(20,20,16,0.35),
+      0 12px 24px -12px rgba(20,20,16,0.18);
+    transform: rotate(-1.4deg);
+    background-color: #ffffff;
+    background-image: url('../screenshots/pdfs/alderwood-enrollment-form-1.png');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+  }
+  .form-frame::after {
+    content: "PDF · ASP-100";
+    position: absolute; top: 10px; right: 12px;
+    padding: 3px 8px;
+    background: rgba(122, 20, 20, 0.92); color: #fefdf9;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  /* Handwritten value overlays, positioned over the form fields */
+  .ink {
+    position: absolute;
+    font-family: 'Caveat', cursive;
+    color: #1c3577;
+    font-weight: 600;
+    line-height: 1;
+    transform: rotate(-0.3deg);
+  }
+  .ink.small { font-size: 16px; }
+  .ink.med { font-size: 19px; }
+  .ink.chk { font-family: 'Caveat', cursive; color: #7a1414; font-size: 21px; font-weight: 700; }
+  .received-stamp {
+    position: absolute;
+    top: 40px; right: 48px;
+    padding: 8px 14px;
+    color: #7a1414; border: 2.5px solid #7a1414;
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500;
+    letter-spacing: 0.14em;
+    transform: rotate(-8deg);
+    opacity: 0.90;
+    z-index: 5;
+    background: rgba(255,255,255,0.72);
+    box-shadow: 0 8px 20px -12px rgba(20,20,16,0.4);
+  }
+  /* Side stack: insurance card + Rx pad + pay stub */
+  .side-stack {
+    display: flex; flex-direction: column;
+    gap: 24px;
+    justify-content: center;
+  }
+  /* --- Insurance card: real-looking cardholder card --- */
+  .ins-card {
+    position: relative;
+    background: linear-gradient(140deg, #0a3d62 0%, #1e6091 55%, #3c91cf 100%);
+    color: #ffffff;
+    padding: 18px 22px 16px;
+    border-radius: 12px;
+    box-shadow:
+      0 26px 50px -20px rgba(10, 61, 98, 0.55),
+      0 8px 16px -8px rgba(20,20,16,0.28);
+    transform: rotate(1.7deg);
+    overflow: hidden;
+    aspect-ratio: 1.586 / 1;
+    max-height: 220px;
+    font-family: 'Inter', sans-serif;
+  }
+  .ins-card::before {
+    content: "";
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
+  }
+  .ins-card .ins-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .ins-card .brand {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .ins-card .brand span {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    letter-spacing: 0.30em;
+    font-weight: 700;
+    margin-top: 2px;
+    opacity: 0.9;
+  }
+  .ins-card .plan-badge {
+    background: rgba(255,255,255,0.16);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .ins-card .cardholder {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px; letter-spacing: 0.20em; text-transform: uppercase;
+    opacity: 0.75; margin-bottom: 2px;
+  }
+  .ins-card .cardname {
+    font-family: 'Inter', sans-serif;
+    font-size: 18px; font-weight: 600; letter-spacing: 0.02em;
+    margin-bottom: 10px;
+  }
+  .ins-card .ins-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .ins-card .ins-grid .label {
+    font-family: 'Inter', sans-serif;
+    font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase;
+    opacity: 0.75; margin-bottom: 3px;
+  }
+  .ins-card .ins-grid .value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; font-weight: 500;
+  }
+  .ins-card .ins-foot {
+    position: absolute; left: 26px; right: 26px; bottom: 12px;
+    display: flex; justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 0.06em; opacity: 0.72;
+  }
+  /* --- Prescription pad --- */
+  .rx-pad {
+    position: relative;
+    background: #fefef5;
+    padding: 14px 20px 12px;
+    border: 1px solid rgba(20,20,16,0.14);
+    box-shadow:
+      0 26px 50px -22px rgba(20,20,16,0.32),
+      0 6px 14px -8px rgba(20,20,16,0.15);
+    transform: rotate(-0.9deg);
+    font-family: 'Inter', sans-serif;
+    color: var(--ink-900);
+    overflow: hidden;
+  }
+  .rx-pad::before {
+    content: "PDF · e-Rx";
+    position: absolute; top: 10px; right: 12px;
+    padding: 3px 8px;
+    background: rgba(122, 20, 20, 0.92); color: #fefdf9;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .rx-pad .rx-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding-bottom: 8px; margin-bottom: 10px;
+    border-bottom: 1.5px solid var(--ink-900);
+  }
+  .rx-pad .rx-head .doc {
+    font-family: 'Instrument Serif', serif; font-size: 20px; line-height: 1.05;
+    color: var(--ink-900);
+  }
+  .rx-pad .rx-head .doc span { display: block; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--ink-500); letter-spacing: 0.02em; font-style: normal; margin-top: 2px; }
+  .rx-pad .rx-head .practice {
+    text-align: right;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.06em; color: var(--ink-500); line-height: 1.5;
+  }
+  .rx-pad .pt-row {
+    display: grid; grid-template-columns: 1fr 100px 90px;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(20,20,16,0.20);
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .rx-pad .pt-row .k { font-family: 'Inter', sans-serif; font-size: 9px; color: var(--ink-500); letter-spacing: 0.14em; text-transform: uppercase; }
+  .rx-pad .pt-row .v { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-900); font-weight: 500; }
+  .rx-pad .drug-block {
+    background: rgba(47,143,118,0.06);
+    border-left: 3px solid var(--seal-500);
+    padding: 10px 14px;
+    margin: 4px 0 8px;
+    border-radius: 3px;
+  }
+  .rx-pad .drug-block .rx-symbol {
+    font-family: 'Instrument Serif', serif;
+    color: var(--seal-700);
+    font-size: 30px; font-style: italic;
+    line-height: 1; float: left; margin-right: 10px; margin-top: -4px;
+  }
+  .rx-pad .drug-block .drug {
+    font-family: 'Instrument Serif', serif;
+    font-size: 20px; color: var(--ink-900); line-height: 1.15;
+  }
+  .rx-pad .drug-block .sig {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--ink-700); margin-top: 3px; letter-spacing: 0.02em;
+  }
+  .rx-pad .drug-block .dispense {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; color: var(--ink-500); margin-top: 4px; letter-spacing: 0.06em;
+  }
+  .rx-pad .rx-sign {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-top: 4px;
+  }
+  .rx-pad .rx-sign .sig-name {
+    font-family: 'Caveat', cursive; color: #1c3577; font-size: 22px;
+    border-bottom: 1px solid var(--ink-700); padding: 0 6px 2px 6px;
+    line-height: 1;
+  }
+  .rx-pad .rx-sign .sig-cap {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 0.14em; color: var(--ink-500); text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .rx-pad .rx-sign .date {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-900); font-weight: 500;
+  }
+  .rx-pad .rx-sign .date-cap {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.14em; color: var(--ink-500); text-transform: uppercase; margin-bottom: 2px; text-align: right;
+  }
+  /* --- Real-looking paystub --- */
+  .paystub {
+    position: relative;
+    background: #fdfcf5;
+    padding: 12px 18px 12px;
+    border: 1px solid rgba(20,20,16,0.14);
+    box-shadow:
+      0 22px 44px -20px rgba(20,20,16,0.28),
+      0 6px 12px -8px rgba(20,20,16,0.15);
+    transform: rotate(0.6deg);
+    font-family: 'Inter', sans-serif;
+    color: var(--ink-900);
+    overflow: hidden;
+  }
+  .paystub::before {
+    content: "PDF · Paystub";
+    position: absolute; top: 8px; right: 10px;
+    padding: 3px 7px;
+    background: rgba(122, 20, 20, 0.92); color: #fefdf9;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    border-radius: 3px;
+    z-index: 2;
+  }
+  .paystub .ps-head {
+    display: grid; grid-template-columns: 1fr auto;
+    align-items: baseline;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #1c3577;
+  }
+  .paystub .ps-head .emp {
+    font-family: 'Playfair Display', 'Georgia', serif;
+    font-size: 15px; color: #1c3577; font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+  }
+  .paystub .ps-head .emp span {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 8.5px; color: var(--ink-500);
+    letter-spacing: 0.06em; font-weight: 400;
+    margin-top: 1px;
+  }
+  .paystub .ps-head .title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.20em;
+    color: var(--ink-500); text-transform: uppercase;
+  }
+  .paystub .ps-meta {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; color: var(--ink-700);
+    padding-bottom: 8px; margin-bottom: 8px;
+    border-bottom: 1px dashed rgba(20,20,16,0.20);
+  }
+  .paystub .ps-meta .l { color: var(--ink-500); font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .paystub .ps-meta b { color: var(--ink-900); font-weight: 600; }
+  .paystub .ps-body {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .paystub .ps-col .lbl {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; letter-spacing: 0.16em;
+    color: var(--seal-700); text-transform: uppercase;
+    padding-bottom: 3px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(47,143,118,0.35);
+  }
+  .paystub .ps-row {
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 2px 0;
+    color: var(--ink-700);
+  }
+  .paystub .ps-row .n { text-align: right; color: var(--ink-900); font-weight: 500; }
+  .paystub .ps-row.tot {
+    padding-top: 3px; margin-top: 2px;
+    border-top: 1px solid rgba(20,20,16,0.35);
+    font-weight: 700;
+  }
+  .paystub .ps-row.tot .n { color: var(--seal-700); }
+  .paystub .ps-net {
+    display: grid; grid-template-columns: 1fr auto;
+    gap: 10px; align-items: center;
+    padding: 8px 12px;
+    background: #1c3577; color: #ffffff;
+    border-radius: 4px;
+    margin-top: 8px;
+    font-family: 'Playfair Display', serif;
+  }
+  .paystub .ps-net .k {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .paystub .ps-net .v {
+    font-family: 'Playfair Display', serif; font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .side-stack { gap: 16px; }
+  .ins-card { max-height: 180px; }
+  .rx-pad { max-height: 290px; }
+  .paystub { max-height: 210px; }
+</style>
+</head>
+<body>
+<main class="stage col gap-24">
+  <div class="eyebrow">Alderwood Specialty Pharmacy · Intake received</div>
+  <h1 class="hero" style="color:#1a1a16;">Everything the case <em>begins with.</em></h1>
+  <div class="intake-composition">
+    <div class="form-holder">
+      <div class="form-frame">
+        <!-- Handwritten fills positioned as % of the full 8.5x11 PDF page.
+             Container aspect matches PDF, so % = same position on the visible
+             form. Rows aligned to ASP-100's actual row positions. -->
+        <!-- Row 1 (~14%): Last / First / M.I. / DOB -->
+        <span class="ink small" style="top: 14.2%; left: 6.5%;">Okafor</span>
+        <span class="ink small" style="top: 14.2%; left: 30.5%;">Devon</span>
+        <span class="ink small" style="top: 14.2%; left: 55.5%;">A.</span>
+        <span class="ink small" style="top: 14.2%; left: 66.0%;">12/03/1955</span>
+        <!-- Row 2 (~19%): Sex checkbox / On a list of / Preferred Language / Best Time -->
+        <span class="ink chk" style="top: 18.8%; left: 6.5%;">✓</span>
+        <span class="ink small" style="top: 19.2%; left: 30.5%;">None</span>
+        <span class="ink small" style="top: 19.2%; left: 55.5%;">English</span>
+        <span class="ink small" style="top: 19.2%; left: 72.0%;">Afternoons</span>
+        <!-- Row 3 (~23.5%): Street Address / Apt Unit -->
+        <span class="ink small" style="top: 23.6%; left: 6.5%;">218 Locust Ave</span>
+        <span class="ink small" style="top: 23.6%; left: 72.0%;">Apt 4</span>
+        <!-- Row 4 (~28%): City / State / Zip / County -->
+        <span class="ink small" style="top: 27.8%; left: 6.5%;">Louisville</span>
+        <span class="ink small" style="top: 27.8%; left: 30.5%;">KY</span>
+        <span class="ink small" style="top: 27.8%; left: 55.5%;">40202</span>
+        <span class="ink small" style="top: 27.8%; left: 72.0%;">Jefferson</span>
+        <!-- Row 5 (~32%): Home Phone / Mobile / Email -->
+        <span class="ink small" style="top: 32.0%; left: 6.5%;">(502) 555-0148</span>
+        <span class="ink small" style="top: 32.0%; left: 55.5%;">devon.okafor@example.com</span>
+        <!-- Row 7 (~40%): Voicemail Yes / Preferred Contact Email -->
+        <span class="ink chk" style="top: 39.8%; left: 46.0%;">✓</span>
+        <span class="ink chk" style="top: 39.8%; left: 82.0%;">✓</span>
+        <!-- Row 8 (~48%): Primary Payer / Member ID / Group / Payer Phone -->
+        <span class="ink small" style="top: 48.5%; left: 6.5%;">BlueMed PPO</span>
+        <span class="ink small" style="top: 48.5%; left: 40.5%;">MB-4872-291</span>
+        <span class="ink small" style="top: 48.5%; left: 62.0%;">GRP-8871</span>
+        <span class="ink small" style="top: 48.5%; left: 78.5%;">(800) 555-0100</span>
+        <!-- Row 11 (~60%): Secondary Payer / Secondary Member ID -->
+        <span class="ink small" style="top: 60.0%; left: 6.5%;">Medicare Part D</span>
+        <span class="ink small" style="top: 60.0%; left: 40.5%;">MC-4872-291-A</span>
+        <!-- Row 12 (~64.5%): Requesting checkboxes -->
+        <span class="ink chk" style="top: 64.5%; left: 32.0%;">✓</span>
+        <span class="ink chk" style="top: 64.5%; left: 55.5%;">✓</span>
+        <span class="ink chk" style="top: 64.5%; left: 78.0%;">✓</span>
+        <!-- Row 13 (~72%): Prescriber / NPI / DEA / State License -->
+        <span class="ink small" style="top: 72.2%; left: 6.5%;">Dr. Priya Ramaswamy</span>
+        <span class="ink small" style="top: 72.2%; left: 42.0%;">1548217384</span>
+        <span class="ink small" style="top: 72.2%; left: 60.5%;">BR2831942</span>
+        <span class="ink small" style="top: 72.2%; left: 78.0%;">KY-MD-19821</span>
+        <!-- Row 14 (~76%): Practice / Tax ID -->
+        <span class="ink small" style="top: 76.2%; left: 6.5%;">Louisville H&amp;V Clinic</span>
+        <span class="ink small" style="top: 76.2%; left: 78.0%;">61-1234567</span>
+        <!-- Row 15 (~80%): Practice Address / City / State / Zip -->
+        <span class="ink small" style="top: 80.2%; left: 6.5%;">4020 Chamberlain Ln, Ste 210</span>
+        <span class="ink small" style="top: 80.2%; left: 42.0%;">Louisville</span>
+        <span class="ink small" style="top: 80.2%; left: 60.5%;">KY</span>
+        <span class="ink small" style="top: 80.2%; left: 78.0%;">40241</span>
+        <!-- Row 16 (~84%): Office Phone / Fax / Contact / Email -->
+        <span class="ink small" style="top: 84.2%; left: 6.5%;">(502) 555-0230</span>
+      </div>
+      <div class="received-stamp">RECEIVED · 09.13.2026</div>
+    </div>
+    <div class="side-stack">
+
+      <div class="ins-card">
+        <div class="ins-head">
+          <div class="brand">BlueMed<span>Health Plans</span></div>
+          <div class="plan-badge">PPO · Silver</div>
+        </div>
+        <div class="cardholder">Cardholder</div>
+        <div class="cardname">Devon A. Okafor</div>
+        <div class="ins-grid">
+          <div>
+            <div class="label">Member ID</div>
+            <div class="value">MB-4872-291</div>
+          </div>
+          <div>
+            <div class="label">Group</div>
+            <div class="value">GRP-8871</div>
+          </div>
+          <div>
+            <div class="label">Effective</div>
+            <div class="value">01/2026</div>
+          </div>
+          <div>
+            <div class="label">RxBIN</div>
+            <div class="value">610014</div>
+          </div>
+          <div>
+            <div class="label">RxPCN</div>
+            <div class="value">MEDDPRIME</div>
+          </div>
+          <div>
+            <div class="label">RxGrp</div>
+            <div class="value">GRP-8871</div>
+          </div>
+        </div>
+        <div class="ins-foot">
+          <span>Member Services · 1-800-555-0100</span>
+          <span>BlueMed.example</span>
+        </div>
+      </div>
+
+      <div class="paystub">
+        <div class="ps-head">
+          <div class="emp">Louisville Heart &amp; Vascular<span>4020 Chamberlain Ln · Louisville, KY 40241</span></div>
+          <div class="title">Earnings Statement</div>
+        </div>
+        <div class="ps-meta">
+          <div><span class="l">Employee</span> <b>Devon A. Okafor</b></div>
+          <div><span class="l">Emp #</span> <b>ASP-1024</b></div>
+          <div><span class="l">Pay period</span> <b>08/24 – 09/06/2026</b></div>
+          <div><span class="l">Pay date</span> <b>09/11/2026</b></div>
+        </div>
+        <div class="ps-body">
+          <div class="ps-col">
+            <div class="lbl">Earnings</div>
+            <div class="ps-row"><span>Regular · 40 hr @ 10.31</span><span class="n">412.50</span></div>
+            <div class="ps-row"><span>PTO accrual</span><span class="n">— —</span></div>
+            <div class="ps-row tot"><span>Gross</span><span class="n">412.50</span></div>
+          </div>
+          <div class="ps-col">
+            <div class="lbl">Deductions</div>
+            <div class="ps-row"><span>Federal tax</span><span class="n">-38.20</span></div>
+            <div class="ps-row"><span>KY state tax</span><span class="n">-19.42</span></div>
+            <div class="ps-row"><span>Social security</span><span class="n">-25.58</span></div>
+            <div class="ps-row"><span>Medicare</span><span class="n">-5.98</span></div>
+            <div class="ps-row tot"><span>Total</span><span class="n">-89.18</span></div>
+          </div>
+        </div>
+        <div class="ps-net">
+          <span class="k">Net pay · this period</span>
+          <span class="v">$ 323.32</span>
+        </div>
+      </div>
+
+      <div class="rx-pad">
+        <div class="rx-head">
+          <div class="doc">
+            Priya Ramaswamy, MD
+            <span>Louisville Heart &amp; Vascular · NPI 1548217384</span>
+          </div>
+          <div class="practice">
+            4020 Chamberlain Ln, Ste 210<br>
+            Louisville, KY 40241<br>
+            P (502) 555-0230 · F (502) 555-0231
+          </div>
+        </div>
+        <div class="pt-row">
+          <div><span class="k">Patient</span><br><span class="v">Devon A. Okafor</span></div>
+          <div><span class="k">DOB</span><br><span class="v">12/03/1955</span></div>
+          <div><span class="k">Date</span><br><span class="v">01/15/2026</span></div>
+        </div>
+        <div class="drug-block">
+          <span class="rx-symbol">℞</span>
+          <div class="drug">Cardiovita 40 mg — Tablet</div>
+          <div class="sig">Sig: Take one (1) tablet by mouth once daily.</div>
+          <div class="dispense">Disp: #30 · Refills: 5 · Substitution permitted</div>
+        </div>
+        <div class="rx-sign">
+          <div>
+            <div class="sig-name">Priya Ramaswamy</div>
+            <div class="sig-cap">Electronic signature · DEA BR2831942</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="date-cap">Signed</div>
+            <div class="date">01/15/2026</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="row gap-20" style="margin-top: 14px; align-items: center; flex-shrink: 0;">
+    <span class="stamp">Intake channel · email</span>
+    <span class="stamp">4 attachments</span>
+    <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-500); letter-spacing: 0.10em; text-transform: uppercase;">fax · mail · web · REST all normalize into the same intake</span>
+  </div>
+</main>
+</body>
+</html>

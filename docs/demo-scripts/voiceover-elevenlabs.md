@@ -131,10 +131,17 @@ When a case arrives, the pipeline runs.<break time="0.3s" /> Ingest — a vision
 ## Beat 5 — Then AI stops (21 s)
 
 ```
-Then AI stops.<break time="0.8s" /> Deliver — a byte-identical merge of the verdict with a human-approved template.<break time="0.3s" /> Every template is human-reviewed.<break time="0.3s" /> Here's the approval letter,<break time="0.15s" /> from Alderwood's template — sha256 pinned.<break time="0.3s" /> No model at render time.<break time="0.3s" /> Same input,<break time="0.15s" /> same package,<break time="0.15s" /> forever.
+Then AI stops.<break time="0.8s" /> Deliver — a byte-identical merge of the verdict with a human-approved template.<break time="0.3s" /> Nothing leaves until a human approves.<break time="0.3s" /> Here's the approval letter,<break time="0.15s" /> from Alderwood's template — sha256 pinned.<break time="0.3s" /> No model at render time.<break time="0.3s" /> Same input,<break time="0.15s" /> same package,<break time="0.15s" /> forever.
 ```
 
-**Visual:** AI ZONE / DETERMINISTIC ZONE split — left half fades out with the AI stages; right half lights up with the verdict + frozen template merging into a rendered PDF, `byte-identical · sha256:…` stamp.
+**Visual:** AI ZONE / DETERMINISTIC ZONE split — left half fades out with the AI stages; right half lights up with the verdict + frozen template merging into a rendered PDF, `byte-identical · sha256:…` stamp, and a **Human review** gate row under it: *"Rendered, then held — nothing sends until a reviewer approves."*
+
+> **The run-time gate, not the design-time one.** Beat 3 already covers
+> human-approved *templates*; this line is the send gate —
+> `pap_pipeline/inbox_hook.py` parks every approve / deny / missing_info verdict
+> in `pending_review` and sends nothing until a reviewer approves. `beat5.mp3`
+> was re-rendered on 2026-10-13 to carry it (it previously said "Every template
+> is human-reviewed", which duplicated beat 3).
 
 **Applause line:** *"Then AI stops."* — 1.5 s pause is the one-frame overlay window.
 

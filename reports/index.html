@@ -348,8 +348,8 @@
       kicker: 'Production',
       verdict: prodLive ? 'LIVE' : (prodPct + '%'),
       tag: prodLive
-        ? '<b>Deployed on Nebius.</b> Last-known live and serving traffic.'
-        : '<b>' + production.summary.verdict + '.</b> ' + production.summary.readiness_ready + ' of ' + production.summary.readiness_total + ' items ready; deploy targeted <b>' + production.summary.target_deploy + '</b>.',
+        ? '<b>Live at verdikt.aismith.ai.</b> Self-hosted, with all model inference on Nebius Token Factory.'
+        : '<b>' + production.summary.verdict + '.</b> ' + production.summary.readiness_ready + ' of ' + production.summary.readiness_total + ' items ready.',
       meta: [
         ['ready', production.summary.readiness_ready],
         ['pending', production.summary.readiness_pending],
@@ -375,7 +375,7 @@
     { k: 'Features',   v: features.summary.shipped,          d: 'of ' + features.summary.features_total + ' tracked shipped',        cls: 'pass' },
     { k: 'Gates',      v: code.gates.length,                 d: 'all ' + (codeGreen ? 'passing' : 'triaging'),                       cls: codeGreen ? 'pass' : 'fail' },
     { k: 'Controls',   v: security.summary.controls_shipped, d: 'OWASP-mapped, shipped',                                             cls: 'pass' },
-    { k: 'Deploy',     v: prodPct + '%',                     d: prodLive ? 'live on Nebius' : 'ready · target ' + production.summary.target_deploy, cls: prodGreen ? 'pass' : (prodWarn ? 'err' : 'fail') },
+    { k: 'Deploy',     v: prodPct + '%',                     d: prodLive ? 'live · inference on Nebius' : 'ready', cls: prodGreen ? 'pass' : (prodWarn ? 'err' : 'fail') },
   ];
   document.getElementById('kpi-row').innerHTML = kpis.map(x =>
     '<div class="kpi ' + x.cls + '">' +

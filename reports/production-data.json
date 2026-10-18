@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T17:39:20Z",
+  "generated_at": "2026-10-18T21:45:00Z",
   "commit": "cf9e5a4",
   "attestation": {
     "last_manually_attested_at": "2026-10-18T17:39:20Z",
@@ -14,8 +14,7 @@
     "readiness_total": 22,
     "readiness_pct": 100,
     "live": "LIVE",
-    "target_deploy": "2026-11-15",
-    "hackathon_deploy": "2026-10-25",
+    "hackathon_deploy": "2026-10-18",
     "public_url": "https://verdikt.aismith.ai"
   },
   "readiness": {
@@ -186,7 +185,7 @@
         "name": "Web (docgen)",
         "role": "FastAPI app: admin UI + inbox + pipeline",
         "status": "live",
-        "detail": "Deployed on self-hosted infrastructure. This row is not wired to that host's health check yet.",
+        "detail": "Deployed on self-hosted infrastructure. https://verdikt.aismith.ai/health returns 200 (checked 2026-10-18).",
         "last_seen": "2026-10-18"
       },
       {
@@ -219,16 +218,16 @@
       },
       {
         "name": "TLS reverse proxy",
-        "role": "Public :443 → web :8200; Let's Encrypt cert",
+        "role": "Public :443 via a Cloudflare tunnel to the web container; Let's Encrypt certificate",
         "status": "live",
-        "detail": "Terminates TLS in front of the compose stack.",
+        "detail": "TLS terminates at Cloudflare's edge and a tunnel carries traffic to the compose stack, so the host opens no inbound port.",
         "last_seen": "2026-10-18"
       },
       {
         "name": "Nebius Token Factory",
-        "role": "External: hosts Nemotron for the reasoning stage",
-        "status": "reachable",
-        "detail": "External API; verified reachable from a laptop with a scratch key on 2026-09-14. No production key issued yet.",
+        "role": "External: hosts every model the pipeline calls",
+        "status": "live",
+        "detail": "Prod calls it on every case: MiniCPM-V (ingest), Nemotron Nano (triage), Qwen3-Embedding-8B (retrieve), Nemotron Super (reasoning fallback). Verified end to end on 2026-10-18 with an emailed test case.",
         "last_seen": "2026-10-18"
       }
     ],
@@ -277,16 +276,12 @@
       "event": "Live on self-hosted infrastructure at https://verdikt.aismith.ai (verified)"
     },
     {
-      "date": "2026-10-27",
-      "event": "Video recorded against the live URL (planned)"
+      "date": "2026-10-18",
+      "event": "Video published: https://youtu.be/EleEatbaEWM"
     },
     {
       "date": "2026-10-30",
       "event": "Devpost submission: live URL, video URL, public repo (planned)"
-    },
-    {
-      "date": "2026-11-15",
-      "event": "Production Verdikt deploy (planned)"
     }
   ]
 }

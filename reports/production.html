@@ -71,7 +71,7 @@
       <span class="kicker">Rollup</span>
       <h2>Where the deploy stands</h2>
       <p class="subhead">Readiness is a rolling <b>%</b> of items marked ready. Live status is <b>last-known and manually attested</b>. The automated health probe is not yet wired up. The stamp on the right mirrors Verdikt's product output shape.</p>
-      <div class="kpi-row" id="kpi-row"></div>
+      <div class="kpi-row four" id="kpi-row"></div>
       <div class="verdict-wrap">
         <div>
           <p class="subhead" style="max-width:none" id="attestation-note"></p>
@@ -179,7 +179,6 @@
     ['Ready', data.summary.readiness_ready + ' / ' + data.summary.readiness_total],
     ['Live', data.summary.live],
     ['Hackathon cut', data.summary.hackathon_deploy],
-    ['Production', data.summary.target_deploy],
   ];
   document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
     '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
@@ -196,7 +195,6 @@
     { k: 'Pending',          v: data.summary.readiness_pending,                                d: 'deploy-time actions',                                                                     cls: 'info' },
     { k: 'Live services',    v: data.live.services.filter(s => s.status === 'live').length,   d: 'of ' + data.live.services.length + ' · ' + data.summary.live.toLowerCase(),                cls: liveCls },
     { k: 'Hackathon cut',    v: data.summary.hackathon_deploy,                                 d: 'demo-URL target',                                                                         cls: 'info' },
-    { k: 'Production',       v: data.summary.target_deploy,                                    d: 'Nebius Verdikt deploy',                                                                   cls: 'info' },
   ];
   document.getElementById('kpi-row').innerHTML = kpis.map(x =>
     '<div class="kpi ' + x.cls + '">' +
@@ -227,7 +225,6 @@
       '<div><span class="k">Ready</span><span class="v">' + data.summary.readiness_ready + ' / ' + data.summary.readiness_total + '</span></div>' +
       '<div><span class="k">Live</span><span class="v">' + escapeHtml(data.summary.live) + '</span></div>' +
       '<div><span class="k">Cut</span><span class="v">' + escapeHtml(data.summary.hackathon_deploy) + '</span></div>' +
-      '<div><span class="k">Prod</span><span class="v">' + escapeHtml(data.summary.target_deploy) + '</span></div>' +
     '</div>';
 
   const tabDefs = [

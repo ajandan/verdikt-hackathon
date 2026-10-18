@@ -471,7 +471,7 @@
       '</div>' +
       '<span class="pill ' + priClass(o.priority) + '">' + escapeHtml(o.priority) + '</span>' +
     '</div>'
-  ).join('');
+  ).join('') || '<div class="row-item"><div><div class="r-title">Nothing open</div><div class="r-desc">Every submission item is done.</div></div></div>';
 
   stateEl.hidden = true;
   contentEl.hidden = false;

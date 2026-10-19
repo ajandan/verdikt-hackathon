@@ -42,7 +42,9 @@ class CatalogEntry:
 _VISION_PATTERNS = (
     re.compile(r"MiniCPM-V", re.IGNORECASE),
     re.compile(r"gemma-3-\d+b", re.IGNORECASE),  # Gemma 3 is multimodal
-    re.compile(r"-VL-|-vl-|Vision", re.IGNORECASE),  # Qwen-VL, Llama-Vision
+    # Qwen2.5-VL-72B, Nemotron-3.5-Super-VL, Llama-Vision. "VL" may end the
+    # name, so a trailing dash can't be required.
+    re.compile(r"-VL(?:-|$)|Vision", re.IGNORECASE),
     re.compile(r"NVLM", re.IGNORECASE),
     re.compile(r"Pixtral", re.IGNORECASE),
 )

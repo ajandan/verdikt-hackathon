@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T02:47:05+00:00",
-  "head_sha": "820133a",
+  "generated_at": "2026-10-19T02:57:45+00:00",
+  "head_sha": "a293aa0",
   "extraction_latest": {
     "date": "2026-10-18",
     "doc": "docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md",
@@ -169,10 +169,6 @@
       {
         "fixture": "scan",
         "flags": [
-          {
-            "field": "city",
-            "outcome": "false alarm"
-          },
           {
             "field": "date_of_birth",
             "outcome": "caught"

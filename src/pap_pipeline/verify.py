@@ -150,6 +150,10 @@ def _values_agree(a: Any, b: Any) -> bool:
       two or more full words remain, so ``"Y"`` / ``"N"`` or ``"Type A"`` /
       ``"Type B"`` are never reduced to a match. Conflicting initials still
       disagree.
+    - the same text with different spacing or punctuation (``"Oaks ville"`` /
+      ``"Oaksville"``, ``"Apt 3B"`` / ``"Apt3B"``). Never for numbers, and every
+      run of digits must survive intact, so ``"-5"`` / ``"5"``, ``"$10.50"`` /
+      ``"1050"`` and ``"1,000"`` / ``"1000"`` still disagree.
 
     Anything else that differs is a disagreement and goes to a reviewer.
     """
@@ -161,6 +165,11 @@ def _values_agree(a: Any, b: Any) -> bool:
             m = _NUMBER_WITH_UNIT.fullmatch(other)
             if m and float(m.group(1)) == num:
                 return True
+    if (isinstance(a, str) and isinstance(b, str)
+            and not isinstance(na, float) and not isinstance(nb, float)
+            and re.sub(r"[^a-z0-9]", "", na) == re.sub(r"[^a-z0-9]", "", nb)
+            and re.findall(r"\d+", a) == re.findall(r"\d+", b)):
+        return True
     if isinstance(a, str) and isinstance(b, str) and not any(c.isdigit() for c in a + b):
         wa, wb = re.findall(r"[a-z]+", a.lower()), re.findall(r"[a-z]+", b.lower())
         full_a, full_b = sorted(w for w in wa if len(w) > 1), sorted(w for w in wb if len(w) > 1)

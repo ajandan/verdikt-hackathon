@@ -284,6 +284,10 @@ def test_normalize_strips_and_lowercases_strings():
     ("Chen Mei", "Chen Mei L"),           # seen on the synthetic intake fixture
     ("Mei L. Chen", "Chen Mei"),
     ("Devon Okafor", "okafor devon"),
+    ("Oaks ville", "Oaksville"),          # seen on Form B: MiniCPM-V vs Nemotron VL
+    ("Apt 3B", "Apt3B"),
+    ("O'Brien", "OBrien"),
+    ("1990-07-07", "1990/07/07"),
 ])
 def test_same_reading_written_differently_agrees(a, b):
     assert _values_agree(a, b) and _values_agree(b, a)
@@ -299,6 +303,10 @@ def test_same_reading_written_differently_agrees(a, b):
     ("John A Smith", "John B Smith"),     # conflicting initials
     ("Aldurizumab", "Adliruzumab"),
     ("Mei Chen", "Mei Chan"),
+    ("-5", "5"),                          # sign is not punctuation on a number
+    ("$10.50", "1050"),
+    ("1,000", "1000"),
+    ("Apt 3B", "Apt 38"),
 ])
 def test_real_disagreements_still_disagree(a, b):
     assert not _values_agree(a, b) and not _values_agree(b, a)

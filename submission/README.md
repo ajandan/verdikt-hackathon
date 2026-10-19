@@ -73,6 +73,8 @@ Everything a judge needs to try Verdikt by email, from any address.
   `docs/verdikt-email-test-guide.html` by `scripts/render_docs_pdf.py`.
 - `ASP-100-enrollment-maria-chen.pdf`, `ASP-110-income-worksheet-maria-chen.pdf`
   — the fictional packet the guide tells them to attach.
+- `scanned-fax-packet-marcus-delgado.pdf` — test 3: a noisy, low-quality fax
+  scan (fictional data) with no household size, which returns missing info.
 
 ### `sample-outputs/`
 The deterministic half of the product, as actual files.

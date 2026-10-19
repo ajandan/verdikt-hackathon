@@ -95,6 +95,7 @@ cp sample_templates/alderwood/alderwood-enrollment-form.pdf          "$OUT/sampl
 cp docs/verdikt-email-test-guide.pdf                    "$OUT/test-demo/"
 cp samples/email-test/ASP-100-enrollment-maria-chen.pdf  "$OUT/test-demo/"
 cp samples/email-test/ASP-110-income-worksheet-maria-chen.pdf "$OUT/test-demo/"
+cp samples/email-test/scanned-fax-packet-marcus-delgado.pdf "$OUT/test-demo/"
 
 cp LICENSE                   "$OUT/"
 # The index for the folder. Its source lives in docs/ precisely because

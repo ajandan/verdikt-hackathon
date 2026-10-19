@@ -56,6 +56,7 @@ In [`samples/email-test/`](../../samples/email-test):
 | --- | --- |
 | `ASP-100-enrollment-maria-chen.pdf` | Enrollment & prescription referral, 2 pages |
 | `ASP-110-income-worksheet-maria-chen.pdf` | Household income worksheet, 1 page |
+| `scanned-fax-packet-marcus-delgado.pdf` | Low-quality fax scan, 7 pages: cover sheet, ASP-100, prescription, pay stub, Form 1040 excerpt, blank page |
 
 Both are flat PDFs with no form fields, so they exercise the vision extraction
 path rather than AcroForm reads — the same path a faxed or scanned packet takes.
@@ -67,7 +68,7 @@ facts are what the four CardioVita rules read — drug, prescriber, insurance
 status, residency and income. Entirely fictional: `.example.com` addresses,
 555 phone numbers, an invented drug and an invented pharmacy.
 
-## Three tests worth running
+## Four tests worth running
 
 CardioVita's income rule (`CV-INC-01-cardio`) caps household income at 400% of
 the 2026 HHS poverty guideline ($21,640 for a household of 2 in the 48
@@ -79,13 +80,14 @@ worksheet, so the worksheet decides whether it can be evaluated at all.
 | --- | --- | --- | --- | --- |
 | 1 | `[pap:cardiovita-pap-2026]` | both PDFs | **approve** | $60,000 ≤ $86,560, uninsured, US address, valid NPI |
 | 2 | `[pap:cardiovita-pap-2026]` | ASP-100 only | **missing_info** | Without the ASP-110 worksheet `CV-INC-01-cardio` has no household size or income to check, so the case returns missing_info rather than a denial |
-| 3 | `[pap:oncobridge-pap-2026]` | both PDFs | **deny** | OncoBridge caps at 250% of the guideline = $54,100; same packet, same code, opposite verdict |
+| 3 | `[pap:cardiovita-pap-2026]` | scanned fax only | **missing_info** | The fax has income ($33,800 on the 1040) but no household size, so `CV-INC-01-cardio` cannot be checked. Both vision models read the scan, and every field they read differently is listed for the reviewer. `household_size` accepts 1 to 10; a misread outside that range (the Rx quantity "30" was once read as household size) is treated as not read |
+| 4 | `[pap:oncobridge-pap-2026]` | both PDFs | **deny** | OncoBridge caps at 250% of the guideline = $54,100; same packet, same code, opposite verdict |
 
 Test 2 is the one worth doing first. It proves the system distinguishes "this
 application fails" from "I cannot decide this yet" — which is the difference
 between a wrong answer and an honest one.
 
-Test 3 needs an `oncobridge-pap-2026` program **under the Alderwood tenant**, since
+Test 4 needs an `oncobridge-pap-2026` program **under the Alderwood tenant**, since
 programs are looked up per tenant after the subject tag picks one. Its rules
 ship in `src/pap_pipeline/rules/OB-*.yaml`, but no such program exists under
 Alderwood today, so set it up first or skip this test. It is left out of the

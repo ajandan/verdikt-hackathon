@@ -117,6 +117,7 @@ The real intake path: email an enrollment packet, and Verdikt reads it, decides 
 | --- | --- | --- |
 | 1 | both PDFs | **approve**: $60,000 is under the program's income cap of $86,560 for a household of two |
 | 2 | ASP-100 only | **missing info**: no income worksheet, so Verdikt asks for it instead of guessing a denial |
+| 3 | `scanned-fax-packet-marcus-delgado.pdf` only, subject `[pap:cardiovita-pap-2026] Alderwood — faxed enrollment for Marcus Delgado` | **missing info**: a noisy 7-page fax with no household size. Verdikt asks for it, and the review page lists every field the two vision models read differently |
 
 Nothing is sent back until a reviewer approves the case; the demo account is a reviewer, so you don't wait on anyone. The step-by-step guide, with the exact email body and troubleshooting, is [`submission/test-demo/verdikt-email-test-guide.pdf`](submission/test-demo/verdikt-email-test-guide.pdf) (source: [`docs/verdikt-email-test-guide.html`](docs/verdikt-email-test-guide.html); routing details in [`docs/demo-scripts/email-inbox-test.md`](docs/demo-scripts/email-inbox-test.md)).
 

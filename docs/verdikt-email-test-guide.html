@@ -94,7 +94,7 @@
       <h2>What you <em>need</em></h2>
       <ul>
         <li><b>Any email account</b> — Gmail, Outlook, a work address. The sender does not matter.</li>
-        <li>The <b>two PDFs</b> in this folder: <code>ASP-100</code> and <code>ASP-110</code>.</li>
+        <li>The <b>PDFs</b> in this folder: <code>ASP-100</code> and <code>ASP-110</code>, plus a <b>scanned fax</b> for test 3.</li>
         <li>About <b>five minutes</b>. You can approve the case yourself, so nobody else needs to be online.</li>
       </ul>
     </div>
@@ -110,7 +110,7 @@
   </div>
 
   <div class="card paper">
-    <h2>Two tests, two <em>predictable</em> answers</h2>
+    <h2>Three tests, three <em>predictable</em> answers</h2>
     <p style="margin-bottom:8px">The applicant in the sample packet is fictional: a household of two earning $60,000.
       The CardioVita program's rules cap household income at 400% of the 2026 federal poverty guideline — $86,560 for a household of two.</p>
     <table>
@@ -119,6 +119,8 @@
           <td><span class="pill ok">approve</span></td><td>$60,000 is under CardioVita's cap of $86,560 (400% of the 2026 federal poverty guideline)</td></tr>
       <tr><td>2</td><td><code>[pap:cardiovita-pap-2026]</code></td><td>ASP-100 only</td>
           <td><span class="pill warn">missing info</span></td><td>No income worksheet, so it asks for one instead of guessing a denial</td></tr>
+      <tr><td>3</td><td><code>[pap:cardiovita-pap-2026]</code></td><td>scanned fax only</td>
+          <td><span class="pill warn">missing info</span></td><td>A noisy 7-page fax with no household size: it asks for it, and lists every field the two vision models read differently</td></tr>
     </table>
   </div>
 
@@ -182,8 +184,10 @@ Bayview Cardiology Associates</div>
       <div class="att"><div class="ic">PDF</div><div><div class="t">ASP-110-income-worksheet-maria-chen.pdf</div>
         <div class="d">Household income worksheet · 1 page</div></div></div>
     </div>
-    <p style="margin-top:8px">Leave out ASP-110 for test 2. Both files are flat scans with no form fields,
+    <p style="margin-top:8px">Leave out ASP-110 for test 2. Both files are flat PDFs with no form fields,
       so Verdikt has to read them the way it would read a fax.</p>
+    <p style="margin-top:6px"><b>Test 3:</b> attach only <code>scanned-fax-packet-marcus-delgado.pdf</code>, a noisy,
+      low-quality fax scan (fictional data), with the subject <code>[pap:cardiovita-pap-2026] Alderwood — faxed enrollment for Marcus Delgado</code>.</p>
   </div></div>
 
   <div class="strip"></div>

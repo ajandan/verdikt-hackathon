@@ -1011,9 +1011,11 @@
      "type": "string"
     },
     {
-     "description": "Number of people in the household, from the HOUSEHOLD SIZE box of the ASP-110 Household Income Worksheet. Integer, 1 or more. null if no ASP-110 worksheet is attached.",
+     "description": "Number of people in the household, from the HOUSEHOLD SIZE box of the ASP-110 Household Income Worksheet. Integer, 1 or more. null if no ASP-110 worksheet is attached. The income table covers 1 to 10; a value outside that range is treated as not read and goes to a reviewer.",
      "enum_values": null,
      "intake_field": "household_size",
+     "max": 10,
+     "min": 1,
      "name": "household_size",
      "required": false,
      "source_field": "household_size",

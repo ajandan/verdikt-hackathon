@@ -6175,6 +6175,20 @@ def _parse_program_schema_form(form: Any) -> list[dict[str, Any]]:
     return slots
 
 
+def _keep_unedited_slot_keys(
+    new_slots: list[dict[str, Any]], old_slots: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Carry over slot keys the form has no input for (``min``, ``max``,
+    ``intake_field``, ...) from the saved slot of the same name, so saving
+    the table does not silently drop them."""
+    old_by_name = {s.get("name"): s for s in old_slots if isinstance(s, dict)}
+    merged: list[dict[str, Any]] = []
+    for slot in new_slots:
+        old = old_by_name.get(slot["name"]) or {}
+        merged.append({**{k: v for k, v in old.items() if k not in slot}, **slot})
+    return merged
+
+
 async def _load_program(session: AsyncSession, program_id: uuid.UUID) -> Program:
     row = await session.get(Program, program_id)
     if row is None:
@@ -6806,7 +6820,9 @@ async def program_save(
         prog.enrollment_template_version_id = None
 
     # JSONB list mutation needs a fresh assignment for ORM dirty tracking.
-    prog.extraction_schema = _parse_program_schema_form(form)
+    prog.extraction_schema = _keep_unedited_slot_keys(
+        _parse_program_schema_form(form), prog.extraction_schema or []
+    )
     await session.commit()
     log.info(
         "program_saved", program_id=str(prog.id),

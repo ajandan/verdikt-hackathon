@@ -11,7 +11,13 @@ import pytest
 from pap_pipeline.schemas.decision import Citation, Decision
 from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig
-from pap_pipeline.verify import _normalize, _values_agree, dual_extract, verify_decision
+from pap_pipeline.verify import (
+    _normalize,
+    _values_agree,
+    drop_out_of_range,
+    dual_extract,
+    verify_decision,
+)
 
 # --------------------------------------------------------------------------- #
 # verify_decision — the seven invariants
@@ -324,3 +330,51 @@ async def test_dual_extract_ignores_unit_and_initial_differences(monkeypatch):
     verifier = ExtractClientConfig(base_url="x", api_key="k", vision_model="verifier")
     _, findings = await dual_extract([b"pdf"], primary_config=primary, verifier_config=verifier)
     assert [f.detail["field"] for f in findings] == ["dob"]
+
+
+_HOUSEHOLD = {"name": "household_size", "type": "integer", "min": 1, "max": 10}
+
+
+def test_out_of_range_value_is_treated_as_not_read():
+    # The scanned Delgado packet: "30" from the Rx quantity read as household size.
+    raw = {"household_size": 30, "annual_household_income": 33800}
+    cleaned, findings = drop_out_of_range(raw, [_HOUSEHOLD])
+    assert cleaned == {"household_size": None, "annual_household_income": 33800}
+    assert raw["household_size"] == 30  # input left untouched
+    assert [(f.type, f.detail) for f in findings] == [
+        ("extract_out_of_range", {"field": "household_size", "value": 30, "min": 1, "max": 10})
+    ]
+
+
+@pytest.mark.parametrize("value", [1, 10, "4", None, "four"])
+def test_in_range_or_unparseable_values_are_left_alone(value):
+    cleaned, findings = drop_out_of_range({"household_size": value}, [_HOUSEHOLD])
+    assert cleaned == {"household_size": value} and findings == []
+
+
+@pytest.mark.parametrize("value", [0, 11, "30", -2])
+def test_values_outside_either_bound_are_dropped(value):
+    cleaned, findings = drop_out_of_range({"household_size": value}, [_HOUSEHOLD])
+    assert cleaned["household_size"] is None and len(findings) == 1
+
+
+def test_slots_without_a_range_or_non_numeric_types_are_ignored():
+    slots = [
+        {"name": "household_size", "type": "integer"},
+        {"name": "patient_name", "type": "string", "max": 1},
+    ]
+    raw = {"household_size": 30, "patient_name": "Marcus Delgado"}
+    assert drop_out_of_range(raw, slots) == (raw, [])
+    assert drop_out_of_range(raw, None) == (raw, [])
+
+
+def test_program_form_save_keeps_slot_keys_the_form_does_not_edit():
+    from docgen.ui.routes import _keep_unedited_slot_keys
+
+    old = [{"name": "household_size", "type": "integer", "min": 1, "max": 10, "intake_field": "household_size"}]
+    new = [{"name": "household_size", "type": "integer", "description": "edited", "required": False},
+           {"name": "new_slot", "type": "string"}]
+    merged = _keep_unedited_slot_keys(new, old)
+    assert merged[0] == {"name": "household_size", "type": "integer", "description": "edited",
+                         "required": False, "min": 1, "max": 10, "intake_field": "household_size"}
+    assert merged[1] == {"name": "new_slot", "type": "string"}

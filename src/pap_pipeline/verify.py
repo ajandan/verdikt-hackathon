@@ -112,6 +112,57 @@ async def dual_extract(
     return primary_raw, findings
 
 
+def drop_out_of_range(
+    raw: dict[str, Any], slots: list[dict[str, Any]] | None
+) -> tuple[dict[str, Any], list[VerifierFinding]]:
+    """Treat a number outside its slot's declared ``min``/``max`` as not read.
+
+    A slot may declare ``"min"`` and/or ``"max"`` (integer and number slots
+    only). A value outside that range is replaced with ``None`` so rules see
+    the field as undetermined and the case returns ``missing_info`` instead of
+    deciding on a misread, and one ``extract_out_of_range`` finding records
+    what was read. Values that do not parse as numbers are left alone; the
+    Intake validators deal with those.
+    """
+    findings: list[VerifierFinding] = []
+    if not raw or not slots:
+        return raw, findings
+    cleaned = dict(raw)
+    for slot in slots:
+        if slot.get("type") not in ("integer", "number"):
+            continue
+        lo, hi = slot.get("min"), slot.get("max")
+        if lo is None and hi is None:
+            continue
+        name = slot.get("name")
+        number = _as_number(cleaned.get(name))
+        if number is None:
+            continue
+        if (lo is not None and number < lo) or (hi is not None and number > hi):
+            findings.append(
+                VerifierFinding(
+                    type="extract_out_of_range",
+                    severity="critical",
+                    detail={"field": name, "value": cleaned[name], "min": lo, "max": hi},
+                )
+            )
+            cleaned[name] = None
+    return cleaned, findings
+
+
+def _as_number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(re.sub(r"[\s,$]", "", value))
+        except ValueError:
+            return None
+    return None
+
+
 def _normalize(value: Any) -> Any:
     """Value comparison that ignores trivial noise between VLMs.
 
@@ -318,6 +369,7 @@ def verify_decision(
 
 
 __all__ = [
+    "drop_out_of_range",
     "dual_extract",
     "verify_decision",
 ]

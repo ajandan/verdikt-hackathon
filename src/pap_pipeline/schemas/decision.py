@@ -49,6 +49,7 @@ Outcome = Literal["approve", "deny", "missing_info", "routed"]
 CitationType = Literal["rule", "history"]
 FindingType = Literal[
     "extract_disagreement",
+    "extract_out_of_range",
     "hallucinated_citation",
     "cited_rule_not_retrieved",
     "outcome_missing_info_but_no_gaps",

@@ -58,7 +58,7 @@ from pap_pipeline.stages.mdm_lookup import (
 from pap_pipeline.stages.reason import ReasonClientConfig, reason
 from pap_pipeline.stages.retrieve import RetrieveClientConfig, retrieve
 from pap_pipeline.stages.triage import TriageConfig, TriageDecision, triage
-from pap_pipeline.verify import dual_extract, verify_decision
+from pap_pipeline.verify import drop_out_of_range, dual_extract, verify_decision
 
 log = structlog.get_logger(__name__)
 
@@ -1037,6 +1037,9 @@ async def run_with_intake(
             extras_fn=_extract_extras,
         )
         extract_findings = []
+
+    raw, range_findings = drop_out_of_range(raw, slots)
+    extract_findings = [*extract_findings, *range_findings]
 
     intake = _intake_from_extraction(raw)
     extras = _extras_from_extraction(raw)

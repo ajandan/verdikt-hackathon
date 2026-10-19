@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from pap_pipeline.rule_formula import Formula, evaluate_formula
+from pap_pipeline.verify import drop_out_of_range
 
 SEED = Path(__file__).resolve().parents[1] / "deploy" / "demo-seed" / "seed.json"
 
@@ -67,3 +68,17 @@ def test_rule_is_an_approval_gate_for_the_demo_program() -> None:
     slots = {s["name"]: s for s in prog["extraction_schema"]}
     assert slots["household_size"]["type"] == "integer"
     assert slots["annual_household_income"]["type"] == "number"
+
+
+def test_household_size_outside_the_table_goes_to_review_not_denial() -> None:
+    # The income table covers 1 to 10. A size outside it (the scanned packet
+    # had the Rx quantity "30" read as household size) must not deny.
+    slots = _seed()["programs"][0]["extraction_schema"]
+    size = next(s for s in slots if s["name"] == "household_size")
+    assert (size["min"], size["max"]) == (1, 10)
+    raw, findings = drop_out_of_range(
+        {"household_size": 30, "annual_household_income": 33800}, slots
+    )
+    assert [f.type for f in findings] == ["extract_out_of_range"]
+    assert _verdict(**raw) == "undetermined"
+

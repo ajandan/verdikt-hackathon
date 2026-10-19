@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T01:50:00Z",
-  "commit": "41bde65",
+  "generated_at": "2026-10-19T04:20:00Z",
+  "commit": "203f4be",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -12,8 +12,8 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 101,
-    "shipped": 99,
+    "features_total": 103,
+    "shipped": 101,
     "in_progress": 0,
     "backlog": 2,
     "parked": 1
@@ -172,6 +172,12 @@
           "status": "shipped",
           "description": "A second vision model reads the same pages; fields the two readers disagree on become verifier findings for the reviewer. Units and name order are not counted as disagreements. On for Alderwood in prod since 2026-10-18.",
           "evidence": "src/pap_pipeline/verify.py, tests/test_pap_verify.py, docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md"
+        },
+        {
+          "name": "Slot range guard (min/max)",
+          "status": "shipped",
+          "description": "Integer and number slots can declare a valid range. A read outside it is treated as not read, so rules return missing_info instead of deciding on a misread, and an extract_out_of_range finding shows the reviewer what was read. The demo's household_size accepts 1 to 10, the range its income table covers.",
+          "evidence": "src/pap_pipeline/verify.py::drop_out_of_range, tests/test_pap_verify.py, tests/test_demo_seed_income_rule.py"
         }
       ]
     },
@@ -385,6 +391,12 @@
           "status": "shipped",
           "description": "Only prod polls the demo mailbox (every 60 s, UNSEEN only); dev has polling off so two pollers never race. Verified end to end on prod with the email test guide.",
           "evidence": "src/docgen/inbox/job.py, deploy/docker-compose.prod.yml, docs/demo-scripts/email-inbox-test.md"
+        },
+        {
+          "name": "Judge email test kit (three tests)",
+          "status": "shipped",
+          "description": "submission/test-demo/ holds the email test guide and three tests: the clean packet (approve), the packet without its income worksheet (missing info), and a noisy 7-page scanned fax with no household size (missing info). All three verified on the live demo.",
+          "evidence": "docs/verdikt-email-test-guide.html, docs/demo-scripts/email-inbox-test.md, submission/test-demo/"
         }
       ]
     },

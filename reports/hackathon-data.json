@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T02:30:00Z",
-  "commit": "7c322f4",
+  "generated_at": "2026-10-19T04:20:00Z",
+  "commit": "203f4be",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
     "track": "Best Apps & Agents",
@@ -59,12 +59,13 @@
       "id": "R4",
       "name": "Public repo, README, demo URL",
       "status": "met",
-      "how": "Public repo at https://github.com/ajandan/verdikt-hackathon (MIT, detected by GitHub). README is publicly framed and links the live demo and video. Demo URL is live at https://verdikt.aismith.ai, with a one-click judge sign-in.",
+      "how": "Public repo at https://github.com/ajandan/verdikt-hackathon (MIT, detected by GitHub). README is publicly framed and links the live demo and video. Demo URL is live at https://verdikt.aismith.ai, with a one-click judge sign-in. Judges can test it by email with three cases from submission/test-demo/: the clean packet (approve), the packet without its income worksheet (missing info), and a noisy, low-quality scanned fax (missing info, with every field the two vision models read differently listed for the reviewer).",
       "evidence": [
         "https://github.com/ajandan/verdikt-hackathon (public, MIT)",
         "README.md (setup steps, live demo and video links)",
         "docs/HACKATHON.md (technical write-up)",
-        "https://verdikt.aismith.ai (live demo)"
+        "https://verdikt.aismith.ai (live demo)",
+        "submission/test-demo/ (email test guide, sample packet, scanned fax)"
       ]
     },
     {
@@ -210,12 +211,17 @@
     {
       "item": "≥ 1 NVIDIA OSS model",
       "status": "done",
-      "note": "NVIDIA Nemotron on Nebius Token Factory: Nemotron Nano for triage, Nemotron Super 120B for the cited verdict and PDF field labelling. Default enforced by test."
+      "note": "Four NVIDIA Nemotron models on Nebius Token Factory: Nemotron-3.5-Super-VL cross-checks every intake read, Nemotron Nano triages, Nemotron Super reasons over rules without a formula and labels PDF fields, and Nemotron 3 Nano 30B maps template fields at design time."
     },
     {
       "item": "YouTube video < 3 min",
       "status": "done",
       "note": "Published and public, under the 3:00 cap: https://youtu.be/EleEatbaEWM"
+    },
+    {
+      "item": "Judge email test kit",
+      "status": "done",
+      "note": "Three tests in submission/test-demo/ and the email test guide: approve, missing info, and a low-quality scanned fax. All three verified on the live demo on 2026-10-18."
     },
     {
       "item": "Devpost submission",
@@ -275,6 +281,14 @@
     {
       "date": "2026-10-18",
       "event": "Nemotron-3.5-Super-VL intake verifier live on prod (fourth NVIDIA model)"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Out-of-range reads go to review: a scan's Rx quantity misread as household size 30 now returns missing info instead of a denial"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Judge test 3 added: a low-quality scanned fax; verified on the live demo (missing info, verifier disagreements listed)"
     },
     {
       "date": "2026-10-30",

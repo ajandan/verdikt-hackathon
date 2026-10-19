@@ -1,11 +1,11 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T02:30:00Z",
-  "commit": "1fde634",
+  "generated_at": "2026-10-19T04:20:00Z",
+  "commit": "203f4be",
   "attestation": {
-    "last_manually_attested_at": "2026-10-19T01:56:00Z",
+    "last_manually_attested_at": "2026-10-19T04:20:00Z",
     "attested_by": "probe",
-    "note": "Verified against https://verdikt.aismith.ai: / and /health return 200, /ui/ redirects to sign-in, HSTS is sent, and TLS is a Let's Encrypt certificate valid to 2026-12-15. On the deploy host, web, worker, Postgres, Redis and MinIO are all up, with web, Postgres, Redis and MinIO reporting healthy; the database is at migration 0040. Deployed commit: 41bde65. The two defects open at first deploy (http asset URLs on an https page, and a missing landing video) are fixed and live: the page serves no http asset URLs and the landing video plays from YouTube. Hardening finished on 2026-10-18: secure cookies on, trusted proxies set for the tunnel, the web port bound to localhost, and the admin password and session secret rotated. After the change, admin and judge sign-in both work over https and the inbox poller kept running."
+    "note": "Verified against https://verdikt.aismith.ai: / and /health return 200, /ui/ redirects to sign-in, HSTS is sent, and TLS is a Let's Encrypt certificate valid to 2026-12-15. On the deploy host, web, worker, Postgres, Redis and MinIO are all up, with web, Postgres, Redis and MinIO reporting healthy; the database is at migration 0040. Deployed commit: 203f4be. The two defects open at first deploy (http asset URLs on an https page, and a missing landing video) are fixed and live: the page serves no http asset URLs and the landing video plays from YouTube. Hardening finished on 2026-10-18: secure cookies on, trusted proxies set for the tunnel, the web port bound to localhost, and the admin password and session secret rotated. After the change, admin and judge sign-in both work over https and the inbox poller kept running."
   },
   "summary": {
     "verdict": "DEPLOYED",
@@ -269,7 +269,7 @@
       {
         "name": "Demo mailbox",
         "url": "quire.template.agent@gmail.com",
-        "expect": "Email in → case in the inbox → reply after approval",
+        "expect": "Email in → case in the inbox → reply after approval. Judge tests 1 and 3 re-run on 2026-10-18: approve, and missing info for the scanned fax",
         "status": "live",
         "last_seen": "2026-10-18"
       }
@@ -315,6 +315,18 @@
     {
       "date": "2026-10-18",
       "event": "Nemotron-3.5-Super-VL verifier turned on for Alderwood; email test guide re-run on prod (approve and missing_info as expected, no disagreements)"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Out-of-range guard deployed: a household size outside 1-10 is treated as not read, so the scanned fax returns missing info instead of a denial"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "MinIO moved to pinned pgsty images; object store backed up before the deploy, all stored files verified"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Judge tests re-run on prod from a clean queue: clean packet approves, low-quality scanned fax returns missing info with verifier disagreements listed"
     }
   ]
 }

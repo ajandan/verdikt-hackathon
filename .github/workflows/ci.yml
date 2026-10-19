@@ -14,7 +14,9 @@ concurrency:
 jobs:
   test:
     name: lint + test + boundary + license
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19, and CI must not
+    # change under the judging window without a commit.
+    runs-on: ubuntu-24.04
 
     # Postgres + Redis run as service containers (their default CMDs work).
     # `ports:` maps each into the runner's localhost so the stock `DOCGEN_*`

@@ -26,6 +26,7 @@ non-empty findings, and that lives in ``inbox_hook`` / ``api_hook``.
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 from pap_pipeline.schemas.decision import Decision, VerifierFinding
@@ -95,7 +96,7 @@ async def dual_extract(
         if p_val is None or v_val is None:
             continue
         # Both non-null but unequal → disagreement.
-        if _normalize(p_val) != _normalize(v_val):
+        if not _values_agree(p_val, v_val):
             findings.append(
                 VerifierFinding(
                     type="extract_disagreement",
@@ -130,6 +131,43 @@ def _normalize(value: Any) -> Any:
             pass
         return stripped.lower()
     return value
+
+
+_NUMBER_WITH_UNIT = re.compile(r"\s*(-?\d+(?:\.\d+)?)\s+[A-Za-z][A-Za-z .]*")
+
+
+def _values_agree(a: Any, b: Any) -> bool:
+    """Whether two extractors read the same value, allowing for how VLMs
+    differ in writing it down.
+
+    Beyond :func:`_normalize`, two forms are treated as the same reading:
+
+    - a bare number and that number with a unit (``"30"`` / ``"30 tablets"``).
+      Two different units (``"30 mg"`` / ``"30 tablets"``) still disagree.
+    - a name with the words in another order or with a middle initial on one
+      side only (``"Mei L Chen"`` / ``"Chen Mei"``). Only for values with no
+      digits, so dates and IDs never compare by sorted parts, and only when
+      two or more full words remain, so ``"Y"`` / ``"N"`` or ``"Type A"`` /
+      ``"Type B"`` are never reduced to a match. Conflicting initials still
+      disagree.
+
+    Anything else that differs is a disagreement and goes to a reviewer.
+    """
+    na, nb = _normalize(a), _normalize(b)
+    if na == nb:
+        return True
+    for num, other in ((na, b), (nb, a)):
+        if isinstance(num, (int, float)) and not isinstance(num, bool) and isinstance(other, str):
+            m = _NUMBER_WITH_UNIT.fullmatch(other)
+            if m and float(m.group(1)) == num:
+                return True
+    if isinstance(a, str) and isinstance(b, str) and not any(c.isdigit() for c in a + b):
+        wa, wb = re.findall(r"[a-z]+", a.lower()), re.findall(r"[a-z]+", b.lower())
+        full_a, full_b = sorted(w for w in wa if len(w) > 1), sorted(w for w in wb if len(w) > 1)
+        init_a, init_b = {w for w in wa if len(w) == 1}, {w for w in wb if len(w) == 1}
+        if len(full_a) >= 2 and full_a == full_b and (init_a <= init_b or init_b <= init_a):
+            return True
+    return False
 
 
 def verify_decision(

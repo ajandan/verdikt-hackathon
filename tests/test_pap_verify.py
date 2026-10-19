@@ -11,7 +11,7 @@ import pytest
 from pap_pipeline.schemas.decision import Citation, Decision
 from pap_pipeline.schemas.rule import Rule
 from pap_pipeline.stages.extract import ExtractClientConfig
-from pap_pipeline.verify import _normalize, dual_extract, verify_decision
+from pap_pipeline.verify import _normalize, _values_agree, dual_extract, verify_decision
 
 # --------------------------------------------------------------------------- #
 # verify_decision — the seven invariants
@@ -270,3 +270,49 @@ def test_normalize_treats_stringified_numbers_as_numbers():
 
 def test_normalize_strips_and_lowercases_strings():
     assert _normalize("  Devon Okafor  ") == _normalize("devon okafor")
+
+
+# --------------------------------------------------------------------------- #
+# _values_agree — formatting differences between two VLMs are not conflicts
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("a,b", [
+    ("30", "30 tablets"),                 # seen 2026-10-18: MiniCPM-V vs Nemotron VL
+    (30, "30 tablets"),
+    ("2.5", "2.5 mg"),
+    ("Chen Mei", "Chen Mei L"),           # seen on the synthetic intake fixture
+    ("Mei L. Chen", "Chen Mei"),
+    ("Devon Okafor", "okafor devon"),
+])
+def test_same_reading_written_differently_agrees(a, b):
+    assert _values_agree(a, b) and _values_agree(b, a)
+
+
+@pytest.mark.parametrize("a,b", [
+    ("1990-07-07", "1940-07-07"),         # the wrong-decade DOB the verifier exists to catch
+    ("1990-03-07", "1990-07-03"),         # same parts, different date
+    ("30", "40 tablets"),
+    ("30 mg", "30 tablets"),
+    ("Y", "N"),
+    ("Type A", "Type B"),
+    ("John A Smith", "John B Smith"),     # conflicting initials
+    ("Aldurizumab", "Adliruzumab"),
+    ("Mei Chen", "Mei Chan"),
+])
+def test_real_disagreements_still_disagree(a, b):
+    assert not _values_agree(a, b) and not _values_agree(b, a)
+
+
+@pytest.mark.asyncio
+async def test_dual_extract_ignores_unit_and_initial_differences(monkeypatch):
+    async def _fake_extract(attachments, *, config, slots=None):
+        if config.vision_model == "verifier":
+            return {"rx_quantity": "30 tablets", "patient_name": "Chen Mei L", "dob": "1990-07-07"}
+        return {"rx_quantity": "30", "patient_name": "Chen Mei", "dob": "1940-07-07"}
+
+    monkeypatch.setattr("pap_pipeline.verify.extract", _fake_extract)
+    primary = ExtractClientConfig(base_url="x", api_key="k", vision_model="primary")
+    verifier = ExtractClientConfig(base_url="x", api_key="k", vision_model="verifier")
+    _, findings = await dual_extract([b"pdf"], primary_config=primary, verifier_config=verifier)
+    assert [f.detail["field"] for f in findings] == ["dob"]

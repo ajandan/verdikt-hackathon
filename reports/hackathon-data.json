@@ -1,6 +1,6 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-18T22:50:00Z",
+  "generated_at": "2026-10-19T02:30:00Z",
   "commit": "7c322f4",
   "event": {
     "name": "Nebius × NVIDIA Global AI Hackathon",
@@ -16,7 +16,7 @@
     "rules_met": 5,
     "rules_pending": 0,
     "license": "MIT",
-    "nvidia_models": 3,
+    "nvidia_models": 4,
     "nebius_services": 1,
     "open_items": 0
   },
@@ -25,7 +25,7 @@
       "id": "R1",
       "name": "Runs on Nebius Token Factory",
       "status": "met",
-      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super reasons over any rule that has no deterministic formula. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
+      "how": "Every model call goes through Nebius Token Factory: MiniCPM-V reads and Nemotron-3.5-Super-VL cross-checks the read, Nemotron Nano triages, Qwen3-Embedding retrieves, Nemotron Super reasons over any rule that has no deterministic formula. The application itself is deployed on self-hosted infrastructure; the rule is satisfied by Token Factory, which the rule names as an alternative to Nebius AI Cloud.",
       "evidence": [
         "src/docgen/providers/nebius.py (Nebius Token Factory adapter)",
         "tests/test_provider_nebius.py (provider contract enforced)"
@@ -35,8 +35,9 @@
       "id": "R2",
       "name": "≥ 1 NVIDIA open-source model",
       "status": "met",
-      "how": "Three NVIDIA Nemotron models, all on Nebius Token Factory: Nemotron Nano triages each case, Nemotron Super reasons over rules without a deterministic formula and labels PDF form fields, and Nemotron 3 Nano 30B maps template fields at design time. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
+      "how": "Four NVIDIA Nemotron models, all on Nebius Token Factory: Nemotron-3.5-Super-VL cross-checks every intake read, Nemotron Nano triages each case, Nemotron Super reasons over rules without a deterministic formula and labels PDF form fields, and Nemotron 3 Nano 30B maps template fields at design time. Default enforced in tests: the Nebius provider's default model name must start with nvidia/.",
       "evidence": [
+        "nvidia/Nemotron-3.5-Super-VL (intake verifier, second vision reader)",
         "nvidia/nemotron-nano-3-6b (triage, rule-based fallback)",
         "nvidia/nemotron-3-super-120b-a12b (reasoning fallback, PDF field labeling)",
         "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B (design-time template mapping, provider default)",
@@ -85,7 +86,7 @@
         "stage": "Ingest",
         "model": "openbmb/MiniCPM-V-4_5 · verifier: nvidia/Nemotron-3.5-Super-VL",
         "host": "Nebius Token Factory",
-        "why": "Vision extraction over scanned, faxed and flat PDFs: enrollment forms, income worksheets, prescriptions. Each value lands in a typed field the rules can check. An optional second reader, Nemotron-3.5-Super-VL, reads the same pages as a cross-check, and any field the two disagree on goes to the reviewer. The verifier is set per tenant or program; it is on for Alderwood in the dev stack and not yet on the live demo. In the 2026-10-18 extraction benchmark it read 17/19 fields on the synthetic sample and 19/19 on the real scan."
+        "why": "Vision extraction over scanned, faxed and flat PDFs: enrollment forms, income worksheets, prescriptions. Each value lands in a typed field the rules can check. A second reader, Nemotron-3.5-Super-VL, reads the same pages as a cross-check, and any field the two disagree on goes to the reviewer. It is on for the Alderwood demo tenant on the live site; the email test cases on 2026-10-18 ran both readers with no disagreements. In the 2026-10-18 extraction benchmark it read 17/19 fields on the synthetic sample and 19/19 on the real scan."
       },
       {
         "stage": "Triage",
@@ -270,6 +271,10 @@
     {
       "date": "2026-10-18",
       "event": "Devpost submission sent"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Nemotron-3.5-Super-VL intake verifier live on prod (fourth NVIDIA model)"
     },
     {
       "date": "2026-10-30",

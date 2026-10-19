@@ -12,8 +12,8 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 100,
-    "shipped": 98,
+    "features_total": 101,
+    "shipped": 99,
     "in_progress": 0,
     "backlog": 2,
     "parked": 1
@@ -166,6 +166,12 @@
           "status": "shipped",
           "evidence": "tests/test_pap_e2e_config_chain.py (6 tests)",
           "notes": "Wire-capture MockTransport intercepts every Extract/Triage/Reason HTTP call and asserts the model name in the request body matches the resolved value. Covers program overrides winning end-to-end, tenant fallback when program is NULL, all-null falling through to settings, verifier opt-in firing a second vision call, per-program triage routing skipping Decide entirely, and precedence between program and tenant. Complements the resolver unit tests by proving inbox_hook actually threads the resolved values into each stage's config."
+        },
+        {
+          "name": "Dual-VLM intake verifier (Nemotron-3.5-Super-VL)",
+          "status": "shipped",
+          "description": "A second vision model reads the same pages; fields the two readers disagree on become verifier findings for the reviewer. Units and name order are not counted as disagreements. On for Alderwood in prod since 2026-10-18.",
+          "evidence": "src/pap_pipeline/verify.py, tests/test_pap_verify.py, docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md"
         }
       ]
     },

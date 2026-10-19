@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T01:58:00Z",
-  "commit": "41bde65",
+  "generated_at": "2026-10-19T02:30:00Z",
+  "commit": "1fde634",
   "attestation": {
     "last_manually_attested_at": "2026-10-19T01:56:00Z",
     "attested_by": "probe",
@@ -233,7 +233,7 @@
         "name": "Nebius Token Factory",
         "role": "External: hosts every model the pipeline calls",
         "status": "live",
-        "detail": "Prod calls it on every case: MiniCPM-V (ingest), Nemotron Nano (triage), Qwen3-Embedding-8B (retrieve), Nemotron Super (reasoning fallback). Verified end to end on 2026-10-18 with emailed test cases, including an approved case whose reply email arrived.",
+        "detail": "Prod calls it on every case: MiniCPM-V (ingest), Nemotron-3.5-Super-VL (ingest verifier), Nemotron Nano (triage), Qwen3-Embedding-8B (retrieve), Nemotron Super (reasoning fallback). Verified end to end on 2026-10-18 with emailed test cases, including an approved case whose reply email arrived.",
         "last_seen": "2026-10-18"
       }
     ],
@@ -311,6 +311,10 @@
     {
       "date": "2026-10-18",
       "event": "Live-host hardening: secure cookies on, trusted proxies set for the tunnel, web port bound to localhost, admin credentials rotated"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Nemotron-3.5-Super-VL verifier turned on for Alderwood; email test guide re-run on prod (approve and missing_info as expected, no disagreements)"
     }
   ]
 }

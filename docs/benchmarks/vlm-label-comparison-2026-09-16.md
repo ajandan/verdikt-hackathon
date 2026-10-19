@@ -6,6 +6,21 @@
 
 Raw per-run outputs live in `.tmp/nebius/` (gitignored). This doc captures the summary, methodology, and decisions so we don't have to re-run to remember why we picked what we picked.
 
+> **Status, 2026-10-18: superseded in part.** The measurements below stand as a
+> dated record. Two decisions in §3 have moved on:
+>
+> - **Intake extraction model:** no longer undecided. NVIDIA
+>   `Nemotron-3.5-Super-VL`, now on serverless Token Factory, read 17/19 and
+>   19/19 on the same two fixtures against MiniCPM-V-4_5's 14/19 and 17/19, and
+>   is wired in as the extraction cross-check. See
+>   [the 2026-10-18 benchmark](vlm-extract-nemotron-vl-2026-10-18.md).
+> - **NVIDIA vision model:** an NVIDIA VLM is now usable on serverless Token
+>   Factory. Nemotron-Nano-V2-12b, the model tested here, still is not.
+>
+> The extract prompt has changed since this run, so MiniCPM-V's September
+> scores are not directly comparable with October's. Both runs are shown side
+> by side on the engineering dashboard (Tests › Models).
+
 ---
 
 ## 1. Template labeling — Form A (chunked + cropped pipeline)
@@ -43,30 +58,33 @@ Two fixtures, 19 default slots each. `Alderwood filled` is a synthetic clean PDF
 |---|---|---|
 | PDF template labeler VLM | Stay on `openbmb/MiniCPM-V-4_5` | Fastest, on Nebius, accuracy comparable to Pixtral. Kimi disqualified by 50× slowdown + chunk failures. |
 | Template labeler mode | `DOCGEN_PDF_LABELER_MODE=vision` (new flag added 2026-09-16) | Vision path with chunked+cropped annotated boxes beats text-only Nemotron on flat non-AcroForm templates. **Validated end-to-end via portal on 2026-09-16:** Form A went from 24/104 (auto/text-only) → 98/104 mostly-correct (vision+chunk+crop). Shipped. |
-| Intake extraction VLM | **Undecided** — MiniCPM-V is weakest on both fixtures; four Nebius alternatives (Kimi-K3, Kimi-K2.7-Code, GLM-5.3-Flash, MiniMax-M3) score higher. Kimi-K3 = best raw accuracy; GLM-5.3-Flash = best speed/accuracy trade. Not yet swapped because (a) hackathon narrative already reads as "3 NVIDIA text + 1 OSS vision complement" and MiniCPM keeps it clean, (b) only tested on 2 fixtures. |
-| Nemotron-Nano-V2-12b (NVIDIA VLM) | Not usable | Listed in Nebius catalog but returns 404 on all 12 ID variants × 2 base URLs. Requires dedicated-endpoint provisioning (paid per-hour). Blocked until Nebius adds it to serverless. |
+| Intake extraction VLM | ~~Undecided~~ **Superseded 2026-10-18: Nemotron-3.5-Super-VL benchmarked and added as the cross-check; see status note.** Original entry: **Undecided** — MiniCPM-V is weakest on both fixtures; four Nebius alternatives (Kimi-K3, Kimi-K2.7-Code, GLM-5.3-Flash, MiniMax-M3) score higher. Kimi-K3 = best raw accuracy; GLM-5.3-Flash = best speed/accuracy trade. Not yet swapped because (a) hackathon narrative already reads as "3 NVIDIA text + 1 OSS vision complement" and MiniCPM keeps it clean, (b) only tested on 2 fixtures. |
+| Nemotron-Nano-V2-12b (NVIDIA VLM) | Not usable | Listed in Nebius catalog but returns 404 on all 12 ID variants × 2 base URLs. Requires dedicated-endpoint provisioning (paid per-hour). Blocked until Nebius adds it to serverless. **2026-10-18:** this model is still unavailable, but NVIDIA `Nemotron-3.5-Super-VL` is on serverless and usable. |
 
 ## 4. Code changes made 2026-09-16
 
-- `src/docgen/config.py:78` — added `pdf_labeler_mode: Literal["auto","vision","text"] = "auto"`
-- `src/docgen/designtime/pdf_labeler_backend.py:34` — surfaced `labeler_mode` in the backend picker dict
+- `src/docgen/config.py` (`Settings.pdf_labeler_mode`) — added `pdf_labeler_mode: Literal["auto","vision","text"] = "auto"`
+- `src/docgen/designtime/pdf_labeler_backend.py` — surfaced `labeler_mode` in the backend picker dict
 - `src/docgen/designtime/pdf_field_detector.py`:
   - added `_VISION_CHUNK_SIZE = 8` and `_VISION_CROP_PAD_ABOVE_PX/OTHER_PX` constants
   - added `_crop_annotated_to_chunk()` helper
   - `label_fields_in_pdf()` accepts `labeler_mode` and routes pages to vision / text / auto
   - `_visual_label_chunk()` replaces the old per-page vision call — chunks each page's fields into groups of 8 sorted by (y, x), crops the annotated PNG to each chunk's region + padding
-- `src/docgen/inbox/agent.py:426` + `src/docgen/ui/routes.py:2067,2194` — threaded `labeler_mode` into every `label_fields_in_pdf` call
+- `src/docgen/inbox/agent.py` + `src/docgen/ui/routes.py` (both `label_fields_in_pdf` call sites) — threaded `labeler_mode` into every `label_fields_in_pdf` call
 - `deploy/.env.example` — documented `DOCGEN_PDF_LABELER_MODE`
 - `docker-compose.yml` — exposed `DOCGEN_PDF_LABELER_MODE` and `DOCGEN_PDF_VISION_OCR_MODEL` on `web` and `worker`
 - `.env` — set `DOCGEN_PDF_LABELER_MODE=vision` (local dev)
 
 ## 5. Reproducing the benchmarks
 
-Standalone harnesses at `.tmp/nebius/`:
-- `forma/bench_3way.py` — MiniCPM vs Kimi-K2.7-Code vs Pixtral, chunked+cropped
-- `forma/bench_mistral_ocr.py` — Mistral OCR + spatial-match labeling (block-level, unusable)
-- `forma/diagnose_v2.py` — per-page annotated overlay dump for eyeballing accuracy
-- `compare_vlms.py` — intake extraction 7-way (Alderwood fixture)
-- `formb/compare_formb.py` — intake extraction 7-way (Form B scan)
+The harnesses and fixtures are kept outside the repo, under the gitignored
+`.tmp/nebius/`: one fixture is a real filled-in form, so neither it nor the
+scripts that read it are published. They cover the four-model labeler run on
+Form A, the Mistral OCR spatial-match attempt, the per-page diagnostic
+overlays, and the seven-model intake sweep on both fixtures.
+
+The published numbers come from their raw JSON output through
+`reports/_gen_models_data.py`, which writes `reports/models-data.json` for the
+engineering dashboard and withholds every value read from the real form.
 
 All require `DOCGEN_AI_API_KEY` (Nebius) and, for Mistral models, `MISTRAL_API_KEY` passed inline.

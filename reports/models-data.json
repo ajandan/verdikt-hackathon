@@ -1,0 +1,298 @@
+{
+  "product": "Verdikt",
+  "generated_at": "2026-10-19T02:47:05+00:00",
+  "head_sha": "820133a",
+  "extraction_latest": {
+    "date": "2026-10-18",
+    "doc": "docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md",
+    "method": "Production extract() path, same prompt and schema for both models, temperature 0, thinking disabled. Per-slot normalised exact match against hand-written ground truth. Tokens are Token Factory usage, summed over the stage's calls.",
+    "fixtures": [
+      {
+        "id": "synthetic",
+        "label": "Alderwood sample",
+        "kind": "Synthetic, digitally rendered",
+        "slots": 19
+      },
+      {
+        "id": "scan",
+        "label": "Form B",
+        "kind": "Real raster scan, typed and handwritten",
+        "slots": 19
+      }
+    ],
+    "results": [
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "nvidia": false,
+        "match": 14,
+        "total": 19,
+        "pct": 73.7,
+        "wrong": 1,
+        "miss": 3,
+        "extra": 1,
+        "runs": 3,
+        "identical_runs": true,
+        "time_min_s": 3.4,
+        "time_max_s": 5.5,
+        "tokens_in": 2796,
+        "tokens_out": 159
+      },
+      {
+        "fixture": "synthetic",
+        "model": "nvidia/Nemotron-3.5-Super-VL",
+        "nvidia": true,
+        "match": 17,
+        "total": 19,
+        "pct": 89.5,
+        "wrong": 2,
+        "miss": 0,
+        "extra": 0,
+        "runs": 3,
+        "identical_runs": true,
+        "time_min_s": 4.9,
+        "time_max_s": 5.9,
+        "tokens_in": 5684,
+        "tokens_out": 383
+      },
+      {
+        "fixture": "scan",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "nvidia": false,
+        "match": 17,
+        "total": 19,
+        "pct": 89.5,
+        "wrong": 1,
+        "miss": 0,
+        "extra": 1,
+        "runs": 3,
+        "identical_runs": true,
+        "time_min_s": 21.8,
+        "time_max_s": 24.4,
+        "tokens_in": 5783,
+        "tokens_out": 568
+      },
+      {
+        "fixture": "scan",
+        "model": "nvidia/Nemotron-3.5-Super-VL",
+        "nvidia": true,
+        "match": 19,
+        "total": 19,
+        "pct": 100.0,
+        "wrong": 0,
+        "miss": 0,
+        "extra": 0,
+        "runs": 3,
+        "identical_runs": true,
+        "time_min_s": 23.0,
+        "time_max_s": 27.6,
+        "tokens_in": 16496,
+        "tokens_out": 576
+      }
+    ],
+    "errors": [
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "patient_name",
+        "status": "WRONG",
+        "expected": "Mei L Chen",
+        "got": "Chen Mei"
+      },
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "country",
+        "status": "EXTRA",
+        "expected": null,
+        "got": "Erie"
+      },
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "has_denial_letter",
+        "status": "MISS",
+        "expected": false,
+        "got": null
+      },
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "mailing_state",
+        "status": "MISS",
+        "expected": "NY",
+        "got": null
+      },
+      {
+        "fixture": "synthetic",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "prescribed_drug",
+        "status": "MISS",
+        "expected": "Aldurizumab",
+        "got": null
+      },
+      {
+        "fixture": "synthetic",
+        "model": "nvidia/Nemotron-3.5-Super-VL",
+        "field": "patient_name",
+        "status": "WRONG",
+        "expected": "Mei L Chen",
+        "got": "Chen Mei L"
+      },
+      {
+        "fixture": "synthetic",
+        "model": "nvidia/Nemotron-3.5-Super-VL",
+        "field": "prescribed_drug",
+        "status": "WRONG",
+        "expected": "Aldurizumab",
+        "got": "Adliruzumab"
+      },
+      {
+        "fixture": "scan",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "date_of_birth",
+        "status": "WRONG"
+      },
+      {
+        "fixture": "scan",
+        "model": "openbmb/MiniCPM-V-4_5",
+        "field": "country_of_residence",
+        "status": "EXTRA"
+      }
+    ],
+    "verifier_replay": [
+      {
+        "fixture": "synthetic",
+        "flags": [],
+        "primary_errors": 5
+      },
+      {
+        "fixture": "scan",
+        "flags": [
+          {
+            "field": "city",
+            "outcome": "false alarm"
+          },
+          {
+            "field": "date_of_birth",
+            "outcome": "caught"
+          }
+        ],
+        "primary_errors": 2
+      }
+    ]
+  },
+  "extraction_sweep": {
+    "date": "2026-09-16",
+    "doc": "docs/benchmarks/vlm-label-comparison-2026-09-16.md",
+    "note": "Single run per model on the extract prompt as it stood in September; it has changed since, so MiniCPM-V's scores here differ from the October run.",
+    "results": [
+      {
+        "model": "openbmb/MiniCPM-V-4_5",
+        "licence": "Apache-2.0",
+        "nvidia": false,
+        "synthetic_pct": 78.9,
+        "scan_pct": 84.2,
+        "synthetic_s": 8.62,
+        "scan_s": 8.24
+      },
+      {
+        "model": "google/gemma-3-27b-it",
+        "licence": "Gemma licence",
+        "nvidia": false,
+        "synthetic_pct": 73.7,
+        "scan_pct": 78.9,
+        "synthetic_s": 11.01,
+        "scan_s": 11.69
+      },
+      {
+        "model": "zai-org/GLM-5.3-Flash",
+        "licence": "Z.ai licence",
+        "nvidia": false,
+        "synthetic_pct": 100.0,
+        "scan_pct": 94.7,
+        "synthetic_s": 81.98,
+        "scan_s": 9.37
+      },
+      {
+        "model": "moonshotai/Kimi-K3",
+        "licence": "Kimi K3 licence",
+        "nvidia": false,
+        "synthetic_pct": 100.0,
+        "scan_pct": 100.0,
+        "synthetic_s": 11.49,
+        "scan_s": 23.62
+      },
+      {
+        "model": "moonshotai/Kimi-K2.6",
+        "licence": "MIT",
+        "nvidia": false,
+        "synthetic_pct": 100.0,
+        "scan_pct": 47.4,
+        "synthetic_s": 19.52,
+        "scan_s": 23.67
+      },
+      {
+        "model": "moonshotai/Kimi-K2.7-Code",
+        "licence": "MIT",
+        "nvidia": false,
+        "synthetic_pct": 100.0,
+        "scan_pct": 100.0,
+        "synthetic_s": 7.29,
+        "scan_s": 47.41
+      },
+      {
+        "model": "MiniMaxAI/MiniMax-M3",
+        "licence": "MiniMax licence",
+        "nvidia": false,
+        "synthetic_pct": 84.2,
+        "scan_pct": 94.7,
+        "synthetic_s": 5.4,
+        "scan_s": 12.11
+      }
+    ]
+  },
+  "labeler": {
+    "date": "2026-09-16",
+    "doc": "docs/benchmarks/vlm-label-comparison-2026-09-16.md",
+    "fixture": "Form A, flat PDF, 104 fields",
+    "note": "Labeled count and time are measured. Correct labels were estimated by eye.",
+    "results": [
+      {
+        "model": "openbmb/MiniCPM-V-4_5",
+        "host": "Nebius Token Factory",
+        "labeled": 101,
+        "est_correct": 60,
+        "time_s": 22.8
+      },
+      {
+        "model": "moonshotai/Kimi-K2.7-Code",
+        "host": "Nebius Token Factory",
+        "labeled": 88,
+        "est_correct": 62,
+        "time_s": 1234.5
+      },
+      {
+        "model": "mistralai/pixtral-12b-2409",
+        "host": "Mistral API (off-Nebius)",
+        "labeled": 101,
+        "est_correct": 63,
+        "time_s": 87.8
+      }
+    ],
+    "validated": {
+      "before": 24,
+      "after": 98,
+      "total": 104,
+      "before_mode": "text-only (auto)",
+      "after_mode": "vision, chunked and cropped",
+      "how": "End to end through the portal, labels checked by hand"
+    }
+  },
+  "not_covered": [
+    "Triage (Nemotron Nano): no accuracy benchmark yet; its rule-based fallback is covered by pytest.",
+    "Reason (Nemotron Super): no accuracy benchmark yet; verdicts are checked case by case by the deterministic verifier and the human review gate.",
+    "Rule-to-formula translation (Nemotron Super): every formula is reviewed by the rule author before it is saved; no batch benchmark.",
+    "Nemotron-3.5-Super-VL as the PDF labeler: not run on Form A."
+  ]
+}

@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verdikt · Model benchmarks</title>
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<meta name="description" content="Model benchmarks for Verdikt: extraction accuracy, timing and tokens per vision model on Nebius Token Factory, the verifier cross-check replay, and the PDF form labeler." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Verdikt" />
+<meta property="og:title" content="Verdikt · Model benchmarks" />
+<meta property="og:description" content="Extraction and labeling benchmarks for the models Verdikt runs on Nebius Token Factory." />
+<meta property="og:image" content="./og-verdikt.png" />
+<meta property="og:image:alt" content="Verdikt · the trifurcation mark on paper stock" />
+<meta property="og:image:width" content="1024" />
+<meta property="og:image:height" content="1024" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Verdikt · Model benchmarks" />
+<meta name="twitter:description" content="Extraction and labeling benchmarks for the models Verdikt runs on Nebius Token Factory." />
+<meta name="twitter:image" content="./og-verdikt.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./verdikt.css?v=11">
+</head>
+<body>
+
+<header class="hairline-b">
+  <div class="container nav">
+    <a href="/" class="brand" aria-label="Back to main site">
+      <span class="mark">
+        <svg viewBox="0 0 64 64" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g fill="none" stroke-width="5.5" stroke-linecap="square">
+            <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+            <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+            <path d="M8 32H42" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+            <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+          </g>
+        </svg>
+      </span>
+      Verdikt
+      <span class="brand-tag">Model <em>benchmarks.</em></span>
+    </a>
+    <nav class="crossnav">
+      <a href="./about.html">About</a>
+      <a href="./domain.html">Domain</a>
+      <a href="./thesis.html">Thesis</a>
+      <a href="./index.html">Overview</a>
+      <a href="./features.html">Features</a>
+      <a href="./dashboard.html">Tests</a>
+      <a href="./code-review.html">Code</a>
+      <a href="./security-review.html">Security</a>
+      <a href="./production.html">Production</a>
+      <a href="./hackathon.html">Hackathon</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <style>
+  .tests-subnav { display:flex; gap:0; margin: 12px 0 0; border-bottom: 1px solid var(--hair, #e5e0d3); }
+  .tests-subnav a {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    color: var(--ink-500, #666); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .12s ease, border-color .12s ease;
+  }
+  .tests-subnav a:hover { color: var(--ink-900, #1a1a1a); }
+  .tests-subnav a.active {
+    color: var(--brand, #1e5f4f); border-bottom-color: var(--brand, #1e5f4f);
+    font-weight: 600;
+  }
+  .tests-subnav .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-300, #999); padding: 8px 12px 8px 0;
+    font-family: JetBrains Mono, ui-monospace, monospace;
+  }
+</style>
+  <nav class="tests-subnav" aria-label="Test outputs">
+    <span class="k">Tests ▾</span>
+    <a href="./dashboard.html">Pytest</a>
+    <a href="./browser-e2e.html">UI</a>
+    <a href="./perf.html">Perf</a>
+    <a href="./models.html" class="active">Models</a>
+  </nav>
+<section class="hero">
+    <svg class="hero-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="30" y="64" width="12" height="26" rx="2" fill="none" stroke="#8ec7b5" stroke-width="2.5"/>
+      <rect x="54" y="44" width="12" height="46" rx="2" fill="none" stroke="#1e5f4f" stroke-width="2.5"/>
+      <rect x="78" y="30" width="12" height="60" rx="2" fill="#1e5f4f" stroke="#1e5f4f" stroke-width="2.5"/>
+      <line x1="24" y1="94" x2="96" y2="94" stroke="#1e5f4f" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="eyebrow"><span class="dot"></span> Accuracy, time and tokens per model</span>
+    <h1 class="display">Every model, <em>measured</em>.</h1>
+    <p class="lede">Head-to-head runs of the vision models Verdikt can use, through the production extract code, against forms with hand-written ground truth. Every model here is served by Nebius Token Factory unless marked. Regenerated by <code style="font-family:JetBrains Mono,monospace">python reports/_gen_models_data.py</code> from the raw harness output.</p>
+    <div class="meta-row" id="meta-row"></div>
+  </section>
+
+  <div id="state" class="state">Loading benchmark data…</div>
+
+  <div id="content" hidden>
+
+  <style>
+    .mb-nv { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; letter-spacing:.06em; background:#e9f5d9; color:#3f6d12; vertical-align:1px; font-family:Inter,system-ui,sans-serif; }
+    .mb-score { display:flex; align-items:center; gap:10px; min-width:150px; }
+    .mb-score .bar { flex:1; min-width:60px; }
+    .mb-score b { font-variant-numeric: tabular-nums; min-width:48px; text-align:right; font-weight:600; }
+    .mb-bad { color: var(--red-500, #b64a3f); }
+    .mb-muted { color: var(--ink-500, #666); }
+    .mb-tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
+    .mb-tag.caught { background:#e5f4ec; color:#1e5f4f; }
+    .mb-tag.alarm { background:#fdf4d9; color:#8a5b12; }
+    .mb-tag.WRONG { background:#fbe5e0; color:#9c2617; }
+    .mb-tag.MISS { background:#f1efe8; color:#5b5647; }
+    .mb-tag.EXTRA { background:#fdf4d9; color:#8a5b12; }
+    .mb-grid2 { display:grid; grid-template-columns:1fr; gap:14px; align-items:start; }
+    @media (min-width: 820px) { .mb-grid2 { grid-template-columns:1fr 1fr; } }
+    @media (min-width: 980px) { #kpi-row { grid-template-columns: repeat(3, 1fr); } }
+    .mb-big { font-family:'Instrument Serif',Georgia,serif; font-size:44px; line-height:1; color:var(--seal-700,#1e5f4f); }
+    .mb-list { margin:0; padding-left:18px; line-height:1.75; }
+    .mb-src a { color: var(--seal-700,#1e5f4f); }
+  </style>
+
+    <section class="block">
+      <span class="kicker">Rollup</span>
+      <h2>Latest extraction run</h2>
+      <p class="subhead" id="latest-sub"></p>
+      <div class="kpi-row" id="kpi-row"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Extraction</span>
+      <h2>Head to head</h2>
+      <p class="subhead" id="method"></p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead><tr><th>Model</th><th>Form</th><th>Fields correct</th><th>Wrong</th><th>Missed</th><th>Invented</th><th>Time</th><th>Tokens in / out</th></tr></thead>
+        <tbody id="latest-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Errors</span>
+      <h2>Where each model went wrong</h2>
+      <p class="subhead">Every field that did not match the ground truth. Form B is a real filled-in form, so its values are withheld; only the field and the kind of error are shown.</p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead><tr><th>Model</th><th>Form</th><th>Field</th><th>Error</th><th>Expected</th><th>Read</th></tr></thead>
+        <tbody id="errors-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Cross-check</span>
+      <h2>Verifier replay</h2>
+      <p class="subhead">The same readings put through the verifier's own comparison, with MiniCPM-V as the reader and Nemotron VL as the cross-check. A field is flagged for the reviewer when both models read a value and the values differ; a blank on either side is not a flag. <b>Caught</b> means the reader was wrong on that field; <b>false alarm</b> means it was right.</p>
+      <div class="mb-grid2" id="replay"></div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">History</span>
+      <h2>Extraction sweep, seven models</h2>
+      <p class="subhead" id="sweep-sub"></p>
+      <div class="table-scroll">
+      <table class="files">
+        <thead><tr><th>Model</th><th>Licence</th><th>Alderwood sample</th><th>Form B scan</th><th>Time (sample / scan)</th></tr></thead>
+        <tbody id="sweep-body"></tbody>
+      </table>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Design time</span>
+      <h2>PDF form labeler</h2>
+      <p class="subhead" id="lab-sub"></p>
+      <div class="mb-grid2">
+        <div class="callout">
+          <div class="callout-head">Validated end to end</div>
+          <div class="mb-big" id="lab-big"></div>
+          <p class="mb-muted" id="lab-big-d" style="margin:8px 0 0"></p>
+        </div>
+        <div class="table-scroll">
+        <table class="files">
+          <thead><tr><th>Model</th><th>Host</th><th>Labeled</th><th>Correct (est.)</th><th>Time</th></tr></thead>
+          <tbody id="lab-body"></tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="kicker">Gaps</span>
+      <h2>Not benchmarked yet</h2>
+      <div class="callout"><ul class="mb-list" id="gaps"></ul></div>
+      <p class="subhead mb-src" id="sources" style="margin-top:14px"></p>
+    </section>
+
+  </div>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <span class="foot-mark"><svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g fill="none" stroke-width="6" stroke-linecap="square">
+          <path d="M38 32C28 32 28 13 18 13H8" stroke="#5fa58f"/>
+          <path d="M38 32C28 32 28 51 18 51H8" stroke="#8ec7b5"/>
+          <path d="M8 32H42" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="9" stroke="#1e5f4f"/>
+          <circle cx="51" cy="32" r="3.5" fill="#3cb371"/>
+        </g>
+      </svg></span>
+      <span class="foot-wordmark">Verdikt</span>
+      <span class="foot-tag">Model benchmarks</span>
+    </div>
+    <div class="foot-meta">
+      <span class="nav-meta" id="nav-meta"></span>
+      <span class="foot-sep">·</span>
+      <a href="./models-data.json">models-data.json</a>
+      <span class="foot-sep">·</span>
+      <a href="/">&larr; Main site</a>
+    </div>
+  </footer>
+
+</main>
+
+<script>
+(async function () {
+  const stateEl = document.getElementById('state');
+  const contentEl = document.getElementById('content');
+  let data;
+  try {
+    const res = await fetch('./models-data.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    stateEl.className = 'state err';
+    stateEl.textContent = "Couldn't load models-data.json (" + (e.message || e) + ").";
+    return;
+  }
+  const esc = (s) => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const short = (m) => m.split('/').pop();
+  const nv = (m) => m.startsWith('nvidia/') ? '<span class="mb-nv">NVIDIA</span>' : '';
+  const fmtS = (a, b) => a === b ? a.toFixed(1) + 's' : a.toFixed(1) + '–' + b.toFixed(1) + 's';
+  const n = (x) => Number(x).toLocaleString('en-US');
+  const score = (m, t) => {
+    const pct = t ? Math.round(100 * m / t) : 0;
+    return '<div class="mb-score"><b>' + m + '/' + t + '</b><div class="bar"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>';
+  };
+  const pctCell = (p) => p == null ? '<span class="mb-muted">–</span>'
+    : '<div class="mb-score"><b>' + p.toFixed(1) + '%</b><div class="bar"><div class="bar-fill' + (p < 60 ? ' fail' : '') + '" style="width:' + p + '%"></div></div></div>';
+
+  const L = data.extraction_latest, S = data.extraction_sweep, B = data.labeler;
+  const fx = Object.fromEntries(L.fixtures.map(f => [f.id, f]));
+
+  document.getElementById('nav-meta').textContent =
+    (data.generated_at || '').replace('T', ' ').split('+')[0] + (data.head_sha ? '  ·  ' + data.head_sha : '');
+  const runs = L.results[0] ? L.results[0].runs : 0;
+  document.getElementById('meta-row').innerHTML = [
+    ['Latest run', L.date], ['Forms', String(L.fixtures.length)], ['Runs per model', String(runs)], ['Host', 'Nebius Token Factory'],
+  ].map(([k, v]) => '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + esc(v) + '</span>').join('');
+
+  // KPIs: each model on each form (best on the form in green), then
+  // repeatability and the verifier replay.
+  const by = (f, m) => L.results.find(r => r.fixture === f && r.model === m) || {};
+  const models = [...new Set(L.results.map(r => r.model))];
+  const kpis = [];
+  L.fixtures.forEach(f => models.forEach(m => {
+    const r = by(f.id, m);
+    const best = Math.max(...models.map(x => by(f.id, x).match || 0));
+    kpis.push({ k: short(m) + ' · ' + f.label, v: r.match + '/' + r.total, d: 'fields correct, ' + f.kind.toLowerCase(), cls: r.match === best ? 'pass' : '' });
+  }));
+  const allSame = L.results.every(r => r.identical_runs);
+  kpis.push({ k: 'Repeat runs', v: allSame ? 'Identical' : 'Varied', d: runs + ' runs of every model and form, temperature 0', cls: allSame ? 'pass' : 'err' });
+  const flags = L.verifier_replay.flatMap(x => x.flags);
+  const caught = flags.filter(f => f.outcome === 'caught').length;
+  kpis.push({ k: 'Verifier replay', v: caught + ' caught · ' + (flags.length - caught) + ' false', d: 'fields the cross-check would send to a reviewer', cls: '' });
+  document.getElementById('kpi-row').innerHTML = kpis.map(x =>
+    '<div class="kpi ' + x.cls + '"><div class="k">' + esc(x.k) + '</div><div class="v">' + esc(x.v) + '</div><div class="d">' + esc(x.d) + '</div></div>').join('');
+  document.getElementById('latest-sub').innerHTML = 'Run on ' + esc(L.date) + '. ' +
+    L.fixtures.map(f => '<b>' + esc(f.label) + '</b>: ' + esc(f.kind.toLowerCase()) + ', ' + f.slots + ' fields').join('; ') + '.';
+  document.getElementById('method').textContent = L.method;
+
+  document.getElementById('latest-body').innerHTML = L.results.map(r =>
+    '<tr><td class="mono">' + esc(short(r.model)) + nv(r.model) + '</td>' +
+    '<td>' + esc(fx[r.fixture].label) + '</td>' +
+    '<td>' + score(r.match, r.total) + '</td>' +
+    '<td class="num' + (r.wrong ? ' mb-bad' : '') + '">' + r.wrong + '</td>' +
+    '<td class="num">' + r.miss + '</td>' +
+    '<td class="num' + (r.extra ? ' mb-bad' : '') + '">' + r.extra + '</td>' +
+    '<td class="num">' + fmtS(r.time_min_s, r.time_max_s) + '</td>' +
+    '<td class="num">' + n(r.tokens_in) + ' / ' + n(r.tokens_out) + '</td></tr>').join('');
+
+  const label = { WRONG: 'wrong', MISS: 'missed', EXTRA: 'invented' };
+  const val = (e, k) => !('expected' in e) ? '<span class="mb-muted">withheld</span>'
+    : (e[k] == null ? '<span class="mb-muted">blank</span>' : '<span class="mono">' + esc(e[k]) + '</span>');
+  document.getElementById('errors-body').innerHTML = L.errors.map(e =>
+    '<tr><td class="mono">' + esc(short(e.model)) + nv(e.model) + '</td><td>' + esc(fx[e.fixture].label) + '</td>' +
+    '<td class="mono">' + esc(e.field) + '</td><td><span class="mb-tag ' + e.status + '">' + label[e.status] + '</span></td>' +
+    '<td>' + val(e, 'expected') + '</td><td>' + val(e, 'got') + '</td></tr>').join('');
+
+  document.getElementById('replay').innerHTML = L.verifier_replay.map(x => {
+    const f = fx[x.fixture];
+    const rows = x.flags.length
+      ? x.flags.map(g => '<li><span class="mono">' + esc(g.field) + '</span> &nbsp;<span class="mb-tag ' + (g.outcome === 'caught' ? 'caught' : 'alarm') + '">' + esc(g.outcome) + '</span></li>').join('')
+      : '<li class="mb-muted">No field flagged.</li>';
+    return '<div class="callout"><div class="callout-head">' + esc(f.label) + ' · reader made ' + x.primary_errors + ' error' + (x.primary_errors === 1 ? '' : 's') + '</div><ul class="mb-list">' + rows + '</ul></div>';
+  }).join('');
+
+  document.getElementById('sweep-sub').textContent = 'Run on ' + S.date + '. ' + S.note;
+  document.getElementById('sweep-body').innerHTML = S.results.map(r =>
+    '<tr><td class="mono">' + esc(r.model) + nv(r.model) + '</td><td>' + esc(r.licence) + '</td>' +
+    '<td>' + pctCell(r.synthetic_pct) + '</td><td>' + pctCell(r.scan_pct) + '</td>' +
+    '<td class="num">' + (r.synthetic_s != null ? r.synthetic_s.toFixed(1) + 's' : '–') + ' / ' + (r.scan_s != null ? r.scan_s.toFixed(1) + 's' : '–') + '</td></tr>').join('');
+
+  const V = B.validated;
+  document.getElementById('lab-sub').textContent = 'Naming every field of a new flat PDF form template so a program can map it. ' + B.fixture + ', run on ' + B.date + '. ' + B.note;
+  document.getElementById('lab-big').textContent = V.before + ' → ' + V.after + ' / ' + V.total;
+  document.getElementById('lab-big-d').textContent = 'Correct field labels on ' + B.fixture.split(',')[0] + ', from ' + V.before_mode + ' to ' + V.after_mode + '. ' + V.how + '.';
+  document.getElementById('lab-body').innerHTML = B.results.map(r =>
+    '<tr><td class="mono">' + esc(short(r.model)) + nv(r.model) + '</td><td>' + esc(r.host) + '</td>' +
+    '<td class="num">' + r.labeled + '/104</td><td class="num">~' + (r.est_correct ?? '–') + '</td>' +
+    '<td class="num">' + r.time_s.toFixed(1) + 's</td></tr>').join('');
+
+  document.getElementById('gaps').innerHTML = data.not_covered.map(g => '<li>' + esc(g) + '</li>').join('');
+  const gh = 'https://github.com/ajandan/verdikt-hackathon/blob/main/';
+  const docs = [...new Set([L.doc, S.doc, B.doc])];
+  document.getElementById('sources').innerHTML = 'Write-ups with method and every caveat: ' +
+    docs.map(d => '<a href="' + gh + esc(d) + '" target="_blank" rel="noopener">' + esc(d.split('/').pop()) + '</a>').join(' · ') + '.';
+
+  stateEl.hidden = true;
+  contentEl.hidden = false;
+})();
+</script>
+</body>
+</html>

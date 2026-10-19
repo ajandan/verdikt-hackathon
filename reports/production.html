@@ -58,8 +58,8 @@
       <circle cx="60" cy="74" r="4" fill="#1e5f4f"/>
     </svg>
     <span class="eyebrow"><span class="dot"></span> Deploy status</span>
-    <h1 class="display">Pre-flighted. <em>Not yet flying.</em></h1>
-    <p class="lede">Readiness is what the deploy runbook needs before we touch the Nebius console (drafted, smoke-tested, or verified in tests). Live status is what the running system reports back. Today, readiness is largely green and live status is deliberately empty. The production Verdikt deploy is scheduled for mid-Nov 2026; a hackathon-scoped cut is planned for 2026-10-25.</p>
+    <h1 class="display">Live. <em>On our own host.</em></h1>
+    <p class="lede">Verdikt has been live at verdikt.aismith.ai since 2026-10-18: a self-hosted Docker Compose stack behind a Cloudflare tunnel, with every model call going to Nebius Token Factory. Readiness is the runbook checklist as it stands on the live host. Live status is what the running system answered when we last probed it.</p>
     <div class="meta-row" id="meta-row"></div>
   </section>
 
@@ -70,7 +70,7 @@
     <section class="block">
       <span class="kicker">Rollup</span>
       <h2>Where the deploy stands</h2>
-      <p class="subhead">Readiness is a rolling <b>%</b> of items marked ready. Live status is <b>last-known and manually attested</b>. The automated health probe is not yet wired up. The stamp on the right mirrors Verdikt's product output shape.</p>
+      <p class="subhead">Readiness is a rolling <b>%</b> of items marked ready. Live status is <b>last-known and manually attested</b>. There is no automated health probe yet. The stamp on the right mirrors Verdikt's product output shape.</p>
       <div class="kpi-row four" id="kpi-row"></div>
       <div class="verdict-wrap">
         <div>
@@ -86,13 +86,13 @@
     <section class="block">
       <span class="kicker">Explore</span>
       <h2>Readiness, live status, timeline</h2>
-      <p class="subhead">Three tabs. Readiness is the checklist; Live status is what's running; Timeline dates the deploy plan.</p>
+      <p class="subhead">Three tabs. Readiness is the checklist; Live status is what's running; Timeline dates how we got here.</p>
 
       <div class="tabs" id="tabs" role="tablist"></div>
 
       <div class="tab-panel active" data-panel="readiness">
         <div class="tab-panel-head">
-          <h2>What the runbook needs before we deploy</h2>
+          <h2>Runbook checklist on the live host</h2>
           <p class="subhead" id="readiness-oneliner"></p>
         </div>
         <div id="readiness-groups"></div>
@@ -109,7 +109,7 @@
         <div class="inspect-grid" id="services-grid"></div>
         <div class="tab-panel-head" style="margin-top:24px;margin-bottom:8px">
           <h2 style="font-size:18px">Public endpoints</h2>
-          <p class="subhead">What a healthy remote probe will look like once live.</p>
+          <p class="subhead">What we probe from outside, and what each one returned.</p>
         </div>
         <div class="table-scroll"><table class="data" id="endpoints-table"></table></div>
       </div>
@@ -117,7 +117,7 @@
       <div class="tab-panel" data-panel="timeline">
         <div class="tab-panel-head">
           <h2>Deploy timeline</h2>
-          <p class="subhead">Dated milestones. Everything at or after 2026-10-25 is planned. The mid-Nov row is the production Verdikt deploy; the earlier row is the hackathon-scoped cut from the same runbook.</p>
+          <p class="subhead">Dated milestones, from the pre-flighted runbook to the live deploy and the Devpost submission.</p>
         </div>
         <div class="table-scroll"><table class="data" id="timeline-table"></table></div>
       </div>
@@ -178,7 +178,7 @@
     ['Readiness', data.summary.readiness_pct + '%'],
     ['Ready', data.summary.readiness_ready + ' / ' + data.summary.readiness_total],
     ['Live', data.summary.live],
-    ['Hackathon cut', data.summary.hackathon_deploy],
+    ['Live since', data.summary.hackathon_deploy],
   ];
   document.getElementById('meta-row').innerHTML = chips.map(([k, v]) =>
     '<span class="meta-chip"><span class="dot"></span><span class="k">' + k + '</span> ' + escapeHtml(v) + '</span>'
@@ -192,9 +192,9 @@
 
   const kpis = [
     { k: 'Readiness',        v: data.summary.readiness_pct + '%',                              d: data.summary.readiness_ready + ' of ' + data.summary.readiness_total + ' items ready',      cls: readinessCls },
-    { k: 'Pending',          v: data.summary.readiness_pending,                                d: 'deploy-time actions',                                                                     cls: 'info' },
+    { k: 'Pending',          v: data.summary.readiness_pending,                                d: 'hardening on the live host',                                                                     cls: 'info' },
     { k: 'Live services',    v: data.live.services.filter(s => s.status === 'live').length,   d: 'of ' + data.live.services.length + ' · ' + data.summary.live.toLowerCase(),                cls: liveCls },
-    { k: 'Hackathon cut',    v: data.summary.hackathon_deploy,                                 d: 'demo-URL target',                                                                         cls: 'info' },
+    { k: 'Live since',       v: data.summary.hackathon_deploy,                                 d: 'self-hosted',                                                                              cls: 'info' },
   ];
   document.getElementById('kpi-row').innerHTML = kpis.map(x =>
     '<div class="kpi ' + x.cls + '">' +
@@ -224,7 +224,7 @@
     '<div class="vc-meta">' +
       '<div><span class="k">Ready</span><span class="v">' + data.summary.readiness_ready + ' / ' + data.summary.readiness_total + '</span></div>' +
       '<div><span class="k">Live</span><span class="v">' + escapeHtml(data.summary.live) + '</span></div>' +
-      '<div><span class="k">Cut</span><span class="v">' + escapeHtml(data.summary.hackathon_deploy) + '</span></div>' +
+      '<div><span class="k">Since</span><span class="v">' + escapeHtml(data.summary.hackathon_deploy) + '</span></div>' +
     '</div>';
 
   const tabDefs = [

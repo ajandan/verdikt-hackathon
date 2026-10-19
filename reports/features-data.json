@@ -1,7 +1,7 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-09-17T03:15:00Z",
-  "commit": "c7daa6d",
+  "generated_at": "2026-10-19T01:50:00Z",
+  "commit": "41bde65",
   "sources": [
     "docs/roadmap.md",
     "docs/HACKATHON.md",
@@ -12,11 +12,11 @@
   ],
   "summary": {
     "categories": 10,
-    "features_total": 96,
-    "shipped": 93,
+    "features_total": 100,
+    "shipped": 98,
     "in_progress": 0,
-    "backlog": 3,
-    "parked": 2
+    "backlog": 2,
+    "parked": 1
   },
   "categories": [
     {
@@ -373,6 +373,12 @@
           "status": "shipped",
           "description": "HMAC-signed webhooks fire on approve/reject/auto-approved.",
           "evidence": "test_webhooks.py"
+        },
+        {
+          "name": "Single prod poller for the demo mailbox",
+          "status": "shipped",
+          "description": "Only prod polls the demo mailbox (every 60 s, UNSEEN only); dev has polling off so two pollers never race. Verified end to end on prod with the email test guide.",
+          "evidence": "src/docgen/inbox/job.py, deploy/docker-compose.prod.yml, docs/demo-scripts/email-inbox-test.md"
         }
       ]
     },
@@ -410,6 +416,18 @@
           "status": "shipped",
           "description": "programs.history_slots + rules.references_slots (migration 0033). Publish gate refuses activation on undeclared slot refs.",
           "evidence": "alembic 0033, src/docgen/ui/routes.py::_publish_gate_slot_refs"
+        },
+        {
+          "name": "Rule formula engine",
+          "status": "shipped",
+          "description": "Rules can carry a deterministic formula (comparisons, AND/OR, similar_to for misspelled drug names, three-valued logic). When every rule has a formula, the Reason model is skipped. An undetermined approval gate yields missing_info.",
+          "evidence": "src/pap_pipeline/rule_formula.py, alembic 0040, tests/test_rule_formula.py"
+        },
+        {
+          "name": "Income eligibility rule (CV-INC-01)",
+          "status": "shipped",
+          "description": "Cardiovita program checks annual household income against the cap for household sizes 1-10. Live on prod; the email test guide's two packets approve and return missing info.",
+          "evidence": "deploy/demo-seed/seed.json, tests/test_demo_seed_income_rule.py"
         }
       ]
     },
@@ -465,6 +483,12 @@
           "status": "shipped",
           "description": "Rolling 24h renders/day and active-templates caps per tenant (NULL = unlimited). API returns 429 naming the tripped quota. Idempotent replays bypass the check. Storage-bytes column reserved.",
           "evidence": "src/docgen/quotas.py"
+        },
+        {
+          "name": "Judge demo sign-in",
+          "status": "shipped",
+          "description": "Behind DOCGEN_DEMO_LOGIN_ENABLED, the sign-in page shows a tenant-admin account for the Alderwood demo tenant so judges can review and approve cases. On in prod.",
+          "evidence": "src/docgen/ui/routes.py::_demo_login, src/docgen/config.py"
         }
       ]
     },
@@ -565,10 +589,10 @@
           "notes": "Pre-generated /engineering/* HTML gets a no-nonce CSP so browsers honor `unsafe-inline` for inline styles/scripts, plus fonts.gstatic.com in font-src."
         },
         {
-          "name": "Landing page: native HTML5 demo video",
+          "name": "Landing page: demo video",
           "status": "shipped",
-          "evidence": "src/docgen/ui/templates/landing.html (data-video-src) + src/docgen/ui/static/verdikt-submission.mp4",
-          "notes": "Replaces the YouTube facade with a local 1080p MP4 served via /static (28MB, gitignored). Play-on-click swaps in a <video autoplay controls> element."
+          "evidence": "src/docgen/ui/templates/landing.html (data-youtube-id)",
+          "description": "The submission video (https://youtu.be/EleEatbaEWM) plays from YouTube on click. Replaced the earlier local MP4, which was never deployed."
         }
       ]
     },
@@ -645,9 +669,9 @@
           "evidence": ".github/workflows/ci.yml"
         },
         {
-          "name": "Alembic migrations (0001 \u2192 0031)",
+          "name": "Alembic migrations (0001 \u2192 0040)",
           "status": "shipped",
-          "description": "Fresh DB reaches head cleanly. Kinds-CHECK widened in 0031, seed filter added in 0025.",
+          "description": "Fresh DB reaches head cleanly; prod is at 0040 (rules.formula column).",
           "evidence": "alembic/versions/"
         },
         {
@@ -657,15 +681,15 @@
           "evidence": "scripts/build-css.sh"
         },
         {
-          "name": "Self-hosted deploy",
-          "status": "backlog",
-          "description": "Runbook + checklist pre-flighted; execution deferred to mid-Nov 2026.",
-          "evidence": "docs/deploy-nebius.md"
+          "name": "Self-hosted deploy (live at verdikt.aismith.ai)",
+          "status": "shipped",
+          "description": "Live since 2026-10-18: the production compose stack on a self-hosted server, behind a Cloudflare tunnel with a Let's Encrypt certificate. Every model call goes to Nebius Token Factory. Each merge to main is deployed.",
+          "evidence": "docs/deploy-nebius.md \u00a78c, reports/production.html"
         },
         {
           "name": "Public docker image release cadence",
           "status": "backlog",
-          "description": "Self-hosted release cadence + upgrade guide.",
+          "description": "Not started. Prod is deployed from a git archive of main and built on the host; no image is published to a registry yet, and there is no upgrade guide.",
           "evidence": "roadmap Later"
         }
       ]
@@ -709,24 +733,25 @@
       "notes": "Richer worked examples per endpoint. OG image + social-share tags already shipped across all report dashboards and app pages."
     },
     {
-      "category": "Deploy",
-      "item": "Self-hosted deploy execution",
-      "priority": "high",
-      "notes": "Deferred to mid-Nov 2026 per memory."
-    },
-    {
       "category": "DX",
       "item": "mypy --strict ratchet",
       "priority": "low",
       "notes": "New modules first, expand from there."
+    },
+    {
+      "category": "Deploy",
+      "item": "Live-host hardening",
+      "priority": "high",
+      "notes": "Turn secure cookies back on, set trusted proxies for the tunnel, rotate the admin password. Tracked on the Production page."
+    },
+    {
+      "category": "Deploy",
+      "item": "Published docker image + upgrade guide",
+      "priority": "low",
+      "notes": "Prod builds from a git archive of main on the host today."
     }
   ],
   "parked": [
-    {
-      "item": "VLM label mismatch on flat PDFs",
-      "reason": "MiniCPM-V labelled dense forms with wrong widget indices; resume with batch-and-crop approach.",
-      "date": "2026-09-09"
-    },
     {
       "item": "DOCX \u2192 PDF conversion path",
       "reason": "Reverted 2026-08-31; PDF is now a first-class kind. No conversion layer.",

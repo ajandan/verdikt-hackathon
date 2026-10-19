@@ -8,7 +8,7 @@
 | **Track** | Best Apps & Agents |
 | **Video** | [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM) (under 3 minutes) |
 | **Live demo** | [https://verdikt.aismith.ai](https://verdikt.aismith.ai) |
-| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super, verdict — non-reasoning mode for schema-conformant JSON) · Nemotron Nano (triage, with a rule-based fallback) |
+| **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super: turns plain-language rules into checkable formulas, and reasons over any rule without one) · Nemotron Nano (triage, with a rule-based fallback) · `Nemotron-3.5-Super-VL` (optional second reader that cross-checks extraction) |
 | **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extract stage) · `Qwen/Qwen3-Embedding-8B` (Apache-2.0 embedding model, retrieve stage) |
 | **Domain** | US patient-assistance-program (PAP) eligibility |
 
@@ -19,19 +19,28 @@ building is a byte-identical merge of a frozen, human-approved template with
 that decision. **No language model sits on the code path that produces the
 audited artifact.**
 
-> **Nebius × NVIDIA Global AI Hackathon submission.** Three models composed
-> across three pipeline stages, all served via one Nebius Token Factory
-> endpoint / one API key:
-> `openbmb/MiniCPM-V-4_5` (Apache-2.0) for multimodal extraction,
-> `Qwen/Qwen3-Embedding-8B` (Apache-2.0) for dense-vector rule retrieval,
-> and NVIDIA `nemotron-3-super-120b-a12b` (Nemotron Super) in non-reasoning
-> mode for structured-JSON verdict emission. Each stage's model is
-> tenant-configurable — swap Nemotron Super for Nemotron Ultra 550B or
-> Nemotron Nano 30B per program with no code change. See
+> **Nebius × NVIDIA Global AI Hackathon submission.** Every model call goes
+> through one Nebius Token Factory endpoint with one API key:
+> `openbmb/MiniCPM-V-4_5` (Apache-2.0) reads the documents, with NVIDIA
+> `Nemotron-3.5-Super-VL` as an optional second reader that flags any field
+> the two disagree on; NVIDIA Nemotron Nano triages the case;
+> `Qwen/Qwen3-Embedding-8B` (Apache-2.0) retrieves the rules that apply; and
+> NVIDIA `nemotron-3-super-120b-a12b` (Nemotron Super) works on the rules.
+>
+> Nemotron Super does that work in two places. When an author writes a rule
+> in plain language, it turns the rule into a structured formula, which the
+> author reviews before saving. At run time, code evaluates those formulas,
+> and Nemotron Super reasons only over rules that have none. When every rule
+> a case needs has a formula, as in the CardioVita demo, no model makes the
+> decision and the audit trail records the Reason stage as skipped. The
+> model writes the logic once, under review; code applies it to every case.
+>
+> Each stage's model is tenant-configurable — swap Nemotron Super for
+> Nemotron Ultra 550B or Nemotron Nano 30B per program with no code change. See
 > [`docs/HACKATHON.md`](docs/HACKATHON.md) for the full submission write-up,
 > the reuse declaration, and the deploy runbook.
 
-- **AI where it earns its place**: extraction over messy multimodal PDFs, retrieval over versioned rules, reasoning to a structured verdict.
+- **AI where it earns its place**: extraction over messy multimodal PDFs, retrieval over versioned rules, turning plain-language rules into formulas, and reasoning over the rules no formula covers yet.
 - **Deterministic where it must be**: pure template-engine merge for `.docx`, canvas-overlay merge for `.pdf`. No model in the loop at render time.
 - **Programs as data**: a new PAP program is a `programs` row (extraction schema + rules pack + reply template), not a build. The OncoBridge cameo demonstrates the same code, opposite verdict.
 - **Auditable end-to-end**: every stage's output is a structured artifact — intake object, retrieved rules with rerank scores, decision with citations, rendered letter. A reviewer can read the whole path from the admin UI.
@@ -51,7 +60,7 @@ audited artifact.**
   │   2. Retrieve   Qwen3-Embedding-8B (dense)        │
   │        │                                          │
   │        ▼                                          │
-  │   3. Reason     Nemotron Super (JSON verdict)     │
+  │   3. Reason     Nemotron Super (no-formula rules) │
   │                                                   │
   └────────────────────── STOP ───────────────────────┘
     │
@@ -95,14 +104,15 @@ The real intake path: email an enrollment packet, and Verdikt reads it, decides 
    `[pap:cardiovita-pap-2026] Alderwood — enrollment for Maria Chen`.
 2. Attach the two sample PDFs from [`submission/test-demo/`](submission/test-demo/):
    `ASP-100-enrollment-maria-chen.pdf` and `ASP-110-income-worksheet-maria-chen.pdf`.
-3. Within a couple of minutes the case appears at [verdikt.aismith.ai](https://verdikt.aismith.ai) under **Cases**, with every stage, the rules that fired and the rendered reply.
+3. Within a couple of minutes the case appears at [verdikt.aismith.ai](https://verdikt.aismith.ai) under **Cases** and **HumanLoop**, with every stage, the rules that fired and the rendered reply.
+4. Approve it yourself: click **Sign in as demo user**, open **HumanLoop**, open your case and click **Approve & send reply**. The decision letter is emailed back to the address you sent from.
 
 | Test | Attach | Expected |
 | --- | --- | --- |
 | 1 | both PDFs | **approve**: $60,000 is under the program's income cap of $86,560 for a household of two |
 | 2 | ASP-100 only | **missing info**: no income worksheet, so Verdikt asks for it instead of guessing a denial |
 
-Nothing is sent back until a reviewer approves the case; then the decision letter is emailed to the address you sent from. The step-by-step guide, with the exact email body and troubleshooting, is [`submission/test-demo/verdikt-email-test-guide.pdf`](submission/test-demo/verdikt-email-test-guide.pdf) (source: [`docs/verdikt-email-test-guide.html`](docs/verdikt-email-test-guide.html); routing details in [`docs/demo-scripts/email-inbox-test.md`](docs/demo-scripts/email-inbox-test.md)).
+Nothing is sent back until a reviewer approves the case; the demo account is a reviewer, so you don't wait on anyone. The step-by-step guide, with the exact email body and troubleshooting, is [`submission/test-demo/verdikt-email-test-guide.pdf`](submission/test-demo/verdikt-email-test-guide.pdf) (source: [`docs/verdikt-email-test-guide.html`](docs/verdikt-email-test-guide.html); routing details in [`docs/demo-scripts/email-inbox-test.md`](docs/demo-scripts/email-inbox-test.md)).
 
 ## Run it yourself
 

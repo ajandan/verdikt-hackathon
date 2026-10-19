@@ -70,7 +70,7 @@
     <div class="row">
       <div class="card stage"><div class="mono n">Ingest</div><div class="m">MiniCPM-V 4.5</div><p>Reads attachments into the program's field schema.</p></div>
       <div class="card stage"><div class="mono n">Triage</div><div class="m">Nemotron Nano</div><p>Classifies the case and routes it. Rule-based fallback.</p></div>
-      <div class="card stage"><div class="mono n">Decide</div><div class="m">Qwen3-Embedding + Nemotron Super</div><p>Retrieves rules, then a cited verdict.</p></div>
+      <div class="card stage"><div class="mono n">Decide</div><div class="m">Qwen3-Embedding + Nemotron Super</div><p>Retrieves rules; code applies formulas Nemotron Super wrote from them, and the model reasons only where none exists.</p></div>
       <div class="card paper stage det"><div class="mono n">Deliver</div><div class="m">No model</div><p>Merges the verdict into a frozen, human-approved template.</p></div>
       <div class="card paper stage det"><div class="mono n">Remember</div><div class="m">No model</div><p>Audit entry per stage; template hash; render fingerprint.</p></div>
     </div>

@@ -179,7 +179,7 @@
     <div class="col g"><div class="n">① Read</div><h3>The models read</h3>
       <ul><li><b>Ingest:</b> MiniCPM-V reads attachments into the program's field schema</li><li><b>Triage:</b> Nemotron Nano classifies and routes; a rule-based classifier is the fallback</li></ul></div>
     <div class="col g"><div class="n">② Decide</div><h3>The rules decide</h3>
-      <ul><li><b>Retrieve:</b> Qwen3-Embedding finds the rules that apply</li><li><b>Verdict:</b> Nemotron Super returns approve, deny or missing info</li><li>Every verdict cites the rule that fired</li></ul></div>
+      <ul><li><b>Retrieve:</b> Qwen3-Embedding finds the rules that apply</li><li><b>Rules:</b> Nemotron Super turns each rule into a formula the author reviews; code applies it, and the model reasons only where no formula exists</li><li>Every verdict cites the rule that fired</li></ul></div>
     <div class="col a"><div class="n">③ Deliver · remember</div><h3>The template writes</h3>
       <ul><li>A frozen, human-approved template merged with the verdict</li><li>No model on the render path</li><li>One audit entry per stage, with template hash and render fingerprint</li></ul></div>
   </div>
@@ -198,7 +198,7 @@
       <div class="stp nk"><i></i><b>One case</b><small>Normalized, tenant-scoped, deduplicated</small><em>IMAP · API</em></div>
       <div class="stp ng g"><i></i><b>Ingest reads</b><small>MiniCPM-V into the program's field schema</small><em>AI · vision</em></div>
       <div class="stp ng g"><i></i><b>Triage routes</b><small>Nemotron Nano, rule-based fallback</small><em>AI · LLM</em></div>
-      <div class="stp ng g"><i></i><b>Decide cites</b><small>Qwen3 retrieval, Nemotron Super verdict</small><em>AI · LLM</em></div>
+      <div class="stp ng g"><i></i><b>Decide cites</b><small>Qwen3 retrieval, rule formulas by Nemotron Super</small><em>AI · LLM</em></div>
       <div class="stp na a"><i></i><b>Deliver merges</b><small>Verdict into a frozen, approved template</small><em>No AI</em></div>
       <div class="stp nk"><i></i><b>Reviewer decides</b><small>Approve or reject; an audit entry per stage</small><em>Human</em></div>
     </div>
@@ -253,14 +253,15 @@
 <!-- 9 · MODELS -->
 <section class="slide">
   <div class="bar"><div class="brand"><img src="../assets/video/designs/verdikt-mark.png" alt="">Verdikt</div><div class="sec">08 · Models</div></div>
-  <h2>Four models, <i>one endpoint</i>.</h2>
+  <h2>Five models, <i>one endpoint</i>.</h2>
   <div style="margin-top:56px">
     <table>
       <tr><th style="width:18%">Stage</th><th style="width:44%">Model</th><th>Job</th></tr>
       <tr><td>Ingest</td><td>openbmb/MiniCPM-V-4_5</td><td class="m">Multimodal extraction</td></tr>
+      <tr><td>Ingest</td><td>NVIDIA Nemotron-3.5-Super-VL</td><td class="m">Optional second reader; flags disagreements</td></tr>
       <tr><td>Triage</td><td>NVIDIA Nemotron Nano</td><td class="m">Case classification and routing</td></tr>
       <tr><td>Decide</td><td>Qwen/Qwen3-Embedding-8B</td><td class="m">Rule retrieval</td></tr>
-      <tr><td>Decide</td><td>NVIDIA Nemotron Super 120B</td><td class="m">Cited, structured verdict</td></tr>
+      <tr><td>Decide</td><td>NVIDIA Nemotron Super 120B</td><td class="m">Rules into formulas; verdict where no formula exists</td></tr>
     </table>
   </div>
   <div class="cols c3" style="margin-top:54px">

@@ -1598,7 +1598,7 @@
     margin-bottom: 28px;
   }
   @media (min-width: 640px) { .powered-grid { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 1024px) { .powered-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 1024px) { .powered-grid { grid-template-columns: repeat(3, 1fr); } }
 
   .powered-card {
     position: relative;
@@ -2239,29 +2239,39 @@
         Hackathon submission
       </span>
       <h2>Built for the <em>Nebius × NVIDIA</em> Global AI Hackathon.</h2>
-      <p>Three NVIDIA models composed one-per-stage on Nebius Token Factory. Nebius AI Cloud deploy runbook complete; app comes up on VM next. MIT-licensed source.</p>
+      <p>Three NVIDIA Nemotron models and two Apache-2.0 open models, every call served by Nebius Token Factory through one endpoint and one key. MIT-licensed source.</p>
     </div>
 
     <div class="powered-grid">
       <div class="powered-card">
-        <span class="role">Reason</span>
-        <div class="name">NVIDIA Nemotron Super</div>
-        <div class="note">Structured-JSON verdict per case: approve, deny, missing_info.</div>
+        <span class="role">Extract</span>
+        <div class="name">MiniCPM-V 4.5 + NVIDIA Nemotron-3.5-Super-VL</div>
+        <div class="note">MiniCPM-V reads every page into the program's fields. Nemotron VL can read the same pages as a cross-check; any field the two disagree on goes to the reviewer.</div>
+      </div>
+      <div class="powered-card">
+        <span class="role">Triage</span>
+        <div class="name">NVIDIA Nemotron Nano</div>
+        <div class="note">Classifies the case and picks its route. A rule-based classifier takes over if the model is unavailable.</div>
       </div>
       <div class="powered-card">
         <span class="role">Retrieve</span>
-        <div class="name">NeMo Retriever NIMs</div>
-        <div class="note">nv-embedqa-e5-v5 + nv-rerankqa-mistral-4b-v3 against versioned rules.</div>
+        <div class="name">Qwen3-Embedding-8B</div>
+        <div class="note">Finds the program's human-authored rules that apply to this case. It finds; it never invents.</div>
       </div>
       <div class="powered-card">
-        <span class="role">Extract</span>
-        <div class="name">nv-ingest</div>
-        <div class="note">Multimodal read of fax, mail, and email attachments into intake slots.</div>
+        <span class="role">Reason</span>
+        <div class="name">NVIDIA Nemotron Super</div>
+        <div class="note">Turns plain-language rules into formulas code can check; reasons over any rule without one.</div>
+      </div>
+      <div class="powered-card">
+        <span class="role">Deliver</span>
+        <div class="name">No model</div>
+        <div class="note">The reply is merged from a frozen, human-approved template and held until a reviewer approves it.</div>
       </div>
       <div class="powered-card">
         <span class="role">Hosted</span>
-        <div class="name">Nebius AI Cloud</div>
-        <div class="note">Models on Nebius Token Factory today; app deploys to Nebius AI Cloud VMs (runbook complete).</div>
+        <div class="name">Nebius Token Factory</div>
+        <div class="note">All inference runs on Token Factory. The app itself is self-hosted at verdikt.aismith.ai.</div>
       </div>
     </div>
 

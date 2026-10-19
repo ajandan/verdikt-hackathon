@@ -29,22 +29,22 @@ Provable mechanically:
 
 | Requirement | Satisfied by |
 | --- | --- |
-| Runs on Nebius Token Factory | Every model call goes through one Nebius Token Factory endpoint (`src/docgen/providers/nebius.py`): MiniCPM-V for reading, Nemotron Nano for triage, Qwen3-Embedding for retrieval, Nemotron Super for the verdict. The application itself is self-hosted; the rule names Token Factory as an alternative to Nebius AI Cloud, and all inference goes through it. |
-| ≥ 1 NVIDIA open-source model | Two NVIDIA Nemotron models: Nemotron Nano (triage) and Nemotron Super (the verdict), both under the `nvidia/` namespace. The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
+| Runs on Nebius Token Factory | Every model call goes through one Nebius Token Factory endpoint (`src/docgen/providers/nebius.py`): MiniCPM-V for reading (Nemotron-3.5-Super-VL as an optional second reader), Nemotron Nano for triage, Qwen3-Embedding for retrieval, Nemotron Super for the rules. The application itself is self-hosted; the rule names Token Factory as an alternative to Nebius AI Cloud, and all inference goes through it. |
+| ≥ 1 NVIDIA open-source model | Three NVIDIA Nemotron models, all under the `nvidia/` namespace: Nemotron Nano (triage), Nemotron Super (turns rules into formulas; reasons over rules without one) and Nemotron-3.5-Super-VL (optional extraction cross-check). The Nemotron default is enforced by `tests/test_provider_nebius.py::test_nebius_defaults_target_nvidia_nemotron` — the default model name must start with `nvidia/`. |
 | Approved OSS license | MIT — see [`LICENSE`](../LICENSE). |
-| Public repo, public demo URL, README | This repo (public by 2026-10-30) + [`README.md`](../README.md) + Devpost-published demo URL. |
+| Public repo, public demo URL, README | This repo (public) + [`README.md`](../README.md) + Devpost-published demo URL. |
 | YouTube video < 3 min | Published: [https://youtu.be/EleEatbaEWM](https://youtu.be/EleEatbaEWM). Full shooting script in [`docs/demo-scripts/video-3min.md`](demo-scripts/video-3min.md) — five beats, two engineered applause lines. |
 
 ## The three-stage Verdikt architecture
 
-Four open models on one Nebius key, chosen by task shape at each stage (the Deliver and Remember stages use no model):
+Five open models on one Nebius key, chosen by task shape at each stage (the Deliver and Remember stages use no model):
 
 | Stage | What runs | Why this model, why here |
 | --- | --- | --- |
-| **Ingest** | `openbmb/MiniCPM-V-4_5` (vision) on Nebius Token Factory | Reads messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters — into the program's field schema. Vision handles what regex cannot. |
+| **Ingest** | `openbmb/MiniCPM-V-4_5` (vision) on Nebius Token Factory; optional verifier `nvidia/Nemotron-3.5-Super-VL` | Reads messy, mixed-modality attachments — pay stubs, insurance cards, prescriptions, denial letters — into the program's field schema. Vision handles what regex cannot. With the verifier on, a second model reads the same pages and any field the two disagree on goes to the reviewer ([benchmark](benchmarks/vlm-extract-nemotron-vl-2026-10-18.md)). |
 | **Triage** | Nemotron Nano on Nebius Token Factory (rule-based fallback) | Classifies the case (new intake, refill, appeal, missing-info reply, not decidable) and routes it. |
 | **Decide: retrieve** | `Qwen/Qwen3-Embedding-8B` (dense vectors; rerank off) | Surfaces the eligibility rules that apply to *this* case, from a vector store populated at startup from `src/pap_pipeline/rules/*.yaml`. The rules are human-authored and human-versioned; the model's job is to find, not to invent. |
-| **Decide: verdict** | Nemotron Super (non-reasoning mode) on Nebius Token Factory | Structured-JSON verdict over the retrieved rules. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape. |
+| **Decide: verdict** | Nemotron Super (non-reasoning mode) on Nebius Token Factory | Two jobs. When an author saves a plain-language rule, it translates the rule into a structured formula the author reviews (`src/pap_pipeline/rule_translator.py`). At run time code evaluates those formulas, and Nemotron Super returns a structured-JSON verdict only over retrieved rules with no formula. When every retrieved rule has one, as in the CardioVita demo, the stage is skipped and the audit trail says so. Non-reasoning mode is deliberate — the reasoning variant burns output tokens on trace and returns empty content on this task shape. |
 
 Every model call is instrumented (`src/pap_pipeline/routing.py`) with model name, tokens in/out, wall-clock latency, and per-call cost. The routing-table admin page at `/ui/admin/routing` renders the resulting matrix — real numbers per call site, per stage, defensible as evidence rather than assertion.
 

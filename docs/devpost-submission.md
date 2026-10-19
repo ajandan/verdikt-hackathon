@@ -16,21 +16,17 @@ here — fix the source and re-run. This page included: its source is
 | Public demo URL | **done** | https://verdikt.aismith.ai — self-hosted, TLS, verified responding |
 | Video (< 3 min) | **done** | https://youtu.be/EleEatbaEWM — public, under the 3:00 cap. Local copy in `video/` |
 | Licence | done | MIT, `LICENSE`, enforced by `scripts/license_check.py` in CI |
-| NVIDIA OSS model | done | NVIDIA Nemotron Nano (triage) + Nemotron Super 120B (verdict, PDF labelling) |
+| NVIDIA OSS model | done | NVIDIA Nemotron Nano (triage) + Nemotron Super 120B (rule formulas, verdicts where no formula exists, PDF labelling) + Nemotron-3.5-Super-VL (optional extraction cross-check) |
 | Nebius hosting | **done** | every model call goes through Nebius Token Factory. The app itself is self-hosted — the rule allows either |
 | Image gallery | ready | `screenshots/` — start with `cover.png`, then `product-ui/` |
 | Gallery thumbnail | ready | `devpost-thumbnail.jpg` (3000×2000, 3:2, 0.4 MB) — upload as the Devpost thumbnail |
 | Video thumbnail | ready | `youtube-thumbnail.jpg` (1280×720, 64 KB) — upload as the custom thumbnail |
 | Supporting docs | ready | `slides/` |
 
-The only blocker left is the repo flip. Everything else in this folder is
-uploadable as-is.
-
-> Two defects are open on the live site and fixed in `main`, so it needs a
-> redeploy before judging: static assets are emitted as `http://` on an
-> `https://` page (8 blocked images), and the landing page still points at a
-> video file that is not deployed. The landing page now links the published
-> YouTube video instead, which removes that dependency entirely.
+Nothing is blocked: everything in this folder is uploadable as-is. Before
+judging opens, redeploy `main` to the live host and set the Nemotron VL
+verifier on the Alderwood tenant there (Tenants & keys); it is a database
+setting, not code.
 
 ## Contents
 
@@ -47,12 +43,13 @@ old-style deck got staged here once already.
 
 ### `screenshots/`
 - `cover.png` — the one-slide summary as an image. Good Devpost cover.
-- `product-ui/` (9) — the running product, and the very same files the landing
+- `product-ui/` (10) — the running product; nine are the very same files the landing
   page's carousel serves at https://verdikt.aismith.ai, so the gallery and the
   live site always match. Dashboard, cases, a case's pipeline verdict and its
   audit trail, the rule that decided it, the rules library, programs, the
   HumanLoop review queue that holds every reply until a reviewer approves, and
-  renders. 2880×1800, captured by `scripts/capture_console_shots.py`, which
+  renders. The tenth, `08-program-models.png`, is a program's Models tab: the
+  model for each stage on Token Factory, with the Nemotron VL verifier set. 2880×1800, captured by `scripts/capture_console_shots.py`, which
   checks each page for personal addresses, real company names and API keys
   before writing anything.
 
@@ -71,7 +68,8 @@ old-style deck got staged here once already.
 Everything a judge needs to try Verdikt by email, from any address.
 - `verdikt-email-test-guide.pdf` — three pages, step by step: what to send,
   the exact subject and body, which file to attach, what happens next, and
-  why no reply arrives until a reviewer approves. Rendered from
+  why no reply arrives until a reviewer approves, and how to approve it
+  yourself with the demo login, so a judge never waits on anyone. Rendered from
   `docs/verdikt-email-test-guide.html` by `scripts/render_docs_pdf.py`.
 - `ASP-100-enrollment-maria-chen.pdf`, `ASP-110-income-worksheet-maria-chen.pdf`
   — the fictional packet the guide tells them to attach.

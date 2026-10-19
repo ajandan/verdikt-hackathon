@@ -204,6 +204,13 @@ stacks on the machine. Cloudflare supplies the HTTPS; keep
 browsers drop the `Secure` cookie and sign-in appears to do nothing; set it to
 `false` only while testing that way.
 
+Bind the port to loopback (`WEB_PORT=127.0.0.1:<port>`) so only the tunnel can
+reach the app, then set `DOCGEN_TRUSTED_PROXIES` to the address the web
+container sees the tunnel's requests come from. On Docker Desktop for Mac that
+is `192.168.65.1`; check it with `docker logs <web container>` after one
+request through the public URL. With both set, `X-Forwarded-For` is trusted only
+from the tunnel, so the login rate limit keys on the real client address.
+
 ## 9. Verdikt smoke test
 
 Run this after step 8. It sends one real case through the pipeline and checks

@@ -1,24 +1,24 @@
 {
   "product": "Verdikt",
-  "generated_at": "2026-10-19T01:45:00Z",
+  "generated_at": "2026-10-19T01:58:00Z",
   "commit": "41bde65",
   "attestation": {
-    "last_manually_attested_at": "2026-10-19T01:41:43Z",
+    "last_manually_attested_at": "2026-10-19T01:56:00Z",
     "attested_by": "probe",
-    "note": "Verified against https://verdikt.aismith.ai: / and /health return 200, /ui/ redirects to sign-in, HSTS is sent, and TLS is a Let's Encrypt certificate valid to 2026-12-15. On the deploy host, web, worker, Postgres, Redis and MinIO are all up, with web, Postgres, Redis and MinIO reporting healthy; the database is at migration 0040. Deployed commit: 41bde65. The two defects open at first deploy (http asset URLs on an https page, and a missing landing video) are fixed and live: the page serves no http asset URLs and the landing video plays from YouTube. Three hardening items are still open; they are listed as pending under Readiness."
+    "note": "Verified against https://verdikt.aismith.ai: / and /health return 200, /ui/ redirects to sign-in, HSTS is sent, and TLS is a Let's Encrypt certificate valid to 2026-12-15. On the deploy host, web, worker, Postgres, Redis and MinIO are all up, with web, Postgres, Redis and MinIO reporting healthy; the database is at migration 0040. Deployed commit: 41bde65. The two defects open at first deploy (http asset URLs on an https page, and a missing landing video) are fixed and live: the page serves no http asset URLs and the landing video plays from YouTube. Hardening finished on 2026-10-18: secure cookies on, trusted proxies set for the tunnel, the web port bound to localhost, and the admin password and session secret rotated. After the change, admin and judge sign-in both work over https and the inbox poller kept running."
   },
   "summary": {
     "verdict": "DEPLOYED",
-    "readiness_ready": 19,
-    "readiness_pending": 3,
-    "readiness_total": 22,
-    "readiness_pct": 86,
+    "readiness_ready": 23,
+    "readiness_pending": 0,
+    "readiness_total": 23,
+    "readiness_pct": 100,
     "live": "LIVE",
     "hackathon_deploy": "2026-10-18",
     "public_url": "https://verdikt.aismith.ai"
   },
   "readiness": {
-    "one_liner": "Live on self-hosted infrastructure behind a Cloudflare tunnel, with model inference on Nebius Token Factory. 19 of 22 items are done; the 3 pending items are hardening that is not finished on the live host.",
+    "one_liner": "Live on self-hosted infrastructure behind a Cloudflare tunnel, with model inference on Nebius Token Factory. All 23 runbook items are done and checked on the live host.",
     "categories": [
       {
         "name": "Runbook & configuration",
@@ -148,7 +148,7 @@
       },
       {
         "name": "Security & operations",
-        "description": "Hardening controls. Three are not finished on the live host.",
+        "description": "Hardening controls, all applied and checked on the live host.",
         "items": [
           {
             "name": "HSTS",
@@ -158,26 +158,26 @@
           },
           {
             "name": "Secure-cookies flag",
-            "status": "pending",
-            "detail": "DOCGEN_SECURE_COOKIES is false on prod. Sign-in failed with it on during the first deploy, so it was turned off to unblock. Needs to go back to true once the tunnel's https scheme reaches the app.",
-            "evidence": "src/docgen/auth.py secure_cookie_flag()"
+            "status": "ready",
+            "detail": "DOCGEN_SECURE_COOKIES=true on prod (turned back on 2026-10-18). Sign-in over https://verdikt.aismith.ai sets docgen_session and docgen_csrf with Secure, HttpOnly, SameSite=Lax.",
+            "evidence": "src/docgen/security_headers.py secure_cookie_flag()"
           },
           {
             "name": "Trusted proxies for the tunnel",
-            "status": "pending",
-            "detail": "DOCGEN_TRUSTED_PROXIES is still 127.0.0.1 from the Caddy plan. With the tunnel in front, it should list the hop that actually forwards requests to the web container.",
-            "evidence": ".env.example"
+            "status": "ready",
+            "detail": "DOCGEN_TRUSTED_PROXIES=192.168.65.1, the address the web container sees tunnel requests come from. The web port is bound to 127.0.0.1, so only the tunnel on the host reaches it and X-Forwarded-For is trusted from that hop alone.",
+            "evidence": "docs/deploy-nebius.md §8c, src/docgen/ratelimit.py client_ip()"
           },
           {
             "name": ".env file permissions 600",
             "status": "ready",
-            "detail": "Checked on the deploy host on 2026-10-18: -rw------- (owner only).",
+            "detail": "Checked on the deploy host on 2026-10-18 after the hardening change: -rw------- (owner only).",
             "evidence": "docs/deploy-nebius.md §5, §10"
           },
           {
             "name": "Admin credential rotation",
-            "status": "pending",
-            "detail": "The admin password has not been rotated since the first deploy. Rotate it and the session secret; the judge demo sign-in is a separate tenant-level account.",
+            "status": "ready",
+            "detail": "Admin password and session secret rotated on 2026-10-18 (both the DB row and the break-glass hash). The new password signs in; the old one returns 401. The judge demo sign-in is a separate tenant-level account and is unchanged.",
             "evidence": "docs/deploy-nebius.md §10"
           }
         ]
@@ -307,6 +307,10 @@
     {
       "date": "2026-10-18",
       "event": "Devpost submission sent: live URL, video URL, public repo"
+    },
+    {
+      "date": "2026-10-18",
+      "event": "Live-host hardening: secure cookies on, trusted proxies set for the tunnel, web port bound to localhost, admin credentials rotated"
     }
   ]
 }

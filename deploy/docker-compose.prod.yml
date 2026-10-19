@@ -145,7 +145,11 @@ services:
           memory: 512M
 
   minio:
-    image: minio/minio:latest
+    # MinIO stopped publishing images: minio/minio and minio/mc are gone from
+    # Docker Hub and quay.io answers 401. pgsty/* is the community-maintained
+    # continuation of the same open-source server and client (same CLI, same
+    # on-disk format), pinned to a release so a re-pull can't change it.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -165,7 +169,7 @@ services:
           memory: 512M
 
   minio-init:
-    image: minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-10-18T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy

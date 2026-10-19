@@ -80,15 +80,15 @@ jobs:
         # the two buckets the app expects using the mc client image on the
         # same host network.
         #
-        # Images are pulled from quay.io (MinIO's other official registry)
-        # rather than docker.io to sidestep Docker Hub's unauthenticated
-        # pull rate limits on shared GitHub Actions runner IPs.
+        # MinIO no longer publishes images (quay.io answers 401, Docker Hub's
+        # minio/* repos are gone), so this uses pgsty/*, the community
+        # continuation of the same server and client, pinned as in compose.
         run: |
           docker run -d --name minio \
             -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin \
             -e MINIO_ROOT_PASSWORD=minioadmin \
-            quay.io/minio/minio:latest server /data
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
           for i in {1..30}; do
             if curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1; then
               echo "MinIO up (attempt $i)"
@@ -103,7 +103,7 @@ jobs:
           done
           docker run --rm --network host --entrypoint sh \
             -e MC_HOST_local=http://minioadmin:minioadmin@localhost:9000 \
-            quay.io/minio/mc:latest -c "
+            pgsty/mc:RELEASE.2026-10-18T00-00-00Z -c "
               mc mb --ignore-existing local/docgen-templates &&
               mc mb --ignore-existing local/docgen-documents
             "

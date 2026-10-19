@@ -24,7 +24,6 @@ from pydantic import ValidationError
 from pap_pipeline.rule_evaluator import evaluate_rule
 from pap_pipeline.rule_formula import Formula, evaluate_formula
 
-
 # ---------------------------------------------------------------------------
 # Comparison ops
 # ---------------------------------------------------------------------------

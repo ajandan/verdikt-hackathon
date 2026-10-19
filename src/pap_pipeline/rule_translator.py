@@ -263,4 +263,4 @@ async def translate_criterion_to_formula(
     return TranslationResult(formula=raw_formula, notes=notes)
 
 
-__all__ = ["TranslatorConfig", "TranslationResult", "translate_criterion_to_formula"]
+__all__ = ["TranslationResult", "TranslatorConfig", "translate_criterion_to_formula"]

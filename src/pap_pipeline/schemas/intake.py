@@ -110,4 +110,4 @@ def merge_intake_and_extras(
     return merged
 
 
-__all__ = ["Intake", "InsuranceStatus", "merge_intake_and_extras"]
+__all__ = ["InsuranceStatus", "Intake", "merge_intake_and_extras"]

@@ -38,7 +38,6 @@ from pap_pipeline.inbox_hook import (
 from pap_pipeline.schemas.decision import Citation, Decision
 from pap_pipeline.schemas.intake import Intake
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

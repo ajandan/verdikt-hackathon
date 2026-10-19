@@ -65,7 +65,6 @@ def _limits() -> dict[tuple[str, str], tuple[str, int, int]]:
     s = get_settings()
     r = s.rate_limit_renders_per_minute
     u = s.rate_limit_uploads_per_hour
-    i = s.rate_limit_intake_per_minute
     return {
         ("POST", "/render"): ("render", r, 60),
         ("POST", "/render/mapped"): ("render", r, 60),

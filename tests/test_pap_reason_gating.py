@@ -30,10 +30,10 @@ from pap_pipeline.orchestrator import (
 )
 from pap_pipeline.rules import Rule as PipelineRule
 from pap_pipeline.schemas.intake import Intake
+from pap_pipeline.stages.extract import ExtractClientConfig
 from pap_pipeline.stages.mdm_lookup import MdmSourceConfig, build_mdm_source
 from pap_pipeline.stages.reason import ReasonClientConfig
 from pap_pipeline.stages.retrieve import RetrieveClientConfig
-from pap_pipeline.stages.extract import ExtractClientConfig
 
 
 def _config() -> PipelineConfig:

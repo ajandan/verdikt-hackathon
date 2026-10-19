@@ -39,7 +39,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-import uuid
 from datetime import UTC, datetime
 
 from docgen.config import get_settings
@@ -168,7 +167,7 @@ async def _run(force: bool, program_filter: str | None, dry_run: bool) -> int:
                   f"(criterion len={len(rule.criterion or '')}, schema slots={len(schema_slots)})")
             try:
                 formula, notes = await _translate_one(rule, schema_slots, config)
-            except Exception as e:  # noqa: BLE001 — never abort backfill on one rule
+            except Exception as e:
                 print(f"    ✕ error: {type(e).__name__}: {e}")
                 failed += 1
                 continue

@@ -78,10 +78,11 @@ before beats 6, 7 and 8 and a mixed-voice cut is not shippable. Nothing in the
 build pipeline was retimed, so `assets/video/audio/` and every cue in
 `scripts/assemble_video.sh` are back in their original, consistent state.
 
-The render is parked at `assets/video/audio-heygen-unused/` (ten mp3s plus
-`timings/`), and `scripts/generate_voiceover_heygen.py` still works. To pick it
-back up, top up credit and generate beats `6 7 8` at the same speed — the other
-ten are cached server-side and re-request free.
+The render is parked locally at `assets/video/audio-heygen-unused/` (ten mp3s
+plus `timings/`, not committed). The generator script was removed from the
+repo; restore it with `git show 7d0d5a2:scripts/generate_voiceover_heygen.py`.
+To pick it back up, top up credit and generate beats `6 7 8` at the same
+speed — the other ten are cached server-side and re-request free.
 
 ### What it cost
 

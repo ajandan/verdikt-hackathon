@@ -25,7 +25,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from docgen.api.deps import get_session
 from docgen.config import get_settings
 from docgen.store.blob import get_object
-from docgen.upload_limits import read_capped_upload
 from docgen.store.doc_packages import (
     DocPackageValidationError,
     StaticDocRejected,
@@ -44,6 +43,7 @@ from docgen.store.models import (
     TemplateVersion,
     Tenant,
 )
+from docgen.upload_limits import read_capped_upload
 
 log = structlog.get_logger(__name__)
 

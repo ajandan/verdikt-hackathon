@@ -29,7 +29,6 @@ from docgen.ratelimit import (
     get_redis,
 )
 
-
 # Every test in this file drives the login-throttle sliding window keyed
 # on (ip, username) → Redis. Under parallel pytest runs (multiple worker
 # processes hitting the same Redis instance) hard-coded IPs across

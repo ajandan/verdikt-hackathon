@@ -38,7 +38,6 @@ from docgen.api.schemas import (
 )
 from docgen.config import get_settings
 from docgen.core.docx_sanitize import InvalidDocxError
-from docgen.upload_limits import read_capped_upload
 from docgen.core.mapping import MappingError, apply_mapping
 from docgen.core.render_pipeline import (
     execute_merge,
@@ -65,6 +64,7 @@ from docgen.store.models import (
     Template,
     TemplateVersion,
 )
+from docgen.upload_limits import read_capped_upload
 
 
 async def _enforce_render_quota(session: AsyncSession, tenant_id: uuid.UUID) -> None:

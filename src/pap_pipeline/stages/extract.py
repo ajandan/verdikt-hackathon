@@ -481,7 +481,7 @@ def _page_looks_scanned(page: Any) -> bool:
             content = text_page.get_text_range()
         finally:
             text_page.close()
-    except Exception:  # noqa: BLE001 — defensive: unreadable text page → treat as scan
+    except Exception:
         return True
     return len((content or "").strip()) < _SCAN_TEXT_THRESHOLD
 

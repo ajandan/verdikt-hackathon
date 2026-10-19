@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 # DoS bounds — every field a runaway Nemotron response could inflate
 # gets capped at the schema boundary so downstream consumers (audit

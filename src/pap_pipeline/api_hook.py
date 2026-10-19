@@ -38,7 +38,6 @@ from pap_pipeline.inbox_hook import (
     _draft_reply_artifact,
     _score_from_decision,
 )
-from pap_pipeline.pipeline_config import build_pipeline_config
 from pap_pipeline.json_intake import (
     IntakeValidationError,
     validate_json_intake,
@@ -48,6 +47,7 @@ from pap_pipeline.orchestrator import (
     _intake_from_extraction,
     run_triaged_from_intake,
 )
+from pap_pipeline.pipeline_config import build_pipeline_config
 from pap_pipeline.rules import load_rules
 from pap_pipeline.schemas.decision import Decision
 

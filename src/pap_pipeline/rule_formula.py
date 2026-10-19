@@ -80,7 +80,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from pap_pipeline.rule_evaluator import Evaluation, Step
 
-
 # ---------------------------------------------------------------------------
 # Op vocabulary. Kept as literal sets so IDE / mypy / pydantic all agree on
 # what's a valid discriminator and error messages name the actual allowed
@@ -168,8 +167,8 @@ class Node(BaseModel):
     # wraps the forward reference so pydantic can resolve on model_rebuild
     # without the ``str | None`` parse trap that hits `"Node" | None` under
     # Python 3.12's PEP 604 evaluator.
-    terms: Optional[list["Node"]] = None
-    term: Optional["Node"] = None
+    terms: Optional[list["Node"]] = None  # noqa: UP045 — see comment above
+    term: Optional["Node"] = None  # noqa: UP045 — see comment above
 
     # Field references. Most leaf ops need `field` (single); field_eq_field uses left+right.
     field: str | None = None
@@ -478,7 +477,10 @@ def _eval_comparison(op: str, node: Node, values: dict[str, Any]) -> tuple[bool 
         # Numeric op against non-numeric actual — treat as undetermined
         # rather than false; the formula's shape doesn't fit the data.
         return None, [Step(
-            text=f"@{field_name} {op} {_repr(literal)} → undetermined (actual {_repr(actual)} is not comparable)",
+            text=(
+                f"@{field_name} {op} {_repr(literal)} → undetermined "
+                f"(actual {_repr(actual)} is not comparable)"
+            ),
             result=None,
         )]
     verdict_word = "matched" if ok else "did not match"
@@ -520,7 +522,10 @@ def _eval_recency(op: str, node: Node, values: dict[str, Any]) -> tuple[bool | N
     parsed = _parse_date_value(actual)
     if parsed is None:
         return None, [Step(
-            text=f"@{field_name} within last {n} {unit}(s) of today → undetermined (value {_repr(actual)} is not a date)",
+            text=(
+                f"@{field_name} within last {n} {unit}(s) of today → undetermined "
+                f"(value {_repr(actual)} is not a date)"
+            ),
             result=None,
         )]
     today = date.today()
@@ -657,7 +662,10 @@ def _eval_field_eq_field(node: Node, values: dict[str, Any]) -> tuple[bool | Non
     a, b = values.get(left), values.get(right)
     if _is_undetermined(a) or _is_undetermined(b):
         return None, [Step(
-            text=f"@{left} == @{right} → undetermined (one side null: @{left}={_repr(a)}, @{right}={_repr(b)})",
+            text=(
+                f"@{left} == @{right} → undetermined "
+                f"(one side null: @{left}={_repr(a)}, @{right}={_repr(b)})"
+            ),
             result=None,
         )]
     ok = _eq(a, b)

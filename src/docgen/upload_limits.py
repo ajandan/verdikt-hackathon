@@ -27,7 +27,6 @@ from collections.abc import AsyncIterator
 
 from fastapi import HTTPException, Request, UploadFile
 
-
 # Global defaults. Callers override the cap when a route has stricter
 # needs (JSON intake wants 512 KB; template uploads want 20 MB).
 DEFAULT_UPLOAD_CAP_BYTES = 20 * 1024 * 1024
@@ -63,7 +62,7 @@ async def _consume_chunks_capped(
             chunk = await asyncio.wait_for(it.__anext__(), timeout=_CHUNK_READ_TIMEOUT_SECONDS)
         except StopAsyncIteration:
             break
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise HTTPException(
                 status_code=408,
                 detail=f"{kind_label} read timed out after {_CHUNK_READ_TIMEOUT_SECONDS:.0f}s",

@@ -371,7 +371,10 @@ def _handler(
             "pap_unknown_outcome_review_state",
             outcome=decision.outcome,
             event_id=str(event.id),
-            note="review_state map has no entry — defaulting to pending_review; add the outcome to _OUTCOME_TO_REVIEW_STATE",
+            note=(
+                "review_state map has no entry — defaulting to pending_review; "
+                "add the outcome to _OUTCOME_TO_REVIEW_STATE"
+            ),
         )
         event.review_state = "pending_review"
     event.status = "succeeded"

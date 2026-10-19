@@ -29,6 +29,7 @@ Re-run silencedetect after regenerating any audio.
 from __future__ import annotations
 
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -187,7 +188,7 @@ def main() -> None:
             # until the second has faded up. Otherwise the slide flashes back to
             # full brightness between two spotlights — five times in four
             # seconds on beat 0d, which strobes. Chained, the hole just slides.
-            for cur, nxt in zip(specs, specs[1:]):
+            for cur, nxt in pairwise(specs):
                 if nxt[1] - cur[2] < CHAIN_GAP:
                     cur[2] = nxt[1] + cur[3]
 

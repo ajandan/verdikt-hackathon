@@ -17,6 +17,10 @@ The gaps closed here are the login *feature surface* itself:
 """
 from __future__ import annotations
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+import os
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import patch
@@ -36,12 +40,6 @@ from docgen.auth import (
 from docgen.main import app
 from docgen.store.db import sync_session
 from docgen.store.models import AdminUser, Tenant
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-import os
 
 # Per-worker IP subnet so parallel pytest processes don't share Redis
 # rate-limit buckets. See test_login_ratelimit.py for the same pattern.

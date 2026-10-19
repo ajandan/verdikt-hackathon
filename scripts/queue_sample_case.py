@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -46,7 +46,7 @@ def main() -> None:
             to_addrs=["intake@example.invalid"],
             cc_addrs=[],
             subject=f"[pap:{PROGRAM}] Alderwood enrollment packet ({len(paths)} PDF)",
-            received_at=datetime.now(timezone.utc),
+            received_at=datetime.now(UTC),
             body_text="Enrollment packet received for review.",
             in_reply_to=None,
             references=[],

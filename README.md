@@ -11,6 +11,7 @@
 | **NVIDIA models on Nebius Token Factory** | `nemotron-3-super-120b-a12b` (Nemotron Super: turns plain-language rules into checkable formulas, and reasons over any rule without one) · Nemotron Nano (triage, with a rule-based fallback) · `Nemotron-3.5-Super-VL` (optional second reader that cross-checks extraction) |
 | **Also on Nebius Token Factory** | `openbmb/MiniCPM-V-4_5` (Apache-2.0 vision model, extract stage) · `Qwen/Qwen3-Embedding-8B` (Apache-2.0 embedding model, retrieve stage) |
 | **Domain** | US patient-assistance-program (PAP) eligibility |
+| **Model benchmarks** | [Engineering dashboard › Tests › Models](https://verdikt.aismith.ai/engineering/models.html) · write-ups in [`docs/benchmarks/`](docs/benchmarks/) |
 
 Verdikt reads inbound documents, retrieves the human-authored rules that apply,
 and issues a structured decision — `approve`, `deny`, or `missing_info` — with
@@ -43,6 +44,7 @@ audited artifact.**
 - **AI where it earns its place**: extraction over messy multimodal PDFs, retrieval over versioned rules, turning plain-language rules into formulas, and reasoning over the rules no formula covers yet.
 - **Deterministic where it must be**: pure template-engine merge for `.docx`, canvas-overlay merge for `.pdf`. No model in the loop at render time.
 - **Programs as data**: a new PAP program is a `programs` row (extraction schema + rules pack + reply template), not a build. The OncoBridge cameo demonstrates the same code, opposite verdict.
+- **Measured, not assumed**: on 2026-10-18 the two vision readers were run head to head on a synthetic form and a real scan. `Nemotron-3.5-Super-VL` read 17/19 and 19/19 fields, `MiniCPM-V-4_5` 14/19 and 17/19, identical across three runs. Replayed through the cross-check, the same readings flag MiniCPM-V's one wrong-decade birth date and nothing else. Details: [`docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md`](docs/benchmarks/vlm-extract-nemotron-vl-2026-10-18.md).
 - **Auditable end-to-end**: every stage's output is a structured artifact — intake object, retrieved rules with rerank scores, decision with citations, rendered letter. A reviewer can read the whole path from the admin UI.
 - **Multi-tenant**: row-level `tenant_id` scoping, API-key auth per tenant, CI-enforced [tenant-scope audit](scripts/tenant_scope_audit.py).
 
@@ -55,12 +57,16 @@ audited artifact.**
   ┌───────────────────── AI ZONE ─────────────────────┐
   │                                                   │
   │   1. Extract    MiniCPM-V-4_5 (Apache-2.0)        │
+  │                 + Nemotron-3.5-Super-VL check     │
   │        │                                          │
   │        ▼                                          │
-  │   2. Retrieve   Qwen3-Embedding-8B (dense)        │
+  │   2. Triage     Nemotron Nano (rule fallback)     │
   │        │                                          │
   │        ▼                                          │
-  │   3. Reason     Nemotron Super (no-formula rules) │
+  │   3. Retrieve   Qwen3-Embedding-8B (dense)        │
+  │        │                                          │
+  │        ▼                                          │
+  │   4. Reason     Nemotron Super (no-formula rules) │
   │                                                   │
   └────────────────────── STOP ───────────────────────┘
     │

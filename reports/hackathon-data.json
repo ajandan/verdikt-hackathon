@@ -83,9 +83,9 @@
     "stages": [
       {
         "stage": "Ingest",
-        "model": "openbmb/MiniCPM-V-4_5",
+        "model": "openbmb/MiniCPM-V-4_5 · verifier: nvidia/Nemotron-3.5-Super-VL",
         "host": "Nebius Token Factory",
-        "why": "Vision extraction over scanned, faxed and flat PDFs: enrollment forms, income worksheets, prescriptions. Each value lands in a typed field the rules can check."
+        "why": "Vision extraction over scanned, faxed and flat PDFs: enrollment forms, income worksheets, prescriptions. Each value lands in a typed field the rules can check. An optional second reader, Nemotron-3.5-Super-VL, reads the same pages as a cross-check, and any field the two disagree on goes to the reviewer. The verifier is set per tenant or program; it is on for Alderwood in the dev stack and not yet on the live demo. In the 2026-10-18 extraction benchmark it read 17/19 fields on the synthetic sample and 19/19 on the real scan."
       },
       {
         "stage": "Triage",

@@ -677,8 +677,9 @@
         <div class="card">
             <h3 style="margin-top: 0">What the pipeline uses today</h3>
             <p class="muted" style="font-size: 13px">
-                The three stages all target one Nebius Token Factory endpoint / one API key. Only Extract and
-                Reason are tenant-configurable in this pass; Retrieve stays at the platform's Qwen3-Embedding-8B.
+                Every stage calls one Nebius Token Factory endpoint with one API key. Extract, Triage, Reason
+                and the optional verifier can be set per program or per tenant; Retrieve stays fixed at the
+                platform's Qwen3-Embedding-8B.
             </p>
             {% if resolved %}
             <ul style="font-size: 13px; line-height: 1.7; padding-left: 20px">

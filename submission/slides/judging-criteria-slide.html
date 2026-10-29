@@ -64,7 +64,7 @@
       <h2>Technological Implementation</h2>
       <blockquote>“How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?”</blockquote>
       <ul>
-        <li>Every model call goes through <b>Nebius Token Factory</b>: MiniCPM-V reads, <b>Nemotron-3.5-Super-VL</b> cross-checks the read, <b>Nemotron Nano</b> triages, Qwen3-Embedding retrieves, <b>Nemotron Super</b> reasons over rules with no formula.</li>
+        <li><b>Five models</b> on <b>Nebius Token Factory</b>, three of them NVIDIA: MiniCPM-V reads scanned intake and <b>Nemotron-3.5-Super-VL</b> cross-checks the read, <b>Nemotron Nano</b> triages, Qwen3-Embedding retrieves the rules, <b>Nemotron Super</b> reasons over any rule without a deterministic formula.</li>
         <li>Nemotron stops at a hard boundary: the reply letter and JSON verdict are written by deterministic Python from typed models.</li>
         <li>A boundary test fails the build if an LLM ever leaks into the render path.</li>
       </ul>

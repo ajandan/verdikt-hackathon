@@ -141,7 +141,7 @@
       "criterion": "Technological Implementation",
       "prompt": "How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?",
       "points": [
-        "Four models composed on Nebius Token Factory at their strongest task shapes, two of them NVIDIA: MiniCPM-V reads scanned intake, Nemotron Nano triages, Qwen3-Embedding retrieves the rules, and Nemotron Super reasons over any rule without a deterministic formula.",
+        "Five models composed on Nebius Token Factory at their strongest task shapes, three of them NVIDIA: MiniCPM-V reads scanned intake and Nemotron-3.5-Super-VL cross-checks the read, Nemotron Nano triages, Qwen3-Embedding retrieves the rules, and Nemotron Super reasons over any rule without a deterministic formula.",
         "One Nebius key, one router, per-call instrumentation. Latency, cost, and cache-hit rate are visible on the admin routing page.",
         "Nemotron stops at a hard boundary. Every artifact that leaves the pipeline (reply letter, JSON verdict) is written by deterministic Python from typed pydantic models.",
         "A boundary test fails the build if an LLM ever leaks into the render path.",

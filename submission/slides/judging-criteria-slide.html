@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Against the Four Criteria</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink-50:#f6f5f1; --ink-100:#eeece4; --ink-200:#dcd8c8; --ink-300:#a9a394;
+    --ink-500:#6c6858; --ink-700:#3a382f; --ink-900:#141410;
+    --seal-300:#8ec7b5; --seal-500:#2f8f76; --seal-700:#1e5f4f;
+    --hair:rgba(20,20,16,0.12);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { width:1920px; height:1080px; }
+  body {
+    background:var(--ink-50); color:var(--ink-900);
+    font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased;
+    padding:48px 80px 44px; display:flex; flex-direction:column;
+  }
+  header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:28px; }
+  .kicker { font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:600; letter-spacing:.14em;
+            text-transform:uppercase; color:var(--seal-700); display:flex; align-items:center; gap:12px; }
+  .kicker .dot { width:10px; height:10px; border-radius:50%; background:var(--seal-500); }
+  h1 { font-family:'Instrument Serif',serif; font-weight:400; font-size:72px; line-height:1; margin-top:12px; letter-spacing:-.01em; }
+  h1 em { color:var(--seal-700); }
+  .sub { font-size:21px; color:var(--ink-500); margin-top:10px; }
+  .brand { text-align:right; }
+  .brand .name { font-family:'Instrument Serif',serif; font-size:44px; }
+  .brand .url { font-family:'JetBrains Mono',monospace; font-size:17px; color:var(--ink-500); margin-top:4px; }
+  .grid { flex:1; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:22px; }
+  .card { background:#fff; border:1px solid var(--hair); border-radius:18px; padding:24px 32px;
+          display:flex; flex-direction:column; border-top:5px solid var(--seal-500); }
+  .meta { display:flex; justify-content:space-between; align-items:center; }
+  .ord { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600; letter-spacing:.1em; color:var(--ink-500); text-transform:uppercase; }
+  .pill { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+          color:var(--seal-700); background:rgba(47,143,118,.12); padding:5px 12px; border-radius:999px; }
+  h2 { font-size:31px; font-weight:700; margin-top:10px; letter-spacing:-.01em; }
+  blockquote { font-family:'Instrument Serif',serif; font-style:italic; font-size:21px; line-height:1.3; color:var(--ink-500);
+               border-left:3px solid var(--ink-200); padding-left:16px; margin-top:12px; }
+  ul { list-style:none; margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+  li { font-size:19px; line-height:1.36; color:var(--ink-700); padding-left:26px; position:relative; }
+  li::before { content:""; position:absolute; left:2px; top:8px; width:12px; height:7px;
+               border-left:2.5px solid var(--seal-500); border-bottom:2.5px solid var(--seal-500); transform:rotate(-45deg); }
+  b { color:var(--ink-900); font-weight:600; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <span class="kicker"><span class="dot"></span>The main point · Devpost rubric</span>
+      <h1>Against the <em>four criteria</em></h1>
+      <p class="sub">Each rubric question, verbatim, with Verdikt's answer under it.</p>
+    </div>
+    <div class="brand">
+      <div class="name">Verdikt</div>
+      <div class="url">verdikt.aismith.ai</div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <article class="card">
+      <div class="meta"><span class="ord">Criterion 01 / 04</span><span class="pill">covered</span></div>
+      <h2>Technological Implementation</h2>
+      <blockquote>“How well is the project built, and how effectively does it use Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron as part of the solution?”</blockquote>
+      <ul>
+        <li>Every model call goes through <b>Nebius Token Factory</b>: MiniCPM-V reads, <b>Nemotron-3.5-Super-VL</b> cross-checks the read, <b>Nemotron Nano</b> triages, Qwen3-Embedding retrieves, <b>Nemotron Super</b> reasons over rules with no formula.</li>
+        <li>Nemotron stops at a hard boundary: the reply letter and JSON verdict are written by deterministic Python from typed models.</li>
+        <li>A boundary test fails the build if an LLM ever leaks into the render path.</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="meta"><span class="ord">Criterion 02 / 04</span><span class="pill">covered</span></div>
+      <h2>Design</h2>
+      <blockquote>“Does the project deliver a complete, coherent product experience not just a technical proof of concept?”</blockquote>
+      <ul>
+        <li><b>A working product, not a notebook.</b> Fax, scanned paper and portal submissions fan into one email intake bus.</li>
+        <li>Each case ends in a reply letter from a frozen, human-approved template plus a <b>JSON verdict</b> a call-center system can act on immediately.</li>
+        <li>Eight live dashboards and Prometheus <b>/metrics</b> show an operator what's stuck and where the load comes from.</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="meta"><span class="ord">Criterion 03 / 04</span><span class="pill">covered</span></div>
+      <h2>Potential Impact</h2>
+      <blockquote>“Does the project make a credible, specific case for solving a real problem for a real audience and does the solution actually address it based on what's demonstrated?”</blockquote>
+      <ul>
+        <li><b>Patient Assistance Programs</b> are one instance of a class: regulated document workflows where the letter that leaves the building is the audit artifact.</li>
+        <li>Prior authorization, benefit verification, informed consent and MedWatch reporting share the same shape and the same failure mode.</li>
+        <li>The demo runs one program end to end. A second program is a <b>data change</b> (rulebook plus templates), not a build.</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <div class="meta"><span class="ord">Criterion 04 / 04</span><span class="pill">covered</span></div>
+      <h2>Quality of the Idea</h2>
+      <blockquote>“Is this a creative, non-obvious use of Nebius Token Factory or AI Cloud model(s), and NVIDIA Nemotron and does the team show genuine understanding of the problem space?”</blockquote>
+      <ul>
+        <li>Most document-generation entries put a language model on the artifact path. <b>Verdikt refuses.</b></li>
+        <li>Models read, triage and rank; Nemotron reasons only where a rule needs judgment; <b>deterministic code decides and writes</b>.</li>
+        <li>The EU AI Act treats healthcare eligibility decisions as high-risk and demands the reproducibility Verdikt provides mechanically.</li>
+      </ul>
+    </article>
+  </main>
+</body>
+</html>
